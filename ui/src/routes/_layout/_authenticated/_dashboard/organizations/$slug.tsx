@@ -43,7 +43,7 @@ const orgMembersQueryKey = (orgId: string) => ["org-members", orgId] as const;
 const orgInvitationsQueryKey = (orgId: string) => ["org-invitations", orgId] as const;
 const orgApiKeysQueryKey = (orgId: string) => ["org-api-keys", orgId] as const;
 
-export const Route = createFileRoute("/_layout/_authenticated/organizations/$slug")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/organizations/$slug")({
   head: () => ({
     title: "Organization | auth.everything.dev",
     meta: [{ name: "description", content: "Manage organization details and members." }],
@@ -384,7 +384,6 @@ function OrganizationDetail() {
           <Link to="/organizations">back</Link>
         </Button>
       </div>
-
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="rounded-xl border border-border bg-card p-6">
@@ -663,7 +662,7 @@ function OrganizationDetail() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

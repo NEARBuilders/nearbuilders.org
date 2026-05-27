@@ -8,7 +8,7 @@ import { Button, ConfirmDialog } from "@/components";
 import { useUserPasskeys } from "@/components/settings-sections";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/_layout/_authenticated/settings/auth-methods")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/auth-methods")({
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({
       queryKey: ["passkeys"],
@@ -104,14 +104,15 @@ function NearMethod({ nearAccountId }: { nearAccountId: string | null }) {
             </div>
           ) : (
             <div className="flex items-center gap-3 pt-1">
-              <button
+              <Button
                 type="button"
                 onClick={() => linkNearMutation.mutate()}
                 disabled={linkNearMutation.isPending}
-                className="h-9 px-4 inline-flex items-center justify-center gap-2 text-sm font-medium border border-border bg-card text-foreground hover:bg-muted transition-colors disabled:pointer-events-none disabled:opacity-50 rounded-xl"
+                variant="outline"
+                size="sm"
               >
                 {linkNearMutation.isPending ? "connecting..." : "connect NEAR wallet"}
-              </button>
+              </Button>
             </div>
           )}
         </div>

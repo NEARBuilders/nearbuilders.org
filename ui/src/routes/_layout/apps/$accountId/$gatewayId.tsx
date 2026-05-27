@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Check, Copy, ExternalLink, Info } from "lucide-react";
+import { Check, Copy, ExternalLink, Info } from "lucide-react";
 import type { TransactionBuilder } from "near-kit";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { Badge, Button } from "@/components";
+import { BackButton, BackLink, Badge, Button, CommandCopy } from "@/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -266,23 +266,9 @@ function AppDetailPage() {
         <div className="flex items-center gap-2 flex-wrap justify-between">
           <div className="flex items-center gap-2">
             {canGoBack ? (
-              <button
-                type="button"
-                onClick={() => router.history.back()}
-                aria-label="Go back"
-                className="flex items-center justify-center w-8 h-8 border-2 border-outset border-border-strong bg-card shadow-sm transition-all duration-200 ease-out hover:shadow-md hover:bg-muted rounded-[10px]"
-              >
-                <ArrowLeft size={14} className="text-foreground" />
-              </button>
+              <BackButton onClick={() => router.history.back()} />
             ) : (
-              <Link
-                to="/apps/$accountId"
-                params={{ accountId }}
-                aria-label="Go back"
-                className="flex items-center justify-center w-8 h-8 border-2 border-outset border-border-strong bg-card shadow-sm transition-all duration-200 ease-out hover:shadow-md hover:bg-muted rounded-[10px]"
-              >
-                <ArrowLeft size={14} className="text-foreground" />
-              </Link>
+              <BackLink to="/apps/$accountId" params={{ accountId }} ariaLabel="All apps" />
             )}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
               <Link to="/apps" search={{}} className="hover:text-foreground transition-colors">
@@ -363,26 +349,25 @@ function AppDetailPage() {
 
               <h1 className="text-xl font-bold text-foreground break-all">{displayTitle}</h1>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={async () => {
                   await navigator.clipboard.writeText(bosUri);
                   setCopiedUri(true);
                   toast.success("Copied bos:// address");
                   setTimeout(() => setCopiedUri(false), 2000);
                 }}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group"
+                className="font-mono"
               >
-                <code className="font-mono text-xs">{bosUri}</code>
+                <code className="text-xs">{bosUri}</code>
                 {copiedUri ? (
                   <Check size={11} className="shrink-0 text-green-500" />
                 ) : (
-                  <Copy
-                    size={11}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
+                  <Copy size={11} className="shrink-0 opacity-60" />
                 )}
-              </button>
+              </Button>
 
               {app.metadata?.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -427,8 +412,9 @@ function AppDetailPage() {
                 <p className="text-sm font-semibold text-foreground">Tenant runtime</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   This app extends{" "}
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
                     onClick={() =>
                       void navigate({
                         to: "/apps/$accountId/$gatewayId",
@@ -438,10 +424,9 @@ function AppDetailPage() {
                         },
                       })
                     }
-                    className="font-mono text-foreground hover:underline"
                   >
                     bos://dev.everything.near/everything.dev
-                  </button>
+                  </Button>
                   . The shared host serves a custom UI at{" "}
                   {app.domain ? (
                     <a
@@ -475,12 +460,12 @@ function AppDetailPage() {
 
             <section className="space-y-2">
               <SectionLabel>Start command</SectionLabel>
-              <StartCommand command={startCommand} />
+              <CommandCopy command={startCommand} />
             </section>
 
             <section className="space-y-2">
               <SectionLabel>Extends command</SectionLabel>
-              <StartCommand command={extendsCommand} />
+              <CommandCopy command={extendsCommand} />
             </section>
 
             {configApp && (
@@ -491,13 +476,15 @@ function AppDetailPage() {
                     <span className="text-[11px] font-mono text-muted-foreground">
                       apps/{accountId}/{gatewayId}/bos.config.json
                     </span>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setConfigExpanded((v) => !v)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-[11px] h-auto py-0"
                     >
                       {configExpanded ? "collapse" : "expand"}
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="divide-y divide-border">
@@ -771,34 +758,6 @@ function AppDetailPage() {
         </SheetContent>
       </Sheet>
     </TooltipProvider>
-  );
-}
-
-function StartCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    toast.success("Copied");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="w-full group flex items-center justify-between gap-3 rounded-[8px] border border-border bg-foreground px-4 py-3 cursor-pointer transition-opacity duration-150 hover:opacity-90 text-left"
-    >
-      <code className="font-mono text-sm font-semibold text-background break-all leading-snug">
-        {command}
-      </code>
-      <span
-        className={`shrink-0 transition-colors duration-150 ${copied ? "text-brand-accent" : "text-background/50 group-hover:text-background/80"}`}
-      >
-        <Copy size={14} />
-      </span>
-    </button>
   );
 }
 

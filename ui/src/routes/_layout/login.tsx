@@ -111,9 +111,7 @@ function LoginPage() {
           <div className="inline-flex items-center justify-center size-12 rounded-full bg-brand-green/10 mb-4">
             <span className="text-2xl font-black text-brand-green">●</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">
-            Welcome back
-          </h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Connect your NEAR wallet to access your workspace
           </p>

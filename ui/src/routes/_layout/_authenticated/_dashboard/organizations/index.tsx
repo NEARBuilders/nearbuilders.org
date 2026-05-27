@@ -11,7 +11,7 @@ type UserInvitationsResponse = Awaited<
 >;
 type UserInvitationItem = NonNullable<UserInvitationsResponse["data"]>[number];
 
-export const Route = createFileRoute("/_layout/_authenticated/organizations/")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/organizations/")({
   head: () => ({
     title: "Organizations | auth.everything.dev",
     meta: [{ name: "description", content: "Manage your organizations and teams." }],

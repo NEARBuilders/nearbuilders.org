@@ -123,10 +123,7 @@ const markdownComponents: Components = {
     }
 
     return (
-      <code
-        className={cn(className, "block min-w-full font-mono text-[13px]")}
-        {...props}
-      >
+      <code className={cn(className, "block min-w-full font-mono text-[13px]")} {...props}>
         {children}
       </code>
     );
@@ -150,11 +147,7 @@ const markdownComponents: Components = {
   ),
 
   img: ({ src, alt }) => (
-    <img
-      src={src}
-      alt={alt ?? ""}
-      className="max-w-full rounded-lg my-4 block"
-    />
+    <img src={src} alt={alt ?? ""} className="max-w-full rounded-lg my-4 block" />
   ),
 
   table: ({ children }) => (

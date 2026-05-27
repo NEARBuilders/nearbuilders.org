@@ -164,6 +164,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       domain: string,
       userId: string,
       userRole?: string,
+      alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
     listProjectsForApp: (
@@ -233,7 +234,7 @@ export const ProjectServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
-      listProjects: (input, userId, alternateUserId) =>
+      listProjects: (input, userId?: string, alternateUserId?: string) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
@@ -605,7 +606,7 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      unlinkAppFromProject: (projectId, accountId, domain, userId, userRole, alternateUserId) =>
+      unlinkAppFromProject: (projectId: string, accountId: string, domain: string, userId: string, userRole?: string, alternateUserId?: string) =>
         Effect.gen(function* () {
           const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
           if (!canEdit) {

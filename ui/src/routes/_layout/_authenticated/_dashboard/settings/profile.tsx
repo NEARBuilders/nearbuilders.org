@@ -6,7 +6,7 @@ import { type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/_layout/_authenticated/settings/profile")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/profile")({
   component: ProfileSettings,
 });
 

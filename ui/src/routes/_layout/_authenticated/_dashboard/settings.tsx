@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { sessionQueryOptions } from "@/app";
 import { Tabs, TabsList, TabsTrigger } from "@/components";
 
-export const Route = createFileRoute("/_layout/_authenticated/settings")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings")({
   head: () => ({
     meta: [
       { title: "Settings | auth.everything.dev" },

@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import type { Organization } from "@/app";
 import { sessionQueryOptions, useAuthClient } from "@/app";
-import { OrgSwitcher } from "@/components";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,20 +17,6 @@ export function UserNav() {
   const navigate = useNavigate();
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const user = session?.user;
-  const { data: organizations } = useQuery({
-    queryKey: ["organizations"],
-    queryFn: async () => {
-      const { data } = await auth.organization.list();
-      return (data || []) as Organization[];
-    },
-    staleTime: 30 * 1000,
-    enabled: !!user,
-  });
-  const activeOrgId = session?.session?.activeOrganizationId;
-
-  const activeOrg = useMemo(() => {
-    return organizations?.find((org) => org.id === activeOrgId);
-  }, [organizations, activeOrgId]);
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
@@ -61,23 +44,10 @@ export function UserNav() {
     );
   }
 
-  const initials = (user.name || user.email || user.id)
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = (user.name || user.email || user.id).slice(0, 2).toUpperCase();
 
   return (
     <div className="flex items-center gap-2">
-      {organizations && organizations.length > 0 && (
-        <OrgSwitcher
-          organizations={organizations}
-          activeOrgId={activeOrgId}
-          onSwitch={async () => {
-            await queryClient.invalidateQueries({ queryKey: ["session"] });
-            await queryClient.invalidateQueries({ queryKey: ["organizations"] });
-          }}
-        />
-      )}
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -97,15 +67,8 @@ export function UserNav() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link to="/home">Workspace</Link>
+            <Link to="/home">Home</Link>
           </DropdownMenuItem>
-          {activeOrg && (
-            <DropdownMenuItem asChild>
-              <Link to="/organizations/$slug" params={{ slug: activeOrg.slug }}>
-                {activeOrg.name}
-              </Link>
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem asChild>
             <Link to="/settings">Settings</Link>
           </DropdownMenuItem>

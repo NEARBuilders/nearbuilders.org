@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
+import { cn } from "@/lib/utils";
 
 export type ProjectFormValues = {
   kind: "project" | "idea";
@@ -133,7 +133,6 @@ export function ProjectFormLayout({
     <div className="flex flex-1 flex-col overflow-visible lg:min-h-0 lg:overflow-hidden lg:flex-row">
       <div className="overflow-visible border-b border-border bg-card px-4 py-5 sm:px-6 sm:py-6 lg:overflow-y-auto lg:w-[340px] lg:border-b-0 lg:border-r lg:shrink-0 xl:w-[360px]">
         <div className="space-y-5 pb-[env(safe-area-inset-bottom,0px)] lg:pb-0">
-
           <form.Field name="kind">
             {(field: any) => (
               <div className="space-y-2">
@@ -141,7 +140,11 @@ export function ProjectFormLayout({
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      { value: "project" as const, label: "Project", icon: <FileCode2 size={15} /> },
+                      {
+                        value: "project" as const,
+                        label: "Project",
+                        icon: <FileCode2 size={15} />,
+                      },
                       { value: "idea" as const, label: "Idea", icon: <FileText size={15} /> },
                     ] as const
                   ).map((opt) => {
@@ -295,7 +298,11 @@ export function ProjectFormLayout({
                   {(
                     [
                       { value: "public" as const, label: "Public", desc: "Visible in the feed" },
-                      { value: "unlisted" as const, label: "Unlisted", desc: "Only via direct link" },
+                      {
+                        value: "unlisted" as const,
+                        label: "Unlisted",
+                        desc: "Only via direct link",
+                      },
                       { value: "private" as const, label: "Private", desc: "Only you" },
                     ] as const
                   ).map((opt) => {
@@ -736,27 +743,15 @@ const MARKDOWN_TOOLS: MarkdownTool[] = [
 ];
 
 export function FormLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
-  return (
-    <Label htmlFor={htmlFor}>
-      {children}
-    </Label>
-  );
+  return <Label htmlFor={htmlFor}>{children}</Label>;
 }
 
 export function HelperText({ children }: { children: ReactNode }) {
-  return (
-    <p className="text-xs text-muted-foreground mt-1">
-      {children}
-    </p>
-  );
+  return <p className="text-xs text-muted-foreground mt-1">{children}</p>;
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
-  return (
-    <p className="text-xs text-destructive mt-1">
-      {children}
-    </p>
-  );
+  return <p className="text-xs text-destructive mt-1">{children}</p>;
 }
 
 export function NearTextarea({

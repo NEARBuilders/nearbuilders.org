@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useAuthClient } from "@/app";
 import { Button, Card, CardContent, Input } from "@/components";
 
-export const Route = createFileRoute("/_layout/_authenticated/organizations/new")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/organizations/new")({
   head: () => ({
     title: "New Organization | auth.everything.dev",
     meta: [{ name: "description", content: "Create a new organization." }],
@@ -72,7 +72,6 @@ function NewOrganization() {
           <Link to="/organizations">back to organizations</Link>
         </Button>
       </div>
-
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -126,7 +125,6 @@ function NewOrganization() {
           </Button>
         </div>
       </form>
-
       <section className="space-y-4">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           What Happens Next
@@ -143,7 +141,7 @@ function NewOrganization() {
         </Card>
       </section>
     </div>
-  );
+  )
 }
 
 function Field({

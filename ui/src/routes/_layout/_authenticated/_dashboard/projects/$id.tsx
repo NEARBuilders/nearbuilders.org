@@ -21,10 +21,11 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { parseProjectListSearch } from "./-search";
 
-export const Route = createFileRoute("/_layout/_authenticated/projects/$id")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/$id")({
   validateSearch: parseProjectListSearch,
   head: () => ({
     meta: [{ title: `Project | app` }, { name: "description", content: "Project details." }],
@@ -174,9 +175,7 @@ function ProjectDetailPage() {
   if (projectQuery.isError || !project) {
     return (
       <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center gap-4 p-6">
-        <p className="text-base font-semibold text-foreground">
-          Project not found.
-        </p>
+        <p className="text-base font-semibold text-foreground">Project not found.</p>
         <Link
           to="/projects"
           search={{
@@ -206,6 +205,7 @@ function ProjectDetailPage() {
       <MetaSectionLabel>Details</MetaSectionLabel>
       <MetaItem label="Visibility" value={project.visibility} />
       <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
+      <MetaLinkItem label="Builder" to="/builders/$account" params={{ account: project.ownerId }} value={shortenId(project.ownerId)} mono />
       <MetaItem label="Slug" value={project.slug} mono />
       {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
       <MetaItem label="Created" value={formatDate(project.createdAt)} />
@@ -242,32 +242,35 @@ function ProjectDetailPage() {
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* vote widget */}
           <div className="inline-flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 bg-secondary">
-            <IconButton
+            <VoteButton
+              icon={<ChevronUp size={18} strokeWidth={2.25} />}
               onClick={() => runVote("up")}
               label="Upvote"
               disabled={!canParticipate || upvoteMutation.isPending}
               active={voteDirection === "up"}
               activeColor="text-brand-accent"
-            >
-              <ChevronUp size={18} strokeWidth={2.25} />
-            </IconButton>
+            />
             <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
               {voteCount}
             </span>
-            <IconButton
+            <VoteButton
+              icon={<ChevronDown size={18} strokeWidth={2.25} />}
               onClick={() => runVote("down")}
               label="Downvote"
               disabled={!canParticipate || downvoteMutation.isPending}
               active={voteDirection === "down"}
               activeColor="text-destructive"
-            >
-              <ChevronDown size={18} strokeWidth={2.25} />
-            </IconButton>
+            />
           </div>
 
           {/* repo link — hidden on very small screens */}
           {project.repository && (
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex max-w-[160px]">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="hidden sm:inline-flex max-w-[160px]"
+            >
               <a
                 href={project.repository}
                 target="_blank"
@@ -287,24 +290,25 @@ function ProjectDetailPage() {
           )}
 
           {/* share */}
-          <IconButton
+          <VoteButton
+            icon={copied ? <Check size={14} /> : <Share2 size={14} />}
             onClick={handleShare}
             label={copied ? "Link copied" : "Copy link"}
             active={copied}
             activeColor="text-brand-accent"
-          >
-            {copied ? <Check size={14} /> : <Share2 size={14} />}
-          </IconButton>
+          />
 
           {/* details sheet trigger — mobile only */}
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="icon-sm"
+            className="sm:hidden"
             onClick={() => setDetailsOpen(true)}
-            className="sm:hidden inline-flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground"
-            title="Show details"
+            aria-label="Show details"
           >
             <Info size={15} />
-          </button>
+          </Button>
 
           {canManage && (
             <>
@@ -339,7 +343,6 @@ function ProjectDetailPage() {
           )}
         </div>
       </div>
-
       {/* ── body ── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* main content */}
@@ -363,12 +366,12 @@ function ProjectDetailPage() {
               )}
               {project.repository && (
                 <Button asChild size="sm" variant="outline" className="w-fit">
-                  <a
-                    href={project.repository}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {isGithubUrl(project.repository) ? <GithubIcon size={13} /> : <Globe size={13} />}
+                  <a href={project.repository} target="_blank" rel="noopener noreferrer">
+                    {isGithubUrl(project.repository) ? (
+                      <GithubIcon size={13} />
+                    ) : (
+                      <Globe size={13} />
+                    )}
                     <span className="max-w-[220px] truncate">
                       {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
                     </span>
@@ -399,7 +402,6 @@ function ProjectDetailPage() {
           {metaItems}
         </div>
       </div>
-
       {/* ── mobile details sheet ── */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
         <SheetContent side="bottom" hideCloseButton={false}>
@@ -410,6 +412,7 @@ function ProjectDetailPage() {
             <div className="space-y-4">
               <MetaItem label="Visibility" value={project.visibility} />
               <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
+              <MetaLinkItem label="Builder" to="/builders/$account" params={{ account: project.ownerId }} value={shortenId(project.ownerId)} mono />
               <MetaItem label="Slug" value={project.slug} mono />
               {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
               <MetaItem label="Created" value={formatDate(project.createdAt)} />
@@ -429,35 +432,7 @@ function ProjectDetailPage() {
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function IconButton({
-  onClick,
-  label,
-  disabled,
-  children,
-  active,
-  activeColor,
-}: {
-  onClick: () => void;
-  label: string;
-  disabled?: boolean;
-  children: ReactNode;
-  active?: boolean;
-  activeColor?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      className={`size-10 inline-flex items-center justify-center rounded-lg border border-transparent transition-colors [webkit-tap-highlight-color:transparent] ${disabled ? "text-muted-foreground/40 cursor-not-allowed bg-transparent" : active ? `${activeColor ?? "text-brand-accent"} bg-card shadow-sm cursor-pointer` : "text-muted-foreground hover:text-foreground hover:bg-muted bg-transparent cursor-pointer"}`}
-    >
-      {children}
-    </button>
-  );
+  )
 }
 
 function PrivateIndicator() {
@@ -487,7 +462,9 @@ function StatusChip({ status }: { status: "active" | "paused" | "archived" }) {
     archived: "border-destructive/40 bg-destructive/10 text-destructive",
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border ${variants[status]}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border ${variants[status]}`}
+    >
       {status}
     </span>
   );
@@ -508,6 +485,17 @@ function MetaItem({ label, value, mono }: { label: string; value: string; mono?:
       <div className={`text-[13px] text-foreground break-all ${mono ? "font-mono" : ""}`}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function MetaLinkItem({ label, to, params, value, mono }: { label: string; to: string; params: Record<string, string>; value: string; mono?: boolean }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
+      <Link to={to} params={params} className={`text-[13px] text-brand-cyan hover:underline break-all ${mono ? "font-mono" : ""}`}>
+        {value}
+      </Link>
     </div>
   );
 }

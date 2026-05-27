@@ -30,17 +30,28 @@ services:
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
 
+  postgres-builders:
+    <<: *pg-common
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: builders_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_builders_data:/var/lib/postgresql/data
+
   postgres-projects:
     <<: *pg-common
     environment:
       <<: *pg-env
       POSTGRES_DB: projects_db
     ports:
-      - "5434:5432"
+      - "5435:5432"
     volumes:
       - postgres_projects_data:/var/lib/postgresql/data
 
 volumes:
   postgres_api_data:
   postgres_auth_data:
+  postgres_builders_data:
   postgres_projects_data:

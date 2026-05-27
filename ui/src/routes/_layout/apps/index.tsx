@@ -1,10 +1,10 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Copy, ExternalLink, Globe } from "lucide-react";
+import { ArrowRight, Copy, ExternalLink, Globe } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Badge, Button } from "@/components";
+import { BackButton, Badge, Button, CommandCopy } from "@/components";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -169,16 +169,7 @@ function AppsIndex() {
           </div>
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {canGoBack && (
-              <button
-                type="button"
-                onClick={() => router.history.back()}
-                aria-label="Go back"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-outset border-border-strong bg-card shadow-sm transition-all duration-200 ease-out hover:bg-muted hover:shadow-md"
-              >
-                <ArrowLeft size={14} className="text-foreground" />
-              </button>
-            )}
+            {canGoBack && <BackButton onClick={() => router.history.back()} />}
 
             <form
               onSubmit={handleAddressNavigate}
@@ -208,14 +199,16 @@ function AppsIndex() {
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="outline"
+                size="icon-sm"
                 disabled={!addressInput.trim()}
                 aria-label="Navigate"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-outset border-border-strong bg-card text-foreground shadow-sm transition-all duration-200 ease-out hover:bg-muted hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-[10px] border-2 border-outset border-border-strong shadow-sm hover:shadow-md"
               >
                 <ArrowRight size={14} />
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -455,17 +448,16 @@ function AppPreview({
 
         <div>
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleCopyBosUri}
-            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors duration-150 group mt-0.5 bg-transparent border-none p-0 cursor-pointer"
+            className="font-mono"
           >
-            <span className="font-mono text-[11px]">{bosUri}</span>
-            <Copy
-              size={10}
-              className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-            />
-          </button>
+            <span className="text-[11px]">{bosUri}</span>
+            <Copy size={10} className="shrink-0 opacity-60" />
+          </Button>
         </div>
 
         {app.metadata?.description && (
@@ -524,12 +516,12 @@ function AppPreview({
 
             <section className="space-y-1.5">
               <SectionLabel>Start command</SectionLabel>
-              <StartCommand command={startCommand} />
+              <CommandCopy command={startCommand} />
             </section>
 
             <section className="space-y-1.5">
               <SectionLabel>Extends command</SectionLabel>
-              <StartCommand command={extendsCommand} />
+              <CommandCopy command={extendsCommand} />
             </section>
 
             <div className="flex gap-3">
@@ -555,34 +547,6 @@ function AppPreview({
         )}
       </div>
     </div>
-  );
-}
-
-function StartCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    toast.success("Copied");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="w-full group flex items-center justify-between gap-3 rounded-[8px] border border-border bg-foreground px-4 py-3 cursor-pointer transition-opacity duration-150 hover:opacity-90 text-left"
-    >
-      <code className="font-mono text-sm font-semibold text-background break-all leading-snug">
-        {command}
-      </code>
-      <span
-        className={`shrink-0 transition-colors duration-150 ${copied ? "text-brand-accent" : "text-background/50 group-hover:text-background/80"}`}
-      >
-        <Copy size={14} />
-      </span>
-    </button>
   );
 }
 

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { type ProjectKindFilter, parseProjectListSearch } from "./-search";
 
@@ -46,7 +47,7 @@ interface RankedProject {
 
 const PAGE_SIZE = 24;
 
-export const Route = createFileRoute("/_layout/_authenticated/projects/")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/")({
   validateSearch: parseProjectListSearch,
   head: () => ({
     meta: [
@@ -522,14 +523,16 @@ function ProjectsList() {
               <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
             )}
             {hasNextPage && !isFetchingNextPage && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => fetchNextPage()}
-                className="text-sm font-semibold text-muted-foreground bg-transparent border-none cursor-pointer flex items-center gap-1"
+                className="text-muted-foreground font-semibold"
               >
                 <ChevronDown size={14} />
                 Load more
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -560,13 +563,13 @@ function ProjectsList() {
         )}
       </div>
 
-      <div className="hidden min-h-0 flex-1 lg:flex">
+      <div className="hidden min-h-0 flex-1 lg:flex overflow-hidden">
         <div className="flex flex-col overflow-hidden border-r border-border w-[380px] shrink-0">
           {projectList}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-muted">
-          {!selectedProject || selectedProjectQuery.isLoading ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted">
+          {rankedProjects.length === 0 && !isLoading ? null : !selectedProject || selectedProjectQuery.isLoading ? (
             <div className="flex flex-1 flex-col gap-3 p-8">
               <div className="animate-pulse bg-border h-7 w-[200px] rounded-md" />
               <div className="animate-pulse bg-border h-4 w-4/5 rounded-md" />
@@ -756,7 +759,9 @@ function ListRow({
         onClick={onMobileTap}
         className="flex flex-1 min-w-0 items-center gap-3 text-left bg-transparent border-none p-0 cursor-pointer lg:hidden"
       >
-        <span className="w-5 text-[11px] font-bold text-center text-muted-foreground/40 shrink-0">{rank}</span>
+        <span className="w-5 text-[11px] font-bold text-center text-muted-foreground/40 shrink-0">
+          {rank}
+        </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1 mb-0.5">
             <KindBadge kind={project.kind} compact />
@@ -836,36 +841,6 @@ function ListRow({
         />
       </div>
     </div>
-  );
-}
-
-function VoteButton({
-  icon,
-  onClick,
-  label,
-  disabled,
-  active,
-  activeColor,
-  size = "default",
-}: {
-  icon: React.ReactNode;
-  onClick: () => void;
-  label: string;
-  disabled?: boolean;
-  active?: boolean;
-  activeColor?: string;
-  size?: "default" | "compact";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      className={`${size === "compact" ? "size-7 rounded-md" : "size-10 rounded-lg"} flex items-center justify-center transition-all duration-[120ms] border border-transparent [webkit-tap-highlight-color:transparent] ${disabled ? "text-muted-foreground/40 cursor-not-allowed bg-transparent" : active ? `${activeColor ?? "text-brand-accent"} bg-card shadow-sm` : "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground cursor-pointer"}`}
-    >
-      {icon}
-    </button>
   );
 }
 

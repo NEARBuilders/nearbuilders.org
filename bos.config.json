@@ -11,13 +11,19 @@
   "repository": "https://github.com/nearbuilders/everything-dev",
   "app": {
     "ui": {
-      "development": "local:ui"
+      "development": "local:ui",
+      "production": "https://elliot-braem-4122-ui-nearbuilders-org-nearbuilder-f438ce35a-ze.zephyrcloud.app",
+      "integrity": "sha384-79i1qpQVbCYO8ta0OMwMoAq/cEzWelIgyO+tqhnCx8E0IFeVPfq2eMS/JNImoTi5",
+      "ssr": "https://elliot-braem-4123-ui-nearbuilders-org-nearbuilder-7222330f0-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-AobyQ9nMUiZxthKZyoiTIhw86Re5R7c20dBMuPuGIcS3nAyxnqwnpk4MKT5RvtRp"
     },
     "api": {
       "development": "local:api",
       "secrets": [
         "API_DATABASE_URL"
-      ]
+      ],
+      "production": "https://elliot-braem-4124-api-nearbuilders-org-nearbuilde-a71c43dd8-ze.zephyrcloud.app",
+      "integrity": "sha384-b/yKcaQ3SK3uqaae1mdjXqutKCd3OlZRdrTrLNqej/IRe1nSQisO2/TP3MhHjQVk"
     }
   },
   "plugins": {
@@ -35,7 +41,9 @@
           "label": "apps",
           "roleRequired": "anon"
         }
-      ]
+      ],
+      "production": "https://elliot-braem-4125-everything-dev-apps-plugin-near-3f04614e6-ze.zephyrcloud.app",
+      "integrity": "sha384-y3sci4dkrrwpJFklofUct9UQlLKJeSJpiKjLwXsiIF4xH+QBRXOUYodpNOJsdrqK"
     },
     "projects": {
       "development": "local:plugins/projects",
@@ -50,7 +58,20 @@
           "icon": "FolderKanban",
           "label": "projects"
         }
-      ]
+      ],
+      "production": "https://elliot-braem-4126-everything-dev-projects-plugin--1e44a404d-ze.zephyrcloud.app",
+      "integrity": "sha384-Ebw6xOrPBFCd78H0ZuGt85tniTj3J+jKmSts9ULm+tQTy2yco6E5jWfflXwVUON6"
+    },
+    "builders": {
+      "development": "local:plugins/builders",
+      "secrets": [
+        "BUILDERS_DATABASE_URL"
+      ],
+      "routes": [
+        "ui/src/routes/_layout/builders/**"
+      ],
+      "production": "https://elliot-braem-4127-everything-dev-builders-plugin--eaeaac00d-ze.zephyrcloud.app",
+      "integrity": "sha384-q1b4V9SbWtvOff7GDnT/RSQNFGlH907ujgle53/SVGCWxw50DyRNJuYF8zvzRIU0"
     }
   },
   "shared": {

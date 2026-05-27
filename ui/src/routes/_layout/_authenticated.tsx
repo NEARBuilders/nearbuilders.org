@@ -53,9 +53,5 @@ export const Route = createFileRoute("/_layout/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  return (
-    <div className="h-full flex flex-col">
-      <Outlet />
-    </div>
-  );
+  return <Outlet />;
 }

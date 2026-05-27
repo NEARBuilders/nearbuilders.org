@@ -40,7 +40,7 @@ type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
 };
 
-export const Route = createFileRoute("/_layout/_authenticated/projects/new")({
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/new")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     ...parseProjectListSearch(search),
     tab: search.tab === "preview" ? "preview" : "write",
@@ -179,12 +179,7 @@ function NewProjectPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <Button
-            asChild
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to projects"
-          >
+          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
             <Link
               to="/projects"
               search={{
