@@ -9,22 +9,74 @@
       "schema": "",
       "columns": {
         "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
-        "near_account": { "name": "near_account", "type": "text", "primaryKey": false, "notNull": true },
+        "near_account": {
+          "name": "near_account",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "user_id": { "name": "user_id", "type": "text", "primaryKey": false, "notNull": false },
         "name": { "name": "name", "type": "text", "primaryKey": false, "notNull": false },
         "bio": { "name": "bio", "type": "text", "primaryKey": false, "notNull": false },
         "skills": { "name": "skills", "type": "text", "primaryKey": false, "notNull": false },
         "location": { "name": "location", "type": "text", "primaryKey": false, "notNull": false },
         "links": { "name": "links", "type": "text", "primaryKey": false, "notNull": false },
-        "status": { "name": "status", "type": "text", "primaryKey": false, "notNull": true, "default": "'pending'" },
-        "rejection_reason": { "name": "rejection_reason", "type": "text", "primaryKey": false, "notNull": false },
-        "created_at": { "name": "created_at", "type": "timestamp", "primaryKey": false, "notNull": false, "default": "now()" },
-        "updated_at": { "name": "updated_at", "type": "timestamp", "primaryKey": false, "notNull": false, "default": "now()" }
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
       },
       "indexes": {
-        "builders_near_account_idx": { "name": "builders_near_account_idx", "columns": [{ "expression": "near_account", "isExpression": false, "asc": true, "nulls": "last" }], "isUnique": true, "concurrently": false, "method": "btree" },
-        "builders_status_idx": { "name": "builders_status_idx", "columns": [{ "expression": "status", "isExpression": false, "asc": true, "nulls": "last" }], "isUnique": false, "concurrently": false, "method": "btree" },
-        "builders_user_id_idx": { "name": "builders_user_id_idx", "columns": [{ "expression": "user_id", "isExpression": false, "asc": true, "nulls": "last" }], "isUnique": false, "concurrently": false, "method": "btree" }
+        "builders_near_account_idx": {
+          "name": "builders_near_account_idx",
+          "columns": [
+            { "expression": "near_account", "isExpression": false, "asc": true, "nulls": "last" }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree"
+        },
+        "builders_status_idx": {
+          "name": "builders_status_idx",
+          "columns": [
+            { "expression": "status", "isExpression": false, "asc": true, "nulls": "last" }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree"
+        },
+        "builders_user_id_idx": {
+          "name": "builders_user_id_idx",
+          "columns": [
+            { "expression": "user_id", "isExpression": false, "asc": true, "nulls": "last" }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree"
+        }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},

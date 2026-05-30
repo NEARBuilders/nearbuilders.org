@@ -91,7 +91,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         }),
       ],
       links: [
-        { rel: "stylesheet", href: `${assetsUrl}/static/css/async/style.css` },
+        { rel: "stylesheet", href: `${assetsUrl}/static/css/index.css` },
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
         {
           rel: "preconnect",

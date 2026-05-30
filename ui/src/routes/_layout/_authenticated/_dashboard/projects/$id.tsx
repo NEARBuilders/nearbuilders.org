@@ -205,7 +205,13 @@ function ProjectDetailPage() {
       <MetaSectionLabel>Details</MetaSectionLabel>
       <MetaItem label="Visibility" value={project.visibility} />
       <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
-      <MetaLinkItem label="Builder" to="/builders/$account" params={{ account: project.ownerId }} value={shortenId(project.ownerId)} mono />
+      <MetaLinkItem
+        label="Builder"
+        to="/builders/$account"
+        params={{ account: project.ownerId }}
+        value={shortenId(project.ownerId)}
+        mono
+      />
       <MetaItem label="Slug" value={project.slug} mono />
       {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
       <MetaItem label="Created" value={formatDate(project.createdAt)} />
@@ -412,7 +418,13 @@ function ProjectDetailPage() {
             <div className="space-y-4">
               <MetaItem label="Visibility" value={project.visibility} />
               <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
-              <MetaLinkItem label="Builder" to="/builders/$account" params={{ account: project.ownerId }} value={shortenId(project.ownerId)} mono />
+              <MetaLinkItem
+                label="Builder"
+                to="/builders/$account"
+                params={{ account: project.ownerId }}
+                value={shortenId(project.ownerId)}
+                mono
+              />
               <MetaItem label="Slug" value={project.slug} mono />
               {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
               <MetaItem label="Created" value={formatDate(project.createdAt)} />
@@ -432,7 +444,7 @@ function ProjectDetailPage() {
         </SheetContent>
       </Sheet>
     </div>
-  )
+  );
 }
 
 function PrivateIndicator() {
@@ -489,11 +501,27 @@ function MetaItem({ label, value, mono }: { label: string; value: string; mono?:
   );
 }
 
-function MetaLinkItem({ label, to, params, value, mono }: { label: string; to: string; params: Record<string, string>; value: string; mono?: boolean }) {
+function MetaLinkItem({
+  label,
+  to,
+  params,
+  value,
+  mono,
+}: {
+  label: string;
+  to: string;
+  params: Record<string, string>;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="space-y-0.5">
       <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
-      <Link to={to} params={params} className={`text-[13px] text-brand-cyan hover:underline break-all ${mono ? "font-mono" : ""}`}>
+      <Link
+        to={to}
+        params={params}
+        className={`text-[13px] text-brand-cyan hover:underline break-all ${mono ? "font-mono" : ""}`}
+      >
         {value}
       </Link>
     </div>

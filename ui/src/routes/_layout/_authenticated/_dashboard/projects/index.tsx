@@ -569,7 +569,8 @@ function ProjectsList() {
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted">
-          {rankedProjects.length === 0 && !isLoading ? null : !selectedProject || selectedProjectQuery.isLoading ? (
+          {rankedProjects.length === 0 && !isLoading ? null : !selectedProject ||
+            selectedProjectQuery.isLoading ? (
             <div className="flex flex-1 flex-col gap-3 p-8">
               <div className="animate-pulse bg-border h-7 w-[200px] rounded-md" />
               <div className="animate-pulse bg-border h-4 w-4/5 rounded-md" />

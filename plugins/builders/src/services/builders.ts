@@ -92,10 +92,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       ORPCError<string, unknown>
     >;
 
-    listPendingBuilders: (input: {
-      limit?: number;
-      cursor?: string;
-    }) => Effect.Effect<
+    listPendingBuilders: (input: { limit?: number; cursor?: string }) => Effect.Effect<
       {
         data: Builder[];
         meta: { total: number; hasMore: boolean; nextCursor: string | null };
@@ -136,9 +133,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       userRole?: string,
     ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
-    approveBuilder: (
-      nearAccount: string,
-    ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
+    approveBuilder: (nearAccount: string) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
     rejectBuilder: (
       nearAccount: string,
@@ -245,11 +240,7 @@ export const BuilderServiceLive = Layer.effect(
       getBuilder: (nearAccount) =>
         Effect.gen(function* () {
           const [row] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
           return row ? rowToBuilder(row) : null;
         }),
@@ -276,12 +267,7 @@ export const BuilderServiceLive = Layer.effect(
             db
               .select()
               .from(builders)
-              .where(
-                or(
-                  eq(builders.nearAccount, nearAccount),
-                  eq(builders.userId, userId),
-                ),
-              )
+              .where(or(eq(builders.nearAccount, nearAccount), eq(builders.userId, userId)))
               .limit(1),
           );
 
@@ -332,11 +318,7 @@ export const BuilderServiceLive = Layer.effect(
       updateBuilderProfile: (nearAccount, input, userId, walletAddress, userRole) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
 
           if (!existing) {
@@ -372,11 +354,7 @@ export const BuilderServiceLive = Layer.effect(
           );
 
           const [updated] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
 
           return rowToBuilder(updated);
@@ -385,11 +363,7 @@ export const BuilderServiceLive = Layer.effect(
       approveBuilder: (nearAccount) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
 
           if (!existing) {
@@ -406,17 +380,18 @@ export const BuilderServiceLive = Layer.effect(
               .where(eq(builders.nearAccount, nearAccount)),
           );
 
-          return rowToBuilder({ ...existing, status: "approved", rejectionReason: null, updatedAt: now });
+          return rowToBuilder({
+            ...existing,
+            status: "approved",
+            rejectionReason: null,
+            updatedAt: now,
+          });
         }),
 
       rejectBuilder: (nearAccount, reason) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
 
           if (!existing) {

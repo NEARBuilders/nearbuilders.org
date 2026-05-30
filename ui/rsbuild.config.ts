@@ -143,7 +143,7 @@ function createClientConfig() {
     output: {
       distPath: { root: "dist", css: "static/css", js: "static/js" },
       assetPrefix: "auto",
-      filename: { js: "[name].js", css: "style.css" },
+      filename: { js: "[name].js", css: "[name].css" },
       copy: [{ from: path.resolve(__dirname, "public"), to: "./" }],
     },
   });

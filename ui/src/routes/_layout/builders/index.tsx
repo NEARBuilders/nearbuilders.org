@@ -148,28 +148,37 @@ function BuildersPage() {
   );
 }
 
-function useInfiniteBuilders(apiClient: ReturnType<typeof useApiClient>, search: string, limit: number) {
-  const [pages, setPages] = useState<{ data: Builder[]; meta: { hasMore: boolean; nextCursor: string | null } }[]>([]);
+function useInfiniteBuilders(
+  apiClient: ReturnType<typeof useApiClient>,
+  search: string,
+  limit: number,
+) {
+  const [pages, setPages] = useState<
+    { data: Builder[]; meta: { hasMore: boolean; nextCursor: string | null } }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(false);
   const cursorRef = useRef<string | undefined>(undefined);
 
-  const fetch = useCallback(async (cursor?: string, reset = false) => {
-    try {
-      const result = await apiClient.builders.listBuilders({
-        search: search || undefined,
-        limit,
-        cursor,
-      });
-      setPages((prev) => reset ? [result] : [...prev, result]);
-      setHasNextPage(result.meta.hasMore);
-      cursorRef.current = result.meta.nextCursor ?? undefined;
-    } finally {
-      setIsLoading(false);
-      setIsFetchingNextPage(false);
-    }
-  }, [apiClient, search, limit]);
+  const fetch = useCallback(
+    async (cursor?: string, reset = false) => {
+      try {
+        const result = await apiClient.builders.listBuilders({
+          search: search || undefined,
+          limit,
+          cursor,
+        });
+        setPages((prev) => (reset ? [result] : [...prev, result]));
+        setHasNextPage(result.meta.hasMore);
+        cursorRef.current = result.meta.nextCursor ?? undefined;
+      } finally {
+        setIsLoading(false);
+        setIsFetchingNextPage(false);
+      }
+    },
+    [apiClient, search, limit],
+  );
 
   useEffect(() => {
     setIsLoading(true);
@@ -187,7 +196,13 @@ function useInfiniteBuilders(apiClient: ReturnType<typeof useApiClient>, search:
   return { data: { pages }, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage };
 }
 
-function BuilderCard({ builder, auth }: { builder: Builder; auth: ReturnType<typeof useAuthClient> }) {
+function BuilderCard({
+  builder,
+  auth,
+}: {
+  builder: Builder;
+  auth: ReturnType<typeof useAuthClient>;
+}) {
   const { data: profile, isLoading } = useQuery<Profile | null>({
     queryKey: ["near-profile", builder.nearAccount],
     queryFn: async () => {
@@ -198,8 +213,7 @@ function BuilderCard({ builder, auth }: { builder: Builder; auth: ReturnType<typ
     staleTime: 5 * 60 * 1000,
   });
 
-  const displayName =
-    builder.name || profile?.name || builder.nearAccount;
+  const displayName = builder.name || profile?.name || builder.nearAccount;
 
   const avatarUrl =
     profile?.image?.url ??
@@ -222,7 +236,9 @@ function BuilderCard({ builder, auth }: { builder: Builder; auth: ReturnType<typ
               src={avatarUrl}
               alt={displayName}
               className="size-12 object-cover"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
             />
           ) : (
             <span className="text-sm font-black text-muted-foreground">

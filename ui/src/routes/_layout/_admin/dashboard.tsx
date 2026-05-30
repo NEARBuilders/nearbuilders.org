@@ -81,9 +81,7 @@ function PendingBuildersQueue() {
           limit: PAGE_SIZE,
           cursor: nextCursor,
         });
-        setAllBuilders((prev) =>
-          nextCursor ? [...prev, ...result.data] : result.data,
-        );
+        setAllBuilders((prev) => (nextCursor ? [...prev, ...result.data] : result.data));
         setHasMore(result.meta.hasMore);
         setCursor(result.meta.nextCursor ?? undefined);
       } finally {
@@ -265,7 +263,9 @@ function BuilderReviewCard({
             src={avatarUrl}
             alt={displayName}
             className="size-12 object-cover"
-            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
           />
         ) : (
           <span className="text-sm font-black text-muted-foreground">
@@ -332,11 +332,7 @@ function BuilderReviewCard({
         {builder.skills.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {builder.skills.map((skill) => (
-              <Badge
-                key={skill}
-                variant="secondary"
-                className="text-xs px-2 py-0.5 rounded-full"
-              >
+              <Badge key={skill} variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
                 {skill}
               </Badge>
             ))}
@@ -360,9 +356,7 @@ function BuilderReviewCard({
                 onClick={() => rejectMutation.mutate()}
                 disabled={rejectMutation.isPending}
               >
-                {rejectMutation.isPending ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : null}
+                {rejectMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : null}
                 Confirm rejection
               </Button>
               <Button

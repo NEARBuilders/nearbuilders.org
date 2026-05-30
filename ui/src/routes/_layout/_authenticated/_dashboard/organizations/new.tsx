@@ -141,7 +141,7 @@ function NewOrganization() {
         </Card>
       </section>
     </div>
-  )
+  );
 }
 
 function Field({

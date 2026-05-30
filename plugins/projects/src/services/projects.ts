@@ -606,7 +606,14 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      unlinkAppFromProject: (projectId: string, accountId: string, domain: string, userId: string, userRole?: string, alternateUserId?: string) =>
+      unlinkAppFromProject: (
+        projectId: string,
+        accountId: string,
+        domain: string,
+        userId: string,
+        userRole?: string,
+        alternateUserId?: string,
+      ) =>
         Effect.gen(function* () {
           const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
           if (!canEdit) {

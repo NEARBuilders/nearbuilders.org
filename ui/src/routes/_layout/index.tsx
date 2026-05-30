@@ -233,9 +233,7 @@ function EcosystemStrip() {
                 <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
                   {item.tagline}
                 </span>
-                <span className="text-[10px] text-yellow-400/60 mt-auto pt-1.5">
-                  {item.domain}
-                </span>
+                <span className="text-[10px] text-yellow-400/60 mt-auto pt-1.5">{item.domain}</span>
               </a>
             );
           }

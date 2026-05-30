@@ -662,7 +662,7 @@ function OrganizationDetail() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

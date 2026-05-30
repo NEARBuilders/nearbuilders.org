@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, ExternalLink, FolderOpen, Hammer, Loader2, MapPin, Plus, Settings, Wallet, X, Zap } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  FolderOpen,
+  Hammer,
+  Loader2,
+  MapPin,
+  Plus,
+  Settings,
+  Wallet,
+  X,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, type SessionData } from "@/app";
@@ -14,10 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/home")({
   head: () => ({
-    meta: [
-      { title: "Home | app" },
-      { name: "description", content: "Your builder home." },
-    ],
+    meta: [{ title: "Home | app" }, { name: "description", content: "Your builder home." }],
   }),
   component: Home,
 });
@@ -316,9 +325,7 @@ function BuilderProfileCard({
               </div>
               <div className="flex gap-2 pt-1">
                 <Button type="submit" size="sm" disabled={registerMutation.isPending}>
-                  {registerMutation.isPending && (
-                    <Loader2 size={13} className="animate-spin" />
-                  )}
+                  {registerMutation.isPending && <Loader2 size={13} className="animate-spin" />}
                   Submit application
                 </Button>
                 <Button
@@ -468,9 +475,7 @@ function ProjectRow({ project }: { project: Project }) {
             <div className="min-w-0 flex-1">
               <CardTitle className="truncate text-sm font-medium">{project.title}</CardTitle>
               {project.description && (
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {project.description}
-                </p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">

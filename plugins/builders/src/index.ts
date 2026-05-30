@@ -114,21 +114,20 @@ export default createPlugin({
         .use(requireAuth)
         .handler(async ({ context }) => {
           const result = await runEffect(
-            services.builder.getBuilderByUserId(
-              context.userId,
-              context.walletAddress,
-            ),
+            services.builder.getBuilderByUserId(context.userId, context.walletAddress),
           );
           return { data: result };
         }),
 
-      registerBuilder: builder.registerBuilder.use(requireAuth).handler(async ({ input, context }) => {
-        const nearAccount = context.walletAddress ?? context.userId;
-        const result = await runEffect(
-          services.builder.registerBuilder(input, nearAccount, context.userId),
-        );
-        return { data: result };
-      }),
+      registerBuilder: builder.registerBuilder
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccount = context.walletAddress ?? context.userId;
+          const result = await runEffect(
+            services.builder.registerBuilder(input, nearAccount, context.userId),
+          );
+          return { data: result };
+        }),
 
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
@@ -164,20 +163,18 @@ export default createPlugin({
           return { data: result };
         }),
 
-      rejectBuilder: builder.rejectBuilder
-        .use(requireAdmin)
-        .handler(async ({ input, errors }) => {
-          const result = await runEffect(
-            services.builder.rejectBuilder(input.nearAccount, input.reason),
-          );
-          if (!result) {
-            throw errors.NOT_FOUND({
-              message: "Builder not found",
-              data: { resource: "builder", resourceId: input.nearAccount },
-            });
-          }
-          return { data: result };
-        }),
+      rejectBuilder: builder.rejectBuilder.use(requireAdmin).handler(async ({ input, errors }) => {
+        const result = await runEffect(
+          services.builder.rejectBuilder(input.nearAccount, input.reason),
+        );
+        if (!result) {
+          throw errors.NOT_FOUND({
+            message: "Builder not found",
+            data: { resource: "builder", resourceId: input.nearAccount },
+          });
+        }
+        return { data: result };
+      }),
     };
   },
 });
