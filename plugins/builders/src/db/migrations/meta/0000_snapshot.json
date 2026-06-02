@@ -109,9 +109,7 @@
         "builders_near_account_unique": {
           "name": "builders_near_account_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "near_account"
-          ]
+          "columns": ["near_account"]
         }
       },
       "policies": {},

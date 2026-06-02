@@ -2,7 +2,7 @@ import { and, count, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { proposalAuditLog, proposals, proposalSubmissions } from "../db/schema";
+import { proposalAuditLog, proposalSubmissions, proposals } from "../db/schema";
 
 type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
 type ApplyStatus = "not_started" | "applied" | "failed";
@@ -211,7 +211,7 @@ export const ProposalServiceLive = Layer.effect(
               .limit(1),
           );
 
-          let proposalId = existing?.id ?? generateId("prop");
+          const proposalId = existing?.id ?? generateId("prop");
 
           if (!existing) {
             yield* Effect.promise(() =>

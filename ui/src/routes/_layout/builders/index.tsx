@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight, MapPin, Search, ThumbsUp } from "lucide-react";
@@ -158,7 +158,11 @@ function BuildersPage() {
         </>
       )}
 
-      <NominationsSection apiClient={apiClient} isAuthenticated={isAuthenticated} userId={session?.user?.id} />
+      <NominationsSection
+        apiClient={apiClient}
+        isAuthenticated={isAuthenticated}
+        userId={session?.user?.id}
+      />
 
       <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-xl bg-foreground p-8">
@@ -201,6 +205,8 @@ function NominationsSection({
   isAuthenticated: boolean;
   userId: string | undefined;
 }) {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const orpc = useOrpc();
   const queryClient = useQueryClient();
 
@@ -314,7 +320,7 @@ function NominationsSection({
 
   const handleVote = (proposalId: string) => {
     if (!isAuthenticated) {
-      window.location.href = "/login?redirect=" + encodeURIComponent(window.location.pathname);
+      void navigate({ to: "/login", search: { redirect: pathname } });
       return;
     }
     if (voteMap[proposalId]) {
@@ -375,28 +381,26 @@ function NominationsSection({
             className="overflow-hidden"
           >
             <div className="mt-4 border border-border rounded-xl overflow-hidden">
-              {proposalsLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <NominationRowSkeleton key={i} isLast={i === 2} />
-                ))
-              ) : (
-                proposals.map((p, i) => (
-                  <NominationRow
-                    key={p.id}
-                    proposal={p}
-                    nominationCount={p.submissionCount + (counts[p.id] ?? 0)}
-                    hasNominated={voteMap[p.id] ?? false}
-                    isVoting={
-                      (upvoteMutation.isPending && upvoteMutation.variables === p.id) ||
-                      (downvoteMutation.isPending && downvoteMutation.variables === p.id)
-                    }
-                    isExpanded={expandedId === p.id}
-                    isLast={i === proposals.length - 1}
-                    onToggle={() => setExpandedId((prev) => (prev === p.id ? null : p.id))}
-                    onVote={() => handleVote(p.id)}
-                  />
-                ))
-              )}
+              {proposalsLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <NominationRowSkeleton key={i} isLast={i === 2} />
+                  ))
+                : proposals.map((p, i) => (
+                    <NominationRow
+                      key={p.id}
+                      proposal={p}
+                      nominationCount={p.submissionCount + (counts[p.id] ?? 0)}
+                      hasNominated={voteMap[p.id] ?? false}
+                      isVoting={
+                        (upvoteMutation.isPending && upvoteMutation.variables === p.id) ||
+                        (downvoteMutation.isPending && downvoteMutation.variables === p.id)
+                      }
+                      isExpanded={expandedId === p.id}
+                      isLast={i === proposals.length - 1}
+                      onToggle={() => setExpandedId((prev) => (prev === p.id ? null : p.id))}
+                      onVote={() => handleVote(p.id)}
+                    />
+                  ))}
             </div>
           </motion.div>
         )}
@@ -425,7 +429,9 @@ function NominationRow({
   onVote: () => void;
 }) {
   const raw = proposal.payload;
-  const payload: ProposalPayload = (typeof raw === "object" && raw !== null ? raw : {}) as ProposalPayload;
+  const payload: ProposalPayload = (
+    typeof raw === "object" && raw !== null ? raw : {}
+  ) as ProposalPayload;
   const displayName = payload.name || proposal.entityId;
   const skills: string[] = Array.isArray(payload.skills) ? payload.skills : [];
   const location = payload.location || null;
@@ -445,9 +451,7 @@ function NominationRow({
     displayName === proposal.entityId && profile?.name ? profile.name : displayName;
   const avatarUrl =
     profile?.image?.url ??
-    (profile?.image?.ipfs_cid
-      ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}`
-      : null);
+    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
 
   return (
     <div className={cn("bg-card", !isLast && "border-b border-border")}>
@@ -538,13 +542,8 @@ function NominationRow({
               hasNominated && "border-brand-accent bg-brand-accent-light text-foreground",
             )}
           >
-            <ThumbsUp
-              size={12}
-              className={cn(hasNominated && "fill-current text-brand-accent")}
-            />
-            <span className="hidden sm:inline">
-              {hasNominated ? "Nominated" : "Nominate"}
-            </span>
+            <ThumbsUp size={12} className={cn(hasNominated && "fill-current text-brand-accent")} />
+            <span className="hidden sm:inline">{hasNominated ? "Nominated" : "Nominate"}</span>
           </Button>
         </div>
 
@@ -568,11 +567,7 @@ function NominationRow({
             className="overflow-hidden"
           >
             <div className="border-t border-border bg-muted/30 px-4 sm:px-6 py-5">
-              <NearProfile
-                accountId={proposal.entityId}
-                variant="card"
-                className="max-w-lg"
-              />
+              <NearProfile accountId={proposal.entityId} variant="card" className="max-w-lg" />
             </div>
           </motion.div>
         )}

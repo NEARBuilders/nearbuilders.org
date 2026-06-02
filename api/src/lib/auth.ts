@@ -58,25 +58,29 @@ function toRequestAuthContext(context: RequestAuthContext): RequestAuthContext {
 }
 
 export function createAuthMiddleware(builder: any) {
-  const requireAuth = builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
-    if (!context.user || !context.userId) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "Authentication required",
-        data: { hint: "Sign in or provide an API key" },
-      });
-    }
-    return next({ context: toRequestAuthContext(context) });
-  });
+  const requireAuth = builder.middleware(
+    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "Authentication required",
+          data: { hint: "Sign in or provide an API key" },
+        });
+      }
+      return next({ context: toRequestAuthContext(context) });
+    },
+  );
 
-  const requireUser = builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
-    if (!context.user || !context.userId) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "User authentication required",
-        data: { hint: "Sign in or provide a user-scoped API key" },
-      });
-    }
-    return next({ context: toRequestAuthContext(context) });
-  });
+  const requireUser = builder.middleware(
+    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User authentication required",
+          data: { hint: "Sign in or provide a user-scoped API key" },
+        });
+      }
+      return next({ context: toRequestAuthContext(context) });
+    },
+  );
 
   const requireRole = <TRoles extends readonly string[]>(...roles: TRoles) =>
     builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
@@ -98,21 +102,23 @@ export function createAuthMiddleware(builder: any) {
 
   const requireAdmin = requireRole("admin");
 
-  const requireOrganization = builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
-    if (!context.user || !context.userId) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "Authentication required",
-        data: { authType: "session", hint: "Sign in to continue" },
-      });
-    }
-    if (!context.organizationId) {
-      throw new ORPCError("FORBIDDEN", {
-        message: "Active organization required",
-        data: { hint: "Select or create an organization" },
-      });
-    }
-    return next({ context: toRequestAuthContext(context) });
-  });
+  const requireOrganization = builder.middleware(
+    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "Authentication required",
+          data: { authType: "session", hint: "Sign in to continue" },
+        });
+      }
+      if (!context.organizationId) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "Active organization required",
+          data: { hint: "Select or create an organization" },
+        });
+      }
+      return next({ context: toRequestAuthContext(context) });
+    },
+  );
 
   const requireApiKey = (requiredPermissions?: Record<string, string[]>) =>
     builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
@@ -138,15 +144,25 @@ export function createAuthMiddleware(builder: any) {
       return next({ context: toRequestAuthContext(context) });
     });
 
-  const requireAuthOrApiKey = builder.middleware(async ({ context, next }: { context: RequestAuthContext; next: any }) => {
-    if (!context.user && !context.userId && !context.apiKey) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "Authentication required",
-        data: { hint: "Sign in or provide an API key" },
-      });
-    }
-    return next({ context: toRequestAuthContext(context) });
-  });
+  const requireAuthOrApiKey = builder.middleware(
+    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
+      if (!context.user && !context.userId && !context.apiKey) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "Authentication required",
+          data: { hint: "Sign in or provide an API key" },
+        });
+      }
+      return next({ context: toRequestAuthContext(context) });
+    },
+  );
 
-  return { requireAuth, requireUser, requireRole, requireAdmin, requireOrganization, requireApiKey, requireAuthOrApiKey };
+  return {
+    requireAuth,
+    requireUser,
+    requireRole,
+    requireAdmin,
+    requireOrganization,
+    requireApiKey,
+    requireAuthOrApiKey,
+  };
 }

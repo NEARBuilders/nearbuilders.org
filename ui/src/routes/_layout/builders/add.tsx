@@ -244,7 +244,10 @@ function NominationForm({
       className="rounded-2xl border border-border bg-card p-6 sm:p-8 space-y-6"
     >
       <div>
-        <label htmlFor="field-account" className="text-sm font-semibold text-foreground mb-1.5 block">
+        <label
+          htmlFor="field-account"
+          className="text-sm font-semibold text-foreground mb-1.5 block"
+        >
           NEAR Account <span className="text-destructive">*</span>
         </label>
         <p className="text-xs text-muted-foreground mb-2">
@@ -270,7 +273,10 @@ function NominationForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="field-name" className="text-sm font-semibold text-foreground mb-1.5 block">
+          <label
+            htmlFor="field-name"
+            className="text-sm font-semibold text-foreground mb-1.5 block"
+          >
             Display name
           </label>
           <Input
@@ -283,7 +289,10 @@ function NominationForm({
         </div>
 
         <div>
-          <label htmlFor="field-location" className="text-sm font-semibold text-foreground mb-1.5 block">
+          <label
+            htmlFor="field-location"
+            className="text-sm font-semibold text-foreground mb-1.5 block"
+          >
             Location
           </label>
           <Input
@@ -311,9 +320,11 @@ function NominationForm({
       </div>
 
       <div>
-        <label htmlFor="field-skills" className="text-sm font-semibold text-foreground mb-1.5 block">
-          Skills{" "}
-          <span className="font-normal text-muted-foreground">(comma-separated)</span>
+        <label
+          htmlFor="field-skills"
+          className="text-sm font-semibold text-foreground mb-1.5 block"
+        >
+          Skills <span className="font-normal text-muted-foreground">(comma-separated)</span>
         </label>
         <Input
           id="field-skills"
@@ -324,11 +335,7 @@ function NominationForm({
       </div>
 
       <div className="flex gap-3 pt-2 border-t border-border">
-        <Button
-          type="submit"
-          disabled={nominateMutation.isPending}
-          className="rounded-full px-6"
-        >
+        <Button type="submit" disabled={nominateMutation.isPending} className="rounded-full px-6">
           {nominateMutation.isPending && <Loader2 size={14} className="animate-spin" />}
           {isSelfNomination ? "Join as builder" : "Nominate builder"}
         </Button>

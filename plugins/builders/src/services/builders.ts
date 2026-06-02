@@ -186,11 +186,7 @@ export const BuilderServiceLive = Layer.effect(
       getBuilder: (nearAccount) =>
         Effect.gen(function* () {
           const [row] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(eq(builders.nearAccount, nearAccount))
-              .limit(1),
+            db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
           return row ? rowToBuilder(row) : null;
         }),

@@ -48,7 +48,9 @@ function createVoteService(db: any, publisher: MemoryPublisher<VoteEvents>) {
     },
 
     async downvote(entityId: string, userId: string) {
-      await db.delete(upvotes).where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)));
+      await db
+        .delete(upvotes)
+        .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)));
 
       const [result] = await db
         .select({ count: count() })
