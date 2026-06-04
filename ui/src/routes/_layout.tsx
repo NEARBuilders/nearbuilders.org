@@ -58,9 +58,9 @@ function Layout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+          <div className="relative flex h-16 items-center justify-between">
             <Link
               to="/"
               className="flex items-center gap-2 font-black text-lg tracking-tight text-foreground hover:opacity-80 transition-opacity"
@@ -69,7 +69,7 @@ function Layout() {
               {appName}
             </Link>
 
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center gap-6">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}

@@ -45,11 +45,23 @@ function getCardId(card: BuilderCardData): string {
 
 export const Route = createFileRoute("/_layout/builders/")({
   loader: async ({ context }) => {
-    const { queryClient, apiClient } = context;
-    await Promise.allSettled([
-      queryClient.prefetchInfiniteQuery(buildersInfiniteOptions(apiClient, "")),
-      queryClient.prefetchQuery(pendingProposalsOptions(apiClient)),
-    ]);
+    const { queryClient, apiClient, session } = context;
+    const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+
+    await queryClient.prefetchInfiniteQuery(buildersInfiniteOptions(apiClient, ""));
+    await queryClient.prefetchQuery(pendingProposalsOptions(apiClient));
+
+    const proposalsData = queryClient.getQueryData(["proposals", "builders", "pending"]) as
+      | { data?: { id: string }[] }
+      | undefined;
+    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
+
+    if (proposalIds.length > 0) {
+      await Promise.allSettled([
+        queryClient.prefetchQuery(upvoteCountsOptions(apiClient, proposalIds)),
+        isAuthenticated && queryClient.prefetchQuery(userVotesOptions(apiClient, proposalIds, true)),
+      ].filter(Boolean));
+    }
   },
   head: () => ({
     meta: [

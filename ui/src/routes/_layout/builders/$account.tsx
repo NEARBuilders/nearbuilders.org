@@ -18,6 +18,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
+  loader: async ({ params, context }) => {
+    const { queryClient, apiClient, session } = context;
+    const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+
+    await Promise.allSettled([
+      queryClient.prefetchQuery({
+        queryKey: ["builder", params.account],
+        queryFn: () => apiClient.getBuilder({ nearAccount: params.account }),
+        retry: false,
+      }),
+      queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)),
+    ]);
+
+    const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
+      | { data?: { id: string }[] }
+      | undefined;
+    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
+
+    if (proposalIds.length > 0) {
+      await Promise.allSettled([
+        queryClient.prefetchQuery(upvoteCountsOptions(apiClient, proposalIds)),
+        isAuthenticated && queryClient.prefetchQuery(userVotesOptions(apiClient, proposalIds, true)),
+      ].filter(Boolean));
+    }
+  },
   head: ({ params }) => ({
     meta: [
       { title: `${params.account} | NEAR Builders` },
