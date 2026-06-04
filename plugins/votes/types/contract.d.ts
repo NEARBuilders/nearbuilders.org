@@ -92,6 +92,31 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
+    getUserVotes: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        entityIds: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodRecord<z.ZodString, z.ZodObject<{
+        entityId: z.ZodString;
+        hasUpvote: z.ZodBoolean;
+    }, z.core.$strip>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    getUpvoteCounts: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        entityIds: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodRecord<z.ZodString, z.ZodObject<{
+        entityId: z.ZodString;
+        totalCount: z.ZodNumber;
+    }, z.core.$strip>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
     getUpvoteFeed: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;

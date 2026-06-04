@@ -135,7 +135,7 @@ function NewProjectPage() {
           repository: values.repository?.trim() || undefined,
           content: values.content?.trim() || undefined,
           visibility: values.visibility,
-          ownerId: values.ownerId?.trim() || undefined,
+          ownerId: values.ownerId?.trim() || defaultOwnerId || undefined,
           domain: values.domain?.trim() || undefined,
         },
       }),

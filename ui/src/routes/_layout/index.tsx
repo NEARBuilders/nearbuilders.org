@@ -67,7 +67,7 @@ function HeroSection() {
               size="lg"
               className="rounded-full text-base font-bold px-8 h-14 bg-brand-green hover:bg-brand-green/90 text-black shadow-lg shadow-brand-green/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-brand-green/30"
             >
-              <Link to="/builders">
+              <Link to="/builders" search={{ highlight: undefined }}>
                 Find Builders
                 <ArrowRight size={18} />
               </Link>
@@ -315,7 +315,9 @@ function HighlightSection() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <Button asChild size="lg" className="rounded-full px-8 h-12">
-              <Link to="/builders">Meet the builders</Link>
+              <Link to="/builders" search={{ highlight: undefined }}>
+                Meet the builders
+              </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-full px-8 h-12">
               <Link to="/projects">See what's being built</Link>

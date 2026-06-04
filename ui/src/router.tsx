@@ -10,6 +10,14 @@ export type {
   RouterModule,
 } from "./app";
 
+function defaultPendingComponent() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-6">
+      <p className="text-sm text-muted-foreground">Loading...</p>
+    </div>
+  );
+}
+
 export function createRouter(opts: CreateRouterOptions) {
   const queryClient = opts.context.queryClient;
   const history = opts.history ?? createBrowserHistory();
@@ -29,6 +37,7 @@ export function createRouter(opts: CreateRouterOptions) {
     scrollRestoration: true,
     defaultStructuralSharing: true,
     defaultPreloadStaleTime: 0,
+    defaultPendingComponent,
     defaultPendingMinMs: 0,
   });
 

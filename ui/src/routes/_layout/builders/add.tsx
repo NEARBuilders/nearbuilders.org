@@ -75,7 +75,9 @@ function NominateBuilderPage() {
               </Link>
             </Button>
             <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-              <Link to="/builders">Browse builders</Link>
+              <Link to="/builders" search={undefined}>
+                Browse builders
+              </Link>
             </Button>
           </div>
         </div>
@@ -113,6 +115,7 @@ function NominateBuilderPage() {
       <div className="mb-8">
         <Link
           to="/builders"
+          search={undefined}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft size={14} />
@@ -219,7 +222,9 @@ function NominationForm({
             asChild
             className="rounded-full px-8 bg-brand-green hover:bg-brand-green/90 text-black font-bold"
           >
-            <Link to="/builders">Browse builders</Link>
+            <Link to="/builders" search={undefined}>
+              Browse builders
+            </Link>
           </Button>
           {isSelfNomination && (
             <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
@@ -340,7 +345,9 @@ function NominationForm({
           {isSelfNomination ? "Join as builder" : "Nominate builder"}
         </Button>
         <Button asChild variant="ghost" className="text-muted-foreground">
-          <Link to="/builders">Cancel</Link>
+          <Link to="/builders" search={undefined}>
+            Cancel
+          </Link>
         </Button>
       </div>
     </form>

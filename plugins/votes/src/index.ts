@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { createPlugin } from "every-plugin";
 import { Effect } from "every-plugin/effect";
 import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
@@ -85,6 +85,48 @@ function createVoteService(db: any, publisher: MemoryPublisher<VoteEvents>) {
         .from(upvotes)
         .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)));
       return { entityId, hasUpvote: (result?.count ?? 0) > 0 };
+    },
+
+    async getUpvoteCounts(entityIds: string[]) {
+      if (entityIds.length === 0) return {};
+      const results = await db
+        .select({
+          entityId: upvotes.entityId,
+          count: count(),
+        })
+        .from(upvotes)
+        .where(inArray(upvotes.entityId, entityIds))
+        .groupBy(upvotes.entityId);
+
+      const map: Record<string, { entityId: string; totalCount: number }> = {};
+      for (const entityId of entityIds) {
+        const found = results.find(
+          (r: { entityId: string; count: number }) => r.entityId === entityId,
+        );
+        map[entityId] = { entityId, totalCount: found?.count ?? 0 };
+      }
+      return map;
+    },
+
+    async getUserVotes(entityIds: string[], userId: string) {
+      if (entityIds.length === 0) return {};
+      const results = await db
+        .select({
+          entityId: upvotes.entityId,
+          count: count(),
+        })
+        .from(upvotes)
+        .where(and(inArray(upvotes.entityId, entityIds), eq(upvotes.userId, userId)))
+        .groupBy(upvotes.entityId);
+
+      const map: Record<string, { entityId: string; hasUpvote: boolean }> = {};
+      for (const entityId of entityIds) {
+        const found = results.find(
+          (r: { entityId: string; count: number }) => r.entityId === entityId,
+        );
+        map[entityId] = { entityId, hasUpvote: (found?.count ?? 0) > 0 };
+      }
+      return map;
     },
 
     async getUpvoteFeed(limit = 50, _cursor?: string) {
@@ -185,6 +227,12 @@ export default createPlugin({
       }),
       getUserVote: builder.getUserVote.use(requireAuth).handler(async ({ input, context }) => {
         return await services.voteService.getUserVote(input.entityId, context.userId!);
+      }),
+      getUserVotes: builder.getUserVotes.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.voteService.getUserVotes(input.entityIds, context.userId!);
+      }),
+      getUpvoteCounts: builder.getUpvoteCounts.handler(async ({ input }) => {
+        return await services.voteService.getUpvoteCounts(input.entityIds);
       }),
       getUpvoteFeed: builder.getUpvoteFeed.handler(async ({ input }) => {
         return await services.voteService.getUpvoteFeed(input.limit, input.cursor);

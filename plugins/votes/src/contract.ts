@@ -55,6 +55,33 @@ export const contract = oc.router({
     )
     .errors({ UNAUTHORIZED }),
 
+  getUserVotes: oc
+    .route({ method: "POST", path: "/v1/upvotes/me/batch" })
+    .input(z.object({ entityIds: z.array(z.string()).min(1).max(100) }))
+    .output(
+      z.record(
+        z.string(),
+        z.object({
+          entityId: z.string(),
+          hasUpvote: z.boolean(),
+        }),
+      ),
+    )
+    .errors({ UNAUTHORIZED }),
+
+  getUpvoteCounts: oc
+    .route({ method: "POST", path: "/v1/upvotes/counts" })
+    .input(z.object({ entityIds: z.array(z.string()).min(1).max(100) }))
+    .output(
+      z.record(
+        z.string(),
+        z.object({
+          entityId: z.string(),
+          totalCount: z.number().int().nonnegative(),
+        }),
+      ),
+    ),
+
   getUpvoteFeed: oc
     .route({ method: "GET", path: "/v1/upvotes/feed" })
     .input(

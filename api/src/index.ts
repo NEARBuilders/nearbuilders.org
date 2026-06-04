@@ -2,6 +2,7 @@ import { createPlugin } from "every-plugin";
 import { Effect } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
+import { ProposalSchema } from "../../plugins/proposals/src/contract";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import type { PluginsClient } from "./lib/plugins-types.gen";
@@ -25,12 +26,10 @@ type ApiContext = {
   getRawBody?: () => Promise<string>;
 };
 
-type ProposalData = {
-  pluginId: string;
-  entityId: string;
-  payload: unknown;
-  appliedResourceId: string | null;
-};
+type ProposalData = Pick<
+  z.infer<typeof ProposalSchema>,
+  "pluginId" | "entityId" | "payload" | "appliedResourceId" | "createdBy"
+>;
 
 function pluginContext(context: ApiContext) {
   return {
@@ -104,7 +103,7 @@ const createCallbacks: Record<string, CreateCallback> = {
           : "public",
       repository: readString(payload.repository),
       organizationId: readString(payload.organizationId),
-      ownerId: readString(payload.ownerId),
+      ownerId: readString(payload.ownerId) ?? proposal.createdBy,
       domain: readString(payload.domain),
     });
     return result.id;
@@ -191,6 +190,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           entityId: approval.data.entityId,
           payload: approval.data.payload,
           appliedResourceId: approval.data.appliedResourceId,
+          createdBy: approval.data.createdBy,
         };
 
         if (approval.data.applyStatus === "applied") {
@@ -256,6 +256,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           entityId: proposalData.entityId,
           payload: proposalData.payload,
           appliedResourceId: proposalData.appliedResourceId,
+          createdBy: proposalData.createdBy,
         };
 
         if (proposalData.applyStatus === "applied") {
@@ -327,6 +328,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getUserVote: builder.getUserVote.use(requireAuth).handler(async ({ input, context }) => {
         return await services.plugins.votes(pluginContext(context)).getUserVote(input);
+      }),
+
+      getUserVotes: builder.getUserVotes.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.votes(pluginContext(context)).getUserVotes(input);
+      }),
+
+      getUpvoteCounts: builder.getUpvoteCounts.handler(async ({ input }) => {
+        return await services.plugins.votes().getUpvoteCounts(input);
       }),
 
       getUpvoteFeed: builder.getUpvoteFeed.handler(async ({ input }) => {

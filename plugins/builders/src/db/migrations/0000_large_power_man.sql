@@ -1,4 +1,4 @@
-CREATE TABLE "builders" (
+CREATE TABLE IF NOT EXISTS "builders" (
 	"id" text PRIMARY KEY NOT NULL,
 	"near_account" text NOT NULL,
 	"user_id" text,
@@ -12,5 +12,5 @@ CREATE TABLE "builders" (
 	CONSTRAINT "builders_near_account_unique" UNIQUE("near_account")
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX "builders_near_account_idx" ON "builders" USING btree ("near_account");--> statement-breakpoint
-CREATE INDEX "builders_user_id_idx" ON "builders" USING btree ("user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "builders_near_account_idx" ON "builders" USING btree ("near_account");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "builders_user_id_idx" ON "builders" USING btree ("user_id");

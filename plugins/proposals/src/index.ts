@@ -33,6 +33,7 @@ export default createPlugin({
 
   context: z.object({
     userId: z.string().optional(),
+    walletAddress: z.string().optional(),
     user: z
       .object({
         id: z.string(),
@@ -103,7 +104,7 @@ export default createPlugin({
 
     return {
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
-        const actorId = context.userId ?? context.apiKey?.id ?? "unknown";
+        const actorId = context.walletAddress ?? context.userId ?? context.apiKey?.id ?? "unknown";
         const result = await runEffect(
           services.proposal.propose({
             ...input,

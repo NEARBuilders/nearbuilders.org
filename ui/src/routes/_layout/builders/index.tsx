@@ -1,18 +1,56 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseInfiniteQuery,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronRight, MapPin, Search, ThumbsUp } from "lucide-react";
+import { AnimatePresence, motion, Reorder } from "framer-motion";
+import { ArrowRight, MapPin, Search, ThumbsUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
-import { NearProfile } from "@/components/near-profile";
+import type { Proposal, ProposalPayload } from "@/app";
+import {
+  buildersInfiniteOptions,
+  pendingProposalsOptions,
+  sessionQueryOptions,
+  upvoteCountsOptions,
+  useApiClient,
+  useAuthClient,
+  useOrpc,
+  userVotesOptions,
+} from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+interface BuilderLike {
+  id: string;
+  nearAccount: string;
+  name: string | null;
+  bio: string | null;
+  skills: string[];
+  location: string | null;
+}
+
+type BuilderCardData =
+  | { kind: "builder"; builder: BuilderLike; proposal: Proposal | null }
+  | { kind: "nominated"; proposal: Proposal; payload: ProposalPayload };
+
+function getCardId(card: BuilderCardData): string {
+  return card.kind === "builder" ? card.builder.id : `nom-${card.proposal.id}`;
+}
+
 export const Route = createFileRoute("/_layout/builders/")({
+  loader: async ({ context }) => {
+    const { queryClient, apiClient } = context;
+    await Promise.allSettled([
+      queryClient.prefetchInfiniteQuery(buildersInfiniteOptions(apiClient, "")),
+      queryClient.prefetchQuery(pendingProposalsOptions(apiClient)),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "Builders | NEAR Builders" },
@@ -25,41 +63,6 @@ export const Route = createFileRoute("/_layout/builders/")({
   }),
   component: BuildersPage,
 });
-
-interface Builder {
-  id: string;
-  nearAccount: string;
-  name: string | null;
-  bio: string | null;
-  skills: string[];
-  location: string | null;
-}
-
-interface ProposalPayload {
-  name?: string;
-  bio?: string;
-  skills?: string[];
-  location?: string;
-}
-
-interface Proposal {
-  id: string;
-  pluginId: string;
-  entityId: string;
-  operation: string;
-  payload: unknown;
-  schemaVersion: string;
-  createdBy: string;
-  reviewStatus: "pending" | "approved" | "rejected" | "removed";
-  applyStatus: string;
-  removeStatus: string;
-  rejectionReason: string | null;
-  submissionCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const PAGE_SIZE = 24;
 
 function BuildersPage() {
   const apiClient = useApiClient();
@@ -81,14 +84,174 @@ function BuildersPage() {
   }, [query]);
 
   const {
-    data: pages,
-    isLoading,
+    data: infiniteData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteBuilders(apiClient, debouncedQuery, PAGE_SIZE);
+  } = useSuspenseInfiniteQuery(buildersInfiniteOptions(apiClient, debouncedQuery));
 
-  const builders = useMemo(() => pages?.pages.flatMap((p) => p.data) ?? [], [pages]);
+  const builders = useMemo(() => infiniteData.pages.flatMap((p) => p.data), [infiniteData]);
+
+  const { data: proposalsData } = useSuspenseQuery(pendingProposalsOptions(apiClient));
+  const proposals = proposalsData.data ?? [];
+
+  const builderAccountSet = useMemo(() => new Set(builders.map((b) => b.nearAccount)), [builders]);
+
+  const proposalMap = useMemo(() => {
+    const m = new Map<string, Proposal>();
+    for (const p of proposals) {
+      m.set(p.entityId, p);
+    }
+    return m;
+  }, [proposals]);
+
+  const mergedCards = useMemo(() => {
+    const cards: BuilderCardData[] = [];
+
+    for (const b of builders) {
+      cards.push({
+        kind: "builder",
+        builder: b,
+        proposal: proposalMap.get(b.nearAccount) ?? null,
+      });
+    }
+
+    for (const p of proposals) {
+      if (!builderAccountSet.has(p.entityId)) {
+        const raw = p.payload;
+        const payload: ProposalPayload =
+          typeof raw === "object" && raw !== null ? (raw as ProposalPayload) : {};
+        cards.push({ kind: "nominated", proposal: p, payload });
+      }
+    }
+
+    return cards;
+  }, [builders, proposals, builderAccountSet, proposalMap]);
+
+  const allProposalIds = useMemo(() => proposals.map((p) => p.id), [proposals]);
+
+  const { data: countsData } = useQuery(upvoteCountsOptions(apiClient, allProposalIds));
+  const { data: votesData } = useQuery(
+    userVotesOptions(
+      apiClient,
+      allProposalIds.length > 0 && isAuthenticated ? allProposalIds : [],
+      isAuthenticated,
+    ),
+  );
+
+  const counts = countsData ?? {};
+  const voteMap = votesData ?? {};
+
+  const getNominationCount = useCallback(
+    (card: BuilderCardData): number => {
+      const p = card.kind === "builder" ? card.proposal : card.proposal;
+      if (!p) return 0;
+      return p.submissionCount + (counts[p.id]?.totalCount ?? 0);
+    },
+    [counts],
+  );
+
+  const sortedCards = useMemo(() => {
+    return [...mergedCards].sort((a, b) => {
+      const aHasProposal = a.kind === "builder" ? a.proposal !== null : true;
+      const bHasProposal = b.kind === "builder" ? b.proposal !== null : true;
+
+      if (aHasProposal && !bHasProposal) return -1;
+      if (!aHasProposal && bHasProposal) return 1;
+
+      if (aHasProposal && bHasProposal) {
+        return getNominationCount(b) - getNominationCount(a);
+      }
+
+      return 0;
+    });
+  }, [mergedCards, getNominationCount]);
+
+  const sortedIds = useMemo(() => sortedCards.map(getCardId), [sortedCards]);
+
+  const orpc = useOrpc();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const { data: latestVote } = useQuery(
+    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
+  );
+
+  useEffect(() => {
+    if (!latestVote) return;
+    const { entityId: latestEntityId, totalCount, type } = latestVote;
+    if (!allProposalIds.includes(latestEntityId)) return;
+    queryClient.setQueryData(
+      ["upvoteCounts", allProposalIds],
+      (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
+        ...old,
+        [latestEntityId]: { entityId: latestEntityId, totalCount },
+      }),
+    );
+    if (session?.user?.id && latestVote.userId === session.user.id) {
+      queryClient.setQueryData(
+        ["userVotes", allProposalIds],
+        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
+          ...old,
+          [latestEntityId]: { entityId: latestEntityId, hasUpvote: type === "upvote" },
+        }),
+      );
+    }
+  }, [latestVote, queryClient, allProposalIds, session?.user?.id]);
+
+  const upvoteMutation = useMutation({
+    mutationFn: (entityId: string) => apiClient.upvote({ entityId }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ["upvoteCounts", allProposalIds],
+        (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
+          ...old,
+          [data.entityId]: data,
+        }),
+      );
+      queryClient.setQueryData(
+        ["userVotes", allProposalIds],
+        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
+          ...old,
+          [data.entityId]: { entityId: data.entityId, hasUpvote: true },
+        }),
+      );
+    },
+  });
+
+  const downvoteMutation = useMutation({
+    mutationFn: (entityId: string) => apiClient.downvote({ entityId }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ["upvoteCounts", allProposalIds],
+        (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
+          ...old,
+          [data.entityId]: data,
+        }),
+      );
+      queryClient.setQueryData(
+        ["userVotes", allProposalIds],
+        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
+          ...old,
+          [data.entityId]: { entityId: data.entityId, hasUpvote: false },
+        }),
+      );
+    },
+  });
+
+  const handleVote = (proposalId: string) => {
+    if (!isAuthenticated) {
+      void navigate({ to: "/login", search: { redirect: pathname } });
+      return;
+    }
+    const entry = voteMap[proposalId];
+    if (entry?.hasUpvote) {
+      downvoteMutation.mutate(proposalId);
+    } else {
+      upvoteMutation.mutate(proposalId);
+    }
+  };
 
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -103,7 +266,7 @@ function BuildersPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
       <div className="mb-10">
         <h1 className="text-4xl font-black tracking-tight text-foreground mb-2">Builders</h1>
         <p className="text-muted-foreground text-lg mb-6 max-w-2xl">
@@ -126,13 +289,7 @@ function BuildersPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <BuilderCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : builders.length === 0 ? (
+      {sortedCards.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="text-4xl mb-4">🔭</div>
           <p className="text-lg font-semibold text-foreground mb-1">No builders found</p>
@@ -144,11 +301,83 @@ function BuildersPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {builders.map((b) => (
-              <BuilderCard key={b.id} builder={b} auth={auth} />
-            ))}
-          </div>
+          <Reorder.Group
+            as="div"
+            axis="y"
+            values={sortedIds}
+            onReorder={() => {}}
+            className="flex flex-col gap-3"
+          >
+            {sortedCards.map((card) => {
+              const proposal = card.kind === "builder" ? card.proposal : card.proposal;
+              const nominationCount = proposal
+                ? proposal.submissionCount + (counts[proposal.id]?.totalCount ?? 0)
+                : null;
+              const hasNominated = proposal ? voteMap[proposal.id]?.hasUpvote === true : false;
+              const isVoting = proposal
+                ? (upvoteMutation.isPending && upvoteMutation.variables === proposal.id) ||
+                  (downvoteMutation.isPending && downvoteMutation.variables === proposal.id)
+                : false;
+              const onVote = proposal ? () => handleVote(proposal.id) : undefined;
+              const isNominated = proposal !== null;
+
+              if (card.kind === "builder") {
+                return (
+                  <Reorder.Item
+                    as="div"
+                    key={card.builder.id}
+                    value={card.builder.id}
+                    layout="position"
+                    drag={false}
+                    dragListener={false}
+                    transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
+                  >
+                    <BuilderCard
+                      nearAccount={card.builder.nearAccount}
+                      displayName={card.builder.name}
+                      bio={card.builder.bio}
+                      skills={card.builder.skills}
+                      location={card.builder.location}
+                      proposal={proposal}
+                      nominationCount={nominationCount}
+                      hasNominated={hasNominated}
+                      isVoting={isVoting}
+                      onVote={onVote}
+                      auth={auth}
+                      isNominated={isNominated}
+                    />
+                  </Reorder.Item>
+                );
+              }
+
+              return (
+                <Reorder.Item
+                  as="div"
+                  key={`nom-${card.proposal.id}`}
+                  value={`nom-${card.proposal.id}`}
+                  layout="position"
+                  drag={false}
+                  dragListener={false}
+                  transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
+                >
+                  <BuilderCard
+                    nearAccount={card.proposal.entityId}
+                    displayNameOverride={card.payload.name || card.proposal.entityId}
+                    bioOverride={card.payload.bio || null}
+                    skillsOverride={Array.isArray(card.payload.skills) ? card.payload.skills : []}
+                    locationOverride={card.payload.location || null}
+                    proposal={proposal}
+                    nominationCount={nominationCount ?? 0}
+                    hasNominated={hasNominated}
+                    isVoting={isVoting}
+                    onVote={onVote!}
+                    auth={auth}
+                    isNominated
+                  />
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
 
           <div ref={sentinelRef} className="flex justify-center py-8">
             {isFetchingNextPage && (
@@ -157,12 +386,6 @@ function BuildersPage() {
           </div>
         </>
       )}
-
-      <NominationsSection
-        apiClient={apiClient}
-        isAuthenticated={isAuthenticated}
-        userId={session?.user?.id}
-      />
 
       <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-xl bg-foreground p-8">
@@ -196,588 +419,204 @@ function BuildersPage() {
   );
 }
 
-function NominationsSection({
-  apiClient,
-  isAuthenticated,
-  userId,
-}: {
-  apiClient: ReturnType<typeof useApiClient>;
-  isAuthenticated: boolean;
-  userId: string | undefined;
-}) {
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const orpc = useOrpc();
-  const queryClient = useQueryClient();
-
-  const [sectionOpen, setSectionOpen] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const { data: proposalsData, isLoading: proposalsLoading } = useQuery({
-    queryKey: ["proposals", "builders", "pending"],
-    queryFn: () =>
-      apiClient.getProposals({
-        pluginId: "builders",
-        reviewStatus: "pending",
-        limit: 100,
-      }),
-  });
-
-  const proposals = proposalsData?.data ?? [];
-  const proposalIds = useMemo(() => proposals.map((p) => p.id), [proposals]);
-
-  const nominationCounts = useQuery({
-    queryKey: ["nominationCounts", proposalIds],
-    queryFn: async () => {
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        proposals.map(async (p) => {
-          try {
-            const result = await apiClient.getUpvoteCount({ entityId: p.id });
-            counts[p.id] = result.totalCount ?? 0;
-          } catch {
-            counts[p.id] = 0;
-          }
-        }),
-      );
-      return counts;
-    },
-    enabled: proposals.length > 0,
-  });
-
-  const nominationVoteStates = useQuery({
-    queryKey: ["nominationVoteStates", proposalIds],
-    queryFn: async () => {
-      const votes: Record<string, boolean> = {};
-      await Promise.all(
-        proposals.map(async (p) => {
-          try {
-            const result = await apiClient.getUserVote({ entityId: p.id });
-            votes[p.id] = result.hasUpvote;
-          } catch {
-            votes[p.id] = false;
-          }
-        }),
-      );
-      return votes;
-    },
-    enabled: isAuthenticated && proposals.length > 0,
-  });
-
-  const counts = nominationCounts.data ?? {};
-  const voteMap = nominationVoteStates.data ?? {};
-
-  const { data: latestVote } = useQuery(
-    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
-  );
-
-  useEffect(() => {
-    if (!latestVote) return;
-    const { entityId: latestEntityId, totalCount, type } = latestVote;
-    if (!proposalIds.includes(latestEntityId)) return;
-    queryClient.setQueryData(
-      ["nominationCounts", proposalIds],
-      (old: Record<string, number> | undefined) => ({ ...old, [latestEntityId]: totalCount }),
-    );
-    if (userId && latestVote.userId === userId) {
-      queryClient.setQueryData(
-        ["nominationVoteStates", proposalIds],
-        (old: Record<string, boolean> | undefined) => ({
-          ...old,
-          [latestEntityId]: type === "upvote",
-        }),
-      );
-    }
-  }, [latestVote, queryClient, proposalIds, userId]);
-
-  const upvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.upvote({ entityId }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["nominationCounts", proposalIds],
-        (old: Record<string, number> | undefined) => ({ ...old, [data.entityId]: data.totalCount }),
-      );
-      queryClient.setQueryData(
-        ["nominationVoteStates", proposalIds],
-        (old: Record<string, boolean> | undefined) => ({ ...old, [data.entityId]: true }),
-      );
-    },
-  });
-
-  const downvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.downvote({ entityId }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["nominationCounts", proposalIds],
-        (old: Record<string, number> | undefined) => ({ ...old, [data.entityId]: data.totalCount }),
-      );
-      queryClient.setQueryData(
-        ["nominationVoteStates", proposalIds],
-        (old: Record<string, boolean> | undefined) => ({ ...old, [data.entityId]: false }),
-      );
-    },
-  });
-
-  const handleVote = (proposalId: string) => {
-    if (!isAuthenticated) {
-      void navigate({ to: "/login", search: { redirect: pathname } });
-      return;
-    }
-    if (voteMap[proposalId]) {
-      downvoteMutation.mutate(proposalId);
-    } else {
-      upvoteMutation.mutate(proposalId);
-    }
-  };
-
-  if (!proposalsLoading && proposals.length === 0) return null;
-
-  return (
-    <div className="mt-12">
-      <button
-        type="button"
-        onClick={() => {
-          setSectionOpen((o) => !o);
-          if (sectionOpen) setExpandedId(null);
-        }}
-        className="flex items-center gap-2 mb-1 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-      >
-        <h2 className="text-xl font-black tracking-tight text-foreground">Nominated builders</h2>
-        {proposals.length > 0 && (
-          <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
-            {proposals.length}
-          </Badge>
-        )}
-        <motion.span
-          animate={{ rotate: sectionOpen ? 90 : 0 }}
-          transition={{ duration: 0.18, ease: "easeInOut" }}
-          className="inline-flex"
-        >
-          <ChevronRight size={18} className="text-muted-foreground" />
-        </motion.span>
-      </button>
-
-      {!sectionOpen && proposals.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {proposals.length} builder{proposals.length !== 1 ? "s" : ""} awaiting review —{" "}
-          <button
-            type="button"
-            onClick={() => setSectionOpen(true)}
-            className="text-brand-cyan hover:underline"
-          >
-            show nominations
-          </button>
-        </p>
-      )}
-
-      <AnimatePresence initial={false}>
-        {sectionOpen && (
-          <motion.div
-            key="nominations-list"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="mt-4 border border-border rounded-xl overflow-hidden">
-              {proposalsLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <NominationRowSkeleton key={i} isLast={i === 2} />
-                  ))
-                : proposals.map((p, i) => (
-                    <NominationRow
-                      key={p.id}
-                      proposal={p}
-                      nominationCount={p.submissionCount + (counts[p.id] ?? 0)}
-                      hasNominated={voteMap[p.id] ?? false}
-                      isVoting={
-                        (upvoteMutation.isPending && upvoteMutation.variables === p.id) ||
-                        (downvoteMutation.isPending && downvoteMutation.variables === p.id)
-                      }
-                      isExpanded={expandedId === p.id}
-                      isLast={i === proposals.length - 1}
-                      onToggle={() => setExpandedId((prev) => (prev === p.id ? null : p.id))}
-                      onVote={() => handleVote(p.id)}
-                    />
-                  ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function NominationRow({
+function BuilderCard({
+  nearAccount,
+  displayName,
+  bio: bioProp,
+  skills: skillsProp,
+  location: locationProp,
+  displayNameOverride,
+  bioOverride,
+  skillsOverride,
+  locationOverride,
   proposal,
   nominationCount,
   hasNominated,
   isVoting,
-  isExpanded,
-  isLast,
-  onToggle,
   onVote,
+  auth,
+  isNominated,
 }: {
-  proposal: Proposal;
-  nominationCount: number;
+  nearAccount: string;
+  displayName?: string | null;
+  bio?: string | null;
+  skills?: string[];
+  location?: string | null;
+  displayNameOverride?: string;
+  bioOverride?: string | null;
+  skillsOverride?: string[];
+  locationOverride?: string | null;
+  proposal: Proposal | null;
+  nominationCount: number | null;
   hasNominated: boolean;
   isVoting: boolean;
-  isExpanded: boolean;
-  isLast: boolean;
-  onToggle: () => void;
-  onVote: () => void;
-}) {
-  const raw = proposal.payload;
-  const payload: ProposalPayload = (
-    typeof raw === "object" && raw !== null ? raw : {}
-  ) as ProposalPayload;
-  const displayName = payload.name || proposal.entityId;
-  const skills: string[] = Array.isArray(payload.skills) ? payload.skills : [];
-  const location = payload.location || null;
-
-  const auth = useAuthClient();
-  const { data: profile } = useQuery<Profile | null>({
-    queryKey: ["near-profile", proposal.entityId],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(proposal.entityId);
-      return res.data || null;
-    },
-    enabled: !!proposal.entityId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const resolvedName =
-    displayName === proposal.entityId && profile?.name ? profile.name : displayName;
-  const avatarUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
-
-  return (
-    <div className={cn("bg-card", !isLast && "border-b border-border")}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={cn(
-          "w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 text-left transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-          isExpanded ? "bg-muted/50" : "hover:bg-muted/40",
-        )}
-      >
-        <div className="size-9 sm:size-10 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={resolvedName}
-              className="size-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          ) : (
-            <span className="text-xs font-black text-muted-foreground">
-              {getInitials(resolvedName)}
-            </span>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="font-semibold text-foreground leading-tight truncate">
-              {resolvedName}
-            </span>
-            <span className="text-xs font-mono text-brand-cyan truncate hidden sm:inline">
-              {proposal.entityId}
-            </span>
-            {location && (
-              <span className="hidden md:inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin size={10} />
-                {location}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1 sm:gap-1.5">
-            <span className="text-xs font-mono text-brand-cyan sm:hidden truncate max-w-[140px]">
-              {proposal.entityId}
-            </span>
-            {skills.slice(0, 4).map((skill) => (
-              <Badge
-                key={skill}
-                variant="secondary"
-                className="text-[10px] sm:text-xs px-1.5 py-0 rounded-full font-medium hidden sm:inline-flex"
-              >
-                {skill}
-              </Badge>
-            ))}
-            {skills.length > 4 && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] sm:text-xs px-1.5 py-0 rounded-full font-medium hidden sm:inline-flex"
-              >
-                +{skills.length - 4}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* biome-ignore lint/a11y/useSemanticElements: stopPropagation wrapper */}
-        <div
-          role="button"
-          tabIndex={0}
-          className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-          }}
-        >
-          <span className="text-xs font-bold text-muted-foreground min-w-[2ch] text-right tabular-nums">
-            {nominationCount}
-          </span>
-          <Button
-            variant={hasNominated ? "secondary" : "outline"}
-            size="sm"
-            onClick={onVote}
-            disabled={isVoting}
-            className={cn(
-              "gap-1.5 rounded-full text-xs h-7 px-3",
-              hasNominated && "border-brand-accent bg-brand-accent-light text-foreground",
-            )}
-          >
-            <ThumbsUp size={12} className={cn(hasNominated && "fill-current text-brand-accent")} />
-            <span className="hidden sm:inline">{hasNominated ? "Nominated" : "Nominate"}</span>
-          </Button>
-        </div>
-
-        <motion.span
-          animate={{ rotate: isExpanded ? 180 : 0 }}
-          transition={{ duration: 0.18, ease: "easeInOut" }}
-          className="inline-flex shrink-0 text-muted-foreground"
-        >
-          <ChevronDown size={16} />
-        </motion.span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="border-t border-border bg-muted/30 px-4 sm:px-6 py-5">
-              <NearProfile accountId={proposal.entityId} variant="card" className="max-w-lg" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function NominationRowSkeleton({ isLast }: { isLast: boolean }) {
-  return (
-    <div
-      className={cn(
-        "bg-card flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5",
-        !isLast && "border-b border-border",
-      )}
-    >
-      <Skeleton className="size-9 sm:size-10 rounded-full shrink-0" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-3.5 w-36" />
-        <div className="flex gap-1.5">
-          <Skeleton className="h-4 w-16 rounded-full" />
-          <Skeleton className="h-4 w-14 rounded-full" />
-          <Skeleton className="h-4 w-20 rounded-full" />
-        </div>
-      </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <Skeleton className="h-3 w-4" />
-        <Skeleton className="h-7 w-24 rounded-full" />
-        <Skeleton className="h-4 w-4" />
-      </div>
-    </div>
-  );
-}
-
-function useInfiniteBuilders(
-  apiClient: ReturnType<typeof useApiClient>,
-  search: string,
-  limit: number,
-) {
-  const [pages, setPages] = useState<
-    { data: Builder[]; meta: { hasMore: boolean; nextCursor: string | null } }[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const cursorRef = useRef<string | undefined>(undefined);
-
-  const fetch = useCallback(
-    async (cursor?: string, reset = false) => {
-      try {
-        const result = await apiClient.listBuilders({
-          search: search || undefined,
-          limit,
-          cursor,
-        });
-        setPages((prev) => (reset ? [result] : [...prev, result]));
-        setHasNextPage(result.meta.hasMore);
-        cursorRef.current = result.meta.nextCursor ?? undefined;
-      } finally {
-        setIsLoading(false);
-        setIsFetchingNextPage(false);
-      }
-    },
-    [apiClient, search, limit],
-  );
-
-  useEffect(() => {
-    setIsLoading(true);
-    setPages([]);
-    cursorRef.current = undefined;
-    fetch(undefined, true);
-  }, [fetch]);
-
-  const fetchNextPage = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    setIsFetchingNextPage(true);
-    fetch(cursorRef.current);
-  }, [fetch, hasNextPage, isFetchingNextPage]);
-
-  return { data: { pages }, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage };
-}
-
-function BuilderCard({
-  builder,
-  auth,
-}: {
-  builder: Builder;
+  onVote: (() => void) | undefined;
   auth: ReturnType<typeof useAuthClient>;
+  isNominated: boolean;
 }) {
   const { data: profile, isLoading } = useQuery<Profile | null>({
-    queryKey: ["near-profile", builder.nearAccount],
+    queryKey: ["near-profile", nearAccount],
     queryFn: async () => {
-      const res = await auth.near.getProfile(builder.nearAccount);
+      const res = await auth.near.getProfile(nearAccount);
       return res.data || null;
     },
-    enabled: !!builder.nearAccount,
+    enabled: !!nearAccount,
     staleTime: 5 * 60 * 1000,
   });
 
-  const displayName = builder.name || profile?.name || builder.nearAccount;
+  const resolvedName = displayNameOverride
+    ? displayNameOverride === nearAccount && profile?.name
+      ? profile.name
+      : displayNameOverride
+    : displayName || profile?.name || nearAccount;
 
   const avatarUrl =
     profile?.image?.url ??
     (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
 
-  const bio = builder.bio || profile?.description || null;
+  const resolvedBio = bioOverride ?? bioProp ?? profile?.description ?? null;
+  const resolvedSkills = skillsOverride ?? skillsProp ?? [];
+  const resolvedLocation = locationOverride ?? locationProp ?? null;
+
+  const showVoteButton = nominationCount !== null && onVote;
 
   return (
     <Link
       to="/builders/$account"
-      params={{ account: builder.nearAccount }}
-      className="group bg-card border border-border rounded-lg p-6 hover:shadow-lg hover:border-border/80 transition-all duration-200 flex flex-col gap-4"
+      params={{ account: nearAccount }}
+      className={cn(
+        "group bg-card rounded-lg px-5 py-4 sm:px-6 sm:py-5 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4",
+        isNominated ? "border border-dashed border-border" : "border border-border",
+      )}
     >
-      <div className="flex items-start gap-3">
-        <div className="size-12 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
+      <div className="flex items-start gap-3 sm:min-w-0 sm:flex-1">
+        <div className="size-10 sm:size-12 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
           {isLoading ? (
-            <Skeleton className="size-12 rounded-full" />
+            <div className="size-10 sm:size-12 rounded-full bg-muted animate-pulse" />
           ) : avatarUrl ? (
             <img
               src={avatarUrl}
-              alt={displayName}
-              className="size-12 object-cover"
+              alt={resolvedName}
+              className="size-10 sm:size-12 object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
             />
           ) : (
             <span className="text-sm font-black text-muted-foreground">
-              {getInitials(displayName)}
+              {getInitials(resolvedName)}
             </span>
           )}
         </div>
-        <div className="min-w-0">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-4 w-24 mb-1" />
-              <Skeleton className="h-3 w-20" />
-            </>
-          ) : (
-            <>
-              <div className="font-bold text-foreground leading-tight truncate">{displayName}</div>
-              <div className="text-xs font-mono text-brand-cyan mt-0.5 truncate">
-                {builder.nearAccount}
-              </div>
-              {builder.location && (
-                <div className="text-xs text-muted-foreground mt-0.5">{builder.location}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-foreground leading-tight truncate">{resolvedName}</span>
+            <span className="text-xs font-mono text-brand-cyan hidden sm:inline truncate">
+              {nearAccount}
+            </span>
+            {isNominated && (
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-brand-accent-light text-brand-accent border-brand-accent/20"
+              >
+                Nominated
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs font-mono text-brand-cyan sm:hidden truncate mt-0.5">
+            {nearAccount}
+          </div>
+          {resolvedLocation && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+              <MapPin size={10} />
+              {resolvedLocation}
+            </div>
+          )}
+          {resolvedBio && (
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{resolvedBio}</p>
+          )}
+          {resolvedSkills.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {resolvedSkills.slice(0, 5).map((skill) => (
+                <Badge
+                  key={skill}
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 rounded-full font-medium"
+                >
+                  {skill}
+                </Badge>
+              ))}
+              {resolvedSkills.length > 5 && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 rounded-full font-medium"
+                >
+                  +{resolvedSkills.length - 5}
+                </Badge>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {bio ? (
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 flex-1">{bio}</p>
-      ) : (
-        <div className="flex-1" />
-      )}
-
-      {builder.skills.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {builder.skills.slice(0, 5).map((skill) => (
-            <Badge
-              key={skill}
-              variant="secondary"
-              className="text-xs px-2 py-0.5 rounded-full font-medium"
+      <div className="flex items-center gap-3 sm:shrink-0">
+        {showVoteButton && (
+          <div className="flex items-center gap-2">
+            <motion.span
+              key={`count-${proposal!.id}-${nominationCount}`}
+              initial={{ scale: 1.15 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="text-sm font-bold text-muted-foreground tabular-nums"
             >
-              {skill}
-            </Badge>
-          ))}
-          {builder.skills.length > 5 && (
-            <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full font-medium">
-              +{builder.skills.length - 5}
-            </Badge>
-          )}
-        </div>
-      )}
-
-      <div className="pt-3 border-t border-border">
-        <span className="text-xs font-semibold text-brand-cyan group-hover:underline transition-colors">
-          View profile →
-        </span>
+              {nominationCount}
+            </motion.span>
+            <motion.div
+              whileTap={{ scale: 1.15 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              <Button
+                variant={hasNominated ? "secondary" : "outline"}
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onVote!();
+                }}
+                disabled={isVoting}
+                className={cn(
+                  "gap-1.5 rounded-full text-xs h-8 px-3",
+                  hasNominated && "border-brand-accent bg-brand-accent-light text-foreground",
+                )}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={hasNominated ? "filled" : "outline"}
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <ThumbsUp
+                      size={14}
+                      className={cn(
+                        "transition-colors duration-200",
+                        hasNominated && "fill-current text-brand-accent",
+                      )}
+                    />
+                    <span className="hidden sm:inline">
+                      {hasNominated ? "Nominated" : "Nominate"}
+                    </span>
+                  </motion.span>
+                </AnimatePresence>
+              </Button>
+            </motion.div>
+          </div>
+        )}
+        <ArrowRight size={14} className="text-brand-cyan group-hover:translate-x-0.5 transition-transform" />
       </div>
     </Link>
-  );
-}
-
-function BuilderCardSkeleton() {
-  return (
-    <div className="bg-card border border-border rounded-lg p-6 flex flex-col gap-4">
-      <div className="flex items-start gap-3">
-        <Skeleton className="size-12 rounded-full shrink-0" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      </div>
-      <div className="space-y-2 flex-1">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-4/5" />
-        <Skeleton className="h-3 w-3/5" />
-      </div>
-      <div className="flex gap-1.5">
-        <Skeleton className="h-5 w-14 rounded-full" />
-        <Skeleton className="h-5 w-16 rounded-full" />
-        <Skeleton className="h-5 w-12 rounded-full" />
-      </div>
-      <div className="pt-3 border-t border-border">
-        <Skeleton className="h-3 w-24" />
-      </div>
-    </div>
   );
 }
 

@@ -12,7 +12,7 @@
   "app": {
     "host": {
       "development": "local:host",
-      "production": "https://elliot-braem-4216-host-everything-dev-nearbuilder-29cf34786-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4277-host-everything-dev-nearbuilder-c5099d039-ze.zephyrcloud.app",
       "secrets": [
         "CORS_ORIGIN",
         "TENANT_WHITELIST",
@@ -24,20 +24,20 @@
     },
     "ui": {
       "development": "local:ui",
-      "production": "https://elliot-braem-4242-ui-nearbuilders-org-nearbuilder-fc4f63464-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4318-ui-nearbuilders-org-nearbuilder-8030bca42-ze.zephyrcloud.app",
       "integrity": "sha384-SP53Iq8t/AoDNIgaDjwlOThlc4y+Z5vYkuRr9NO59nfFOUO7wnMvryW1pxsn79/W",
-      "ssr": "https://elliot-braem-4243-ui-nearbuilders-org-nearbuilder-33c6b0bee-ze.zephyrcloud.app",
-      "ssrIntegrity": "sha384-P9PnF9/JMYSMicDJ1rF0tXrwABtEpIShKlqjLNW0LBXcvfjQ2v8xOTG2Y98zpDg6"
+      "ssr": "https://elliot-braem-4319-ui-nearbuilders-org-nearbuilder-f6a860392-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-zZoEUk56kJdDW/I7N8SIrPy2wohHukcQV0eD9v3UucWSxi0VUtwQ/IQLvcfDFYOV"
     },
     "api": {
       "development": "local:api",
-      "production": "https://elliot-braem-4244-api-nearbuilders-org-nearbuilde-e6f7a88a8-ze.zephyrcloud.app",
-      "integrity": "sha384-SZegEzidiiNN6IIweYN2qvDhkXpU7hSH4f8HWrUk4B2WmjmS/MorzNJhGTzQcl5I"
+      "production": "https://elliot-braem-4320-api-nearbuilders-org-nearbuilde-1d66f71c7-ze.zephyrcloud.app",
+      "integrity": "sha384-3m+CThZA9JbE2wNIqtlsPgJUlFMeSW6mv6ialtxkztOcb/nZWJASCHltjxW/5hWQ"
     },
     "auth": {
       "name": "everything-dev_auth-plugin",
       "development": "local:plugins/auth",
-      "production": "https://elliot-braem-4233-everything-dev-auth-plugin-bett-a4862f737-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4250-everything-dev-auth-plugin-bett-01cc31550-ze.zephyrcloud.app",
       "integrity": "sha384-HGCj8X8OaADQo1cBP6gyaTEdaGpEqO7EWWlpdp/3Xx4LyM/uVHmLfXTTgdl3NZ9S",
       "secrets": [
         "AUTH_DATABASE_URL",
@@ -74,7 +74,7 @@
           "roleRequired": "anon"
         }
       ],
-      "production": "https://elliot-braem-4245-everything-dev-apps-plugin-near-06c99d617-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4321-everything-dev-apps-plugin-near-68510303d-ze.zephyrcloud.app",
       "integrity": "sha384-y3sci4dkrrwpJFklofUct9UQlLKJeSJpiKjLwXsiIF4xH+QBRXOUYodpNOJsdrqK"
     },
     "projects": {
@@ -91,7 +91,7 @@
           "label": "projects"
         }
       ],
-      "production": "https://elliot-braem-4246-everything-dev-projects-plugin--9d1cf3208-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4322-everything-dev-projects-plugin--cf6981ec4-ze.zephyrcloud.app",
       "integrity": "sha384-Ebw6xOrPBFCd78H0ZuGt85tniTj3J+jKmSts9ULm+tQTy2yco6E5jWfflXwVUON6"
     },
     "builders": {
@@ -102,7 +102,7 @@
       "routes": [
         "ui/src/routes/_layout/builders/**"
       ],
-      "production": "https://elliot-braem-4247-everything-dev-builders-plugin--2b5515eff-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4323-everything-dev-builders-plugin--d13f31650-ze.zephyrcloud.app",
       "integrity": "sha384-q1b4V9SbWtvOff7GDnT/RSQNFGlH907ujgle53/SVGCWxw50DyRNJuYF8zvzRIU0"
     },
     "proposals": {
@@ -110,7 +110,7 @@
       "secrets": [
         "PROPOSALS_DATABASE_URL"
       ],
-      "production": "https://elliot-braem-4248-everything-dev-proposals-plugin-ba0c43e8a-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4324-everything-dev-proposals-plugin-28d19ccbb-ze.zephyrcloud.app",
       "integrity": "sha384-K2byUsIETALrlYBMrzVkrBJEzKbcjBEKlbf3K4b/+khMbzfNdmWtTb/YGtR7XZu/"
     },
     "votes": {
@@ -118,7 +118,7 @@
       "secrets": [
         "VOTES_DATABASE_URL"
       ],
-      "production": "https://elliot-braem-4249-everything-dev-votes-plugin-nea-cb741fcc7-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-4325-everything-dev-votes-plugin-nea-357f65cb9-ze.zephyrcloud.app",
       "integrity": "sha384-U/Zy8z/XcI7McsWcK1HcQlrNdV+xJV+V8T1QLrwSlUNU/YLgsaIo60lgMMf8MjnM"
     }
   },

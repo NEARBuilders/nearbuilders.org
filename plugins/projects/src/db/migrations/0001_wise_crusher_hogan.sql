@@ -1,1 +1,1 @@
-ALTER TABLE "projects" ADD COLUMN "repository" text;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "repository" text;
