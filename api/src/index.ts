@@ -115,7 +115,6 @@ const createCallbacks: Record<string, CreateCallback> = {
       const updated = await projectsClient.updateProject({
         id: proposal.entityId,
         visibility,
-        expectedOwnerId: ownerId,
       });
       assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;

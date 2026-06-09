@@ -70,9 +70,9 @@ export function createProjectProposalOwnerContext(
   };
 }
 
-export function assertProjectProposalOwner(actualOwnerId: string, expectedOwnerId: string) {
+export function assertProjectProposalOwner(actualOwnerId: string, proposalOwnerId: string) {
   const actual = readOwnerId(actualOwnerId);
-  const expected = readOwnerId(expectedOwnerId);
+  const expected = readOwnerId(proposalOwnerId);
   if (!actual || !expected || actual !== expected) {
     throw new ORPCError("BAD_REQUEST", {
       message: "Project owner does not match proposal owner",

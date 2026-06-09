@@ -210,7 +210,6 @@ export declare const contract: {
         }>>;
         repository: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
-        expectedOwnerId: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;

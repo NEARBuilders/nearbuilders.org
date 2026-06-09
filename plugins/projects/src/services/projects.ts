@@ -134,7 +134,6 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         visibility?: ProjectVisibility;
         repository?: string;
         ownerId?: string;
-        expectedOwnerId?: string;
         domain?: string;
       },
       userId: string,
@@ -484,15 +483,6 @@ export const ProjectServiceLive = Layer.effect(
 
           if (!existing) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
-          }
-
-          const expectedOwnerId = normalizeOptionalText(input.expectedOwnerId);
-          if (expectedOwnerId && existing.ownerId !== expectedOwnerId) {
-            return yield* Effect.fail(
-              new ORPCError("BAD_REQUEST", {
-                message: "Project owner does not match proposal owner",
-              }),
-            );
           }
 
           if (
