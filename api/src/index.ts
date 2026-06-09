@@ -59,6 +59,15 @@ function readStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+function isNotFoundError(error: unknown): boolean {
+  if (error instanceof ORPCError) return error.code === "NOT_FOUND";
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "NOT_FOUND"
+  );
+}
+
 type CreateCallback = (
   plugins: Omit<PluginsClient, "auth">,
   proposal: ProposalData,
@@ -90,17 +99,34 @@ const createCallbacks: Record<string, CreateCallback> = {
   },
   projects: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
-    const result = await plugins.projects(pluginContext(context)).createProject({
+    const projectsClient = plugins.projects(pluginContext(context));
+    const visibility =
+      payload.visibility === "private" || payload.visibility === "unlisted"
+        ? payload.visibility
+        : "public";
+
+    // Site-submitted proposals reference an existing (private) project owned by
+    // the proposer; approval only changes its visibility, never its ownership.
+    try {
+      const updated = await projectsClient.updateProject({
+        id: proposal.entityId,
+        visibility,
+      });
+      return updated.id;
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error;
+    }
+
+    // External proposals (e.g. API-key sources) may propose projects that don't
+    // exist yet; create them attributed to the original proposer.
+    const result = await projectsClient.createProject({
       id: proposal.entityId,
       kind: payload.kind === "idea" ? "idea" : "project",
       title: readString(payload.title) ?? proposal.entityId,
       slug: readString(payload.slug) ?? proposal.entityId,
       description: readString(payload.description),
       content: readString(payload.content),
-      visibility:
-        payload.visibility === "private" || payload.visibility === "unlisted"
-          ? payload.visibility
-          : "public",
+      visibility,
       repository: readString(payload.repository),
       organizationId: readString(payload.organizationId),
       ownerId: readString(payload.ownerId) ?? proposal.createdBy,
@@ -355,6 +381,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getProject: builder.getProject.handler(async ({ input, context }) => {
         return await services.plugins.projects(pluginContext(context)).getProject(input);
+      }),
+
+      createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        const isAdmin = context.user?.role === "admin";
+        if (!isAdmin && !context.walletAddress) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Link a NEAR account to create projects",
+          });
+        }
+        // Non-admin projects always start out non-public; going public requires
+        // an approved proposal.
+        const visibility =
+          !isAdmin && input.visibility === "public" ? "private" : (input.visibility ?? "private");
+        return await services.plugins.projects(pluginContext(context)).createProject({
+          ...input,
+          visibility,
+        });
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {

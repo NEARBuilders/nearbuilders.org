@@ -55,7 +55,6 @@ export const Route = createFileRoute("/_layout/_authenticated/_dashboard/project
 });
 
 const slugId = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 6);
-const proposalId = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
 const slugSuffixRef: { current: string } = { current: "" };
 
 const generateSlug = (v: string) => {
@@ -76,14 +75,15 @@ function NewProjectPage() {
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
-  const canCreate = Boolean(session?.user && !session.user.isAnonymous);
   const search = Route.useSearch();
   const { tab } = search;
   const defaultOwnerId =
     nearAccountId ??
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
-    session?.user?.id ??
     "";
+  const canCreate = Boolean(
+    session?.user && !session.user.isAnonymous && (defaultOwnerId || isAdmin),
+  );
 
   const setTab = (value: string) => {
     void navigate({
@@ -105,14 +105,12 @@ function NewProjectPage() {
     }),
   } satisfies ProjectFormValues;
 
-  const projectEntityIdRef = useRef(`proj_${proposalId()}`);
-
   const form = useForm({
     defaultValues: initialDraft as ProjectFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
       if (!canCreate) {
-        toast.error("Link an identity in settings before publishing.");
+        toast.error("Link a NEAR account in settings before creating projects.");
         return;
       }
       await createMutation.mutateAsync(value);
@@ -123,36 +121,57 @@ function NewProjectPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (values: ProjectFormValues) =>
-      apiClient.propose({
-        pluginId: "projects",
-        entityId: projectEntityIdRef.current,
-        payload: {
-          kind: values.kind,
-          title: values.title.trim(),
-          slug: generateSlug(values.title),
-          description: values.description?.trim() || undefined,
-          repository: values.repository?.trim() || undefined,
-          content: values.content?.trim() || undefined,
-          visibility: values.visibility,
-          ownerId: values.ownerId?.trim() || defaultOwnerId || undefined,
-          domain: values.domain?.trim() || undefined,
-        },
-      }),
-    onSuccess: (_result, values) => {
+    mutationFn: async (values: ProjectFormValues) => {
+      const submitForReview = values.visibility === "public" && !isAdmin;
+      const project = await apiClient.createProject({
+        kind: values.kind,
+        title: values.title.trim(),
+        slug: generateSlug(values.title),
+        description: values.description?.trim() || undefined,
+        repository: values.repository?.trim() || undefined,
+        content: values.content?.trim() || undefined,
+        visibility: submitForReview ? "private" : values.visibility,
+        ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
+        domain: values.domain?.trim() || undefined,
+      });
+      if (submitForReview) {
+        await apiClient.propose({
+          pluginId: "projects",
+          entityId: project.id,
+          payload: {
+            kind: project.kind,
+            title: project.title,
+            slug: project.slug,
+            description: project.description ?? undefined,
+            repository: project.repository ?? undefined,
+            content: project.content ?? undefined,
+            visibility: "public",
+            ownerId: project.ownerId,
+            domain: project.domain ?? undefined,
+          },
+        });
+      }
+      return { project, submitForReview };
+    },
+    onSuccess: ({ project, submitForReview }, values) => {
       clearDraft(values.kind === "idea" ? "idea" : "project");
-      toast.success(`${values.kind === "idea" ? "Idea" : "Project"} submitted for review`);
+      const label = values.kind === "idea" ? "Idea" : "Project";
+      toast.success(
+        submitForReview
+          ? `${label} created — submitted for review to go public`
+          : `${label} created`,
+      );
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["admin-proposals", "projects"] });
       navigate({
-        to: "/projects",
+        to: "/projects/$id",
+        params: { id: project.id },
         search: {
           kind: search.kind,
           personal: search.personal,
           private: search.private,
         },
       });
-      projectEntityIdRef.current = `proj_${proposalId()}`;
     },
     onError: (err: Error) => toast.error(err.message || "Failed to create"),
   });
@@ -207,7 +226,7 @@ function NewProjectPage() {
         <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
           {!canCreate && (
             <span className="text-xs text-muted-foreground">
-              Link an identity in settings to publish
+              Link a NEAR account in settings to create projects
             </span>
           )}
           <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, kind: s.values.kind })}>
@@ -219,10 +238,10 @@ function NewProjectPage() {
                 size="sm"
               >
                 {createMutation.isPending
-                  ? "Submitting…"
+                  ? "Creating…"
                   : kind === "idea"
-                    ? "Submit Idea"
-                    : "Submit Project"}
+                    ? "Create Idea"
+                    : "Create Project"}
               </Button>
             )}
           </form.Subscribe>

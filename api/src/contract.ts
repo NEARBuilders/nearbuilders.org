@@ -381,6 +381,29 @@ export const contract = oc.router({
     )
     .errors({ BAD_REQUEST }),
 
+  createProject: oc
+    .route({ method: "POST", path: "/v1/projects" })
+    .input(
+      z.object({
+        kind: z.enum(["project", "idea"]),
+        title: z.string().min(1).max(200),
+        slug: z
+          .string()
+          .min(1)
+          .max(100)
+          .regex(/^[a-z0-9-]+$/),
+        description: z.string().max(1000).optional(),
+        content: z.string().max(50000).optional(),
+        visibility: z.enum(["private", "unlisted", "public"]).optional(),
+        repository: z.string().url().max(500).optional(),
+        organizationId: z.string().optional(),
+        ownerId: z.string().optional(),
+        domain: z.string().max(255).optional(),
+      }),
+    )
+    .output(ProjectOutput)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
   getProject: oc
     .route({ method: "GET", path: "/v1/projects/{id}" })
     .input(z.object({ id: z.string() }))

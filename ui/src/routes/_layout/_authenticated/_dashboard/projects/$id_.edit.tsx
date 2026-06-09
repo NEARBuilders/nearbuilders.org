@@ -62,7 +62,6 @@ function EditProjectPage() {
   const defaultOwnerId =
     nearAccountId ??
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
-    session?.user?.id ??
     "";
 
   const canManage = isAdmin || isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
@@ -80,26 +79,50 @@ function EditProjectPage() {
   };
 
   const updateMutation = useMutation({
-    mutationFn: (values: ProjectFormValues) =>
-      apiClient.updateProject({
+    mutationFn: async (values: ProjectFormValues) => {
+      // Non-admins can't flip a project to public directly; that change goes
+      // through a proposal so an admin can approve it.
+      const submitForReview =
+        !isAdmin && values.visibility === "public" && project?.visibility !== "public";
+      const updated = await apiClient.updateProject({
         id: projectId,
         kind: values.kind,
         title: values.title.trim(),
         description: values.description?.trim() || undefined,
         repository: values.kind === "project" ? values.repository?.trim() || undefined : undefined,
         content: values.kind === "idea" ? values.content?.trim() || undefined : undefined,
-        visibility: values.visibility,
+        visibility: submitForReview ? undefined : values.visibility,
         status: values.status,
         domain: values.domain?.trim() || undefined,
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
             : undefined,
-      }),
-    onSuccess: () => {
-      toast.success("Saved");
+      });
+      if (submitForReview) {
+        await apiClient.propose({
+          pluginId: "projects",
+          entityId: projectId,
+          payload: {
+            kind: updated.kind,
+            title: updated.title,
+            slug: updated.slug,
+            description: updated.description ?? undefined,
+            repository: updated.repository ?? undefined,
+            content: updated.content ?? undefined,
+            visibility: "public",
+            ownerId: updated.ownerId,
+            domain: updated.domain ?? undefined,
+          },
+        });
+      }
+      return { submitForReview };
+    },
+    onSuccess: ({ submitForReview }: { submitForReview: boolean }) => {
+      toast.success(submitForReview ? "Saved — submitted for review to go public" : "Saved");
       queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-proposals", "projects"] });
       navigate({
         to: "/projects/$id",
         params: { id: projectId },

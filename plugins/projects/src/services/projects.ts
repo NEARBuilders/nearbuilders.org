@@ -485,6 +485,18 @@ export const ProjectServiceLive = Layer.effect(
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
           }
 
+          if (
+            input.visibility === "public" &&
+            existing.visibility !== "public" &&
+            userRole !== "admin"
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Making a project public requires admin approval",
+              }),
+            );
+          }
+
           const now = new Date();
           const updates: any = { updatedAt: now };
           const nextKind = input.kind ?? (existing.kind as ProjectKind);

@@ -297,7 +297,11 @@ export function ProjectFormLayout({
                 <div className="flex flex-col gap-2">
                   {(
                     [
-                      { value: "public" as const, label: "Public", desc: "Visible in the feed" },
+                      {
+                        value: "public" as const,
+                        label: "Public",
+                        desc: isAdmin ? "Visible in the feed" : "Visible in the feed after review",
+                      },
                       {
                         value: "unlisted" as const,
                         label: "Unlisted",
