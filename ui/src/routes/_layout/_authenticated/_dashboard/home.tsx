@@ -75,7 +75,7 @@ function Home() {
 
   if (!user) {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
         <DashboardHeader />
         <div className="flex flex-1 items-center justify-center">
           <Skeleton className="h-8 w-48" />
@@ -86,7 +86,7 @@ function Home() {
 
   if (!nearAccountId) {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
         <DashboardHeader />
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
@@ -104,10 +104,10 @@ function Home() {
     );
   }
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <DashboardHeader />
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="flex-1 px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-2xl space-y-6">
           <NearProfile accountId={nearAccountId} variant="card" />
 

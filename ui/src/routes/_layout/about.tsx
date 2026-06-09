@@ -56,8 +56,8 @@ function About() {
   const githubRepo = repository && isGithubUrl(repository) ? parseGithubRepo(repository) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex-1">
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 animate-fade-in">
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="flex items-start justify-between gap-4">

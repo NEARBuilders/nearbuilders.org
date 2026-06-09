@@ -336,7 +336,7 @@ function OrganizationDetail() {
 
   if (isLoadingOrgs) {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
           <div className="h-6 w-32 animate-pulse rounded bg-muted" />
         </div>
@@ -349,7 +349,7 @@ function OrganizationDetail() {
 
   if (!org) {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
           <h1 className="text-xl font-semibold text-foreground">Organization</h1>
           <Button asChild variant="outline" size="sm">
@@ -371,7 +371,7 @@ function OrganizationDetail() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
         <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground min-w-0">
           <Link to="/organizations" className="hover:text-foreground transition-colors shrink-0">
@@ -384,7 +384,7 @@ function OrganizationDetail() {
           <Link to="/organizations">back</Link>
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="flex-1 px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex flex-wrap items-center gap-2 mb-4">

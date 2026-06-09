@@ -31,12 +31,12 @@ function SettingsLayout() {
     tabs.find((t) => pathname === t.to || pathname.startsWith(`${t.to}/`))?.value ?? "profile";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
         <h1 className="text-xl font-semibold text-foreground">Settings</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="flex-1 px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <Tabs value={activeTab} className="w-full min-w-0">
             <TabsList className="w-full justify-start overflow-x-auto">

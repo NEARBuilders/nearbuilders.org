@@ -67,8 +67,8 @@ function SkillPage() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex-1">
         <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 sm:py-10 animate-fade-in">
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="flex items-start justify-between gap-4 flex-wrap">
