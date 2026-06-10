@@ -23,6 +23,7 @@ import { Route as LayoutBuildersAccountRouteImport } from './routes/_layout/buil
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
 import { Route as LayoutAdminDashboardRouteImport } from './routes/_layout/_admin/dashboard'
 import { Route as LayoutAppsAccountIdIndexRouteImport } from './routes/_layout/apps/$accountId/index'
+import { Route as LayoutBuildersAccountEditRouteImport } from './routes/_layout/builders/$account_.edit'
 import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layout/apps/$accountId/$gatewayId'
 import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
@@ -107,6 +108,12 @@ const LayoutAppsAccountIdIndexRoute =
   LayoutAppsAccountIdIndexRouteImport.update({
     id: '/apps/$accountId/',
     path: '/apps/$accountId/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutBuildersAccountEditRoute =
+  LayoutBuildersAccountEditRouteImport.update({
+    id: '/builders/$account_/edit',
+    path: '/builders/$account/edit',
     getParentRoute: () => LayoutRoute,
   } as any)
 const LayoutAppsAccountIdGatewayIdRoute =
@@ -227,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
+  '/builders/$account/edit': typeof LayoutBuildersAccountEditRoute
   '/apps/$accountId/': typeof LayoutAppsAccountIdIndexRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -254,6 +262,7 @@ export interface FileRoutesByTo {
   '/home': typeof LayoutAuthenticatedDashboardHomeRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
+  '/builders/$account/edit': typeof LayoutBuildersAccountEditRoute
   '/apps/$accountId': typeof LayoutAppsAccountIdIndexRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -288,6 +297,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
   '/_layout/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
+  '/_layout/builders/$account_/edit': typeof LayoutBuildersAccountEditRoute
   '/_layout/apps/$accountId/': typeof LayoutAppsAccountIdIndexRoute
   '/_layout/_authenticated/_dashboard/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/_layout/_authenticated/_dashboard/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/accept-invitation/$id'
     | '/apps/$accountId/$gatewayId'
+    | '/builders/$account/edit'
     | '/apps/$accountId/'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/accept-invitation/$id'
     | '/apps/$accountId/$gatewayId'
+    | '/builders/$account/edit'
     | '/apps/$accountId'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -379,6 +391,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard/settings'
     | '/_layout/_authenticated/accept-invitation/$id'
     | '/_layout/apps/$accountId/$gatewayId'
+    | '/_layout/builders/$account_/edit'
     | '/_layout/apps/$accountId/'
     | '/_layout/_authenticated/_dashboard/organizations/$slug'
     | '/_layout/_authenticated/_dashboard/organizations/new'
@@ -496,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/apps/$accountId'
       fullPath: '/apps/$accountId/'
       preLoaderRoute: typeof LayoutAppsAccountIdIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/builders/$account_/edit': {
+      id: '/_layout/builders/$account_/edit'
+      path: '/builders/$account/edit'
+      fullPath: '/builders/$account/edit'
+      preLoaderRoute: typeof LayoutBuildersAccountEditRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/apps/$accountId/$gatewayId': {
@@ -740,6 +760,7 @@ interface LayoutRouteChildren {
   LayoutAppsIndexRoute: typeof LayoutAppsIndexRoute
   LayoutBuildersIndexRoute: typeof LayoutBuildersIndexRoute
   LayoutAppsAccountIdGatewayIdRoute: typeof LayoutAppsAccountIdGatewayIdRoute
+  LayoutBuildersAccountEditRoute: typeof LayoutBuildersAccountEditRoute
   LayoutAppsAccountIdIndexRoute: typeof LayoutAppsAccountIdIndexRoute
 }
 
@@ -755,6 +776,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAppsIndexRoute: LayoutAppsIndexRoute,
   LayoutBuildersIndexRoute: LayoutBuildersIndexRoute,
   LayoutAppsAccountIdGatewayIdRoute: LayoutAppsAccountIdGatewayIdRoute,
+  LayoutBuildersAccountEditRoute: LayoutBuildersAccountEditRoute,
   LayoutAppsAccountIdIndexRoute: LayoutAppsAccountIdIndexRoute,
 }
 

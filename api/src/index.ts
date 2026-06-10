@@ -439,6 +439,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.plugins.builders(pluginContext(context)).getMyBuilderProfile(input);
         }),
 
+      updateBuilderProfile: builder.updateBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins
+            .builders(pluginContext(context))
+            .updateBuilderProfile(input);
+        }),
+
       listRegistryApps: builder.listRegistryApps.handler(async ({ input }) => {
         return await services.plugins.apps().listRegistryApps(input);
       }),

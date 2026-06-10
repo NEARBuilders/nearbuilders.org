@@ -499,6 +499,21 @@ export const contract = oc.router({
     .output(z.object({ data: BuilderOutput.nullable() }))
     .errors({ UNAUTHORIZED }),
 
+  updateBuilderProfile: oc
+    .route({ method: "PATCH", path: "/v1/builders/{nearAccount}" })
+    .input(
+      z.object({
+        nearAccount: z.string(),
+        name: z.string().min(1).max(100).optional(),
+        bio: z.string().max(1000).optional(),
+        skills: z.array(z.string().max(50)).max(20).optional(),
+        location: z.string().max(100).optional(),
+        links: z.record(z.string(), z.string()).optional(),
+      }),
+    )
+    .output(z.object({ data: BuilderOutput }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
   listRegistryApps: oc
     .route({ method: "GET", path: "/v1/registry/apps" })
     .input(
