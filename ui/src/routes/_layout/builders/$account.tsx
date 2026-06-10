@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, MapPin, ThumbsUp } from "lucide-react";
+import { ArrowLeft, ExternalLink, MapPin, Pencil, ThumbsUp } from "lucide-react";
 import type { ProposalPayload } from "@/app";
 import {
   builderProposalsOptions,
@@ -218,6 +218,11 @@ function LoadedProfile({
 }) {
   const auth = useAuthClient();
   const apiClient = useApiClient();
+  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const nearAccountId = auth.near.getAccountId();
+  const canEdit =
+    session?.user?.role === "admin" ||
+    (Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase());
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
     queryKey: ["near-profile", account],
@@ -294,6 +299,19 @@ function LoadedProfile({
                 e.currentTarget.style.display = "none";
               }}
             />
+          )}
+          {canEdit && (
+            <Button
+              asChild
+              variant="secondary"
+              size="sm"
+              className="absolute right-4 top-4 gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
+            >
+              <Link to="/builders/$account/edit" params={{ account }}>
+                <Pencil size={13} />
+                Edit profile
+              </Link>
+            </Button>
           )}
           <div className="absolute -bottom-10 left-6 sm:left-8">
             <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">

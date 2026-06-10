@@ -318,3 +318,6 @@ node_modules/.federation
 # CSS files (Tailwind - handled by build tools)
 *.css
 .tanstack
+
+# Local AI agent instructions
+CLAUDE.md
