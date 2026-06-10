@@ -176,13 +176,6 @@ function EditForm({
         }}
         className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8"
       >
-        <div className="space-y-1.5">
-          <span className="block text-sm font-semibold text-foreground">NEAR Account</span>
-          <div className="flex h-10 items-center rounded-xl border border-border bg-muted/40 px-3 font-mono text-sm text-brand-cyan">
-            {account}
-          </div>
-        </div>
-
         <BuilderFormFields form={form} />
 
         <div className="flex gap-3 border-t border-border pt-2">
