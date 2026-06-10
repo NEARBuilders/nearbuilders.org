@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, MapPin, Pencil, ThumbsUp } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, ThumbsUp } from "lucide-react";
 import type { ProposalPayload } from "@/app";
 import {
   builderProposalsOptions,
@@ -15,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { socialIcon } from "@/components/ui/social-icons";
+import { linkLabel } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
@@ -261,11 +263,11 @@ function LoadedProfile({
   const allLinks: Record<string, string> = {};
   if (profile?.linktree) {
     for (const [k, v] of Object.entries(profile.linktree)) {
-      if (typeof v === "string") allLinks[k] = v;
+      if (typeof v === "string" && v.trim()) allLinks[k] = v;
     }
   }
   for (const [k, v] of Object.entries(builder.links ?? {})) {
-    allLinks[k] = v;
+    if (typeof v === "string" && v.trim()) allLinks[k] = v;
   }
 
   return (
@@ -417,18 +419,21 @@ function LoadedProfile({
                 )}
                 {Object.keys(allLinks).length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(allLinks).map(([platform, url]) => (
-                      <a
-                        key={platform}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs bg-secondary border border-border hover:bg-muted hover:border-border/80 transition-all duration-150 font-medium"
-                      >
-                        {platform}
-                        <ExternalLink size={10} className="opacity-40" />
-                      </a>
-                    ))}
+                    {Object.entries(allLinks).map(([platform, url]) => {
+                      const Icon = socialIcon(platform);
+                      return (
+                        <a
+                          key={platform}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-secondary border border-border hover:bg-muted hover:border-border/80 transition-all duration-150 font-medium"
+                        >
+                          <Icon className="size-3.5" />
+                          {linkLabel(platform)}
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>

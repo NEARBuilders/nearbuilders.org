@@ -1,12 +1,14 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
+import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({
   head: ({ params }) => ({
@@ -36,10 +38,19 @@ function EditBuilderProfilePage() {
   });
   const builder = builderQuery.data?.data;
 
+  const profileQuery = useQuery<Profile | null>({
+    queryKey: ["near-profile", account],
+    queryFn: async () => {
+      const res = await auth.near.getProfile(account);
+      return res.data || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const canEdit =
     isAdmin || (Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase());
 
-  if (sessionLoading || builderQuery.isLoading) {
+  if (sessionLoading || builderQuery.isLoading || profileQuery.isLoading) {
     return (
       <CenteredState
         account={account}
@@ -85,15 +96,19 @@ function EditBuilderProfilePage() {
     );
   }
 
-  return <EditForm account={account} builder={builder} />;
+  return (
+    <EditForm account={account} builder={builder} socialLinktree={profileQuery.data?.linktree} />
+  );
 }
 
 function EditForm({
   account,
   builder,
+  socialLinktree,
 }: {
   account: string;
   builder: NonNullable<Awaited<ReturnType<ReturnType<typeof useApiClient>["getBuilder"]>>["data"]>;
+  socialLinktree?: Record<string, unknown> | null;
 }) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
@@ -107,6 +122,7 @@ function EditForm({
         bio: values.bio,
         location: values.location,
         skills: parseSkills(values.skills),
+        links: composeLinks(values.links, builder.links),
       }),
     onSuccess: () => {
       toast.success("Profile updated");
@@ -124,6 +140,7 @@ function EditForm({
       bio: builder.bio ?? "",
       skills: builder.skills.join(", "),
       location: builder.location ?? "",
+      links: initialFormLinks(builder.links, socialLinktree),
     } satisfies BuilderFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
@@ -159,13 +176,6 @@ function EditForm({
         }}
         className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8"
       >
-        <div className="space-y-1.5">
-          <span className="block text-sm font-semibold text-foreground">NEAR Account</span>
-          <div className="flex h-10 items-center rounded-xl border border-border bg-muted/40 px-3 font-mono text-sm text-brand-cyan">
-            {account}
-          </div>
-        </div>
-
         <BuilderFormFields form={form} />
 
         <div className="flex gap-3 border-t border-border pt-2">

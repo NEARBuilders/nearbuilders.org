@@ -2,7 +2,9 @@ import { useStore } from "@tanstack/react-form";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { socialIcon } from "@/components/ui/social-icons";
 import { Textarea } from "@/components/ui/textarea";
+import { SOCIAL_LINKS, validateHandle } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 import { ErrorText, fieldError, HelperText, validateOptionalMaxLength } from "./project-form";
 
@@ -11,6 +13,7 @@ export type BuilderFormValues = {
   bio: string;
   skills: string;
   location: string;
+  links: Record<string, string>;
 };
 
 export function parseSkills(raw: string): string[] {
@@ -161,6 +164,59 @@ export function BuilderFormFields({ form }: { form: any }) {
           );
         }}
       </form.Field>
+
+      <div className="space-y-3">
+        <div>
+          <Label>Social links</Label>
+          <HelperText>
+            Prefilled from your NEAR Social profile where available — keep, edit, or clear them.
+          </HelperText>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {SOCIAL_LINKS.map(({ key, label, placeholder }) => {
+            const Icon = socialIcon(key);
+            return (
+              <form.Field
+                key={key}
+                name={`links.${key}`}
+                validators={{
+                  onChange: ({ value }: any) => validateHandle(value),
+                  onSubmit: ({ value }: any) => validateHandle(value),
+                }}
+              >
+                {(field: any) => {
+                  const err = fieldError(field.state.meta.errors[0]);
+                  return (
+                    <div className="space-y-1.5">
+                      <div
+                        className={cn(
+                          "flex h-10 w-full items-center overflow-hidden rounded-md border bg-input text-sm transition-[border-color,box-shadow] focus-within:ring-[3px] focus-within:ring-ring/20",
+                          err
+                            ? "border-destructive focus-within:border-destructive"
+                            : "border-border focus-within:border-ring",
+                        )}
+                      >
+                        <span className="flex h-full items-center border-r border-border px-3 text-muted-foreground">
+                          <Icon className="size-4" />
+                        </span>
+                        <input
+                          id={`link-${key}`}
+                          aria-label={label}
+                          value={field.state.value ?? ""}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder={placeholder}
+                          className="h-full w-full bg-transparent px-3 text-foreground outline-none placeholder:text-muted-foreground"
+                        />
+                      </div>
+                      {err && <ErrorText>{err}</ErrorText>}
+                    </div>
+                  );
+                }}
+              </form.Field>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
