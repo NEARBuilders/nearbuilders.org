@@ -1,11 +1,18 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
+import {
+  BuilderFormFields,
+  type BuilderFormValues,
+  composeLinks,
+  initialFormLinks,
+  parseSkills,
+} from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({
@@ -36,10 +43,19 @@ function EditBuilderProfilePage() {
   });
   const builder = builderQuery.data?.data;
 
+  const profileQuery = useQuery<Profile | null>({
+    queryKey: ["near-profile", account],
+    queryFn: async () => {
+      const res = await auth.near.getProfile(account);
+      return res.data || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const canEdit =
     isAdmin || (Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase());
 
-  if (sessionLoading || builderQuery.isLoading) {
+  if (sessionLoading || builderQuery.isLoading || profileQuery.isLoading) {
     return (
       <CenteredState
         account={account}
@@ -85,15 +101,19 @@ function EditBuilderProfilePage() {
     );
   }
 
-  return <EditForm account={account} builder={builder} />;
+  return (
+    <EditForm account={account} builder={builder} socialLinktree={profileQuery.data?.linktree} />
+  );
 }
 
 function EditForm({
   account,
   builder,
+  socialLinktree,
 }: {
   account: string;
   builder: NonNullable<Awaited<ReturnType<ReturnType<typeof useApiClient>["getBuilder"]>>["data"]>;
+  socialLinktree?: Record<string, unknown> | null;
 }) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
@@ -107,6 +127,7 @@ function EditForm({
         bio: values.bio,
         location: values.location,
         skills: parseSkills(values.skills),
+        links: composeLinks(values.links, builder.links),
       }),
     onSuccess: () => {
       toast.success("Profile updated");
@@ -124,6 +145,7 @@ function EditForm({
       bio: builder.bio ?? "",
       skills: builder.skills.join(", "),
       location: builder.location ?? "",
+      links: initialFormLinks(builder.links, socialLinktree),
     } satisfies BuilderFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {

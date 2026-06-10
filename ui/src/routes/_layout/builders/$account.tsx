@@ -261,11 +261,11 @@ function LoadedProfile({
   const allLinks: Record<string, string> = {};
   if (profile?.linktree) {
     for (const [k, v] of Object.entries(profile.linktree)) {
-      if (typeof v === "string") allLinks[k] = v;
+      if (typeof v === "string" && v.trim()) allLinks[k] = v;
     }
   }
   for (const [k, v] of Object.entries(builder.links ?? {})) {
-    allLinks[k] = v;
+    if (typeof v === "string" && v.trim()) allLinks[k] = v;
   }
 
   return (
