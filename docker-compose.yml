@@ -1,3 +1,5 @@
+name: work.efiz.near
+
 x-pg-common: &pg-common
   image: postgres:17-alpine
   environment: &pg-env
@@ -12,68 +14,80 @@ x-pg-common: &pg-common
 services:
   postgres-api:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-api
     environment:
       <<: *pg-env
       POSTGRES_DB: api_db
     ports:
       - "5432:5432"
     volumes:
-      - postgres_api_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_api_data:/var/lib/postgresql/data
 
   postgres-auth:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-auth
     environment:
       <<: *pg-env
       POSTGRES_DB: auth_db
     ports:
       - "5433:5432"
     volumes:
-      - postgres_auth_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_auth_data:/var/lib/postgresql/data
 
   postgres-builders:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-builders
     environment:
       <<: *pg-env
       POSTGRES_DB: builders_db
     ports:
       - "5434:5432"
     volumes:
-      - postgres_builders_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_builders_data:/var/lib/postgresql/data
 
   postgres-projects:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-projects
     environment:
       <<: *pg-env
       POSTGRES_DB: projects_db
     ports:
       - "5435:5432"
     volumes:
-      - postgres_projects_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_projects_data:/var/lib/postgresql/data
 
   postgres-proposals:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-proposals
     environment:
       <<: *pg-env
       POSTGRES_DB: proposals_db
     ports:
       - "5436:5432"
     volumes:
-      - postgres_proposals_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_proposals_data:/var/lib/postgresql/data
 
   postgres-votes:
     <<: *pg-common
+    container_name: work.efiz.near-postgres-votes
     environment:
       <<: *pg-env
       POSTGRES_DB: votes_db
     ports:
       - "5437:5432"
     volumes:
-      - postgres_votes_data:/var/lib/postgresql/data
+      - work_efiz_near_postgres_votes_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_api_data:
-  postgres_auth_data:
-  postgres_builders_data:
-  postgres_projects_data:
-  postgres_proposals_data:
-  postgres_votes_data:
+  work_efiz_near_postgres_api_data:
+    name: work_efiz_near_postgres_api_data
+  work_efiz_near_postgres_auth_data:
+    name: work_efiz_near_postgres_auth_data
+  work_efiz_near_postgres_builders_data:
+    name: work_efiz_near_postgres_builders_data
+  work_efiz_near_postgres_projects_data:
+    name: work_efiz_near_postgres_projects_data
+  work_efiz_near_postgres_proposals_data:
+    name: work_efiz_near_postgres_proposals_data
+  work_efiz_near_postgres_votes_data:
+    name: work_efiz_near_postgres_votes_data
