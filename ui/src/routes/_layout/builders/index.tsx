@@ -10,16 +10,18 @@ import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { ArrowRight, CheckCircle, MapPin, Search, Sparkles, ThumbsUp, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Proposal, ProposalPayload } from "@/app";
+import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
   pendingProposalsOptions,
-  sessionQueryOptions,
   upvoteCountsOptions,
+  userVotesOptions,
+} from "@/lib/queries/builders";
+import {
+  sessionQueryOptions,
   useApiClient,
   useAuthClient,
   useOrpc,
-  userVotesOptions,
 } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

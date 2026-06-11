@@ -87,17 +87,6 @@ export { createApiClient, useApiClient, useOrpc } from "./lib/api";
 export type { AuthClient, Organization, Passkey, SessionData } from "./lib/auth";
 export { createAuthClient, sessionQueryOptions, useAuthClient, useRelayHistory } from "./lib/auth";
 
-export type { Builder, Proposal, ProposalPayload } from "./lib/queries/builders";
-export {
-  builderProposalsOptions,
-  buildersInfiniteOptions,
-  nearProfileOptions,
-  PAGE_SIZE,
-  pendingProposalsOptions,
-  upvoteCountsOptions,
-  userVotesOptions,
-} from "./lib/queries/builders";
-
 import type {
   CreateRouterOptions as BaseCreateRouterOptions,
   RenderOptions as BaseRenderOptions,

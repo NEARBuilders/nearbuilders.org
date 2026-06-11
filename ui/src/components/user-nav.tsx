@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { nearProfileOptions, sessionQueryOptions, useAuthClient } from "@/app";
+import { nearProfileOptions } from "@/lib/queries/builders";
+import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
