@@ -10,6 +10,10 @@ import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { ArrowRight, CheckCircle, MapPin, Search, Sparkles, ThumbsUp, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -17,15 +21,6 @@ import {
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
-import {
-  sessionQueryOptions,
-  useApiClient,
-  useAuthClient,
-  useOrpc,
-} from "@/app";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface BuilderLike {

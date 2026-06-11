@@ -3,21 +3,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, MapPin, Pencil, ThumbsUp } from "lucide-react";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { socialIcon } from "@/components/ui/social-icons";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderProposalsOptions,
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
-import {
-  sessionQueryOptions,
-  useApiClient,
-  useAuthClient,
-} from "@/app";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { socialIcon } from "@/components/ui/social-icons";
 import { linkLabel } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
