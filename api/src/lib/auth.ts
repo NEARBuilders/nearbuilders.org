@@ -1,32 +1,22 @@
 import { ORPCError } from "every-plugin/orpc";
+import type { AuthRequestContext as GeneratedAuthRequestContext } from "./auth-types.gen";
 import type { PluginsClient } from "./plugins-types.gen";
 
-export interface RequestAuthUser {
-  id: string;
-  role?: string;
-  email?: string;
-  name?: string;
-}
-
-export interface ApiKeyContext {
-  id: string;
-  name: string | null;
-  permissions: Record<string, string[]> | null;
-}
+export type RequestAuthUser = NonNullable<GeneratedAuthRequestContext["user"]>;
+export type ApiKeyContext = NonNullable<GeneratedAuthRequestContext["apiKey"]>;
 
 export interface RequestAuthContext {
-  userId?: string;
-  user?: RequestAuthUser;
-  organizationId?: string;
-  apiKey?: ApiKeyContext | null;
+  userId?: GeneratedAuthRequestContext["userId"];
+  user?: GeneratedAuthRequestContext["user"];
+  organizationId?: GeneratedAuthRequestContext["organization"]["activeOrganizationId"];
+  apiKey?: GeneratedAuthRequestContext["apiKey"];
   reqHeaders?: Headers;
   getRawBody?: () => Promise<string>;
 }
 
 export interface AuthContext extends RequestAuthContext {
-  userId: RequestAuthUser["id"];
+  userId: NonNullable<GeneratedAuthRequestContext["userId"]>;
   user: RequestAuthUser;
-  apiKey?: ApiKeyContext | null;
 }
 
 export type AuthPluginClientFactory = PluginsClient["auth"];
@@ -61,6 +51,18 @@ export function createAuthMiddleware(builder: any) {
   const requireAuth = builder.middleware(
     async ({ context, next }: { context: RequestAuthContext; next: any }) => {
       if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "Authentication required",
+          data: { hint: "Sign in or provide an API key" },
+        });
+      }
+      return next({ context: toRequestAuthContext(context) });
+    },
+  );
+
+  const requireAuthOrApiKey = builder.middleware(
+    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
+      if (!context.user && !context.userId && !context.apiKey) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "Authentication required",
           data: { hint: "Sign in or provide an API key" },
@@ -144,25 +146,13 @@ export function createAuthMiddleware(builder: any) {
       return next({ context: toRequestAuthContext(context) });
     });
 
-  const requireAuthOrApiKey = builder.middleware(
-    async ({ context, next }: { context: RequestAuthContext; next: any }) => {
-      if (!context.user && !context.userId && !context.apiKey) {
-        throw new ORPCError("UNAUTHORIZED", {
-          message: "Authentication required",
-          data: { hint: "Sign in or provide an API key" },
-        });
-      }
-      return next({ context: toRequestAuthContext(context) });
-    },
-  );
-
   return {
     requireAuth,
+    requireAuthOrApiKey,
     requireUser,
     requireRole,
     requireAdmin,
     requireOrganization,
     requireApiKey,
-    requireAuthOrApiKey,
   };
 }

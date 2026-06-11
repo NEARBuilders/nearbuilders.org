@@ -66,7 +66,12 @@ const createRouter = (opts: CreateRouterOptions) => {
       queryClient,
       runtimeConfig: opts.context.runtimeConfig,
       apiClient: opts.context.apiClient,
-      authClient: opts.context.authClient ?? createAuthClient(opts.context.runtimeConfig),
+      authClient:
+        opts.context.authClient ??
+        createAuthClient({
+          runtimeConfig: opts.context.runtimeConfig,
+          cspNonce: opts.context.cspNonce,
+        }),
       session: opts.context.session,
       cspNonce,
     },
@@ -113,7 +118,8 @@ const getRouteHead = async (pathname: string, context?: Partial<RouterContext>) 
       apiClient:
         context?.apiClient ??
         createApiClient({ hostUrl: runtimeConfig.hostUrl, rpcBase: runtimeConfig.rpcBase }),
-      authClient: context?.authClient ?? createAuthClient(runtimeConfig),
+      authClient:
+        context?.authClient ?? createAuthClient({ runtimeConfig, cspNonce: context?.cspNonce }),
       session: context?.session,
     },
   });
@@ -148,7 +154,11 @@ const renderToStream = async (request: Request, renderOptions: RenderOptions) =>
           queryClient: localQueryClient,
           runtimeConfig: renderOptions.runtimeConfig,
           apiClient: renderOptions.apiClient,
-          authClient: createAuthClient(renderOptions.runtimeConfig, request.headers),
+          authClient: createAuthClient({
+            runtimeConfig: renderOptions.runtimeConfig,
+            headers: request.headers,
+            cspNonce: renderOptions.cspNonce,
+          }),
           session: renderOptions.session,
           cspNonce: renderOptions.cspNonce,
         },

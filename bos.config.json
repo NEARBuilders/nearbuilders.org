@@ -1,5 +1,5 @@
 {
-  "extends": "bos://dev.everything.near/everything.dev",
+  "extends": "bos://dev.everything.near/dev.everything.dev",
   "account": "work.efiz.near",
   "domain": "nearbuilders.org",
   "title": "NEAR Builders",
@@ -10,51 +10,13 @@
   },
   "repository": "https://github.com/nearbuilders/everything-dev",
   "app": {
-    "host": {
-      "development": "local:host",
-      "production": "https://elliot-braem-4277-host-everything-dev-nearbuilder-c5099d039-ze.zephyrcloud.app",
-      "secrets": [
-        "CORS_ORIGIN",
-        "TENANT_WHITELIST",
-        "ALLOW_OVERRIDE",
-        "ALLOW_UNTRUSTED_SSR",
-        "CSP_STRICT"
-      ],
-      "integrity": "sha384-S3ije3S2AlqWA6VosIY6nRO+fLITipHIv53IurmoL7x/KVfOOrGvYjJS0CoNnH68"
-    },
     "ui": {
-      "development": "local:ui",
-      "production": "https://elliot-braem-4318-ui-nearbuilders-org-nearbuilder-8030bca42-ze.zephyrcloud.app",
-      "integrity": "sha384-SP53Iq8t/AoDNIgaDjwlOThlc4y+Z5vYkuRr9NO59nfFOUO7wnMvryW1pxsn79/W",
-      "ssr": "https://elliot-braem-4319-ui-nearbuilders-org-nearbuilder-f6a860392-ze.zephyrcloud.app",
-      "ssrIntegrity": "sha384-zZoEUk56kJdDW/I7N8SIrPy2wohHukcQV0eD9v3UucWSxi0VUtwQ/IQLvcfDFYOV"
+      "development": "local:ui"
     },
     "api": {
       "development": "local:api",
-      "production": "https://elliot-braem-4320-api-nearbuilders-org-nearbuilde-1d66f71c7-ze.zephyrcloud.app",
-      "integrity": "sha384-3m+CThZA9JbE2wNIqtlsPgJUlFMeSW6mv6ialtxkztOcb/nZWJASCHltjxW/5hWQ"
-    },
-    "auth": {
-      "name": "everything-dev_auth-plugin",
-      "development": "local:plugins/auth",
-      "production": "https://elliot-braem-4250-everything-dev-auth-plugin-bett-01cc31550-ze.zephyrcloud.app",
-      "integrity": "sha384-HGCj8X8OaADQo1cBP6gyaTEdaGpEqO7EWWlpdp/3Xx4LyM/uVHmLfXTTgdl3NZ9S",
       "secrets": [
-        "AUTH_DATABASE_URL",
-        "BETTER_AUTH_SECRET",
-        "CORS_ORIGIN",
-        "GITHUB_CLIENT_ID",
-        "GITHUB_CLIENT_SECRET",
-        "PASSKEY_RP_ID",
-        "PASSKEY_RP_NAME",
-        "PASSKEY_ORIGIN",
-        "TWILIO_ACCOUNT_SID",
-        "TWILIO_AUTH_TOKEN",
-        "TWILIO_PHONE_NUMBER",
-        "NEAR_RELAYER_ACCOUNT_ID",
-        "NEAR_RELAYER_PRIVATE_KEY",
-        "NEAR_SUB_ACCOUNT_PARENT_KEY_MAINNET",
-        "NEAR_SUB_ACCOUNT_PARENT_KEY_TESTNET"
+        "API_DATABASE_URL"
       ]
     }
   },
@@ -73,9 +35,7 @@
           "label": "apps",
           "roleRequired": "anon"
         }
-      ],
-      "production": "https://elliot-braem-4321-everything-dev-apps-plugin-near-68510303d-ze.zephyrcloud.app",
-      "integrity": "sha384-y3sci4dkrrwpJFklofUct9UQlLKJeSJpiKjLwXsiIF4xH+QBRXOUYodpNOJsdrqK"
+      ]
     },
     "projects": {
       "development": "local:plugins/projects",
@@ -90,9 +50,7 @@
           "icon": "FolderKanban",
           "label": "projects"
         }
-      ],
-      "production": "https://elliot-braem-4322-everything-dev-projects-plugin--cf6981ec4-ze.zephyrcloud.app",
-      "integrity": "sha384-Ebw6xOrPBFCd78H0ZuGt85tniTj3J+jKmSts9ULm+tQTy2yco6E5jWfflXwVUON6"
+      ]
     },
     "builders": {
       "development": "local:plugins/builders",
@@ -101,84 +59,19 @@
       ],
       "routes": [
         "ui/src/routes/_layout/builders/**"
-      ],
-      "production": "https://elliot-braem-4323-everything-dev-builders-plugin--d13f31650-ze.zephyrcloud.app",
-      "integrity": "sha384-q1b4V9SbWtvOff7GDnT/RSQNFGlH907ujgle53/SVGCWxw50DyRNJuYF8zvzRIU0"
+      ]
     },
     "proposals": {
       "development": "local:plugins/proposals",
       "secrets": [
         "PROPOSALS_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-4324-everything-dev-proposals-plugin-28d19ccbb-ze.zephyrcloud.app",
-      "integrity": "sha384-K2byUsIETALrlYBMrzVkrBJEzKbcjBEKlbf3K4b/+khMbzfNdmWtTb/YGtR7XZu/"
+      ]
     },
     "votes": {
       "development": "local:plugins/votes",
       "secrets": [
         "VOTES_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-4325-everything-dev-votes-plugin-nea-357f65cb9-ze.zephyrcloud.app",
-      "integrity": "sha384-U/Zy8z/XcI7McsWcK1HcQlrNdV+xJV+V8T1QLrwSlUNU/YLgsaIo60lgMMf8MjnM"
+      ]
     }
-  },
-  "shared": {
-    "ui": {
-      "effect": {
-        "version": "3.21.2",
-        "requiredVersion": "^3.21.2",
-        "singleton": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "zod": {
-        "version": "4.3.6",
-        "requiredVersion": "^4.3.6",
-        "singleton": true,
-        "eager": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "@orpc/contract": {
-        "version": "1.14.3",
-        "requiredVersion": "^1.14.3",
-        "singleton": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "better-auth": {
-        "version": "1.6.9",
-        "requiredVersion": "^1.6.9",
-        "singleton": true,
-        "eager": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "better-near-auth": {
-        "version": "1.5.0",
-        "requiredVersion": "^1.5.0",
-        "singleton": true,
-        "eager": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "@better-auth/api-key": {
-        "version": "1.6.9",
-        "requiredVersion": "^1.6.9",
-        "singleton": true,
-        "eager": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      },
-      "@better-auth/passkey": {
-        "version": "1.6.9",
-        "requiredVersion": "^1.6.9",
-        "singleton": true,
-        "eager": true,
-        "strictVersion": false,
-        "shareScope": "default"
-      }
-    },
-    "plugins": {}
   }
 }

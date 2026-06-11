@@ -39,10 +39,17 @@ import {
   buildPublishedAccountHref,
   buildPublishedGatewayHref,
   buildRuntimeHref,
+  getCspNonce,
   getRuntimeConfig,
 } from "everything-dev/ui/runtime";
 
-export { buildPublishedAccountHref, buildPublishedGatewayHref, buildRuntimeHref, getRuntimeConfig };
+export {
+  buildPublishedAccountHref,
+  buildPublishedGatewayHref,
+  buildRuntimeHref,
+  getCspNonce,
+  getRuntimeConfig,
+};
 
 type RuntimeConfigInput = Partial<import("everything-dev/types").ClientRuntimeConfig> | undefined;
 
@@ -79,6 +86,7 @@ export type { ApiClient } from "./lib/api";
 export { createApiClient, useApiClient, useOrpc } from "./lib/api";
 export type { AuthClient, Organization, Passkey, SessionData } from "./lib/auth";
 export { createAuthClient, sessionQueryOptions, useAuthClient, useRelayHistory } from "./lib/auth";
+
 export type { Builder, Proposal, ProposalPayload } from "./lib/queries/builders";
 export {
   builderProposalsOptions,
@@ -110,8 +118,7 @@ export type {
   RouterModule,
 } from "everything-dev/ui/types";
 
-export interface RouterContext
-  extends Omit<BaseRouterContextWithApi<ApiClient, SessionData>, "assetsUrl"> {
+export interface RouterContext extends BaseRouterContextWithApi<ApiClient, SessionData> {
   apiClient: ApiClient;
   authClient: AuthClientType;
 }
@@ -121,10 +128,8 @@ export interface CreateRouterOptions
   context: RouterContext;
 }
 
-export interface RenderOptions
-  extends Omit<BaseRenderOptions<SessionData>, "runtimeConfig" | "assetsUrl"> {
+export interface RenderOptions extends Omit<BaseRenderOptions<SessionData>, "runtimeConfig"> {
   runtimeConfig: BaseRenderOptions<SessionData>["runtimeConfig"];
   apiClient: ApiClient;
   authClient?: AuthClientType;
-  cspNonce?: string;
 }

@@ -1,3 +1,4 @@
+import { dehydrate, hydrate } from "@tanstack/react-query";
 import { createBrowserHistory, createRouter as createTanStackRouter } from "@tanstack/react-router";
 import type { CreateRouterOptions } from "./app";
 import { createAuthClient } from "./app";
@@ -10,17 +11,10 @@ export type {
   RouterModule,
 } from "./app";
 
-function defaultPendingComponent() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-6">
-      <p className="text-sm text-muted-foreground">Loading...</p>
-    </div>
-  );
-}
-
 export function createRouter(opts: CreateRouterOptions) {
   const queryClient = opts.context.queryClient;
   const history = opts.history ?? createBrowserHistory();
+  const cspNonce = opts.context.cspNonce;
 
   const router = createTanStackRouter({
     routeTree,
@@ -29,16 +23,34 @@ export function createRouter(opts: CreateRouterOptions) {
     context: {
       queryClient,
       runtimeConfig: opts.context.runtimeConfig,
+      cspNonce: opts.context.cspNonce,
       apiClient: opts.context.apiClient,
-      authClient: opts.context.authClient ?? createAuthClient(opts.context.runtimeConfig),
+      authClient:
+        opts.context.authClient ??
+        createAuthClient({
+          runtimeConfig: opts.context.runtimeConfig,
+          cspNonce: opts.context.cspNonce,
+        }),
       session: opts.context.session,
     },
+    ...(cspNonce ? { ssr: { nonce: cspNonce } } : {}),
     defaultPreload: "intent",
     scrollRestoration: true,
     defaultStructuralSharing: true,
     defaultPreloadStaleTime: 0,
-    defaultPendingComponent,
     defaultPendingMinMs: 0,
+    dehydrate: () => {
+      if (typeof window === "undefined") {
+        return { queryClientState: dehydrate(queryClient) };
+      }
+
+      return { queryClientState: {} };
+    },
+    hydrate: (dehydrated: { queryClientState?: unknown }) => {
+      if (typeof window !== "undefined" && dehydrated?.queryClientState) {
+        hydrate(queryClient, dehydrated.queryClientState);
+      }
+    },
   });
 
   return { router, queryClient };

@@ -164,7 +164,9 @@ const removeCallbacks: Record<string, RemoveCallback> = {
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
 
-  secrets: z.object({}),
+  secrets: z.object({
+    API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
+  }),
 
   context: z.object({
     userId: z.string().optional(),

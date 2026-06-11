@@ -322,4 +322,8 @@ node_modules/.federation
 # Markdown files (local notes, AI agent instructions, etc.)
 # Already-tracked .md files (README, docs) stay tracked; changesets are kept.
 *.md
+!AGENTS.md
+!CONTRIBUTING.md
+!**/README.md
+!**/CHANGELOG.md
 !.changeset/**/*.md
