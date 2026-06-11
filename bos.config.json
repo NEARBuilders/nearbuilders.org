@@ -1,5 +1,5 @@
 {
-  "extends": "bos://dev.everything.near/everything.dev",
+  "extends": "bos://dev.everything.near/dev.everything.dev",
   "account": "work.efiz.near",
   "domain": "nearbuilders.org",
   "title": "NEAR Builders",
