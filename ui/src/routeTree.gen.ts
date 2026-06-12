@@ -29,7 +29,7 @@ import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layo
 import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
 import { Route as LayoutAuthenticatedDashboardProjectsRouteImport } from './routes/_layout/_authenticated/_dashboard/projects'
-import { Route as LayoutAuthenticatedDashboardHomeRouteImport } from './routes/_layout/_authenticated/_dashboard/home'
+import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
 import { Route as LayoutAuthenticatedDashboardProjectsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/projects/index'
 import { Route as LayoutAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/index'
@@ -146,10 +146,10 @@ const LayoutAuthenticatedDashboardProjectsRoute =
     path: '/projects',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardHomeRoute =
-  LayoutAuthenticatedDashboardHomeRouteImport.update({
-    id: '/home',
-    path: '/home',
+const LayoutAuthenticatedDashboardProfileRoute =
+  LayoutAuthenticatedDashboardProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
 const LayoutAuthenticatedDashboardSettingsIndexRoute =
@@ -236,7 +236,7 @@ export interface FileRoutesByFullPath {
   '/builders/add': typeof LayoutBuildersAddRoute
   '/apps/': typeof LayoutAppsIndexRoute
   '/builders/': typeof LayoutBuildersIndexRoute
-  '/home': typeof LayoutAuthenticatedDashboardHomeRoute
+  '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/projects': typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
@@ -267,7 +267,7 @@ export interface FileRoutesByTo {
   '/builders/add': typeof LayoutBuildersAddRoute
   '/apps': typeof LayoutAppsIndexRoute
   '/builders': typeof LayoutBuildersIndexRoute
-  '/home': typeof LayoutAuthenticatedDashboardHomeRoute
+  '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
   '/builders/$account/edit': typeof LayoutBuildersAccountEditRoute
@@ -301,7 +301,7 @@ export interface FileRoutesById {
   '/_layout/builders/add': typeof LayoutBuildersAddRoute
   '/_layout/apps/': typeof LayoutAppsIndexRoute
   '/_layout/builders/': typeof LayoutBuildersIndexRoute
-  '/_layout/_authenticated/_dashboard/home': typeof LayoutAuthenticatedDashboardHomeRoute
+  '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/_layout/_authenticated/_dashboard/projects': typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
@@ -334,7 +334,7 @@ export interface FileRouteTypes {
     | '/builders/add'
     | '/apps/'
     | '/builders/'
-    | '/home'
+    | '/profile'
     | '/projects'
     | '/settings'
     | '/accept-invitation/$id'
@@ -365,7 +365,7 @@ export interface FileRouteTypes {
     | '/builders/add'
     | '/apps'
     | '/builders'
-    | '/home'
+    | '/profile'
     | '/accept-invitation/$id'
     | '/apps/$accountId/$gatewayId'
     | '/builders/$account/edit'
@@ -398,7 +398,7 @@ export interface FileRouteTypes {
     | '/_layout/builders/add'
     | '/_layout/apps/'
     | '/_layout/builders/'
-    | '/_layout/_authenticated/_dashboard/home'
+    | '/_layout/_authenticated/_dashboard/profile'
     | '/_layout/_authenticated/_dashboard/projects'
     | '/_layout/_authenticated/_dashboard/settings'
     | '/_layout/_authenticated/accept-invitation/$id'
@@ -565,11 +565,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardProjectsRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_authenticated/_dashboard/home': {
-      id: '/_layout/_authenticated/_dashboard/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardHomeRouteImport
+    '/_layout/_authenticated/_dashboard/profile': {
+      id: '/_layout/_authenticated/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardProfileRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
     '/_layout/_authenticated/_dashboard/settings/': {
@@ -723,7 +723,7 @@ const LayoutAuthenticatedDashboardSettingsRouteWithChildren =
   )
 
 interface LayoutAuthenticatedDashboardRouteChildren {
-  LayoutAuthenticatedDashboardHomeRoute: typeof LayoutAuthenticatedDashboardHomeRoute
+  LayoutAuthenticatedDashboardProfileRoute: typeof LayoutAuthenticatedDashboardProfileRoute
   LayoutAuthenticatedDashboardProjectsRoute: typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   LayoutAuthenticatedDashboardSettingsRoute: typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   LayoutAuthenticatedDashboardOrganizationsSlugRoute: typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
@@ -733,8 +733,8 @@ interface LayoutAuthenticatedDashboardRouteChildren {
 
 const LayoutAuthenticatedDashboardRouteChildren: LayoutAuthenticatedDashboardRouteChildren =
   {
-    LayoutAuthenticatedDashboardHomeRoute:
-      LayoutAuthenticatedDashboardHomeRoute,
+    LayoutAuthenticatedDashboardProfileRoute:
+      LayoutAuthenticatedDashboardProfileRoute,
     LayoutAuthenticatedDashboardProjectsRoute:
       LayoutAuthenticatedDashboardProjectsRouteWithChildren,
     LayoutAuthenticatedDashboardSettingsRoute:

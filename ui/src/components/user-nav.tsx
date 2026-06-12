@@ -85,7 +85,7 @@ export function UserNav() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link to="/home">Home</Link>
+            <Link to="/profile">Profile</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/settings">Settings</Link>

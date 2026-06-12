@@ -460,7 +460,7 @@ function BuildersPage() {
               : "Connect your NEAR wallet and register as a builder."}
           </p>
           <Link
-            to={isAuthenticated ? "/home" : "/login"}
+            to={isAuthenticated ? "/profile" : "/login"}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-cyan text-black text-sm font-bold hover:opacity-90 transition-opacity"
           >
             {isAuthenticated ? "Manage your profile" : "Connect your wallet"}
