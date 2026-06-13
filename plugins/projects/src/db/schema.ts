@@ -38,3 +38,20 @@ export const projectApps = pgTable(
   },
   (table) => [uniqueIndex("project_app_unique").on(table.projectId, table.accountId, table.domain)],
 );
+
+export const projectMentions = pgTable(
+  "project_mentions",
+  {
+    id: text("id").primaryKey(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    targetOwnerId: text("target_owner_id").notNull(),
+    targetSlug: text("target_slug").notNull(),
+    targetId: text("target_id"),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_mention_unique").on(table.sourceId, table.targetOwnerId, table.targetSlug),
+  ],
+);

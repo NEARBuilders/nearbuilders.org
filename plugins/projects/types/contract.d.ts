@@ -6,6 +6,8 @@ export declare const contract: {
         kind: z.ZodOptional<z.ZodEnum<{
             project: "project";
             idea: "idea";
+            scope: "scope";
+            result: "result";
         }>>;
         visibility: z.ZodOptional<z.ZodEnum<{
             private: "private";
@@ -27,6 +29,8 @@ export declare const contract: {
             kind: z.ZodEnum<{
                 project: "project";
                 idea: "idea";
+                scope: "scope";
+                result: "result";
             }>;
             slug: z.ZodString;
             title: z.ZodString;
@@ -75,6 +79,8 @@ export declare const contract: {
             kind: z.ZodEnum<{
                 project: "project";
                 idea: "idea";
+                scope: "scope";
+                result: "result";
             }>;
             slug: z.ZodString;
             title: z.ZodString;
@@ -117,6 +123,8 @@ export declare const contract: {
         kind: z.ZodEnum<{
             project: "project";
             idea: "idea";
+            scope: "scope";
+            result: "result";
         }>;
         title: z.ZodString;
         slug: z.ZodString;
@@ -138,6 +146,8 @@ export declare const contract: {
         kind: z.ZodEnum<{
             project: "project";
             idea: "idea";
+            scope: "scope";
+            result: "result";
         }>;
         slug: z.ZodString;
         title: z.ZodString;
@@ -194,6 +204,8 @@ export declare const contract: {
         kind: z.ZodOptional<z.ZodEnum<{
             project: "project";
             idea: "idea";
+            scope: "scope";
+            result: "result";
         }>>;
         title: z.ZodOptional<z.ZodString>;
         description: z.ZodOptional<z.ZodString>;
@@ -218,6 +230,8 @@ export declare const contract: {
         kind: z.ZodEnum<{
             project: "project";
             idea: "idea";
+            scope: "scope";
+            result: "result";
         }>;
         slug: z.ZodString;
         title: z.ZodString;
@@ -405,6 +419,8 @@ export declare const contract: {
             kind: z.ZodEnum<{
                 project: "project";
                 idea: "idea";
+                scope: "scope";
+                result: "result";
             }>;
             slug: z.ZodString;
             title: z.ZodString;
@@ -435,6 +451,88 @@ export declare const contract: {
                     message: z.ZodString;
                     code: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    listMentions: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            ownerId: z.ZodString;
+            organizationId: z.ZodNullable<z.ZodString>;
+            kind: z.ZodEnum<{
+                project: "project";
+                idea: "idea";
+                scope: "scope";
+                result: "result";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            description: z.ZodNullable<z.ZodString>;
+            content: z.ZodNullable<z.ZodString>;
+            status: z.ZodEnum<{
+                active: "active";
+                paused: "paused";
+                archived: "archived";
+            }>;
+            visibility: z.ZodEnum<{
+                private: "private";
+                unlisted: "unlisted";
+                public: "public";
+            }>;
+            repository: z.ZodNullable<z.ZodString>;
+            domain: z.ZodNullable<z.ZodString>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    listMentionedBy: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            ownerId: z.ZodString;
+            organizationId: z.ZodNullable<z.ZodString>;
+            kind: z.ZodEnum<{
+                project: "project";
+                idea: "idea";
+                scope: "scope";
+                result: "result";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            description: z.ZodNullable<z.ZodString>;
+            content: z.ZodNullable<z.ZodString>;
+            status: z.ZodEnum<{
+                active: "active";
+                paused: "paused";
+                archived: "archived";
+            }>;
+            visibility: z.ZodEnum<{
+                private: "private";
+                unlisted: "unlisted";
+                public: "public";
+            }>;
+            repository: z.ZodNullable<z.ZodString>;
+            domain: z.ZodNullable<z.ZodString>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;

@@ -2,6 +2,25 @@ import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/er
 import { oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
+const kindEnum = z.enum(["project", "idea", "scope", "result"]);
+
+const projectSchema = z.object({
+  id: z.string(),
+  ownerId: z.string(),
+  organizationId: z.string().nullable(),
+  kind: kindEnum,
+  slug: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  content: z.string().nullable(),
+  status: z.enum(["active", "paused", "archived"]),
+  visibility: z.enum(["private", "unlisted", "public"]),
+  repository: z.string().nullable(),
+  domain: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
 export const contract = oc.router({
   listProjects: oc
     .route({ method: "GET", path: "/v1/projects" })
@@ -9,7 +28,7 @@ export const contract = oc.router({
       z.object({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
-        kind: z.enum(["project", "idea"]).optional(),
+        kind: kindEnum.optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
         limit: z.number().int().min(1).max(100).optional(),
@@ -18,24 +37,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        data: z.array(
-          z.object({
-            id: z.string(),
-            ownerId: z.string(),
-            organizationId: z.string().nullable(),
-            kind: z.enum(["project", "idea"]),
-            slug: z.string(),
-            title: z.string(),
-            description: z.string().nullable(),
-            content: z.string().nullable(),
-            status: z.enum(["active", "paused", "archived"]),
-            visibility: z.enum(["private", "unlisted", "public"]),
-            repository: z.string().nullable(),
-            domain: z.string().nullable(),
-            createdAt: z.iso.datetime(),
-            updatedAt: z.iso.datetime(),
-          }),
-        ),
+        data: z.array(projectSchema),
         meta: z.object({
           total: z.number().int().nonnegative(),
           hasMore: z.boolean(),
@@ -50,21 +52,7 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(
       z.object({
-        data: z.object({
-          id: z.string(),
-          ownerId: z.string(),
-          organizationId: z.string().nullable(),
-          kind: z.enum(["project", "idea"]),
-          slug: z.string(),
-          title: z.string(),
-          description: z.string().nullable(),
-          content: z.string().nullable(),
-          status: z.enum(["active", "paused", "archived"]),
-          visibility: z.enum(["private", "unlisted", "public"]),
-          repository: z.string().nullable(),
-          domain: z.string().nullable(),
-          createdAt: z.iso.datetime(),
-          updatedAt: z.iso.datetime(),
+        data: projectSchema.extend({
           apps: z.array(
             z.object({
               id: z.string(),
@@ -85,7 +73,7 @@ export const contract = oc.router({
     .input(
       z.object({
         id: z.string().optional(),
-        kind: z.enum(["project", "idea"]),
+        kind: kindEnum,
         title: z.string().min(1).max(200),
         slug: z
           .string()
@@ -101,24 +89,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
       }),
     )
-    .output(
-      z.object({
-        id: z.string(),
-        ownerId: z.string(),
-        organizationId: z.string().nullable(),
-        kind: z.enum(["project", "idea"]),
-        slug: z.string(),
-        title: z.string(),
-        description: z.string().nullable(),
-        content: z.string().nullable(),
-        status: z.enum(["active", "paused", "archived"]),
-        visibility: z.enum(["private", "unlisted", "public"]),
-        repository: z.string().nullable(),
-        domain: z.string().nullable(),
-        createdAt: z.iso.datetime(),
-        updatedAt: z.iso.datetime(),
-      }),
-    )
+    .output(projectSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   updateProject: oc
@@ -126,7 +97,7 @@ export const contract = oc.router({
     .input(
       z.object({
         id: z.string(),
-        kind: z.enum(["project", "idea"]).optional(),
+        kind: kindEnum.optional(),
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(1000).optional(),
         content: z.string().max(50000).optional(),
@@ -137,24 +108,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
       }),
     )
-    .output(
-      z.object({
-        id: z.string(),
-        ownerId: z.string(),
-        organizationId: z.string().nullable(),
-        kind: z.enum(["project", "idea"]),
-        slug: z.string(),
-        title: z.string(),
-        description: z.string().nullable(),
-        content: z.string().nullable(),
-        status: z.enum(["active", "paused", "archived"]),
-        visibility: z.enum(["private", "unlisted", "public"]),
-        repository: z.string().nullable(),
-        domain: z.string().nullable(),
-        createdAt: z.iso.datetime(),
-        updatedAt: z.iso.datetime(),
-      }),
-    )
+    .output(projectSchema)
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
 
   deleteProject: oc
@@ -215,27 +169,30 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        data: z.array(
-          z.object({
-            id: z.string(),
-            ownerId: z.string(),
-            organizationId: z.string().nullable(),
-            kind: z.enum(["project", "idea"]),
-            slug: z.string(),
-            title: z.string(),
-            description: z.string().nullable(),
-            content: z.string().nullable(),
-            status: z.enum(["active", "paused", "archived"]),
-            visibility: z.enum(["private", "unlisted", "public"]),
-            repository: z.string().nullable(),
-            domain: z.string().nullable(),
-            createdAt: z.iso.datetime(),
-            updatedAt: z.iso.datetime(),
-          }),
-        ),
+        data: z.array(projectSchema),
       }),
     )
     .errors({ BAD_REQUEST }),
+
+  listMentions: oc
+    .route({ method: "GET", path: "/v1/projects/{id}/mentions" })
+    .input(z.object({ id: z.string() }))
+    .output(
+      z.object({
+        data: z.array(projectSchema),
+      }),
+    )
+    .errors({ NOT_FOUND }),
+
+  listMentionedBy: oc
+    .route({ method: "GET", path: "/v1/projects/{id}/mentioned-by" })
+    .input(z.object({ id: z.string() }))
+    .output(
+      z.object({
+        data: z.array(projectSchema),
+      }),
+    )
+    .errors({ NOT_FOUND }),
 });
 
 export type ContractType = typeof contract;

@@ -159,7 +159,7 @@ Setup guide: https://docs.near.ai/cloud/quickstart#setup`,
             </code>{" "}
             which handles the entire setup. Just export your provider key and run:
           </p>
-          <CommandCopy command="git clone https://github.com/nearai/ironclaw.git && cd ironclaw" />
+          <CommandCopy command="git clone https://github.com/NEARBuilders/ironclaw.git && cd ironclaw" />
           <CommandCopy command="export NEARAI_API_KEY=&quot;your-key-here&quot;" />
           <CommandCopy command="scripts/run-reborn-webui.sh" />
           <p className="text-sm text-muted-foreground">
@@ -185,7 +185,7 @@ Setup guide: https://docs.near.ai/cloud/quickstart#setup`,
             Manual setup (expand)
           </summary>
           <div className="mt-4 space-y-4">
-            <CommandCopy command="git clone https://github.com/nearai/ironclaw.git" />
+            <CommandCopy command="git clone https://github.com/NEARBuilders/ironclaw.git" />
             <CommandCopy command="cd ironclaw" />
             <CommandCopy command="cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- --help" />
             <p className="text-xs text-muted-foreground">
@@ -245,7 +245,7 @@ Setup guide: https://docs.near.ai/cloud/quickstart#setup`,
 ### Quick start (recommended)
 
 \`\`\`bash
-git clone https://github.com/nearai/ironclaw.git && cd ironclaw
+git clone https://github.com/NEARBuilders/ironclaw.git && cd ironclaw
 export NEARAI_API_KEY="your-key-here"
 scripts/run-reborn-webui.sh
 \`\`\`
@@ -255,7 +255,7 @@ Open http://127.0.0.1:3000/v2 and log in with the printed token.
 ### Manual setup
 
 \`\`\`bash
-git clone https://github.com/nearai/ironclaw.git
+git clone https://github.com/NEARBuilders/ironclaw.git
 cd ironclaw
 cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- --help
 
@@ -279,9 +279,9 @@ Reborn binary docs: https://github.com/nearai/ironclaw/blob/main/docs/reborn-bin
     content: (
       <div className="space-y-4">
         <div className="rounded-lg border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
-          Your agent needs two things: the <strong>nova-submit</strong> WASM tool (encrypts and
-          uploads files to a NOVA group) and the <strong>ironclaw-hackathon</strong> skill (guides
-          your agent through register and submit flows).
+          Your agent needs two things: the <strong>nova-submit</strong> Reborn extension (encrypts
+          and uploads files to a NOVA group) and the <strong>ironclaw-hackathon</strong> skill
+          (guides your agent through register and submit flows).
         </div>
 
         <p className="text-sm font-semibold text-foreground">Get a NOVA account</p>
@@ -298,22 +298,35 @@ Reborn binary docs: https://github.com/nearai/ironclaw/blob/main/docs/reborn-bin
           for your NOVA account ID and API key.
         </p>
 
-        <CommandCopy command="ironclaw hub install nova-submit" />
+        <CommandCopy command="export IRONCLAW_REBORN_HOME=&quot;$HOME/.ironclaw-reborn-demo&quot;" />
+        <p className="text-xs text-muted-foreground">
+          Make sure{" "}
+          <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
+            IRONCLAW_REBORN_HOME
+          </code>{" "}
+          matches what{" "}
+          <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs">
+            scripts/run-reborn-webui.sh
+          </code>{" "}
+          sets. The extension commands use this to find your Reborn state.
+        </p>
+        <CommandCopy command="cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension install nova-submit" />
+        <CommandCopy command="cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension activate nova-submit" />
         <CommandCopy command="git clone https://github.com/jcarbonnell/ironclaw-hackathon.git" />
-        <CommandCopy command="cp -r ironclaw-hackathon/skill ~/.ironclaw/skills/ironclaw-hackathon" />
-
-        <p className="text-sm text-muted-foreground">Restart your agent, then verify:</p>
-        <CommandCopy command="ironclaw skills list && ironclaw hub list" />
+        <CommandCopy command="mkdir -p &quot;$IRONCLAW_REBORN_HOME/local-dev/tenants/default/users/reborn-cli/skills/ironclaw-hackathon&quot;" />
+        <CommandCopy command="cp ironclaw-hackathon/skill/SKILL.md &quot;$IRONCLAW_REBORN_HOME/local-dev/tenants/default/users/reborn-cli/skills/ironclaw-hackathon/&quot;" />
+        <p className="text-sm text-muted-foreground">Verify everything is set up:</p>
+        <CommandCopy command="cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension search nova && cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- skills list | grep hackathon" />
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <a
-              href="https://hub.ironclaw.com/marketplace/nova-submit"
+              href="https://github.com/nearai/ironclaw/blob/main/docs/reborn-binary.md#extension"
               target="_blank"
               rel="noopener noreferrer"
             >
               <ExternalLink size={12} />
-              Nova-Submit on IronHub
+              Nova-Submit extension docs
             </a>
           </Button>
           <Button variant="outline" size="sm" asChild>
@@ -340,18 +353,24 @@ Reborn binary docs: https://github.com/nearai/ironclaw/blob/main/docs/reborn-bin
 \`\`\`bash
 # Get a NOVA account at https://nova-sdk.com
 
-# Install the nova-submit WASM tool
-ironclaw hub install nova-submit
+# Make sure IRONCLAW_REBORN_HOME matches the webui script
+export IRONCLAW_REBORN_HOME="$HOME/.ironclaw-reborn-demo"
 
-# Install the hackathon skill
+# Install and activate the nova-submit Reborn extension
+cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension install nova-submit
+cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension activate nova-submit
+
+# Install the hackathon skill on the Reborn filesystem
 git clone https://github.com/jcarbonnell/ironclaw-hackathon.git
-cp -r ironclaw-hackathon/skill ~/.ironclaw/skills/ironclaw-hackathon
+mkdir -p "$IRONCLAW_REBORN_HOME/local-dev/tenants/default/users/reborn-cli/skills/ironclaw-hackathon"
+cp ironclaw-hackathon/skill/SKILL.md "$IRONCLAW_REBORN_HOME/local-dev/tenants/default/users/reborn-cli/skills/ironclaw-hackathon/"
 
 # Verify
-ironclaw skills list && ironclaw hub list
+cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- extension search nova
+cargo run -q -p ironclaw_reborn_cli --bin ironclaw-reborn -- skills list | grep hackathon
 \`\`\`
 
-Nova-Submit: https://hub.ironclaw.com/marketplace/nova-submit
+Nova-Submit extension docs: https://github.com/nearai/ironclaw/blob/main/docs/reborn-binary.md#extension
 ironclaw-hackathon: https://github.com/jcarbonnell/ironclaw-hackathon`,
   },
   {
@@ -870,8 +889,8 @@ function IronclawPage() {
                 label="Reborn binary docs"
               />
               <UrlCard
-                href="https://hub.ironclaw.com/marketplace/nova-submit"
-                label="Nova-Submit on IronHub"
+                href="https://github.com/nearai/ironclaw/blob/main/docs/reborn-binary.md#extension"
+                label="Nova-Submit extension"
               />
               <UrlCard
                 href="https://github.com/jcarbonnell/ironclaw-hackathon"

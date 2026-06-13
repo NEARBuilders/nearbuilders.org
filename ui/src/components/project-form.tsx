@@ -1,19 +1,23 @@
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
+  BarChart2,
   Bold,
   CheckSquare,
+  ChevronDown,
   Code2,
   FileCode2,
   FileText,
   Heading1,
   Italic,
+  Layers,
   Link2,
   List,
   ListOrdered,
   Quote,
 } from "lucide-react";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
@@ -26,11 +30,12 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
 
 export type ProjectFormValues = {
-  kind: "project" | "idea";
+  kind: "project" | "idea" | "scope" | "result";
   title: string;
   description?: string;
   repository?: string;
@@ -68,7 +73,8 @@ export const validateRepository = (value: string | undefined, kind: ProjectFormV
 
 export const validateContent = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
   const trimmed = value?.trim() ?? "";
-  if (kind === "idea" && !trimmed) return "Markdown content is required for ideas";
+  if ((kind === "idea" || kind === "scope" || kind === "result") && !trimmed)
+    return `Markdown content is required for ${kind}s`;
   if ((value ?? "").length > 50000) return "Max 50,000 characters";
   return undefined;
 };
@@ -104,8 +110,8 @@ interface ProjectFormLayoutProps {
   isAdmin: boolean;
   defaultOwnerId: string;
   tab: "write" | "preview";
-  setTab: (tab: "write" | "preview") => void;
   slugPreview?: string;
+  currentKind?: string;
 }
 
 export function ProjectFormLayout({
@@ -114,10 +120,11 @@ export function ProjectFormLayout({
   isAdmin,
   defaultOwnerId,
   tab,
-  setTab,
   slugPreview,
+  currentKind,
 }: ProjectFormLayoutProps) {
-  const kind = useStore(form.store, (s: any) => s.values.kind);
+  const formKind = useStore(form.store, (s: any) => s.values.kind);
+  const kind = mode === "create" && currentKind ? currentKind : formKind;
   const repositoryUrl = useStore(form.store, (s: any) => s.values.repository ?? "");
 
   const readmeQuery = useQuery({
@@ -129,274 +136,371 @@ export function ProjectFormLayout({
     enabled: kind === "project" && Boolean(repositoryUrl?.trim()),
   });
 
+  const content = useStore(form.store, (s: any) => s.values.content ?? "");
+  const currentTitle = useStore(form.store, (s: any) => s.values.title ?? "");
+  const currentDescription = useStore(form.store, (s: any) => s.values.description ?? "");
+
+  const titleClearedRef = useRef(false);
+  const prevTitleRef = useRef(currentTitle);
+
+  useEffect(() => {
+    if (prevTitleRef.current && !currentTitle) {
+      titleClearedRef.current = true;
+    }
+    if (currentTitle) {
+      titleClearedRef.current = false;
+    }
+    prevTitleRef.current = currentTitle;
+  }, [currentTitle]);
+
+  const descriptionClearedRef = useRef(false);
+  const prevDescriptionRef = useRef(currentDescription);
+
+  useEffect(() => {
+    if (prevDescriptionRef.current && !currentDescription) {
+      descriptionClearedRef.current = true;
+    }
+    if (currentDescription) {
+      descriptionClearedRef.current = false;
+    }
+    prevDescriptionRef.current = currentDescription;
+  }, [currentDescription]);
+
+  useEffect(() => {
+    if (kind === "project") return;
+    if (!content.trim()) return;
+
+    const parsedTitle = parseTitleFromContent(content);
+    const parsedDescription = parseDescriptionFromContent(content);
+
+    if (parsedTitle && !currentTitle && !titleClearedRef.current) {
+      form.setFieldValue("title", parsedTitle);
+    }
+    if (parsedDescription && !currentDescription && !descriptionClearedRef.current) {
+      form.setFieldValue("description", parsedDescription);
+    }
+  }, [content, currentTitle, currentDescription, kind, form]);
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   return (
     <div className="flex flex-1 flex-col overflow-visible lg:min-h-0 lg:overflow-hidden lg:flex-row">
-      <div className="overflow-visible border-b border-border bg-card px-4 py-5 sm:px-6 sm:py-6 lg:overflow-y-auto lg:w-[340px] lg:border-b-0 lg:border-r lg:shrink-0 xl:w-[360px]">
-        <div className="space-y-5 pb-[env(safe-area-inset-bottom,0px)] lg:pb-0">
-          <form.Field name="kind">
-            {(field: any) => (
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        value: "project" as const,
-                        label: "Project",
-                        icon: <FileCode2 size={15} />,
-                      },
-                      { value: "idea" as const, label: "Idea", icon: <FileText size={15} /> },
-                    ] as const
-                  ).map((opt) => {
-                    const active = field.state.value === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          field.handleChange(opt.value);
-                          if (mode === "create" && tab === "preview") setTab("write");
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 rounded-lg border-2 px-3 py-3 text-sm font-bold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                          active
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-card text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        <span className={cn(active ? "text-primary" : "text-muted-foreground")}>
-                          {opt.icon}
-                        </span>
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field
-            name="title"
-            validators={{
-              onChange: ({ value }: any) => validateTitle(value),
-              onSubmit: ({ value }: any) => validateTitle(value),
-            }}
-          >
-            {(field: any) => {
-              const err = fieldError(field.state.meta.errors[0]);
-              return (
-                <div className="space-y-1.5">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder={kind === "project" ? "near analytics" : "On-chain social graphs"}
-                    className={err ? "!border-destructive" : ""}
-                  />
-                  {err && <ErrorText>{err}</ErrorText>}
-                  {slugPreview !== undefined && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      /{slugPreview || "my-entry"}
-                    </p>
-                  )}
-                </div>
-              );
-            }}
-          </form.Field>
-
-          <form.Field
-            name="description"
-            validators={{
-              onChange: ({ value }: any) => validateDescription(value),
-              onSubmit: ({ value }: any) => validateDescription(value),
-            }}
-          >
-            {(field: any) => {
-              const err = fieldError(field.state.meta.errors[0]);
-              return (
-                <div className="space-y-1.5">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={field.state.value ?? ""}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="A short summary shown in the list"
-                    rows={3}
-                    className={cn(
-                      "resize-none",
-                      err ? "border-destructive focus-visible:border-destructive" : "",
-                    )}
-                  />
-                  {err && <ErrorText>{err}</ErrorText>}
-                </div>
-              );
-            }}
-          </form.Field>
-
-          {kind === "project" && (
-            <form.Field
-              name="repository"
-              validators={{
-                onChangeListenTo: ["kind"],
-                onChange: ({ value, fieldApi }: any) =>
-                  validateRepository(value, fieldApi.form.getFieldValue("kind")),
-                onSubmit: ({ value, fieldApi }: any) =>
-                  validateRepository(value, fieldApi.form.getFieldValue("kind")),
-              }}
-            >
-              {(field: any) => {
-                const err = fieldError(field.state.meta.errors[0]);
-                return (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="repository">Repository URL</Label>
-                    <Input
-                      id="repository"
-                      type="url"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="https://github.com/user/repo"
-                      className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
-                    />
-                    {err && <ErrorText>{err}</ErrorText>}
-                    <HelperText>README fetched from the default branch.</HelperText>
-                  </div>
-                );
-              }}
-            </form.Field>
-          )}
-
-          {mode === "edit" && (
-            <form.Field name="status">
+      <div
+        className={cn(
+          "overflow-visible border-b border-border bg-card lg:overflow-y-auto lg:w-[340px] lg:border-b-0 lg:border-r lg:shrink-0 xl:w-[360px]",
+          sidebarOpen ? "block" : "hidden lg:block",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground lg:hidden hover:bg-muted/50 transition-colors"
+        >
+          <span>Form Details</span>
+          <ChevronDown
+            className={cn("size-3.5 transition-transform", sidebarOpen && "rotate-180")}
+          />
+        </button>
+        <div className="px-4 py-5 sm:px-6 sm:py-6 pt-3 lg:pt-6">
+          <div className="space-y-5 pb-[env(safe-area-inset-bottom,0px)] lg:pb-0">
+            <form.Field name="kind">
               {(field: any) => (
                 <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={field.state.value ?? "active"}
-                    onValueChange={(v) => field.handleChange(v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Type</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { value: "idea" as const, label: "Idea", icon: <FileText size={15} /> },
+                        {
+                          value: "project" as const,
+                          label: "Project",
+                          icon: <FileCode2 size={15} />,
+                        },
+                        { value: "scope" as const, label: "Scope", icon: <Layers size={15} /> },
+                        {
+                          value: "result" as const,
+                          label: "Result",
+                          icon: <BarChart2 size={15} />,
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = kind === opt.value;
+                      const pillClass = cn(
+                        "flex items-center gap-2 rounded-lg border-2 px-3 py-3 text-sm font-bold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        active
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
+                      );
+                      if (mode === "create") {
+                        return (
+                          <Link
+                            key={opt.value}
+                            to="/projects/new/$kind"
+                            params={{ kind: opt.value }}
+                            search={(prev) => ({ ...prev, tab: tab === "preview" ? "write" : tab })}
+                            replace
+                            className={pillClass}
+                          >
+                            <span className={cn(active ? "text-primary" : "text-muted-foreground")}>
+                              {opt.icon}
+                            </span>
+                            {opt.label}
+                          </Link>
+                        );
+                      }
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            field.handleChange(opt.value);
+                          }}
+                          className={pillClass}
+                        >
+                          <span className={cn(active ? "text-primary" : "text-muted-foreground")}>
+                            {opt.icon}
+                          </span>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </form.Field>
-          )}
 
-          <form.Field name="visibility">
-            {(field: any) => (
-              <div className="space-y-2">
-                <Label>Visibility</Label>
-                <div className="flex flex-col gap-2">
-                  {(
-                    [
-                      {
-                        value: "public" as const,
-                        label: "Public",
-                        desc: isAdmin ? "Visible in the feed" : "Visible in the feed after review",
-                      },
-                      {
-                        value: "unlisted" as const,
-                        label: "Unlisted",
-                        desc: "Only via direct link",
-                      },
-                      { value: "private" as const, label: "Private", desc: "Only you" },
-                    ] as const
-                  ).map((opt) => {
-                    const active = field.state.value === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => field.handleChange(opt.value)}
-                        className={cn(
-                          "flex items-center justify-between rounded-lg border-2 px-3 py-2.5 text-sm transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                          active
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-card hover:bg-muted hover:border-border",
-                        )}
-                      >
-                        <span className="font-bold text-foreground">{opt.label}</span>
-                        <span className="text-xs text-muted-foreground">{opt.desc}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <form.Field
+              name="title"
+              validators={{
+                onChange: ({ value }: any) => validateTitle(value),
+                onSubmit: ({ value }: any) => validateTitle(value),
+              }}
+            >
+              {(field: any) => {
+                const err = fieldError(field.state.meta.errors[0]);
+                return (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder={
+                        kind === "project"
+                          ? "near analytics"
+                          : kind === "idea"
+                            ? "On-chain social graphs"
+                            : kind === "scope"
+                              ? "MVP auth flow"
+                              : "Q1 builder growth"
+                      }
+                      className={err ? "!border-destructive" : ""}
+                    />
+                    {err && <ErrorText>{err}</ErrorText>}
+                    {slugPreview !== undefined && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        /{slugPreview || "my-entry"}
+                      </p>
+                    )}
+                  </div>
+                );
+              }}
+            </form.Field>
+
+            <form.Field
+              name="description"
+              validators={{
+                onChange: ({ value }: any) => validateDescription(value),
+                onSubmit: ({ value }: any) => validateDescription(value),
+              }}
+            >
+              {(field: any) => {
+                const err = fieldError(field.state.meta.errors[0]);
+                return (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={field.state.value ?? ""}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="A short summary shown in the list"
+                      rows={3}
+                      className={cn(
+                        "resize-none",
+                        err ? "border-destructive focus-visible:border-destructive" : "",
+                      )}
+                    />
+                    {err && <ErrorText>{err}</ErrorText>}
+                  </div>
+                );
+              }}
+            </form.Field>
+
+            {kind === "project" && (
+              <form.Field
+                name="repository"
+                validators={{
+                  onChangeListenTo: ["kind"],
+                  onChange: ({ value, fieldApi }: any) =>
+                    validateRepository(value, fieldApi.form.getFieldValue("kind")),
+                  onSubmit: ({ value, fieldApi }: any) =>
+                    validateRepository(value, fieldApi.form.getFieldValue("kind")),
+                }}
+              >
+                {(field: any) => {
+                  const err = fieldError(field.state.meta.errors[0]);
+                  return (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="repository">Repository URL</Label>
+                      <Input
+                        id="repository"
+                        type="url"
+                        value={field.state.value ?? ""}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="https://github.com/user/repo"
+                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
+                      />
+                      {err && <ErrorText>{err}</ErrorText>}
+                      <HelperText>README fetched from the default branch.</HelperText>
+                    </div>
+                  );
+                }}
+              </form.Field>
             )}
-          </form.Field>
 
-          {kind === "idea" && (
-            <form.Field
-              name="domain"
-              validators={{
-                onChange: ({ value }: any) =>
-                  validateOptionalMaxLength(value, 255, "Max 255 characters"),
-                onSubmit: ({ value }: any) =>
-                  validateOptionalMaxLength(value, 255, "Max 255 characters"),
-              }}
-            >
-              {(field: any) => {
-                const err = fieldError(field.state.meta.errors[0]);
-                return (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="domain">Domain</Label>
-                    <Input
-                      id="domain"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="example.com"
-                      className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
-                    />
-                    {err && <ErrorText>{err}</ErrorText>}
-                    <HelperText>Already have a domain to use?</HelperText>
+            {mode === "edit" && kind !== "result" && (
+              <form.Field name="status">
+                {(field: any) => (
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={field.state.value ?? "active"}
+                      onValueChange={(v) => field.handleChange(v)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                        <SelectItem value="archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                );
-              }}
-            </form.Field>
-          )}
+                )}
+              </form.Field>
+            )}
 
-          {isAdmin && (
-            <form.Field
-              name="ownerId"
-              validators={{
-                onChange: ({ value }: any) =>
-                  validateOptionalMaxLength(value, 255, "Max 255 characters"),
-                onSubmit: ({ value }: any) =>
-                  validateOptionalMaxLength(value, 255, "Max 255 characters"),
-              }}
-            >
-              {(field: any) => {
-                const err = fieldError(field.state.meta.errors[0]);
-                return (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ownerId">Owner</Label>
-                    <Input
-                      id="ownerId"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={defaultOwnerId}
-                      className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
-                    />
-                    {err && <ErrorText>{err}</ErrorText>}
-                    <HelperText>NEAR account that owns this entry. Defaults to you.</HelperText>
+            <form.Field name="visibility">
+              {(field: any) => (
+                <div className="space-y-2">
+                  <Label>Visibility</Label>
+                  <div className="flex flex-col gap-2">
+                    {(
+                      [
+                        {
+                          value: "public" as const,
+                          label: "Public",
+                          desc: isAdmin
+                            ? "Visible in the feed"
+                            : "Visible in the feed after review",
+                        },
+                        {
+                          value: "unlisted" as const,
+                          label: "Unlisted",
+                          desc: "Only via direct link",
+                        },
+                        { value: "private" as const, label: "Private", desc: "Only you" },
+                      ] as const
+                    ).map((opt) => {
+                      const active = field.state.value === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => field.handleChange(opt.value)}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border-2 px-3 py-2.5 text-sm transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                            active
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-card hover:bg-muted hover:border-border",
+                          )}
+                        >
+                          <span className="font-bold text-foreground">{opt.label}</span>
+                          <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                );
-              }}
+                </div>
+              )}
             </form.Field>
-          )}
+
+            {kind === "idea" && (
+              <form.Field
+                name="domain"
+                validators={{
+                  onChange: ({ value }: any) =>
+                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
+                  onSubmit: ({ value }: any) =>
+                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
+                }}
+              >
+                {(field: any) => {
+                  const err = fieldError(field.state.meta.errors[0]);
+                  return (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="domain">Domain</Label>
+                      <Input
+                        id="domain"
+                        value={field.state.value ?? ""}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="example.com"
+                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
+                      />
+                      {err && <ErrorText>{err}</ErrorText>}
+                      <HelperText>Already have a domain to use?</HelperText>
+                    </div>
+                  );
+                }}
+              </form.Field>
+            )}
+
+            {isAdmin && (
+              <form.Field
+                name="ownerId"
+                validators={{
+                  onChange: ({ value }: any) =>
+                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
+                  onSubmit: ({ value }: any) =>
+                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
+                }}
+              >
+                {(field: any) => {
+                  const err = fieldError(field.state.meta.errors[0]);
+                  return (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ownerId">Owner</Label>
+                      <Input
+                        id="ownerId"
+                        value={field.state.value ?? ""}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={defaultOwnerId}
+                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
+                      />
+                      {err && <ErrorText>{err}</ErrorText>}
+                      <HelperText>NEAR account that owns this entry. Defaults to you.</HelperText>
+                    </div>
+                  );
+                }}
+              </form.Field>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="flex flex-col overflow-visible bg-muted lg:min-w-0 lg:flex-1 lg:overflow-hidden">
-        {kind === "idea" ? (
+        {kind === "idea" || kind === "scope" || kind === "result" ? (
           <form.Field
             name="content"
             validators={{
@@ -409,6 +513,12 @@ export function ProjectFormLayout({
           >
             {(field: any) => {
               const err = fieldError(field.state.meta.errors[0]);
+              const placeholder =
+                kind === "scope"
+                  ? "# Scope\n\nDefine the work, success criteria, and references e.g. @alice.near/my-idea…"
+                  : kind === "result"
+                    ? "# Results\n\nWhat was built, measured, and learned. Reference scopes with @alice.near/scope-slug…"
+                    : "# My Idea\n\nDescribe the concept, motivation, and next steps…";
               return (
                 <>
                   <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -417,25 +527,25 @@ export function ProjectFormLayout({
                         value={field.state.value ?? ""}
                         onChange={field.handleChange}
                         error={err}
+                        placeholder={placeholder}
                       />
                     </div>
                     <MarkdownPreviewPanel content={field.state.value ?? ""} />
                   </div>
 
-                  <Tabs
-                    value={tab}
-                    onValueChange={(v) => setTab(v as "write" | "preview")}
-                    className="flex flex-col overflow-visible gap-0 lg:hidden"
-                  >
+                  <Tabs value={tab} className="flex flex-col overflow-visible gap-0 lg:hidden">
                     <div className="shrink-0 border-b border-border bg-card">
                       <TabsList className="h-auto px-3 flex justify-start gap-0 w-full bg-transparent border-none rounded-none">
                         {(["write", "preview"] as const).map((t) => (
                           <TabsTrigger
                             key={t}
                             value={t}
+                            asChild
                             className="px-5 py-3.5 text-[13px] font-semibold rounded-none border-b-2 border-t-0 border-l-0 border-r-0 data-[state=active]:border-primary data-[state=inactive]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none -mb-px"
                           >
-                            {t === "write" ? "Write" : "Preview"}
+                            <Link to="." search={(prev) => ({ ...prev, tab: t })} replace>
+                              {t === "write" ? "Write" : "Preview"}
+                            </Link>
                           </TabsTrigger>
                         ))}
                       </TabsList>
@@ -446,6 +556,7 @@ export function ProjectFormLayout({
                         value={field.state.value ?? ""}
                         onChange={field.handleChange}
                         error={err}
+                        placeholder={placeholder}
                       />
                     </TabsContent>
 
@@ -500,10 +611,12 @@ function ContentWriteTab({
   value,
   onChange,
   error,
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   error?: string;
+  placeholder?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -545,7 +658,9 @@ function ContentWriteTab({
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={"# My Idea\n\nDescribe the concept, motivation, and next steps…"}
+        placeholder={
+          placeholder ?? "# My Idea\n\nDescribe the concept, motivation, and next steps…"
+        }
         className={cn(
           "flex-1 w-full min-h-[320px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-5",
           error ? "border-t-2 border-destructive" : "",

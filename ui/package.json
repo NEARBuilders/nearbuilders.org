@@ -44,6 +44,7 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-table": "catalog:",
+    "@tanstack/store": "catalog:",
     "@tanstack/zod-form-adapter": "catalog:",
     "better-auth": "catalog:",
     "better-near-auth": "catalog:",

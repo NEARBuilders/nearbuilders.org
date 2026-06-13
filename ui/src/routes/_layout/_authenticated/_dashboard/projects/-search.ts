@@ -1,4 +1,4 @@
-export type ProjectKindFilter = "all" | "project" | "idea";
+export type ProjectKindFilter = "all" | "project" | "idea" | "scope" | "result";
 
 export type ProjectListSearch = {
   preview?: string;
@@ -7,8 +7,18 @@ export type ProjectListSearch = {
   private?: boolean;
 };
 
+export function isProjectKind(value: unknown): value is Exclude<ProjectKindFilter, "all"> {
+  return value === "project" || value === "idea" || value === "scope" || value === "result";
+}
+
 function isProjectKindFilter(value: unknown): value is ProjectKindFilter {
-  return value === "all" || value === "project" || value === "idea";
+  return (
+    value === "all" ||
+    value === "project" ||
+    value === "idea" ||
+    value === "scope" ||
+    value === "result"
+  );
 }
 
 function hasSearchFlag(value: unknown) {

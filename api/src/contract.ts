@@ -62,7 +62,7 @@ const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
   organizationId: z.string().nullable(),
-  kind: z.enum(["project", "idea"]),
+  kind: z.enum(["project", "idea", "scope", "result"]),
   slug: z.string(),
   title: z.string(),
   description: z.string().nullable(),
@@ -362,7 +362,7 @@ export const contract = oc.router({
       z.object({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
-        kind: z.enum(["project", "idea"]).optional(),
+        kind: z.enum(["project", "idea", "scope", "result"]).optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
         limit: z.number().int().min(1).max(100).optional(),
@@ -385,7 +385,7 @@ export const contract = oc.router({
     .route({ method: "POST", path: "/v1/projects" })
     .input(
       z.object({
-        kind: z.enum(["project", "idea"]),
+        kind: z.enum(["project", "idea", "scope", "result"]),
         title: z.string().min(1).max(200),
         slug: z
           .string()
@@ -430,7 +430,7 @@ export const contract = oc.router({
     .input(
       z.object({
         id: z.string(),
-        kind: z.enum(["project", "idea"]).optional(),
+        kind: z.enum(["project", "idea", "scope", "result"]).optional(),
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(1000).optional(),
         content: z.string().max(50000).optional(),
@@ -464,6 +464,18 @@ export const contract = oc.router({
       }),
     )
     .errors({ BAD_REQUEST }),
+
+  listMentions: oc
+    .route({ method: "GET", path: "/v1/projects/{id}/mentions" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: z.array(ProjectOutput) }))
+    .errors({ NOT_FOUND }),
+
+  listMentionedBy: oc
+    .route({ method: "GET", path: "/v1/projects/{id}/mentioned-by" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: z.array(ProjectOutput) }))
+    .errors({ NOT_FOUND }),
 
   listBuilders: oc
     .route({ method: "GET", path: "/v1/builders" })

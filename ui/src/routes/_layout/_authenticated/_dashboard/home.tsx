@@ -165,7 +165,11 @@ function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Recent Projects</h2>
               <Button asChild size="sm" className="h-7 gap-1 text-xs">
-                <Link to="/projects/new" search={{ tab: "write" }}>
+                <Link
+                  to="/projects/new/$kind"
+                  params={{ kind: "project" }}
+                  search={{ tab: "write" }}
+                >
                   <Plus className="h-3 w-3" />
                   New project
                 </Link>
@@ -183,7 +187,11 @@ function Home() {
                 <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
                   <p className="text-sm text-muted-foreground">No projects yet.</p>
                   <Button asChild size="sm" variant="outline">
-                    <Link to="/projects/new" search={{ tab: "write" }}>
+                    <Link
+                      to="/projects/new/$kind"
+                      params={{ kind: "project" }}
+                      search={{ tab: "write" }}
+                    >
                       Create your first project
                     </Link>
                   </Button>
@@ -565,14 +573,18 @@ interface Project {
   slug: string;
   title: string;
   description: string | null;
-  kind: "project" | "idea";
+  kind: "project" | "idea" | "scope" | "result";
   status: "active" | "paused" | "archived";
   visibility: "private" | "unlisted" | "public";
 }
 
 function ProjectRow({ project }: { project: Project }) {
   return (
-    <Link to="/projects/$id" params={{ id: project.id }} className="block">
+    <Link
+      to="/projects/$kind/$id"
+      params={{ kind: project.kind, id: project.id }}
+      className="block"
+    >
       <Card className="transition-colors hover:bg-muted/40">
         <CardHeader className="px-5 py-4">
           <div className="flex items-start justify-between gap-3">

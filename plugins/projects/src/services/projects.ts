@@ -2,14 +2,14 @@ import { and, count, desc, eq, inArray, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { projectApps, projects } from "../db/schema";
+import { projectApps, projectMentions, projects } from "../db/schema";
 
 function toIsoString(value: Date | string | null | undefined): string {
   if (!value) return "";
   return typeof value === "string" ? value : value.toISOString();
 }
 
-type ProjectKind = "project" | "idea";
+type ProjectKind = "project" | "idea" | "scope" | "result";
 type ProjectStatus = "active" | "paused" | "archived";
 type ProjectVisibility = "private" | "unlisted" | "public";
 
@@ -30,11 +30,36 @@ function assertProjectShape(input: {
     });
   }
 
-  if (input.kind === "idea" && !input.content) {
+  if (
+    (input.kind === "idea" || input.kind === "scope" || input.kind === "result") &&
+    !input.content
+  ) {
     throw new ORPCError("BAD_REQUEST", {
-      message: "Ideas require markdown content",
+      message: `${input.kind.charAt(0).toUpperCase() + input.kind.slice(1)}s require markdown content`,
     });
   }
+}
+
+function parseMentions(content: string | null): Array<{ ownerId: string; slug: string }> {
+  if (!content) return [];
+  const regex = /@([\w][\w.-]*)\/([a-z0-9-]+)/g;
+  const mentions: Array<{ ownerId: string; slug: string }> = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+  for (match = regex.exec(content); match !== null; match = regex.exec(content)) {
+    const ownerId = match[1]!;
+    const slug = match[2]!;
+    const key = `${ownerId}/${slug}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      mentions.push({ ownerId, slug });
+    }
+  }
+  return mentions;
+}
+
+function generateMentionId(): string {
+  return `pm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 export interface Project {
@@ -174,6 +199,18 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       userId?: string,
       alternateUserId?: string,
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
+
+    listMentions: (
+      id: string,
+      userId?: string,
+      alternateUserId?: string,
+    ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
+
+    listMentionedBy: (
+      id: string,
+      userId?: string,
+      alternateUserId?: string,
+    ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
   }
 >() {}
 
@@ -228,6 +265,62 @@ const canEditProject = (
 
     return isProjectOwner(project.ownerId, userId, alternateUserId);
   });
+
+const syncMentions = (db: any, sourceId: string, content: string | null) =>
+  Effect.gen(function* () {
+    const parsed = parseMentions(content);
+
+    yield* Effect.promise(() =>
+      db.delete(projectMentions).where(eq(projectMentions.sourceId, sourceId)),
+    );
+
+    if (parsed.length === 0) return;
+
+    const rows = (yield* Effect.promise(() =>
+      db
+        .select({ id: projects.id, ownerId: projects.ownerId, slug: projects.slug })
+        .from(projects)
+        .where(
+          or(...parsed.map((m) => and(eq(projects.ownerId, m.ownerId), eq(projects.slug, m.slug)))),
+        ),
+    )) as Array<{ id: string; ownerId: string; slug: string }>;
+
+    const resolvedMap = new Map<string, string>();
+    for (const row of rows) {
+      resolvedMap.set(`${row.ownerId}/${row.slug}`, row.id);
+    }
+
+    const now = new Date();
+    const inserts = parsed.map((m) => ({
+      id: generateMentionId(),
+      sourceId,
+      targetOwnerId: m.ownerId,
+      targetSlug: m.slug,
+      targetId: resolvedMap.get(`${m.ownerId}/${m.slug}`) ?? null,
+      createdAt: now,
+    }));
+
+    yield* Effect.promise(() => db.insert(projectMentions).values(inserts));
+  });
+
+function mapProject(p: any): Project {
+  return {
+    id: p.id,
+    ownerId: p.ownerId,
+    organizationId: p.organizationId,
+    kind: p.kind as ProjectKind,
+    slug: p.slug,
+    title: p.title,
+    description: p.description,
+    content: p.content ?? null,
+    status: p.status as ProjectStatus,
+    visibility: p.visibility as ProjectVisibility,
+    repository: p.repository ?? null,
+    domain: p.domain ?? null,
+    createdAt: toIsoString(p.createdAt),
+    updatedAt: toIsoString(p.updatedAt),
+  };
+}
 
 export const ProjectServiceLive = Layer.effect(
   ProjectService,
@@ -291,22 +384,7 @@ export const ProjectServiceLive = Layer.effect(
               .offset(offset),
           );
 
-          const data: Project[] = records.map((p: any) => ({
-            id: p.id,
-            ownerId: p.ownerId,
-            organizationId: p.organizationId,
-            kind: p.kind as ProjectKind,
-            slug: p.slug,
-            title: p.title,
-            description: p.description,
-            content: p.content ?? null,
-            status: p.status as ProjectStatus,
-            visibility: p.visibility as ProjectVisibility,
-            repository: p.repository ?? null,
-            domain: p.domain ?? null,
-            createdAt: toIsoString(p.createdAt),
-            updatedAt: toIsoString(p.updatedAt),
-          }));
+          const data: Project[] = records.map(mapProject);
 
           const nextOffset = offset + limit;
           const hasMore = nextOffset < total;
@@ -345,20 +423,7 @@ export const ProjectServiceLive = Layer.effect(
           );
 
           return {
-            id: project.id,
-            ownerId: project.ownerId,
-            organizationId: project.organizationId,
-            kind: project.kind as ProjectKind,
-            slug: project.slug,
-            title: project.title,
-            description: project.description,
-            content: project.content ?? null,
-            status: project.status as ProjectStatus,
-            visibility: project.visibility as ProjectVisibility,
-            repository: project.repository ?? null,
-            domain: project.domain ?? null,
-            createdAt: toIsoString(project.createdAt),
-            updatedAt: toIsoString(project.updatedAt),
+            ...mapProject(project),
             apps: apps.map((a: any) => ({
               id: a.id,
               projectId: a.projectId,
@@ -381,22 +446,7 @@ export const ProjectServiceLive = Layer.effect(
             );
 
             if (existingById) {
-              return {
-                id: existingById.id,
-                ownerId: existingById.ownerId,
-                organizationId: existingById.organizationId,
-                kind: existingById.kind as ProjectKind,
-                slug: existingById.slug,
-                title: existingById.title,
-                description: existingById.description,
-                content: existingById.content ?? null,
-                status: existingById.status as ProjectStatus,
-                visibility: existingById.visibility as ProjectVisibility,
-                repository: existingById.repository ?? null,
-                domain: existingById.domain ?? null,
-                createdAt: toIsoString(existingById.createdAt),
-                updatedAt: toIsoString(existingById.updatedAt),
-              };
+              return mapProject(existingById);
             }
           }
 
@@ -447,6 +497,8 @@ export const ProjectServiceLive = Layer.effect(
               updatedAt: now,
             }),
           );
+
+          yield* syncMentions(db, id, content);
 
           return {
             id,
@@ -529,6 +581,9 @@ export const ProjectServiceLive = Layer.effect(
             updates.ownerId = input.ownerId.trim();
 
           yield* Effect.promise(() => db.update(projects).set(updates).where(eq(projects.id, id)));
+
+          const updatedContent = updates.content !== undefined ? updates.content : existing.content;
+          yield* syncMentions(db, id, updatedContent);
 
           return {
             id: existing.id,
@@ -694,22 +749,47 @@ export const ProjectServiceLive = Layer.effect(
             return false;
           });
 
-          return filtered.map((r: any) => ({
-            id: r.project.id,
-            ownerId: r.project.ownerId,
-            organizationId: r.project.organizationId,
-            kind: r.project.kind as ProjectKind,
-            slug: r.project.slug,
-            title: r.project.title,
-            description: r.project.description,
-            content: r.project.content ?? null,
-            status: r.project.status as ProjectStatus,
-            visibility: r.project.visibility as ProjectVisibility,
-            repository: r.project.repository ?? null,
-            domain: r.project.domain ?? null,
-            createdAt: toIsoString(r.project.createdAt),
-            updatedAt: toIsoString(r.project.updatedAt),
-          }));
+          return filtered.map((r: any) => mapProject(r.project));
+        }),
+
+      listMentions: (id, userId, alternateUserId) =>
+        Effect.gen(function* () {
+          const rows = (yield* Effect.promise(() =>
+            db
+              .select({ project: projects })
+              .from(projectMentions)
+              .innerJoin(projects, eq(projectMentions.sourceId, projects.id))
+              .where(eq(projectMentions.targetId, id)),
+          )) as Array<{ project: any }>;
+
+          const filtered = rows.filter((r) => {
+            if (r.project.visibility === "public" || r.project.visibility === "unlisted")
+              return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            return false;
+          });
+
+          return filtered.map((r) => mapProject(r.project));
+        }),
+
+      listMentionedBy: (id, userId, alternateUserId) =>
+        Effect.gen(function* () {
+          const rows = (yield* Effect.promise(() =>
+            db
+              .select({ project: projects })
+              .from(projectMentions)
+              .innerJoin(projects, eq(projectMentions.targetId, projects.id))
+              .where(eq(projectMentions.sourceId, id)),
+          )) as Array<{ project: any }>;
+
+          const filtered = rows.filter((r) => {
+            if (r.project.visibility === "public" || r.project.visibility === "unlisted")
+              return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            return false;
+          });
+
+          return filtered.map((r) => mapProject(r.project));
         }),
     };
   }),

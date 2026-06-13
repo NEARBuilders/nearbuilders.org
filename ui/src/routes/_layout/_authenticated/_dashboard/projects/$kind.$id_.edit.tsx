@@ -1,12 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
-import { parseProjectListSearch } from "./-search";
+import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,
@@ -24,20 +24,25 @@ type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
 };
 
-export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/$id_/edit")({
-  validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    ...parseProjectListSearch(search),
-    tab: search.tab === "preview" ? "preview" : "write",
-  }),
-  head: () => ({
-    meta: [
-      { title: "Edit | Projects" },
-      { name: "description", content: "Edit a project or idea." },
-    ],
-  }),
-  loader: async ({ params }) => ({ projectId: params.id }),
-  component: EditProjectPage,
-});
+export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/$kind/$id_/edit")(
+  {
+    validateSearch: (search: Record<string, unknown>): SearchParams => ({
+      ...parseProjectListSearch(search),
+      tab: search.tab === "preview" ? "preview" : "write",
+    }),
+    beforeLoad: async ({ params }) => {
+      if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
+    },
+    head: () => ({
+      meta: [
+        { title: "Edit | Projects" },
+        { name: "description", content: "Edit a project or idea." },
+      ],
+    }),
+    loader: async ({ params }) => ({ projectId: params.id }),
+    component: EditProjectPage,
+  },
+);
 
 function EditProjectPage() {
   const { id: projectId } = Route.useParams();
@@ -66,33 +71,25 @@ function EditProjectPage() {
 
   const canManage = isAdmin || isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
 
-  const setTab = (value: string) => {
-    void navigate({
-      search: {
-        tab: value as "write" | "preview",
-        kind: search.kind,
-        personal: search.personal,
-        private: search.private,
-      },
-      replace: true,
-    });
-  };
-
   const updateMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      // Non-admins can't flip a project to public directly; that change goes
-      // through a proposal so an admin can approve it.
       const submitForReview =
-        !isAdmin && values.visibility === "public" && project?.visibility !== "public";
+        !isAdmin &&
+        values.visibility === "public" &&
+        project?.visibility !== "public" &&
+        values.kind !== "result";
       const updated = await apiClient.updateProject({
         id: projectId,
         kind: values.kind,
         title: values.title.trim(),
         description: values.description?.trim() || undefined,
         repository: values.kind === "project" ? values.repository?.trim() || undefined : undefined,
-        content: values.kind === "idea" ? values.content?.trim() || undefined : undefined,
+        content:
+          values.kind === "idea" || values.kind === "scope" || values.kind === "result"
+            ? values.content?.trim() || undefined
+            : undefined,
         visibility: submitForReview ? undefined : values.visibility,
-        status: values.status,
+        status: values.kind !== "result" ? values.status : undefined,
         domain: values.domain?.trim() || undefined,
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
@@ -119,13 +116,13 @@ function EditProjectPage() {
       return { submitForReview };
     },
     onSuccess: ({ submitForReview }: { submitForReview: boolean }) => {
-      toast.success(submitForReview ? "Saved — submitted for review to go public" : "Saved");
+      toast.success(submitForReview ? "Saved \u2014 submitted for review to go public" : "Saved");
       queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["admin-proposals", "projects"] });
       navigate({
-        to: "/projects/$id",
-        params: { id: projectId },
+        to: "/projects/$kind/$id",
+        params: { kind: project!.kind, id: projectId },
         search: {
           kind: search.kind,
           personal: search.personal,
@@ -181,7 +178,7 @@ function EditProjectPage() {
           }}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
-          ← Back to projects
+          {"\u2190"} Back to projects
         </Link>
       </div>
     );
@@ -194,8 +191,8 @@ function EditProjectPage() {
           You don't have permission to edit this project.
         </p>
         <Link
-          to="/projects/$id"
-          params={{ id: projectId }}
+          to="/projects/$kind/$id"
+          params={{ kind: project.kind, id: projectId }}
           search={{
             kind: search.kind,
             personal: search.personal,
@@ -203,7 +200,7 @@ function EditProjectPage() {
           }}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
-          ← Back to project
+          {"\u2190"} Back to project
         </Link>
       </div>
     );
@@ -217,7 +214,6 @@ function EditProjectPage() {
       defaultOwnerId={defaultOwnerId}
       search={search}
       tab={tab}
-      setTab={setTab}
       updateMutation={updateMutation}
       deleteMutation={deleteMutation}
     />
@@ -231,7 +227,6 @@ function EditFormInner({
   defaultOwnerId,
   search,
   tab,
-  setTab,
   updateMutation,
   deleteMutation,
 }: {
@@ -241,13 +236,12 @@ function EditFormInner({
   defaultOwnerId: string;
   search: SearchParams;
   tab: "write" | "preview";
-  setTab: (tab: "write" | "preview") => void;
   updateMutation: any;
   deleteMutation: any;
 }) {
   const form = useForm({
     defaultValues: {
-      kind: project.kind as "project" | "idea",
+      kind: project.kind as "project" | "idea" | "scope" | "result",
       title: project.title ?? "",
       description: project.description ?? "",
       repository: project.repository ?? "",
@@ -272,8 +266,8 @@ function EditFormInner({
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="icon-sm" aria-label="Back to project">
             <Link
-              to="/projects/$id"
-              params={{ id: projectId }}
+              to="/projects/$kind/$id"
+              params={{ kind: project.kind, id: projectId }}
               search={{
                 kind: search.kind,
                 personal: search.personal,
@@ -296,7 +290,7 @@ function EditFormInner({
                 onClick={() => form.handleSubmit()}
                 disabled={isSubmitting || updateMutation.isPending}
               >
-                {updateMutation.isPending ? "Saving…" : "Save"}
+                {updateMutation.isPending ? "Saving\u2026" : "Save"}
               </Button>
             )}
           </form.Subscribe>
@@ -316,8 +310,8 @@ function EditFormInner({
 
           <Button asChild size="sm" variant="outline">
             <Link
-              to="/projects/$id"
-              params={{ id: projectId }}
+              to="/projects/$kind/$id"
+              params={{ kind: project.kind, id: projectId }}
               search={{
                 kind: search.kind,
                 personal: search.personal,
@@ -345,7 +339,6 @@ function EditFormInner({
           isAdmin={isAdmin}
           defaultOwnerId={defaultOwnerId}
           tab={tab}
-          setTab={setTab}
         />
       </form>
     </div>

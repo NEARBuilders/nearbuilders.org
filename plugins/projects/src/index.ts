@@ -299,6 +299,46 @@ export default createPlugin({
 
         return { data: exit.value };
       }),
+
+      listMentions: builder.listMentions.handler(async ({ input, context }) => {
+        const exit = await Effect.runPromiseExit(
+          services.project.listMentions(
+            input.id,
+            context.walletAddress ?? context.userId,
+            getAlternateOwnerId(context),
+          ),
+        );
+
+        if (Exit.isFailure(exit)) {
+          const squashed = Cause.squash(exit.cause);
+          if (squashed instanceof ORPCError) throw squashed;
+          throw new ORPCError("INTERNAL_SERVER_ERROR", {
+            message: squashed instanceof Error ? squashed.message : String(squashed),
+          });
+        }
+
+        return { data: exit.value };
+      }),
+
+      listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
+        const exit = await Effect.runPromiseExit(
+          services.project.listMentionedBy(
+            input.id,
+            context.walletAddress ?? context.userId,
+            getAlternateOwnerId(context),
+          ),
+        );
+
+        if (Exit.isFailure(exit)) {
+          const squashed = Cause.squash(exit.cause);
+          if (squashed instanceof ORPCError) throw squashed;
+          throw new ORPCError("INTERNAL_SERVER_ERROR", {
+            message: squashed instanceof Error ? squashed.message : String(squashed),
+          });
+        }
+
+        return { data: exit.value };
+      }),
     };
   },
 });

@@ -478,8 +478,8 @@ function LoadedProfile({
             {projects.map((project) => (
               <Link
                 key={project.id}
-                to="/projects/$id"
-                params={{ id: project.id }}
+                to="/projects/$kind/$id"
+                params={{ kind: project.kind, id: project.id }}
                 className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
               >
                 <div className="flex items-center gap-2">
