@@ -228,7 +228,7 @@ function NominationForm({
           </Button>
           {isSelfNomination && (
             <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-              <Link to="/profile">Go to profile</Link>
+              <Link to="/dashboard">Go to dashboard</Link>
             </Button>
           )}
         </div>

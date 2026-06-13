@@ -22,7 +22,6 @@ import { Route as LayoutAppsIndexRouteImport } from './routes/_layout/apps/index
 import { Route as LayoutBuildersAddRouteImport } from './routes/_layout/builders/add'
 import { Route as LayoutBuildersAccountRouteImport } from './routes/_layout/builders/$account'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
-import { Route as LayoutAdminDashboardRouteImport } from './routes/_layout/_admin/dashboard'
 import { Route as LayoutAppsAccountIdIndexRouteImport } from './routes/_layout/apps/$accountId/index'
 import { Route as LayoutBuildersAccountEditRouteImport } from './routes/_layout/builders/$account_.edit'
 import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layout/apps/$accountId/$gatewayId'
@@ -30,6 +29,8 @@ import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './rou
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
 import { Route as LayoutAuthenticatedDashboardProjectsRouteImport } from './routes/_layout/_authenticated/_dashboard/projects'
 import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
+import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
+import { Route as LayoutAdminAdminDashboardRouteImport } from './routes/_layout/_admin/admin/dashboard'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
 import { Route as LayoutAuthenticatedDashboardProjectsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/projects/index'
 import { Route as LayoutAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/index'
@@ -105,11 +106,6 @@ const LayoutAuthenticatedDashboardRoute =
     id: '/_dashboard',
     getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
-const LayoutAdminDashboardRoute = LayoutAdminDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => LayoutAdminRoute,
-} as any)
 const LayoutAppsAccountIdIndexRoute =
   LayoutAppsAccountIdIndexRouteImport.update({
     id: '/apps/$accountId/',
@@ -151,6 +147,18 @@ const LayoutAuthenticatedDashboardProfileRoute =
     id: '/profile',
     path: '/profile',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardDashboardRoute =
+  LayoutAuthenticatedDashboardDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardRoute =
+  LayoutAdminAdminDashboardRouteImport.update({
+    id: '/admin/dashboard',
+    path: '/admin/dashboard',
+    getParentRoute: () => LayoutAdminRoute,
   } as any)
 const LayoutAuthenticatedDashboardSettingsIndexRoute =
   LayoutAuthenticatedDashboardSettingsIndexRouteImport.update({
@@ -231,11 +239,12 @@ export interface FileRoutesByFullPath {
   '/ironclaw': typeof LayoutIronclawRoute
   '/login': typeof LayoutLoginRoute
   '/skill': typeof LayoutSkillRoute
-  '/dashboard': typeof LayoutAdminDashboardRoute
   '/builders/$account': typeof LayoutBuildersAccountRoute
   '/builders/add': typeof LayoutBuildersAddRoute
   '/apps/': typeof LayoutAppsIndexRoute
   '/builders/': typeof LayoutBuildersIndexRoute
+  '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/projects': typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
@@ -262,11 +271,12 @@ export interface FileRoutesByTo {
   '/ironclaw': typeof LayoutIronclawRoute
   '/login': typeof LayoutLoginRoute
   '/skill': typeof LayoutSkillRoute
-  '/dashboard': typeof LayoutAdminDashboardRoute
   '/builders/$account': typeof LayoutBuildersAccountRoute
   '/builders/add': typeof LayoutBuildersAddRoute
   '/apps': typeof LayoutAppsIndexRoute
   '/builders': typeof LayoutBuildersIndexRoute
+  '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
@@ -295,12 +305,13 @@ export interface FileRoutesById {
   '/_layout/login': typeof LayoutLoginRoute
   '/_layout/skill': typeof LayoutSkillRoute
   '/_layout/': typeof LayoutIndexRoute
-  '/_layout/_admin/dashboard': typeof LayoutAdminDashboardRoute
   '/_layout/_authenticated/_dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/builders/$account': typeof LayoutBuildersAccountRoute
   '/_layout/builders/add': typeof LayoutBuildersAddRoute
   '/_layout/apps/': typeof LayoutAppsIndexRoute
   '/_layout/builders/': typeof LayoutBuildersIndexRoute
+  '/_layout/_admin/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/_layout/_authenticated/_dashboard/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/_layout/_authenticated/_dashboard/projects': typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
@@ -329,11 +340,12 @@ export interface FileRouteTypes {
     | '/ironclaw'
     | '/login'
     | '/skill'
-    | '/dashboard'
     | '/builders/$account'
     | '/builders/add'
     | '/apps/'
     | '/builders/'
+    | '/admin/dashboard'
+    | '/dashboard'
     | '/profile'
     | '/projects'
     | '/settings'
@@ -360,11 +372,12 @@ export interface FileRouteTypes {
     | '/ironclaw'
     | '/login'
     | '/skill'
-    | '/dashboard'
     | '/builders/$account'
     | '/builders/add'
     | '/apps'
     | '/builders'
+    | '/admin/dashboard'
+    | '/dashboard'
     | '/profile'
     | '/accept-invitation/$id'
     | '/apps/$accountId/$gatewayId'
@@ -392,12 +405,13 @@ export interface FileRouteTypes {
     | '/_layout/login'
     | '/_layout/skill'
     | '/_layout/'
-    | '/_layout/_admin/dashboard'
     | '/_layout/_authenticated/_dashboard'
     | '/_layout/builders/$account'
     | '/_layout/builders/add'
     | '/_layout/apps/'
     | '/_layout/builders/'
+    | '/_layout/_admin/admin/dashboard'
+    | '/_layout/_authenticated/_dashboard/dashboard'
     | '/_layout/_authenticated/_dashboard/profile'
     | '/_layout/_authenticated/_dashboard/projects'
     | '/_layout/_authenticated/_dashboard/settings'
@@ -516,13 +530,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardRouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
     }
-    '/_layout/_admin/dashboard': {
-      id: '/_layout/_admin/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof LayoutAdminDashboardRouteImport
-      parentRoute: typeof LayoutAdminRoute
-    }
     '/_layout/apps/$accountId/': {
       id: '/_layout/apps/$accountId/'
       path: '/apps/$accountId'
@@ -571,6 +578,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/profile'
       preLoaderRoute: typeof LayoutAuthenticatedDashboardProfileRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard': {
+      id: '/_layout/_authenticated/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard': {
+      id: '/_layout/_admin/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardRouteImport
+      parentRoute: typeof LayoutAdminRoute
     }
     '/_layout/_authenticated/_dashboard/settings/': {
       id: '/_layout/_authenticated/_dashboard/settings/'
@@ -660,11 +681,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface LayoutAdminRouteChildren {
-  LayoutAdminDashboardRoute: typeof LayoutAdminDashboardRoute
+  LayoutAdminAdminDashboardRoute: typeof LayoutAdminAdminDashboardRoute
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
-  LayoutAdminDashboardRoute: LayoutAdminDashboardRoute,
+  LayoutAdminAdminDashboardRoute: LayoutAdminAdminDashboardRoute,
 }
 
 const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(
@@ -723,6 +744,7 @@ const LayoutAuthenticatedDashboardSettingsRouteWithChildren =
   )
 
 interface LayoutAuthenticatedDashboardRouteChildren {
+  LayoutAuthenticatedDashboardDashboardRoute: typeof LayoutAuthenticatedDashboardDashboardRoute
   LayoutAuthenticatedDashboardProfileRoute: typeof LayoutAuthenticatedDashboardProfileRoute
   LayoutAuthenticatedDashboardProjectsRoute: typeof LayoutAuthenticatedDashboardProjectsRouteWithChildren
   LayoutAuthenticatedDashboardSettingsRoute: typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
@@ -733,6 +755,8 @@ interface LayoutAuthenticatedDashboardRouteChildren {
 
 const LayoutAuthenticatedDashboardRouteChildren: LayoutAuthenticatedDashboardRouteChildren =
   {
+    LayoutAuthenticatedDashboardDashboardRoute:
+      LayoutAuthenticatedDashboardDashboardRoute,
     LayoutAuthenticatedDashboardProfileRoute:
       LayoutAuthenticatedDashboardProfileRoute,
     LayoutAuthenticatedDashboardProjectsRoute:
