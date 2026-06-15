@@ -2,10 +2,10 @@ import { createPlugin } from "every-plugin";
 import { Effect } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { AccountIdSchema } from "near-kit/schemas";
 import type { ProposalSchema } from "../../plugins/proposals/src/contract";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
+import { assertValidBuilderProposalAccount } from "./lib/builder-proposal-account";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import {
   assertProjectProposalOwner,
@@ -63,24 +63,6 @@ function readString(value: unknown): string | undefined {
 function readStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter((item): item is string => typeof item === "string");
-}
-
-const IMPLICIT_ACCOUNT_ID_RE = /^(?:[0-9a-f]{64}|0x[0-9a-f]{40}|0s[0-9a-f]{40})$/;
-
-function assertValidBuilderProposalAccount(input: { pluginId: string; entityId: string }) {
-  if (input.pluginId !== "builders") return;
-
-  if (!AccountIdSchema.safeParse(input.entityId).success) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Invalid NEAR account ID",
-    });
-  }
-
-  if (IMPLICIT_ACCOUNT_ID_RE.test(input.entityId)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Builder nominations require a named NEAR account ID",
-    });
-  }
 }
 
 function isNotFoundError(error: unknown): boolean {

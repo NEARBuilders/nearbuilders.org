@@ -1,12 +1,25 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, Hammer, Loader2, MapPin, UserPlus } from "lucide-react";
+import { AccountIdSchema } from "near-kit/schemas";
 import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
+const IMPLICIT_ACCOUNT_ID_RE = /^[0-9a-f]{64}$/;
+
+function getBuilderAccountError(accountId: string) {
+  const normalizedAccountId = accountId.trim().toLowerCase();
+  if (!normalizedAccountId) return "NEAR account is required";
+  if (!AccountIdSchema.safeParse(normalizedAccountId).success) return "Enter a valid NEAR account";
+  if (IMPLICIT_ACCOUNT_ID_RE.test(normalizedAccountId)) {
+    return "Builder nominations require a named NEAR account";
+  }
+  return null;
+}
 
 export const Route = createFileRoute("/_layout/builders/add")({
   head: () => ({
@@ -240,8 +253,9 @@ function NominationForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!nearAccount.trim()) {
-          toast.error("NEAR account is required");
+        const accountError = getBuilderAccountError(nearAccount);
+        if (accountError) {
+          toast.error(accountError);
           return;
         }
         nominateMutation.mutate();
