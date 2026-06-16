@@ -34,6 +34,7 @@ export {
 } from "./ui/dialog";
 export { Input } from "./ui/input";
 export { Label } from "./ui/label";
+export { NewBadge } from "./ui/new-badge";
 export { ScrollArea, ScrollBar } from "./ui/scroll-area";
 export { Skeleton } from "./ui/skeleton";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";

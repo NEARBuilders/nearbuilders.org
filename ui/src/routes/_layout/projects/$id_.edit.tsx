@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -24,7 +24,15 @@ type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
 };
 
-export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/$id_/edit")({
+export const Route = createFileRoute("/_layout/projects/$id_/edit")({
+  beforeLoad: async ({ context, location }) => {
+    const session = await context.queryClient.ensureQueryData(
+      sessionQueryOptions(context.authClient, context.session),
+    );
+    if (!session?.user) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
+    }
+  },
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     ...parseProjectListSearch(search),
     tab: search.tab === "preview" ? "preview" : "write",

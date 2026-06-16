@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Reorder } from "framer-motion";
 import {
+  ArrowDownUp,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -20,10 +21,18 @@ import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { NewBadge } from "@/components/ui/new-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
-import { type ProjectKindFilter, parseProjectListSearch } from "./-search";
+import { type ProjectKindFilter, type ProjectSort, parseProjectListSearch } from "./-search";
 
 type VoteDirection = "up" | "down" | null;
 
@@ -49,7 +58,7 @@ interface RankedProject {
 
 const PAGE_SIZE = 24;
 
-export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/")({
+export const Route = createFileRoute("/_layout/projects/")({
   validateSearch: parseProjectListSearch,
   head: () => ({
     meta: [
@@ -121,6 +130,7 @@ function ProjectsList() {
       : "all";
   const isPersonalOnly = search.personal === true;
   const isPrivateOnly = isPersonalOnly && search.private === true;
+  const activeSort: ProjectSort = search.sort ?? "votes";
 
   const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
   const { data: session } = sessionQuery;
@@ -199,10 +209,18 @@ function ProjectsList() {
 
   const counts = upvoteCounts.data ?? {};
   const rankedProjects = useMemo<RankedProject[]>(() => {
-    return projects
-      .map((p) => ({ ...p, upvoteCount: counts[p.id] ?? 0 }))
-      .sort((a, b) => b.upvoteCount - a.upvoteCount);
-  }, [projects, counts]);
+    const withCounts = projects.map((p) => ({ ...p, upvoteCount: counts[p.id] ?? 0 }));
+    const byCreatedAt = (a: RankedProject, b: RankedProject) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    switch (activeSort) {
+      case "newest":
+        return withCounts.sort((a, b) => byCreatedAt(b, a));
+      case "oldest":
+        return withCounts.sort(byCreatedAt);
+      default:
+        return withCounts.sort((a, b) => b.upvoteCount - a.upvoteCount);
+    }
+  }, [projects, counts, activeSort]);
   const projectIds = useMemo(() => rankedProjects.map((p) => p.id), [rankedProjects]);
 
   const userVoteStates = useQuery({
@@ -347,7 +365,15 @@ function ProjectsList() {
         preview: undefined,
         personal: search.personal,
         private: search.private,
+        sort: search.sort,
       }),
+    });
+  };
+
+  const handleSortChange = (sort: ProjectSort) => {
+    void navigate({
+      to: "/projects",
+      search: (prev) => ({ ...prev, sort: sort === "votes" ? undefined : sort }),
     });
   };
 
@@ -360,6 +386,7 @@ function ProjectsList() {
         preview: undefined,
         personal: nextPersonal || undefined,
         private: nextPersonal ? search.private : undefined,
+        sort: search.sort,
       }),
     });
   };
@@ -373,6 +400,7 @@ function ProjectsList() {
         preview: undefined,
         personal: true,
         private: isPrivateOnly ? undefined : true,
+        sort: search.sort,
       }),
     });
   };
@@ -449,6 +477,22 @@ function ProjectsList() {
           Private
         </button>
       )}
+
+      <Select value={activeSort} onValueChange={(v) => handleSortChange(v as ProjectSort)}>
+        <SelectTrigger
+          size="sm"
+          className="h-8 w-auto gap-1.5 rounded-lg bg-secondary font-semibold"
+          aria-label="Sort projects"
+        >
+          <ArrowDownUp size={13} className="text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="votes">Most votes</SelectItem>
+          <SelectItem value="newest">Newest</SelectItem>
+          <SelectItem value="oldest">Oldest</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 
@@ -628,6 +672,7 @@ function ProjectsList() {
                   <div className="flex flex-wrap items-center gap-2">
                     <KindBadge kind={selectedProject.kind} />
                     <StatusBadge status={selectedProject.status} />
+                    <NewBadge createdAt={selectedProject.createdAt} />
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <h2 className="text-xl font-semibold leading-snug text-foreground">
@@ -813,6 +858,7 @@ function ListRow({
             <KindBadge kind={project.kind} compact />
             <span className="text-sm font-semibold text-foreground truncate">{project.title}</span>
             {project.visibility === "private" && <PrivateIndicator size={11} />}
+            <NewBadge createdAt={project.createdAt} compact />
           </div>
           {project.description && (
             <p className="text-xs text-muted-foreground truncate">{project.description}</p>
@@ -831,6 +877,7 @@ function ListRow({
             <span className="text-base font-semibold text-foreground truncate flex-1 min-w-0 leading-tight">
               {project.title}
             </span>
+            <NewBadge createdAt={project.createdAt} compact />
             {project.visibility === "private" && <PrivateIndicator size={11} />}
             {project.repository && (
               <a

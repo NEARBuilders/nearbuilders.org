@@ -1,14 +1,21 @@
 export type ProjectKindFilter = "all" | "project" | "idea";
 
+export type ProjectSort = "votes" | "newest" | "oldest";
+
 export type ProjectListSearch = {
   preview?: string;
   kind?: ProjectKindFilter;
   personal?: boolean;
   private?: boolean;
+  sort?: ProjectSort;
 };
 
 function isProjectKindFilter(value: unknown): value is ProjectKindFilter {
   return value === "all" || value === "project" || value === "idea";
+}
+
+function isProjectSort(value: unknown): value is ProjectSort {
+  return value === "votes" || value === "newest" || value === "oldest";
 }
 
 function hasSearchFlag(value: unknown) {
@@ -24,5 +31,6 @@ export function parseProjectListSearch(search: Record<string, unknown>): Project
     kind: isProjectKindFilter(search.kind) ? search.kind : undefined,
     personal: personal || undefined,
     private: privateOnly || undefined,
+    sort: isProjectSort(search.sort) && search.sort !== "votes" ? search.sort : undefined,
   };
 }

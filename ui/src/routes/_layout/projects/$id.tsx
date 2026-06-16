@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import {
   ArrowLeft,
   Check,
@@ -20,17 +21,48 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { NewBadge } from "@/components/ui/new-badge";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { parseProjectListSearch } from "./-search";
 
-export const Route = createFileRoute("/_layout/_authenticated/_dashboard/projects/$id")({
+export const Route = createFileRoute("/_layout/projects/$id")({
   validateSearch: parseProjectListSearch,
-  head: () => ({
-    meta: [{ title: `Project | app` }, { name: "description", content: "Project details." }],
-  }),
-  loader: async ({ params }) => ({ projectId: params.id }),
+  loader: async ({ params, context }) => {
+    const project = await context.queryClient
+      .ensureQueryData({
+        queryKey: ["project", params.id],
+        queryFn: () => context.apiClient.getProject({ id: params.id }),
+      })
+      .then((r) => r?.data ?? null)
+      .catch(() => null);
+
+    return { project, siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders" };
+  },
+  head: ({ loaderData }) => {
+    const project = loaderData?.project;
+    const siteName = loaderData?.siteName ?? "NEAR Builders";
+    const title = project ? `${project.title} | ${siteName}` : `Project | ${siteName}`;
+    const description =
+      project?.description?.trim() ||
+      (project ? `${project.title} on ${siteName}.` : "Project details on NEAR Builders.");
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        ...getSocialImageMeta({
+          imageUrl: "/metadata.png",
+          title: project?.title ?? "Project",
+          description,
+          siteName,
+          type: "article",
+          alt: description,
+        }),
+      ],
+    };
+  },
   component: ProjectDetailPage,
 });
 
@@ -358,6 +390,7 @@ function ProjectDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <KindChip kind={project.kind} />
                 {project.status !== "active" && <StatusChip status={project.status as any} />}
+                <NewBadge createdAt={project.createdAt} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[26px] sm:text-[30px] font-semibold leading-tight text-foreground">
