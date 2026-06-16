@@ -203,9 +203,17 @@ function EventCard({
       params={{ id: event.id }}
       className="group relative block rounded-lg border border-border bg-card px-4 py-3.5 transition-all duration-200 hover:shadow-lg sm:px-5 sm:py-4"
     >
+      <span
+        className={cn(
+          "absolute right-4 top-3 shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5 sm:right-5",
+          status.className,
+        )}
+      >
+        {status.label}
+      </span>
       <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 pr-24">
+          <div className="flex items-start gap-3">
             <div className="flex min-w-0 items-center gap-1.5">
               <span
                 className={cn(
@@ -219,14 +227,6 @@ function EventCard({
                 <Lock size={12} className="shrink-0 text-muted-foreground" />
               )}
             </div>
-            <span
-              className={cn(
-                "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5",
-                status.className,
-              )}
-            >
-              {status.label}
-            </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
