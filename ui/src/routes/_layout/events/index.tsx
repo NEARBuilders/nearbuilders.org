@@ -218,15 +218,10 @@ function EventCard({
               {event.visibility === "private" && (
                 <Lock size={12} className="shrink-0 text-muted-foreground" />
               )}
-              {isCancelled && (
-                <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
-                  Cancelled
-                </span>
-              )}
             </div>
             <span
               className={cn(
-                "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5",
                 status.className,
               )}
             >
@@ -279,36 +274,36 @@ function getEventCardStatus(event: EventRecord, proposalStatus?: EventProposalSt
   if (event.status === "cancelled") {
     return {
       label: "Cancelled",
-      className: "border-destructive/30 bg-destructive/10 text-destructive",
+      className: "border-destructive/20 bg-destructive/5 text-destructive",
     };
   }
   if (proposalStatus === "pending") {
     return {
       label: "Pending",
-      className: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+      className: "border-yellow-500/20 bg-yellow-500/5 text-yellow-700 dark:text-yellow-300/90",
     };
   }
   if (proposalStatus === "rejected") {
     return {
       label: "Rejected",
-      className: "border-destructive/30 bg-destructive/10 text-destructive",
+      className: "border-destructive/20 bg-destructive/5 text-destructive",
     };
   }
   if (proposalStatus === "approved") {
     return {
       label: "Approved",
-      className: "border-brand-green/30 bg-brand-green/10 text-brand-green",
+      className: "border-brand-green/20 bg-brand-green/5 text-brand-green",
     };
   }
   if (event.visibility === "private") {
     return {
       label: "Private",
-      className: "border-border bg-secondary text-secondary-foreground",
+      className: "border-border bg-secondary/60 text-muted-foreground",
     };
   }
   return {
     label: "Public",
-    className: "border-brand-accent/30 bg-brand-accent/10 text-brand-accent",
+    className: "border-brand-accent/20 bg-brand-accent/5 text-brand-accent",
   };
 }
 
