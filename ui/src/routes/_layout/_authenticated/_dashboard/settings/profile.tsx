@@ -8,10 +8,16 @@ import { Badge, Button } from "@/components";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/profile")({
-  component: ProfileSettings,
+  head: () => ({
+    meta: [
+      { title: "Account | Settings" },
+      { name: "description", content: "Manage your account identity and recovery details." },
+    ],
+  }),
+  component: AccountSettings,
 });
 
-function ProfileSettings() {
+function AccountSettings() {
   const auth = useAuthClient();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
   const user = session?.user;
@@ -21,7 +27,7 @@ function ProfileSettings() {
   return (
     <div className="space-y-5">
       <AccountSummary user={user} />
-      <IdentityCard user={user} />
+      <AccountDetailsCard user={user} />
       {user.isAnonymous && <TemporaryAccountNotice />}
     </div>
   );
@@ -50,7 +56,7 @@ function AccountSummary({
                 {displayName}
               </h2>
               <p className="text-sm text-muted-foreground">
-                Manage your public identity and account recovery status.
+                Manage your account identity and recovery status.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -80,7 +86,7 @@ function AccountSummary({
   );
 }
 
-function IdentityCard({
+function AccountDetailsCard({
   user,
 }: {
   user: { id: string; email?: string; name?: string; isAnonymous?: boolean | null };
@@ -93,7 +99,7 @@ function IdentityCard({
       const { error } = await auth.updateUser({ name });
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => toast.success("Profile updated"),
+    onSuccess: () => toast.success("Account updated"),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -101,7 +107,7 @@ function IdentityCard({
     <div className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex flex-col gap-1">
         <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-          Identity
+          Account identity
         </div>
         <p className="text-sm text-muted-foreground">
           These values identify your account inside NEAR Builders.

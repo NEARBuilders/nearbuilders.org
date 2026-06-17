@@ -33,7 +33,9 @@ export function NearProfile({
     enabled: !!accountId,
   });
 
-  const displayName = profile?.name;
+  const profileName = profile?.name?.trim();
+  const displayName = profileName || accountId || "Builder";
+  const accountLabel = accountId ? `@${accountId}` : null;
   const avatarUrl =
     profile?.image?.url ??
     (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
@@ -103,20 +105,24 @@ export function NearProfile({
 
   if (variant === "card") {
     return (
-      <div className={`w-full bg-card rounded-lg border overflow-hidden ${className}`}>
-        <div className="relative h-32 bg-gradient-to-r from-primary to-accent">
+      <div
+        className={`w-full overflow-hidden rounded-xl border border-border bg-card ${className}`}
+      >
+        <div className="relative h-36 bg-secondary">
+          <div className="absolute inset-x-0 top-0 h-1 bg-brand-green" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-border" />
           {backgroundUrl && (
             <img
               src={backgroundUrl}
               alt="Profile background"
-              className="h-full w-full object-cover"
+              className="relative h-full w-full object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
             />
           )}
-          <div className="absolute -bottom-6 left-6">
-            <div className="h-12 w-12 rounded-full overflow-hidden bg-background border-4 border-background">
+          <div className="absolute -bottom-8 left-5 sm:left-6">
+            <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-background bg-background shadow-lg ring-1 ring-border">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -127,35 +133,43 @@ export function NearProfile({
                   }}
                 />
               ) : (
-                <div className="h-full w-full flex items-center justify-center text-sm font-medium text-muted-foreground bg-muted">
-                  {displayName?.charAt(0).toUpperCase()}
+                <div className="flex h-full w-full items-center justify-center bg-muted text-lg font-bold text-foreground">
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="pt-8 px-6 pb-6">
-          <h3 className="text-lg font-semibold mb-1">{displayName}</h3>
-          {accountId && displayName !== accountId && (
-            <p className="text-sm text-muted-foreground mb-3">@{accountId}</p>
+        <div className="px-5 pb-5 pt-10 sm:px-6 sm:pb-6">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-xl font-bold tracking-tight text-foreground">{displayName}</h3>
+            {accountLabel && (
+              <p className="font-mono text-sm font-semibold text-brand-cyan">{accountLabel}</p>
+            )}
+          </div>
+
+          {!profile?.description && (
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+              NEAR account connected. Add projects and keep your builder presence current.
+            </p>
           )}
 
           {profile?.description && (
-            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               <Markdown>{profile.description}</Markdown>
             </p>
           )}
 
           {profile?.linktree && Object.keys(profile.linktree).length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {Object.entries(profile.linktree).map(([platform, url]) => (
                 <a
                   key={platform}
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-muted hover:bg-muted/80 transition-colors"
+                  className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold transition-colors hover:bg-secondary"
                 >
                   {platform}
                 </a>

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 
-export const Route = createFileRoute("/_layout/_admin/dashboard")({
+export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
   head: () => ({
     meta: [{ title: "Admin Dashboard | NEAR Builders" }],
   }),
