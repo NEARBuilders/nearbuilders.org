@@ -86,6 +86,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] listProjects failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -103,6 +104,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] getProject failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -127,6 +129,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] createProject failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -151,6 +154,7 @@ export default createPlugin({
 
           if (Exit.isFailure(exit)) {
             const squashed = Cause.squash(exit.cause);
+            console.error("[Projects] updateProject failed:", squashed);
             if (squashed instanceof ORPCError) {
               if (squashed.code === "NOT_FOUND") {
                 throw errors.NOT_FOUND({
@@ -182,6 +186,7 @@ export default createPlugin({
 
           if (Exit.isFailure(exit)) {
             const squashed = Cause.squash(exit.cause);
+            console.error("[Projects] deleteProject failed:", squashed);
             if (squashed instanceof ORPCError) {
               if (squashed.code === "NOT_FOUND") {
                 throw errors.NOT_FOUND({
@@ -204,6 +209,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] listProjectApps failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -229,6 +235,7 @@ export default createPlugin({
 
           if (Exit.isFailure(exit)) {
             const squashed = Cause.squash(exit.cause);
+            console.error("[Projects] linkAppToProject failed:", squashed);
             if (squashed instanceof ORPCError) {
               if (squashed.code === "NOT_FOUND") {
                 throw errors.NOT_FOUND({
@@ -262,6 +269,7 @@ export default createPlugin({
 
           if (Exit.isFailure(exit)) {
             const squashed = Cause.squash(exit.cause);
+            console.error("[Projects] unlinkAppFromProject failed:", squashed);
             if (squashed instanceof ORPCError) {
               if (squashed.code === "NOT_FOUND") {
                 throw errors.NOT_FOUND({
@@ -291,6 +299,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] listProjectsForApp failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -311,6 +320,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] listMentions failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),
@@ -331,6 +341,7 @@ export default createPlugin({
 
         if (Exit.isFailure(exit)) {
           const squashed = Cause.squash(exit.cause);
+          console.error("[Projects] listMentionedBy failed:", squashed);
           if (squashed instanceof ORPCError) throw squashed;
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: squashed instanceof Error ? squashed.message : String(squashed),

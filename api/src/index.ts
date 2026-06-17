@@ -533,11 +533,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).listProjects(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).listProjects(input);
+        } catch (err) {
+          console.error(
+            "[API] listProjects failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       getProject: builder.getProject.handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).getProject(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).getProject(input);
+        } catch (err) {
+          console.error(
+            "[API] getProject failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
@@ -551,22 +567,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
         // an approved proposal.
         const visibility =
           !isAdmin && input.visibility === "public" ? "private" : (input.visibility ?? "private");
-        return await services.plugins.projects(pluginContext(context)).createProject({
-          ...input,
-          visibility,
-        });
+        try {
+          return await services.plugins.projects(pluginContext(context)).createProject({
+            ...input,
+            visibility,
+          });
+        } catch (err) {
+          console.error(
+            "[API] createProject failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).updateProject(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).updateProject(input);
+        } catch (err) {
+          console.error(
+            "[API] updateProject failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).deleteProject(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).deleteProject(input);
+        } catch (err) {
+          console.error(
+            "[API] deleteProject failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).listProjectsForApp(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).listProjectsForApp(input);
+        } catch (err) {
+          console.error(
+            "[API] listProjectsForApp failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       listEvents: builder.listEvents.handler(async ({ input, context }) => {
@@ -617,11 +665,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       listMentions: builder.listMentions.handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).listMentions(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).listMentions(input);
+        } catch (err) {
+          console.error(
+            "[API] listMentions failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
-        return await services.plugins.projects(pluginContext(context)).listMentionedBy(input);
+        try {
+          return await services.plugins.projects(pluginContext(context)).listMentionedBy(input);
+        } catch (err) {
+          console.error(
+            "[API] listMentionedBy failed:",
+            err instanceof Error ? err.message : String(err),
+          );
+          throw err;
+        }
       }),
 
       listBuilders: builder.listBuilders.handler(async ({ input, context }) => {

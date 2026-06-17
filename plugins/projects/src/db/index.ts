@@ -34,6 +34,19 @@ export async function createDatabaseDriver(url: string): Promise<DatabaseDriver>
         ? false
         : { rejectUnauthorized: false },
   });
+
+  try {
+    const client = await pool.connect();
+    await client.query("SELECT 1");
+    client.release();
+    console.log("[Projects] Database connection verified");
+  } catch (err) {
+    pool.end().catch(() => {});
+    throw new Error(
+      `[Projects] Database connection failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   return {
     db: drizzle(pool, { schema }),
     close: async () => {

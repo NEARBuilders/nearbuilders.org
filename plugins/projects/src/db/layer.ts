@@ -9,14 +9,24 @@ export const DatabaseLive = (url: string) =>
     DatabaseTag,
     Effect.acquireRelease(
       Effect.promise(async () => {
-        const { createDatabaseDriver } = await import("./index");
-        const driver = await createDatabaseDriver(url);
+        console.log("[Projects] Initializing database...");
 
-        const migrations = await import("virtual:drizzle-migrations.sql");
-        await migrate(driver.db, migrations.default);
-        console.log("[Projects] Migrations applied");
+        try {
+          const { createDatabaseDriver } = await import("./index");
+          const driver = await createDatabaseDriver(url);
 
-        return driver.db;
+          const migrations = await import("virtual:drizzle-migrations.sql");
+          await migrate(driver.db, migrations.default);
+          console.log("[Projects] Migrations applied");
+
+          return driver.db;
+        } catch (error) {
+          console.error(
+            "[Projects] Database initialization failed:",
+            error instanceof Error ? error.message : String(error),
+          );
+          throw error;
+        }
       }),
       () => Effect.void,
     ),
