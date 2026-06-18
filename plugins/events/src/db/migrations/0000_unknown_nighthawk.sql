@@ -1,4 +1,4 @@
-CREATE TABLE "events" (
+CREATE TABLE IF NOT EXISTS "events" (
 	"id" text PRIMARY KEY NOT NULL,
 	"owner_id" text NOT NULL,
 	"slug" text NOT NULL,
