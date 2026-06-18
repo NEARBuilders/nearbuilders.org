@@ -12,33 +12,6 @@ function normalizeRows<T>(result: unknown): T[] {
 
 const IDEMPOTENT_ERRORS =
   /already exists|duplicate.*(table|key|object)|does not exist|cannot drop|duplicate_column|duplicate_table/i;
-const IDEMPOTENT_CODES = new Set(["42P07", "42710", "42701", "42P01"]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object";
-}
-
-function isIdempotentMigrationError(error: unknown): boolean {
-  const seen = new Set<unknown>();
-  let current: unknown = error;
-
-  while (current && !seen.has(current)) {
-    seen.add(current);
-
-    const message = current instanceof Error ? current.message : String(current);
-    if (IDEMPOTENT_ERRORS.test(message)) return true;
-
-    if (isRecord(current)) {
-      if (typeof current.code === "string" && IDEMPOTENT_CODES.has(current.code)) return true;
-      current = current.cause;
-      continue;
-    }
-
-    break;
-  }
-
-  return false;
-}
 
 export async function migrate(db: EventsDatabase, migrations: Migration[]): Promise<void> {
   await db.execute(sql`
@@ -66,7 +39,8 @@ export async function migrate(db: EventsDatabase, migrations: Migration[]): Prom
       try {
         await db.execute(sql.raw(statement));
       } catch (err: unknown) {
-        if (isIdempotentMigrationError(err)) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (IDEMPOTENT_ERRORS.test(msg)) {
           console.log(`[Events] Skipping statement (already applied): ${statement.slice(0, 80)}`);
           continue;
         }
