@@ -457,18 +457,6 @@ export const EventServiceLive = Layer.effect(
           const endAt = input.endAt ? parseDate(input.endAt, "End date") : null;
           assertEventDates(startAt, endAt);
 
-          const [existing] = yield* Effect.promise(() =>
-            db.select().from(events).where(eq(events.slug, input.slug)).limit(1),
-          );
-
-          if (existing) {
-            return yield* Effect.fail(
-              new ORPCError("BAD_REQUEST", {
-                message: "An event with this slug already exists",
-              }),
-            );
-          }
-
           yield* Effect.tryPromise({
             try: () =>
               db.insert(events).values({

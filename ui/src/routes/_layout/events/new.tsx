@@ -167,7 +167,7 @@ function NewEventPage() {
     onSuccess: ({ event, submitForReview, reviewFailed }) => {
       toast.success(
         reviewFailed
-          ? "Event created privately, but review submission failed"
+          ? "Event created privately — review submission failed. Edit to resubmit."
           : submitForReview
             ? "Event submitted for review"
             : "Event created",

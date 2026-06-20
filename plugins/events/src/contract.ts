@@ -62,7 +62,7 @@ export const contract = oc.router({
     .errors({ NOT_FOUND }),
 
   getEventBySlug: oc
-    .route({ method: "GET", path: "/v1/events/slug/{slug}" })
+    .route({ method: "GET", path: "/v1/events/by-slug/{slug}" })
     .input(z.object({ slug: z.string().min(1).max(100) }))
     .output(z.object({ data: EventOutput }))
     .errors({ NOT_FOUND }),

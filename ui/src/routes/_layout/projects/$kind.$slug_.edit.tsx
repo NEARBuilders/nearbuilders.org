@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
-import { parseProjectListSearch } from "./-search";
+import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,
@@ -29,7 +29,8 @@ export const Route = createFileRoute("/_layout/projects/$kind/$slug_/edit")({
     ...parseProjectListSearch(search),
     tab: search.tab === "preview" ? "preview" : "write",
   }),
-  beforeLoad: async ({ context, location }) => {
+  beforeLoad: async ({ params, context, location }) => {
+    if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
     const session = await context.queryClient.ensureQueryData(
       sessionQueryOptions(context.authClient, context.session),
     );
@@ -127,6 +128,7 @@ function EditProjectPage() {
         to: "/projects/$kind/$slug",
         params: { kind: project!.kind, slug: project!.slug },
         search: {
+          kind: search.kind,
           personal: search.personal,
           private: search.private,
         },
@@ -196,6 +198,7 @@ function EditProjectPage() {
           to="/projects/$kind/$slug"
           params={{ kind: project.kind, slug: project.slug }}
           search={{
+            kind: search.kind,
             personal: search.personal,
             private: search.private,
           }}
@@ -267,6 +270,7 @@ function EditFormInner({
               to="/projects/$kind/$slug"
               params={{ kind: project.kind, slug: project.slug }}
               search={{
+                kind: search.kind,
                 personal: search.personal,
                 private: search.private,
               }}
@@ -310,6 +314,7 @@ function EditFormInner({
               to="/projects/$kind/$slug"
               params={{ kind: project.kind, slug: project.slug }}
               search={{
+                kind: search.kind,
                 personal: search.personal,
                 private: search.private,
               }}

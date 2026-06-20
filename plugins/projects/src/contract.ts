@@ -69,7 +69,7 @@ export const contract = oc.router({
     .errors({ NOT_FOUND }),
 
   getProjectBySlug: oc
-    .route({ method: "GET", path: "/v1/projects/slug/{slug}" })
+    .route({ method: "GET", path: "/v1/projects/by-slug/{slug}" })
     .input(z.object({ slug: z.string().min(1).max(100) }))
     .output(
       z.object({

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import {
   ArrowLeft,
@@ -27,10 +27,13 @@ import { NewBadge } from "@/components/ui/new-badge";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
-import { parseProjectListSearch } from "./-search";
+import { isProjectKind, parseProjectListSearch } from "./-search";
 
 export const Route = createFileRoute("/_layout/projects/$kind/$slug")({
   validateSearch: parseProjectListSearch,
+  beforeLoad: async ({ params }) => {
+    if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
+  },
   loader: async ({ params, context }) => {
     const project = await context.queryClient
       .ensureQueryData({
@@ -362,6 +365,7 @@ function ProjectDetailPage() {
                   params={{ kind: project.kind, slug: project.slug }}
                   search={{
                     tab: "write",
+                    kind: search.kind,
                     personal: search.personal,
                     private: search.private,
                   }}
