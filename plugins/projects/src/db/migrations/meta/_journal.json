@@ -43,6 +43,13 @@
       "when": 1749700000000,
       "tag": "0005_scope_result_mentions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781818000000,
+      "tag": "0006_global_project_slugs",
+      "breakpoints": true
     }
   ]
 }

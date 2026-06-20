@@ -219,8 +219,8 @@ function NewProjectPage() {
               Link a NEAR account in settings to create projects
             </span>
           )}
-          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting, kind: s.values.kind })}>
-            {({ isSubmitting, kind }) => (
+          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
+            {({ isSubmitting }) => (
               <Button
                 type="button"
                 onClick={submitForm}
@@ -229,11 +229,11 @@ function NewProjectPage() {
               >
                 {createMutation.isPending
                   ? "Creating\u2026"
-                  : kind === "idea"
+                  : routeKind === "idea"
                     ? "Create Idea"
-                    : kind === "scope"
+                    : routeKind === "scope"
                       ? "Create Scope"
-                      : kind === "result"
+                      : routeKind === "result"
                         ? "Post Result"
                         : "Create Project"}
               </Button>

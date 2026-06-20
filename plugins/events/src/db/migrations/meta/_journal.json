@@ -15,6 +15,13 @@
       "when": 1781636888966,
       "tag": "0001_jittery_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781817576857,
+      "tag": "0002_light_stryfe",
+      "breakpoints": true
     }
   ]
 }
