@@ -42,8 +42,8 @@ export const Route = createFileRoute("/_layout/events/$slug_/edit")({
     const viewerKey = session?.user?.id ?? "anonymous";
 
     await context.queryClient.prefetchQuery({
-      queryKey: ["event", params.id, viewerKey],
-      queryFn: () => context.apiClient.getEvent({ id: params.id }),
+      queryKey: ["event", params.slug, viewerKey],
+      queryFn: () => context.apiClient.getEventBySlug({ slug: params.slug }),
     });
   },
   head: () => ({

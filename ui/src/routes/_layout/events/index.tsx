@@ -58,6 +58,7 @@ function EventsPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const nearAccountId = auth.near.getAccountId();
   const viewerKey = session?.user?.id ?? "anonymous";
   const canCreate = Boolean(session?.user && !session.user.isAnonymous);
   const isAdmin = session?.user?.role === "admin";

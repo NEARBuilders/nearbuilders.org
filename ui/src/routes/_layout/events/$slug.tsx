@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
+import type { Profile } from "better-near-auth";
 import {
   ArrowLeft,
   CalendarDays,
@@ -420,6 +421,10 @@ function shortenId(id: string): string {
   if (/^[0-9a-f]{64}$/i.test(id)) return `${id.slice(0, 6)}...${id.slice(-4)}`;
   return id;
 }
+
+type EventParticipantRecord = Awaited<
+  ReturnType<ReturnType<typeof useApiClient>["listEventParticipants"]>
+>["data"][number];
 
 function ParticipantBadge({ participant }: { participant: EventParticipantRecord }) {
   const auth = useAuthClient();
