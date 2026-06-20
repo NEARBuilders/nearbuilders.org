@@ -15,6 +15,24 @@ type EventTab = "upcoming" | "past";
 type EventProposalStatus = "pending" | "approved" | "rejected" | "removed";
 
 export const Route = createFileRoute("/_layout/events/")({
+  loader: async ({ context }) => {
+    const session = await context.queryClient.ensureQueryData(
+      sessionQueryOptions(context.authClient, context.session),
+    );
+    const viewerKey = session?.user?.id ?? "anonymous";
+
+    await context.queryClient.prefetchQuery({
+      queryKey: ["events", viewerKey],
+      queryFn: () => context.apiClient.listEvents({ limit: 100 }),
+    });
+
+    if (session?.user && !session.user.isAnonymous) {
+      await context.queryClient.prefetchQuery({
+        queryKey: ["event-proposals", viewerKey],
+        queryFn: () => context.apiClient.getProposals({ pluginId: "events", limit: 100 }),
+      });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Events | NEAR Builders" },
@@ -40,8 +58,7 @@ function EventsPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
-  const nearAccountId = auth.near.getAccountId();
-  const viewerKey = nearAccountId ?? session?.user?.id ?? "anonymous";
+  const viewerKey = session?.user?.id ?? "anonymous";
   const canCreate = Boolean(session?.user && !session.user.isAnonymous);
   const isAdmin = session?.user?.role === "admin";
   const [copied, setCopied] = useState<string | null>(null);
@@ -141,7 +158,7 @@ function EventsPage() {
         ) : visibleEvents.length === 0 ? (
           <EmptyState tab={tab} />
         ) : (
-          <div className="grid grid-cols-[2.5rem_1.25rem_1fr] sm:grid-cols-[3rem_1.5rem_1fr]">
+          <div className="grid grid-cols-[2.5rem_1.25rem_minmax(0,1fr)] sm:grid-cols-[3rem_1.5rem_minmax(0,1fr)]">
             {monthGroups.map((group, groupIndex) => (
               <Fragment key={group.key}>
                 <div aria-hidden />
@@ -265,6 +282,14 @@ function EventCard({
                 <Lock size={12} className="shrink-0 text-muted-foreground" />
               )}
             </div>
+            <span
+              className={cn(
+                "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5",
+                status.className,
+              )}
+            >
+              {status.label}
+            </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -283,11 +308,12 @@ function EventCard({
             </span>
           </div>
           {event.description && (
-            <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 line-clamp-2 break-words text-sm leading-relaxed text-muted-foreground">
               {event.description}
             </p>
           )}
         </div>
+
       </div>
     </Link>
   );
@@ -352,7 +378,7 @@ function EmptyState({ tab }: { tab: EventTab }) {
 
 function TimelineSkeleton() {
   return (
-    <div className="grid grid-cols-[2.5rem_1.25rem_1fr] sm:grid-cols-[3rem_1.5rem_1fr]">
+    <div className="grid grid-cols-[2.5rem_1.25rem_minmax(0,1fr)] sm:grid-cols-[3rem_1.5rem_minmax(0,1fr)]">
       <div aria-hidden />
       <Spine />
       <div className="pb-3">

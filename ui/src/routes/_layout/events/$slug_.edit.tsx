@@ -35,6 +35,17 @@ export const Route = createFileRoute("/_layout/events/$slug_/edit")({
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },
+  loader: async ({ params, context }) => {
+    const session = await context.queryClient.ensureQueryData(
+      sessionQueryOptions(context.authClient, context.session),
+    );
+    const viewerKey = session?.user?.id ?? "anonymous";
+
+    await context.queryClient.prefetchQuery({
+      queryKey: ["event", params.id, viewerKey],
+      queryFn: () => context.apiClient.getEvent({ id: params.id }),
+    });
+  },
   head: () => ({
     meta: [
       { title: "Edit Event | NEAR Builders" },
@@ -60,7 +71,9 @@ function EditEventPage() {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
-  const viewerKey = nearAccountId ?? session?.user?.id ?? "anonymous";
+  const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
+    ?.walletAddress;
+  const viewerKey = session?.user?.id ?? "anonymous";
 
   const eventQuery = useQuery({
     queryKey: ["event", slug, viewerKey],
@@ -72,7 +85,9 @@ function EditEventPage() {
   const canManage =
     event &&
     (session?.user?.role === "admin" ||
-      [nearAccountId, session?.user?.id].some((candidate) => candidate === event.ownerId));
+      [nearAccountId, sessionWalletAddress, session?.user?.id].some(
+        (candidate) => candidate === event.ownerId,
+      ));
 
   if (eventQuery.isLoading) {
     return (

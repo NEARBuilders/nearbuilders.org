@@ -19,18 +19,42 @@ import {
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_layout/events/$slug")({
   loader: async ({ params, context }) => {
+    const session = await context.queryClient.ensureQueryData(
+      sessionQueryOptions(context.authClient, context.session),
+    );
+    const viewerKey = session?.user?.id ?? "anonymous";
     const event = await context.queryClient
       .ensureQueryData({
-        queryKey: ["event", params.slug],
+        queryKey: ["event", params.slug, viewerKey],
         queryFn: () => context.apiClient.getEventBySlug({ slug: params.slug }),
       })
       .then((r) => r?.data ?? null)
       .catch(() => null);
+
+    if (event) {
+      await context.queryClient.prefetchQuery({
+        queryKey: ["event-participants", event.id, viewerKey],
+        queryFn: () => context.apiClient.listEventParticipants({ eventId: event.id }),
+      });
+    }
+
+    if (session?.user && !session.user.isAnonymous && event) {
+      await context.queryClient.prefetchQuery({
+        queryKey: ["event-proposal", event.id, viewerKey],
+        queryFn: () =>
+          context.apiClient.getProposals({
+            pluginId: "events",
+            entityId: event.id,
+            limit: 1,
+          }),
+      });
+    }
 
     return { event, siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders" };
   },
@@ -70,7 +94,9 @@ function EventDetailPage() {
   const [copied, setCopied] = useState(false);
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
-  const viewerKey = nearAccountId ?? session?.user?.id ?? "anonymous";
+  const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
+    ?.walletAddress;
+  const viewerKey = session?.user?.id ?? "anonymous";
 
   const eventQuery = useQuery({
     queryKey: ["event", slug, viewerKey],
@@ -90,6 +116,7 @@ function EventDetailPage() {
   const currentParticipant = participants.find(
     (participant) =>
       participant.userId === session?.user?.id ||
+      participant.walletAddress === sessionWalletAddress ||
       (nearAccountId
         ? participant.userId === nearAccountId || participant.walletAddress === nearAccountId
         : false),
@@ -97,7 +124,9 @@ function EventDetailPage() {
   const canManage =
     event &&
     (session?.user?.role === "admin" ||
-      [nearAccountId, session?.user?.id].some((candidate) => candidate === event.ownerId));
+      [nearAccountId, sessionWalletAddress, session?.user?.id].some(
+        (candidate) => candidate === event.ownerId,
+      ));
   const canParticipate = Boolean(
     session?.user && !session.user.isAnonymous && event?.status !== "cancelled",
   );
@@ -268,37 +297,41 @@ function EventDetailPage() {
           </div>
         )}
 
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-black leading-tight tracking-tight text-foreground sm:text-4xl">
             {event.title}
           </h1>
-          {event.lumaUrl && (
-            <Button asChild size="sm" className="w-full shrink-0 sm:w-auto">
-              <a href={event.lumaUrl} target="_blank" rel="noopener noreferrer">
-                {isCancelled ? "View on Luma" : "Register on Luma"}
-                <ExternalLink size={13} />
-              </a>
-            </Button>
-          )}
-          {canParticipate && (
-            <Button
-              type="button"
-              size="sm"
-              variant={currentParticipant ? "outline" : "default"}
-              className="w-full shrink-0 sm:w-auto"
-              disabled={joinMutation.isPending || leaveMutation.isPending}
-              onClick={() => {
-                if (currentParticipant) leaveMutation.mutate();
-                else joinMutation.mutate();
-              }}
-            >
-              {joinMutation.isPending || leaveMutation.isPending ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Users size={13} />
+          {(event.lumaUrl || canParticipate) && (
+            <div className="flex w-full shrink-0 flex-col items-center gap-2 sm:w-auto">
+              {event.lumaUrl && (
+                <Button asChild size="sm" className="w-full sm:w-auto">
+                  <a href={event.lumaUrl} target="_blank" rel="noopener noreferrer">
+                    {isCancelled ? "View on Luma" : "Register on Luma"}
+                    <ExternalLink size={13} />
+                  </a>
+                </Button>
               )}
-              {currentParticipant ? "Leave event" : "Join event"}
-            </Button>
+              {canParticipate && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={currentParticipant ? "outline" : "default"}
+                  className="w-full sm:w-auto"
+                  disabled={joinMutation.isPending || leaveMutation.isPending}
+                  onClick={() => {
+                    if (currentParticipant) leaveMutation.mutate();
+                    else joinMutation.mutate();
+                  }}
+                >
+                  {joinMutation.isPending || leaveMutation.isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Users size={13} />
+                  )}
+                  {currentParticipant ? "Leave event" : "Join event"}
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -313,18 +346,34 @@ function EventDetailPage() {
         </div>
 
         <p className="mt-3 text-sm text-muted-foreground">
-          Hosted by <span className="font-medium text-foreground">{shortenId(event.ownerId)}</span>
+          Hosted by{" "}
+          {getProfileAccountId(event.ownerId) ? (
+            <Link
+              to="/builders/$account"
+              params={{ account: event.ownerId }}
+              className="font-medium text-foreground hover:underline"
+            >
+              {shortenId(event.ownerId)}
+            </Link>
+          ) : (
+            <span className="font-medium text-foreground">{shortenId(event.ownerId)}</span>
+          )}
         </p>
 
         <div className="mt-8 border-t border-border pt-6">
           <h2 className="text-lg font-bold text-foreground">About this event</h2>
           <div className="mt-3">
-            {event.content ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {event.content}
-              </p>
-            ) : event.description ? (
-              <p className="text-sm leading-relaxed text-foreground">{event.description}</p>
+            {event.description || event.content ? (
+              <div className="space-y-4">
+                {event.description && (
+                  <p className="text-sm leading-relaxed text-foreground">{event.description}</p>
+                )}
+                {event.content && (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                    {event.content}
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
                 No additional details yet.
@@ -341,13 +390,7 @@ function EventDetailPage() {
             ) : participants.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {participants.map((participant) => (
-                  <span
-                    key={participant.id}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground"
-                  >
-                    <Users size={12} className="text-muted-foreground" />
-                    {formatParticipantLabel(participant)}
-                  </span>
+                  <ParticipantBadge key={participant.id} participant={participant} />
                 ))}
               </div>
             ) : (
@@ -378,11 +421,56 @@ function shortenId(id: string): string {
   return id;
 }
 
-function formatParticipantLabel(participant: {
-  displayName: string | null;
-  walletAddress: string | null;
-  userId: string;
-}) {
+function ParticipantBadge({ participant }: { participant: EventParticipantRecord }) {
+  const auth = useAuthClient();
+  const accountId = getParticipantAccountId(participant);
+  const { data: profile } = useQuery<Profile | null>({
+    queryKey: ["near-profile", accountId],
+    queryFn: async () => {
+      const res = await auth.near.getProfile(accountId ?? undefined);
+      return res.data || null;
+    },
+    enabled: !!accountId,
+  });
+  const avatarUrl =
+    profile?.image?.url ??
+    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const label = formatParticipantLabel(participant);
+  const className =
+    "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary";
+  const content = (
+    <>
+      <Avatar className="size-5">
+        {avatarUrl && <AvatarImage src={avatarUrl} alt={`${label} avatar`} />}
+        <AvatarFallback className="text-[10px]">
+          {accountId ? label.slice(0, 1).toUpperCase() : <Users size={11} />}
+        </AvatarFallback>
+      </Avatar>
+      {label}
+    </>
+  );
+
+  if (!accountId) {
+    return <span className={className}>{content}</span>;
+  }
+
+  return (
+    <Link to="/builders/$account" params={{ account: accountId }} className={className}>
+      {content}
+    </Link>
+  );
+}
+
+function getParticipantAccountId(participant: EventParticipantRecord) {
+  return participant.walletAddress ?? getProfileAccountId(participant.userId);
+}
+
+function getProfileAccountId(id: string) {
+  if (id.includes(".") || /^[0-9a-f]{64}$/i.test(id)) return id;
+  return null;
+}
+
+function formatParticipantLabel(participant: EventParticipantRecord) {
   return participant.displayName ?? participant.walletAddress ?? shortenId(participant.userId);
 }
 
