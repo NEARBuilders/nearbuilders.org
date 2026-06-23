@@ -1,9 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { sessionQueryOptions } from "@/app";
+import { sessionQueryOptions, useAuthClient } from "@/app";
 import builtOn from "@/assets/built_on.png";
 import builtOnRev from "@/assets/built_on_rev.png";
+import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/user-nav";
@@ -32,6 +34,9 @@ function Layout() {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
   const appName = "Near Builders";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const auth = useAuthClient();
+  const { data: session } = useQuery(sessionQueryOptions(auth));
+  const user = session?.user;
 
   // While the mobile menu is open: close on Escape and lock body scroll.
   useEffect(() => {
@@ -84,21 +89,25 @@ function Layout() {
 
             <div className="hidden md:flex items-center gap-3">
               <ThemeToggle />
+              {user && <NotificationBell />}
               <UserNav />
             </div>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="md:hidden size-9 rounded-md"
-              onClick={() => setMobileOpen((v) => !v)}
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileOpen}
-              aria-controls="mobile-menu"
-            >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-            </Button>
+            <div className="flex items-center gap-1 md:hidden">
+              {user && <NotificationBell />}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-9 rounded-md"
+                onClick={() => setMobileOpen((v) => !v)}
+                aria-label={mobileOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-menu"
+              >
+                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              </Button>
+            </div>
           </div>
         </div>
       </header>
