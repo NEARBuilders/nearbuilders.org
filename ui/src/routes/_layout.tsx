@@ -28,6 +28,7 @@ const navLinks = [
   { label: "Builders", to: "/builders" },
   { label: "Projects", to: "/projects" },
   { label: "Events", to: "/events" },
+  { label: "Activity", to: "/activity" },
 ] as const;
 
 function Layout() {

@@ -23,6 +23,7 @@ import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projec
 import { Route as LayoutEventsIndexRouteImport } from './routes/_layout/events/index'
 import { Route as LayoutBuildersIndexRouteImport } from './routes/_layout/builders/index'
 import { Route as LayoutAppsIndexRouteImport } from './routes/_layout/apps/index'
+import { Route as LayoutActivityIndexRouteImport } from './routes/_layout/activity/index'
 import { Route as LayoutProjectsNewRouteImport } from './routes/_layout/projects/new'
 import { Route as LayoutEventsNewRouteImport } from './routes/_layout/events/new'
 import { Route as LayoutEventsSlugRouteImport } from './routes/_layout/events/$slug'
@@ -121,6 +122,11 @@ const LayoutBuildersIndexRoute = LayoutBuildersIndexRouteImport.update({
 const LayoutAppsIndexRoute = LayoutAppsIndexRouteImport.update({
   id: '/apps/',
   path: '/apps/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutActivityIndexRoute = LayoutActivityIndexRouteImport.update({
+  id: '/activity/',
+  path: '/activity/',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutProjectsNewRoute = LayoutProjectsNewRouteImport.update({
@@ -318,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/events/$slug': typeof LayoutEventsSlugRoute
   '/events/new': typeof LayoutEventsNewRoute
   '/projects/new': typeof LayoutProjectsNewRouteWithChildren
+  '/activity/': typeof LayoutActivityIndexRoute
   '/apps/': typeof LayoutAppsIndexRoute
   '/builders/': typeof LayoutBuildersIndexRoute
   '/events/': typeof LayoutEventsIndexRoute
@@ -359,6 +366,7 @@ export interface FileRoutesByTo {
   '/builders/add': typeof LayoutBuildersAddRoute
   '/events/$slug': typeof LayoutEventsSlugRoute
   '/events/new': typeof LayoutEventsNewRoute
+  '/activity': typeof LayoutActivityIndexRoute
   '/apps': typeof LayoutAppsIndexRoute
   '/builders': typeof LayoutBuildersIndexRoute
   '/events': typeof LayoutEventsIndexRoute
@@ -407,6 +415,7 @@ export interface FileRoutesById {
   '/_layout/events/$slug': typeof LayoutEventsSlugRoute
   '/_layout/events/new': typeof LayoutEventsNewRoute
   '/_layout/projects/new': typeof LayoutProjectsNewRouteWithChildren
+  '/_layout/activity/': typeof LayoutActivityIndexRoute
   '/_layout/apps/': typeof LayoutAppsIndexRoute
   '/_layout/builders/': typeof LayoutBuildersIndexRoute
   '/_layout/events/': typeof LayoutEventsIndexRoute
@@ -453,6 +462,7 @@ export interface FileRouteTypes {
     | '/events/$slug'
     | '/events/new'
     | '/projects/new'
+    | '/activity/'
     | '/apps/'
     | '/builders/'
     | '/events/'
@@ -494,6 +504,7 @@ export interface FileRouteTypes {
     | '/builders/add'
     | '/events/$slug'
     | '/events/new'
+    | '/activity'
     | '/apps'
     | '/builders'
     | '/events'
@@ -541,6 +552,7 @@ export interface FileRouteTypes {
     | '/_layout/events/$slug'
     | '/_layout/events/new'
     | '/_layout/projects/new'
+    | '/_layout/activity/'
     | '/_layout/apps/'
     | '/_layout/builders/'
     | '/_layout/events/'
@@ -675,6 +687,13 @@ declare module '@tanstack/react-router' {
       path: '/apps'
       fullPath: '/apps/'
       preLoaderRoute: typeof LayoutAppsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/activity/': {
+      id: '/_layout/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof LayoutActivityIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/projects/new': {
@@ -1063,6 +1082,7 @@ interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutBuildersAccountRoute: typeof LayoutBuildersAccountRoute
   LayoutBuildersAddRoute: typeof LayoutBuildersAddRoute
+  LayoutActivityIndexRoute: typeof LayoutActivityIndexRoute
   LayoutAppsIndexRoute: typeof LayoutAppsIndexRoute
   LayoutBuildersIndexRoute: typeof LayoutBuildersIndexRoute
   LayoutAppsAccountIdGatewayIdRoute: typeof LayoutAppsAccountIdGatewayIdRoute
@@ -1082,6 +1102,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutBuildersAccountRoute: LayoutBuildersAccountRoute,
   LayoutBuildersAddRoute: LayoutBuildersAddRoute,
+  LayoutActivityIndexRoute: LayoutActivityIndexRoute,
   LayoutAppsIndexRoute: LayoutAppsIndexRoute,
   LayoutBuildersIndexRoute: LayoutBuildersIndexRoute,
   LayoutAppsAccountIdGatewayIdRoute: LayoutAppsAccountIdGatewayIdRoute,
