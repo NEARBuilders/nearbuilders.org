@@ -2,33 +2,18 @@ import type { ApiClient } from "@/app";
 
 export const PAGE_SIZE = 24;
 
-export interface ActivityEvent {
-  id: string;
-  source: string;
-  type: string;
-  actor: string;
-  payload: unknown;
-  verified: boolean;
-  createdAt: string;
-}
-
-export interface ActivityFeedPage {
-  data: ActivityEvent[];
-  meta: { total: number; hasMore: boolean; nextCursor: string | null };
-}
+export type ActivityFeedPage = Awaited<ReturnType<ApiClient["getActivityFeed"]>>;
+export type ActivityEvent = ActivityFeedPage["data"][number];
+export type ActivityFilters = Omit<
+  NonNullable<Parameters<ApiClient["getActivityFeed"]>[0]>,
+  "cursor"
+>;
 
 export interface ActivityPayload {
   title?: string;
   description?: string;
   mediaUrl?: string;
   tags?: string[];
-}
-
-export interface ActivityFilters {
-  source?: string;
-  type?: string;
-  actor?: string;
-  limit?: number;
 }
 
 export const activityKeys = {
