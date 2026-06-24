@@ -92,6 +92,9 @@
       "development": "local:plugins/activity",
       "secrets": [
         "ACTIVITY_DATABASE_URL"
+      ],
+      "routes": [
+        "ui/src/routes/_layout/activity/**"
       ]
     }
   }

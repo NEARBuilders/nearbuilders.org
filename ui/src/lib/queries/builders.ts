@@ -68,10 +68,28 @@ export function pendingProposalsOptions(apiClient: ApiClient) {
   };
 }
 
+const UPVOTE_BATCH_SIZE = 100;
+
+function batchEntityIds(entityIds: string[]): string[][] {
+  const batches: string[][] = [];
+  for (let i = 0; i < entityIds.length; i += UPVOTE_BATCH_SIZE) {
+    batches.push(entityIds.slice(i, i + UPVOTE_BATCH_SIZE));
+  }
+  return batches;
+}
+
 export function upvoteCountsOptions(apiClient: ApiClient, entityIds: string[]) {
   return {
     queryKey: ["upvoteCounts", entityIds] as const,
-    queryFn: () => apiClient.getUpvoteCounts({ entityIds }),
+    queryFn: async () => {
+      const results = await Promise.all(
+        batchEntityIds(entityIds).map((ids) => apiClient.getUpvoteCounts({ entityIds: ids })),
+      );
+      return Object.assign({}, ...results) as Record<
+        string,
+        { entityId: string; totalCount: number }
+      >;
+    },
     enabled: entityIds.length > 0,
     staleTime: 30_000,
   };
@@ -84,7 +102,15 @@ export function userVotesOptions(
 ) {
   return {
     queryKey: ["userVotes", entityIds] as const,
-    queryFn: () => apiClient.getUserVotes({ entityIds }),
+    queryFn: async () => {
+      const results = await Promise.all(
+        batchEntityIds(entityIds).map((ids) => apiClient.getUserVotes({ entityIds: ids })),
+      );
+      return Object.assign({}, ...results) as Record<
+        string,
+        { entityId: string; hasUpvote: boolean }
+      >;
+    },
     enabled: isAuthenticated && entityIds.length > 0,
   };
 }
