@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import type { z } from "every-plugin/zod";
 import type {
   ActivityEventSchema,
   ActivityFeedInputSchema,
