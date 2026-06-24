@@ -635,6 +635,32 @@ export default createPlugin.withPlugins<PluginsClient>()({
           yield event;
         }
       }),
+
+      emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.activity(pluginContext(context)).emitActivity(input);
+      }),
+
+      getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
+        return await services.plugins.activity().getActivityFeed(input);
+      }),
+
+      subscribeActivity: builder.subscribeActivity.handler(async function* ({
+        input,
+        signal,
+        lastEventId,
+      }) {
+        const iterator = await services.plugins
+          .activity()
+          .subscribeActivity(input, { signal, lastEventId });
+        for await (const event of iterator) {
+          yield event;
+        }
+      }),
+
+      getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
+        return await services.plugins.activity().getLeaderboard(input);
+      }),
+
       getMyNotifications: builder.getMyNotifications
         .use(requireAuth)
         .handler(async ({ input, context }) => {

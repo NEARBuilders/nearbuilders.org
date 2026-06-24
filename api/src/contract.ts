@@ -69,6 +69,22 @@ export const NotificationSchema = z.object({
   read: z.boolean(),
   createdAt: z.iso.datetime(),
 });
+
+export const ActivityEventSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  type: z.string(),
+  actor: z.string(),
+  payload: z.unknown(),
+  verified: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+
+export const ActivityFiltersSchema = z.object({
+  source: z.string().optional(),
+  type: z.string().optional(),
+  actor: z.string().optional(),
+});
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -404,6 +420,63 @@ export const contract = oc.router({
   subscribeUpvotes: oc
     .route({ method: "GET", path: "/upvotes/stream" })
     .output(eventIterator(VoteEventSchema)),
+
+  emitActivity: oc
+    .route({ method: "POST", path: "/v1/activity" })
+    .input(
+      z.object({
+        source: z.string().min(1),
+        type: z.string().min(1),
+        actor: z.string().min(1),
+        payload: z.unknown(),
+        verified: z.boolean().optional(),
+      }),
+    )
+    .output(ActivityEventSchema)
+    .errors({ UNAUTHORIZED }),
+
+  getActivityFeed: oc
+    .route({ method: "GET", path: "/v1/activity" })
+    .input(
+      ActivityFiltersSchema.extend({
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(ActivityEventSchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+    ),
+
+  subscribeActivity: oc
+    .route({ method: "GET", path: "/v1/activity/stream" })
+    .input(ActivityFiltersSchema)
+    .output(eventIterator(ActivityEventSchema)),
+
+  getLeaderboard: oc
+    .route({ method: "GET", path: "/v1/activity/leaderboard" })
+    .input(
+      z.object({
+        period: z.enum(["week", "month", "all-time"]),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    )
+    .output(
+      z.array(
+        z.object({
+          actor: z.string(),
+          eventCount: z.number().int().nonnegative(),
+          endorsementScore: z.number().nonnegative(),
+          topSources: z.array(z.string()),
+        }),
+      ),
+    ),
 
   getMyNotifications: oc
     .route({ method: "GET", path: "/v1/notifications/me" })

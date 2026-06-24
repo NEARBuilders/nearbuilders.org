@@ -87,6 +87,12 @@
       "secrets": [
         "NOTIFICATIONS_DATABASE_URL"
       ]
+    },
+    "activity": {
+      "development": "local:plugins/activity",
+      "secrets": [
+        "ACTIVITY_DATABASE_URL"
+      ]
     }
   }
 }

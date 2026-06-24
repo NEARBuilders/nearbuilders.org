@@ -156,9 +156,9 @@ export function NearProfile({
           )}
 
           {profile?.description && (
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="mt-3 text-sm leading-relaxed text-muted-foreground">
               <Markdown>{profile.description}</Markdown>
-            </p>
+            </div>
           )}
 
           {profile?.linktree && Object.keys(profile.linktree).length > 0 && (
