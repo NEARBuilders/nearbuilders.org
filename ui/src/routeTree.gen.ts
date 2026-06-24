@@ -38,6 +38,7 @@ import { Route as LayoutProjectsKindSlugRouteImport } from './routes/_layout/pro
 import { Route as LayoutEventsSlugEditRouteImport } from './routes/_layout/events/$slug_.edit'
 import { Route as LayoutBuildersAccountEditRouteImport } from './routes/_layout/builders/$account_.edit'
 import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layout/apps/$accountId/$gatewayId'
+import { Route as LayoutAuthenticatedProfileActivityRouteImport } from './routes/_layout/_authenticated/profile.activity'
 import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
 import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
 import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
@@ -202,6 +203,12 @@ const LayoutAppsAccountIdGatewayIdRoute =
     path: '/apps/$accountId/$gatewayId',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutAuthenticatedProfileActivityRoute =
+  LayoutAuthenticatedProfileActivityRouteImport.update({
+    id: '/profile/activity',
+    path: '/profile/activity',
+    getParentRoute: () => LayoutAuthenticatedRoute,
+  } as any)
 const LayoutAuthenticatedAcceptInvitationIdRoute =
   LayoutAuthenticatedAcceptInvitationIdRouteImport.update({
     id: '/accept-invitation/$id',
@@ -335,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/profile/activity': typeof LayoutAuthenticatedProfileActivityRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
   '/builders/$account/edit': typeof LayoutBuildersAccountEditRoute
   '/events/$slug/edit': typeof LayoutEventsSlugEditRoute
@@ -376,6 +384,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/profile/activity': typeof LayoutAuthenticatedProfileActivityRoute
   '/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
   '/builders/$account/edit': typeof LayoutBuildersAccountEditRoute
   '/events/$slug/edit': typeof LayoutEventsSlugEditRoute
@@ -426,6 +435,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
   '/_layout/_authenticated/_dashboard/settings': typeof LayoutAuthenticatedDashboardSettingsRouteWithChildren
   '/_layout/_authenticated/accept-invitation/$id': typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  '/_layout/_authenticated/profile/activity': typeof LayoutAuthenticatedProfileActivityRoute
   '/_layout/apps/$accountId/$gatewayId': typeof LayoutAppsAccountIdGatewayIdRoute
   '/_layout/builders/$account_/edit': typeof LayoutBuildersAccountEditRoute
   '/_layout/events/$slug_/edit': typeof LayoutEventsSlugEditRoute
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/accept-invitation/$id'
+    | '/profile/activity'
     | '/apps/$accountId/$gatewayId'
     | '/builders/$account/edit'
     | '/events/$slug/edit'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/accept-invitation/$id'
+    | '/profile/activity'
     | '/apps/$accountId/$gatewayId'
     | '/builders/$account/edit'
     | '/events/$slug/edit'
@@ -563,6 +575,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard/profile'
     | '/_layout/_authenticated/_dashboard/settings'
     | '/_layout/_authenticated/accept-invitation/$id'
+    | '/_layout/_authenticated/profile/activity'
     | '/_layout/apps/$accountId/$gatewayId'
     | '/_layout/builders/$account_/edit'
     | '/_layout/events/$slug_/edit'
@@ -794,6 +807,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAppsAccountIdGatewayIdRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/_authenticated/profile/activity': {
+      id: '/_layout/_authenticated/profile/activity'
+      path: '/profile/activity'
+      fullPath: '/profile/activity'
+      preLoaderRoute: typeof LayoutAuthenticatedProfileActivityRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
+    }
     '/_layout/_authenticated/accept-invitation/$id': {
       id: '/_layout/_authenticated/accept-invitation/$id'
       path: '/accept-invitation/$id'
@@ -1007,6 +1027,7 @@ const LayoutAuthenticatedDashboardRouteWithChildren =
 interface LayoutAuthenticatedRouteChildren {
   LayoutAuthenticatedDashboardRoute: typeof LayoutAuthenticatedDashboardRouteWithChildren
   LayoutAuthenticatedAcceptInvitationIdRoute: typeof LayoutAuthenticatedAcceptInvitationIdRoute
+  LayoutAuthenticatedProfileActivityRoute: typeof LayoutAuthenticatedProfileActivityRoute
 }
 
 const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
@@ -1014,6 +1035,8 @@ const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
     LayoutAuthenticatedDashboardRouteWithChildren,
   LayoutAuthenticatedAcceptInvitationIdRoute:
     LayoutAuthenticatedAcceptInvitationIdRoute,
+  LayoutAuthenticatedProfileActivityRoute:
+    LayoutAuthenticatedProfileActivityRoute,
 }
 
 const LayoutAuthenticatedRouteWithChildren =
