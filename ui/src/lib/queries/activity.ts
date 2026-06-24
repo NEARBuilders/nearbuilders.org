@@ -1,4 +1,3 @@
-import type { QueryClient } from "@tanstack/react-query";
 import type { ApiClient } from "@/app";
 
 export const PAGE_SIZE = 24;
@@ -25,15 +24,6 @@ export interface ActivityPayload {
   tags?: string[];
 }
 
-export interface LeaderboardEntry {
-  actor: string;
-  eventCount: number;
-  endorsementScore: number;
-  topSources: string[];
-}
-
-export type LeaderboardPeriod = "week" | "month" | "all-time";
-
 export interface ActivityFilters {
   source?: string;
   type?: string;
@@ -42,7 +32,6 @@ export interface ActivityFilters {
 }
 
 export const activityKeys = {
-  all: ["activity"] as const,
   feed: (filters: ActivityFilters = {}) =>
     [
       "activity",
@@ -51,7 +40,6 @@ export const activityKeys = {
       filters.type ?? null,
       filters.actor ?? null,
     ] as const,
-  leaderboard: (period: LeaderboardPeriod) => ["activity", "leaderboard", period] as const,
 };
 
 export function readActivityPayload(payload: unknown): ActivityPayload {
@@ -81,31 +69,5 @@ export function activityFeedQueryOptions(apiClient: ApiClient, filters: Activity
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: ActivityFeedPage) =>
       lastPage.meta.hasMore ? (lastPage.meta.nextCursor ?? undefined) : undefined,
-  };
-}
-
-export function leaderboardQueryOptions(
-  apiClient: ApiClient,
-  options: { period: LeaderboardPeriod; limit?: number },
-) {
-  return {
-    queryKey: activityKeys.leaderboard(options.period),
-    queryFn: () => apiClient.getLeaderboard({ period: options.period, limit: options.limit }),
-    staleTime: 60_000,
-  };
-}
-
-export function emitActivityMutationOptions(apiClient: ApiClient, queryClient: QueryClient) {
-  return {
-    mutationFn: (input: {
-      source: string;
-      type: string;
-      actor: string;
-      payload: unknown;
-      verified?: boolean;
-    }) => apiClient.emitActivity(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: activityKeys.all });
-    },
   };
 }
