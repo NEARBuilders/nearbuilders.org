@@ -24,10 +24,12 @@ export function ActivityFeed({
   filters,
   sort = "recent",
   emptyHint = "Contributions will appear here as builders share their work.",
+  readOnly = false,
 }: {
   filters: ActivityFilters;
   sort?: ActivitySort;
   emptyHint?: string;
+  readOnly?: boolean;
 }) {
   const apiClient = useApiClient();
   const orpc = useOrpc();
@@ -49,8 +51,13 @@ export function ActivityFeed({
   const events = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
 
-  const { data: countsData } = useQuery(upvoteCountsOptions(apiClient, eventIds));
-  const { data: votesData } = useQuery(userVotesOptions(apiClient, eventIds, isAuthenticated));
+  const { data: countsData } = useQuery({
+    ...upvoteCountsOptions(apiClient, eventIds),
+    enabled: !readOnly && eventIds.length > 0,
+  });
+  const { data: votesData } = useQuery(
+    userVotesOptions(apiClient, eventIds, isAuthenticated && !readOnly),
+  );
   const counts = (countsData ?? {}) as CountsMap;
   const voteMap = (votesData ?? {}) as VotesMap;
 
@@ -82,9 +89,10 @@ export function ActivityFeed({
     });
   }, [latestEvent, queryClient, feedKey]);
 
-  const { data: latestVote } = useQuery(
-    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
-  );
+  const { data: latestVote } = useQuery({
+    ...orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
+    enabled: !readOnly,
+  });
 
   useEffect(() => {
     if (!latestVote) return;
@@ -131,6 +139,7 @@ export function ActivityFeed({
   });
 
   const runVote = (direction: "up" | "down", entityId: string) => {
+    if (readOnly) return;
     if (!isAuthenticated) {
       void navigate({ to: "/login", search: { redirect: pathname } });
       return;
@@ -155,7 +164,7 @@ export function ActivityFeed({
     return (
       <div className="flex flex-col gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <ActivityCardSkeleton key={i} />
+          <ActivityCardSkeleton key={i} readOnly={readOnly} />
         ))}
       </div>
     );
@@ -198,6 +207,7 @@ export function ActivityFeed({
             isDownvoting={downvoteMutation.isPending && downvoteMutation.variables === event.id}
             onUpvote={() => runVote("up", event.id)}
             onDownvote={() => runVote("down", event.id)}
+            readOnly={readOnly}
           />
         ))}
       </div>

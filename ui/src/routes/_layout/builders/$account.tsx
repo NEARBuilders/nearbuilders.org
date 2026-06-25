@@ -3,11 +3,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, MapPin, Pencil, ThumbsUp } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { ActivityFeed } from "@/components/activity-feed";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
+import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderProposalsOptions,
@@ -29,6 +32,9 @@ export const Route = createFileRoute("/_layout/builders/$account")({
         retry: false,
       }),
       queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)),
+      queryClient.prefetchInfiniteQuery(
+        activityFeedQueryOptions(apiClient, { actor: params.account }),
+      ),
     ]);
 
     const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
@@ -61,6 +67,7 @@ export const Route = createFileRoute("/_layout/builders/$account")({
 type BuilderData = NonNullable<
   Awaited<ReturnType<ReturnType<typeof useApiClient>["builders"]["getBuilder"]>>["data"]
 >;
+type BuilderProfileTab = "projects" | "activity";
 
 function BuilderProfilePage() {
   const { account } = Route.useParams();
@@ -196,7 +203,7 @@ function BuilderProfilePage() {
     );
   }
 
-  return <BuilderNotFound />;
+  return <DiscoverableProfile account={account} />;
 }
 
 function LoadedProfile({
@@ -218,6 +225,7 @@ function LoadedProfile({
 }) {
   const auth = useAuthClient();
   const apiClient = useApiClient();
+  const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const canEdit =
@@ -244,6 +252,7 @@ function LoadedProfile({
   });
 
   const projects = projectsResult?.data ?? [];
+  const activityFilters = useMemo(() => ({ actor: account }), [account]);
 
   const displayName = builder.name || profile?.name || account;
   const bio = builder.bio || profile?.description || null;
@@ -458,60 +467,282 @@ function LoadedProfile({
         </div>
       </div>
 
-      <section>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-black text-foreground">Projects</h2>
+      <ProfileTabsSection
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        activityFilters={activityFilters}
+        activityEmptyHint={`${displayName} has no activity yet.`}
+        projectsContent={
+          <ProjectsTabContent
+            projectsLoading={projectsLoading}
+            projects={projects}
+            hasMore={projectsResult?.meta.hasMore ?? false}
+          />
+        }
+      />
+    </div>
+  );
+}
+
+type ProjectSummary = {
+  id: string;
+  kind: string;
+  slug: string;
+  title: string;
+  description: string | null;
+};
+
+function ProfileTabsSection({
+  activeTab,
+  onTabChange,
+  projectsContent,
+  activityFilters,
+  activityEmptyHint,
+}: {
+  activeTab: BuilderProfileTab;
+  onTabChange: (tab: BuilderProfileTab) => void;
+  projectsContent: ReactNode;
+  activityFilters: { actor: string };
+  activityEmptyHint: string;
+}) {
+  return (
+    <section>
+      <div className="mb-5 border-b border-border">
+        <div className="flex items-center gap-1" role="tablist" aria-label="Builder profile">
+          <ProfileTabButton
+            label="Projects"
+            value="projects"
+            activeTab={activeTab}
+            onSelect={onTabChange}
+          />
+          <ProfileTabButton
+            label="Activity"
+            value="activity"
+            activeTab={activeTab}
+            onSelect={onTabChange}
+          />
+        </div>
+      </div>
+
+      {activeTab === "projects" ? (
+        projectsContent
+      ) : (
+        <ActivityFeed filters={activityFilters} emptyHint={activityEmptyHint} readOnly />
+      )}
+    </section>
+  );
+}
+
+function ProjectsTabContent({
+  projectsLoading,
+  projects,
+  hasMore,
+}: {
+  projectsLoading: boolean;
+  projects: ProjectSummary[];
+  hasMore: boolean;
+}) {
+  if (projectsLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="animate-pulse bg-secondary h-20 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
+        <p className="text-sm text-muted-foreground">No public projects yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {projects.map((project) => (
+          <Link
+            key={project.id}
+            to="/projects/$kind/$slug"
+            params={{ kind: project.kind, slug: project.slug }}
+            className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
+                {project.title}
+              </span>
+              <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
+                {project.kind}
+              </span>
+            </div>
+            {project.description && (
+              <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+            )}
+          </Link>
+        ))}
+      </div>
+
+      {hasMore && (
+        <div className="mt-4">
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link to="/projects" search={{ kind: "all", personal: undefined, private: undefined }}>
+              View all projects
+            </Link>
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DiscoverableProfile({ account }: { account: string }) {
+  const auth = useAuthClient();
+  const apiClient = useApiClient();
+  const [activeTab, setActiveTab] = useState<BuilderProfileTab>("activity");
+  const activityFilters = useMemo(() => ({ actor: account }), [account]);
+
+  const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
+    queryKey: ["near-profile", account],
+    queryFn: async () => {
+      const res = await auth.near.getProfile(account);
+      return res.data || null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: activityPeek, isLoading: activityLoading } = useQuery({
+    queryKey: ["activity", "peek", account],
+    queryFn: () => apiClient.getActivityFeed({ actor: account, limit: 1 }),
+  });
+
+  if (profileLoading || activityLoading) return <ProfileSkeleton account={account} />;
+
+  const hasActivity = (activityPeek?.data.length ?? 0) > 0;
+  const hasNearProfile = Boolean(
+    profile?.name?.trim() ||
+      profile?.description?.trim() ||
+      profile?.image?.url ||
+      profile?.image?.ipfs_cid,
+  );
+
+  if (!hasActivity && !hasNearProfile) return <BuilderNotFound />;
+
+  const displayName = profile?.name?.trim() || account;
+  const bio = profile?.description || null;
+  const avatarUrl =
+    profile?.image?.url ??
+    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const backgroundUrl =
+    profile?.backgroundImage?.url ??
+    (profile?.backgroundImage?.ipfs_cid
+      ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
+      : null);
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mb-8">
+        <Link
+          to="/builders"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft size={14} />
+          All builders
+        </Link>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden mb-8">
+        <div className="relative h-40 sm:h-48">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: backgroundUrl
+                ? undefined
+                : "radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-green) 25%, transparent), color-mix(in srgb, var(--brand-cyan) 15%, transparent))",
+            }}
+          />
+          {backgroundUrl && (
+            <img
+              src={backgroundUrl}
+              alt="Profile background"
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          )}
+          <div className="absolute -bottom-10 left-6 sm:left-8">
+            <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="size-20 object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <span className="text-2xl font-black text-muted-foreground">
+                  {getInitials(displayName)}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {projectsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="animate-pulse bg-secondary h-20 rounded-xl" />
-            ))}
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
-            <p className="text-sm text-muted-foreground">No public projects yet.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                to="/projects/$kind/$slug"
-                params={{ kind: project.kind, slug: project.slug }}
-                className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
-                    {project.title}
-                  </span>
-                  <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
-                    {project.kind}
-                  </span>
-                </div>
-                {project.description && (
-                  <p className="text-xs text-muted-foreground truncate">{project.description}</p>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="pt-14 px-6 sm:px-8 pb-8">
+          <h1 className="text-3xl font-black text-foreground leading-tight">{displayName}</h1>
+          <p className="text-sm font-mono text-brand-cyan mt-1">{account}</p>
+          {bio && (
+            <p className="mt-5 text-sm text-muted-foreground leading-relaxed max-w-2xl">{bio}</p>
+          )}
+        </div>
+      </div>
 
-        {(projectsResult?.meta.hasMore ?? false) && (
-          <div className="mt-4">
-            <Button asChild variant="outline" size="sm" className="rounded-full">
-              <Link
-                to="/projects"
-                search={{ kind: "all", personal: undefined, private: undefined }}
-              >
-                View all projects
-              </Link>
-            </Button>
-          </div>
-        )}
-      </section>
+      <ProfileTabsSection
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        activityFilters={activityFilters}
+        activityEmptyHint={`${displayName} has no activity yet.`}
+        projectsContent={
+          <ProjectsTabContent projectsLoading={false} projects={[]} hasMore={false} />
+        }
+      />
     </div>
+  );
+}
+
+function ProfileTabButton({
+  label,
+  value,
+  activeTab,
+  onSelect,
+}: {
+  label: string;
+  value: BuilderProfileTab;
+  activeTab: BuilderProfileTab;
+  onSelect: (value: BuilderProfileTab) => void;
+}) {
+  const active = activeTab === value;
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={() => onSelect(value)}
+      className={cn(
+        "relative -mb-px px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        active
+          ? "border-b-2 border-brand-cyan text-foreground"
+          : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -548,6 +779,8 @@ function NominatedFallback({
   counts: Record<string, { entityId: string; totalCount: number }>;
 }) {
   const auth = useAuthClient();
+  const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
+  const activityFilters = useMemo(() => ({ actor: account }), [account]);
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
     queryKey: ["near-profile", account],
@@ -733,6 +966,16 @@ function NominatedFallback({
           </div>
         </div>
       </div>
+
+      <ProfileTabsSection
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        activityFilters={activityFilters}
+        activityEmptyHint={`${displayName} has no activity yet.`}
+        projectsContent={
+          <ProjectsTabContent projectsLoading={false} projects={[]} hasMore={false} />
+        }
+      />
 
       {allProposals.length > 1 && (
         <section>
