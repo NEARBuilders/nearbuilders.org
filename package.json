@@ -29,7 +29,7 @@
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.6.3",
       "every-plugin": "^2.7.0",
-      "everything-dev": "^1.37.0",
+      "everything-dev": "^1.39.0",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -104,7 +104,7 @@
     "dotenv": "^17.3.1",
     "tsx": "^4.21.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "catalog:"
+    "vitest": "^catalog:"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",

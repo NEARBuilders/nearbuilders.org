@@ -34,17 +34,6 @@ services:
     volumes:
       - work_efiz_near_postgres_auth_data:/var/lib/postgresql/data
 
-  postgres-activity:
-    <<: *pg-common
-    container_name: work.efiz.near-postgres-activity
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: activity_db
-    ports:
-      - "5434:5432"
-    volumes:
-      - work_efiz_near_postgres_activity_data:/var/lib/postgresql/data
-
   postgres-builders:
     <<: *pg-common
     container_name: work.efiz.near-postgres-builders
@@ -67,28 +56,6 @@ services:
     volumes:
       - work_efiz_near_postgres_events_data:/var/lib/postgresql/data
 
-  postgres-notifications:
-    <<: *pg-common
-    container_name: work.efiz.near-postgres-notifications
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: notifications_db
-    ports:
-      - "5437:5432"
-    volumes:
-      - work_efiz_near_postgres_notifications_data:/var/lib/postgresql/data
-
-  postgres-projects:
-    <<: *pg-common
-    container_name: work.efiz.near-postgres-projects
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: projects_db
-    ports:
-      - "5438:5432"
-    volumes:
-      - work_efiz_near_postgres_projects_data:/var/lib/postgresql/data
-
   postgres-proposals:
     <<: *pg-common
     container_name: work.efiz.near-postgres-proposals
@@ -96,7 +63,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: proposals_db
     ports:
-      - "5439:5432"
+      - "5437:5432"
     volumes:
       - work_efiz_near_postgres_proposals_data:/var/lib/postgresql/data
 
@@ -107,26 +74,46 @@ services:
       <<: *pg-env
       POSTGRES_DB: votes_db
     ports:
-      - "5440:5432"
+      - "5438:5432"
     volumes:
       - work_efiz_near_postgres_votes_data:/var/lib/postgresql/data
+
+  postgres-notifications:
+    <<: *pg-common
+    container_name: work.efiz.near-postgres-notifications
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: notifications_db
+    ports:
+      - "5439:5432"
+    volumes:
+      - work_efiz_near_postgres_notifications_data:/var/lib/postgresql/data
+
+  postgres-activity:
+    <<: *pg-common
+    container_name: work.efiz.near-postgres-activity
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: activity_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - work_efiz_near_postgres_activity_data:/var/lib/postgresql/data
 
 volumes:
   work_efiz_near_postgres_api_data:
     name: work_efiz_near_postgres_api_data
   work_efiz_near_postgres_auth_data:
     name: work_efiz_near_postgres_auth_data
-  work_efiz_near_postgres_activity_data:
-    name: work_efiz_near_postgres_activity_data
   work_efiz_near_postgres_builders_data:
     name: work_efiz_near_postgres_builders_data
   work_efiz_near_postgres_events_data:
     name: work_efiz_near_postgres_events_data
-  work_efiz_near_postgres_notifications_data:
-    name: work_efiz_near_postgres_notifications_data
-  work_efiz_near_postgres_projects_data:
-    name: work_efiz_near_postgres_projects_data
   work_efiz_near_postgres_proposals_data:
     name: work_efiz_near_postgres_proposals_data
   work_efiz_near_postgres_votes_data:
     name: work_efiz_near_postgres_votes_data
+  work_efiz_near_postgres_notifications_data:
+    name: work_efiz_near_postgres_notifications_data
+  work_efiz_near_postgres_activity_data:
+    name: work_efiz_near_postgres_activity_data

@@ -35,6 +35,28 @@ export declare const ActivityFiltersSchema: z.ZodObject<{
     type: z.ZodOptional<z.ZodString>;
     actor: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export declare const EmitActivityInputSchema: z.ZodObject<{
+    source: z.ZodString;
+    type: z.ZodString;
+    actor: z.ZodString;
+    payload: z.ZodUnknown;
+    verified: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>;
+export declare const ActivityFeedInputSchema: z.ZodObject<{
+    source: z.ZodOptional<z.ZodString>;
+    type: z.ZodOptional<z.ZodString>;
+    actor: z.ZodOptional<z.ZodString>;
+    limit: z.ZodOptional<z.ZodNumber>;
+    cursor: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const ActivityLeaderboardInputSchema: z.ZodObject<{
+    period: z.ZodEnum<{
+        week: "week";
+        month: "month";
+        "all-time": "all-time";
+    }>;
+    limit: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
 export declare const contract: {
     emitActivity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         source: z.ZodString;
