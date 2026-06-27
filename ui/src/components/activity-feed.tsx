@@ -49,7 +49,10 @@ export function ActivityFeed({
   const events = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
 
-  const { data: countsData } = useQuery(upvoteCountsOptions(apiClient, eventIds));
+  const { data: countsData } = useQuery({
+    ...upvoteCountsOptions(apiClient, eventIds),
+    enabled: eventIds.length > 0,
+  });
   const { data: votesData } = useQuery(userVotesOptions(apiClient, eventIds, isAuthenticated));
   const counts = (countsData ?? {}) as CountsMap;
   const voteMap = (votesData ?? {}) as VotesMap;
@@ -82,9 +85,9 @@ export function ActivityFeed({
     });
   }, [latestEvent, queryClient, feedKey]);
 
-  const { data: latestVote } = useQuery(
-    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
-  );
+  const { data: latestVote } = useQuery({
+    ...orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
+  });
 
   useEffect(() => {
     if (!latestVote) return;

@@ -3,11 +3,15 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, MapPin, Pencil, ThumbsUp } from "lucide-react";
+import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { ActivityFeed } from "@/components/activity-feed";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderProposalsOptions,
@@ -29,6 +33,9 @@ export const Route = createFileRoute("/_layout/builders/$account")({
         retry: false,
       }),
       queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)),
+      queryClient.prefetchInfiniteQuery(
+        activityFeedQueryOptions(apiClient, { actor: params.account }),
+      ),
     ]);
 
     const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
@@ -61,6 +68,10 @@ export const Route = createFileRoute("/_layout/builders/$account")({
 type BuilderData = NonNullable<
   Awaited<ReturnType<ReturnType<typeof useApiClient>["builders"]["getBuilder"]>>["data"]
 >;
+type ProjectSummary = Awaited<
+  ReturnType<ReturnType<typeof useApiClient>["listProjects"]>
+>["data"][number];
+type BuilderProfileTab = "projects" | "activity";
 
 function BuilderProfilePage() {
   const { account } = Route.useParams();
@@ -218,6 +229,7 @@ function LoadedProfile({
 }) {
   const auth = useAuthClient();
   const apiClient = useApiClient();
+  const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const canEdit =
@@ -458,60 +470,95 @@ function LoadedProfile({
         </div>
       </div>
 
-      <section>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-black text-foreground">Projects</h2>
-        </div>
-
-        {projectsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="animate-pulse bg-secondary h-20 rounded-xl" />
-            ))}
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
-            <p className="text-sm text-muted-foreground">No public projects yet.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                to="/projects/$kind/$slug"
-                params={{ kind: project.kind, slug: project.slug }}
-                className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
-                    {project.title}
-                  </span>
-                  <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
-                    {project.kind}
-                  </span>
-                </div>
-                {project.description && (
-                  <p className="text-xs text-muted-foreground truncate">{project.description}</p>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {(projectsResult?.meta.hasMore ?? false) && (
-          <div className="mt-4">
-            <Button asChild variant="outline" size="sm" className="rounded-full">
-              <Link
-                to="/projects"
-                search={{ kind: "all", personal: undefined, private: undefined }}
-              >
-                View all projects
-              </Link>
-            </Button>
-          </div>
-        )}
-      </section>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as BuilderProfileTab)}
+        className="w-full"
+      >
+        <TabsList>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
+        <TabsContent value="projects">
+          <ProjectsTabContent
+            projectsLoading={projectsLoading}
+            projects={projects}
+            hasMore={projectsResult?.meta.hasMore ?? false}
+          />
+        </TabsContent>
+        <TabsContent value="activity">
+          <ActivityFeed
+            filters={{ actor: account }}
+            emptyHint={`${displayName} has no activity yet.`}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function ProjectsTabContent({
+  projectsLoading,
+  projects,
+  hasMore,
+}: {
+  projectsLoading: boolean;
+  projects: ProjectSummary[];
+  hasMore: boolean;
+}) {
+  if (projectsLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="animate-pulse bg-secondary h-20 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-6 py-10 text-center">
+        <p className="text-sm text-muted-foreground">No public projects yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {projects.map((project) => (
+          <Link
+            key={project.id}
+            to="/projects/$kind/$slug"
+            params={{ kind: project.kind, slug: project.slug }}
+            className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
+                {project.title}
+              </span>
+              <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
+                {project.kind}
+              </span>
+            </div>
+            {project.description && (
+              <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+            )}
+          </Link>
+        ))}
+      </div>
+
+      {hasMore && (
+        <div className="mt-4">
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link to="/projects" search={{ kind: "all", personal: undefined, private: undefined }}>
+              View all projects
+            </Link>
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 
