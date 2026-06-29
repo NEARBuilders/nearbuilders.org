@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
@@ -487,10 +488,12 @@ function LoadedProfile({
           />
         </TabsContent>
         <TabsContent value="activity">
-          <ActivityFeed
-            filters={{ actor: account }}
-            emptyHint={`${displayName} has no activity yet.`}
-          />
+          <TooltipProvider>
+            <ActivityFeed
+              filters={{ actor: account }}
+              emptyHint={`${displayName} has no activity yet.`}
+            />
+          </TooltipProvider>
         </TabsContent>
       </Tabs>
     </div>

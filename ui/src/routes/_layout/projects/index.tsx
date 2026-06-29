@@ -7,7 +7,6 @@ import {
   BarChart2,
   Check,
   ChevronDown,
-  ChevronUp,
   FileText,
   Globe,
   Layers,
@@ -15,6 +14,8 @@ import {
   Pencil,
   Plus,
   Share2,
+  ThumbsDown,
+  ThumbsUp,
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
@@ -550,10 +552,10 @@ function ProjectsList() {
                 <div className="h-3.5 w-1/2 rounded bg-secondary animate-pulse" />
                 <div className="h-3 w-3/4 rounded bg-secondary animate-pulse" />
               </div>
-              <div className="flex shrink-0 flex-col items-center gap-1">
-                <div className="size-5 rounded bg-secondary animate-pulse" />
-                <div className="h-2.5 w-4 rounded bg-secondary animate-pulse" />
-                <div className="size-5 rounded bg-secondary animate-pulse" />
+              <div className="flex shrink-0 items-center gap-1 rounded-lg bg-secondary px-1 py-0.5">
+                <div className="size-7 rounded-md bg-muted animate-pulse" />
+                <div className="h-2.5 w-4 rounded bg-muted animate-pulse" />
+                <div className="size-7 rounded-md bg-muted animate-pulse" />
               </div>
             </div>
           ))}
@@ -652,185 +654,197 @@ function ProjectsList() {
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <h1 className="text-xl font-semibold text-foreground">Projects</h1>
-          {filterButtons}
-        </div>
-        {newButton}
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-        {projectList}
-        {!canParticipate && (
-          <div className="shrink-0 border-t border-border bg-card px-4 py-2 text-sm text-center text-muted-foreground pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
-            Anonymous sessions can browse.{" "}
-            <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
-              Link an identity
-            </Link>{" "}
-            to publish and vote.
+    <TooltipProvider>
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl font-semibold text-foreground">Projects</h1>
+            {filterButtons}
           </div>
-        )}
-      </div>
-
-      <div className="hidden min-h-0 flex-1 lg:flex overflow-hidden">
-        <div className="flex flex-col overflow-hidden border-r border-border w-[380px] shrink-0">
-          {projectList}
+          {newButton}
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted">
-          {rankedProjects.length === 0 && !isLoading ? null : !selectedProject ||
-            selectedProjectQuery.isLoading ? (
-            <div className="flex flex-1 flex-col gap-3 p-8">
-              <div className="animate-pulse bg-border h-7 w-[200px] rounded-md" />
-              <div className="animate-pulse bg-border h-4 w-4/5 rounded-md" />
-              <div className="animate-pulse bg-border h-4 w-3/5 rounded-md" />
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+          {projectList}
+          {!canParticipate && (
+            <div className="shrink-0 border-t border-border bg-card px-4 py-2 text-sm text-center text-muted-foreground pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+              Anonymous sessions can browse.{" "}
+              <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
+                Link an identity
+              </Link>{" "}
+              to publish and vote.
             </div>
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border bg-card px-6 py-4">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <KindBadge kind={selectedProject.kind} />
-                    <StatusBadge status={selectedProject.status} />
-                    <NewBadge createdAt={selectedProject.createdAt} />
-                  </div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <h2 className="text-xl font-semibold leading-snug text-foreground">
-                      {selectedProject.title}
-                    </h2>
-                    {selectedProject.visibility === "private" && <PrivateIndicator />}
-                  </div>
-                  {selectedProject.description && (
-                    <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
-                      {selectedProject.description}
-                    </p>
-                  )}
-                </div>
+          )}
+        </div>
 
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-xl px-2.5 py-1 bg-secondary">
-                    <VoteButton
-                      icon={<ChevronUp size={18} strokeWidth={2.25} />}
-                      onClick={() => runVote("up", selectedProject.id)}
-                      label="Upvote"
-                      disabled={
-                        !canParticipate ||
-                        (upvoteMutation.isPending &&
-                          upvoteMutation.variables === selectedProject.id)
-                      }
-                      active={userVoteMap[selectedProject.id] === "up"}
-                      activeColor="text-brand-accent"
-                    />
-                    <span className="text-foreground text-sm font-bold min-w-[24px] text-center">
-                      {counts[selectedProject.id] ?? 0}
-                    </span>
-                    <VoteButton
-                      icon={<ChevronDown size={18} strokeWidth={2.25} />}
-                      onClick={() => runVote("down", selectedProject.id)}
-                      label="Downvote"
-                      disabled={
-                        !canParticipate ||
-                        (downvoteMutation.isPending &&
-                          downvoteMutation.variables === selectedProject.id)
-                      }
-                      active={userVoteMap[selectedProject.id] === "down"}
-                      activeColor="text-destructive"
-                    />
+        <div className="hidden min-h-0 flex-1 lg:flex overflow-hidden">
+          <div className="flex flex-col overflow-hidden border-r border-border w-[380px] shrink-0">
+            {projectList}
+          </div>
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted">
+            {rankedProjects.length === 0 && !isLoading ? null : !selectedProject ||
+              selectedProjectQuery.isLoading ? (
+              <div className="flex flex-1 flex-col gap-3 p-8">
+                <div className="animate-pulse bg-border h-7 w-[200px] rounded-md" />
+                <div className="animate-pulse bg-border h-4 w-4/5 rounded-md" />
+                <div className="animate-pulse bg-border h-4 w-3/5 rounded-md" />
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border bg-card px-6 py-4">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <KindBadge kind={selectedProject.kind} />
+                      <StatusBadge status={selectedProject.status} />
+                      <NewBadge createdAt={selectedProject.createdAt} />
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <h2 className="text-xl font-semibold leading-snug text-foreground">
+                        {selectedProject.title}
+                      </h2>
+                      {selectedProject.visibility === "private" && <PrivateIndicator />}
+                    </div>
+                    {selectedProject.description && (
+                      <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+                        {selectedProject.description}
+                      </p>
+                    )}
                   </div>
 
-                  {selectedProject.repository && (
-                    <Button asChild size="icon-sm" variant="outline">
-                      <a
-                        href={selectedProject.repository}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={selectedProject.repository}
-                      >
-                        {isGithubUrl(selectedProject.repository) ? (
-                          <GithubIcon size={14} />
-                        ) : (
-                          <Globe size={14} />
-                        )}
-                      </a>
-                    </Button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex items-center gap-1 rounded-xl px-2.5 py-1 bg-secondary">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <VoteButton
+                            icon={<ThumbsUp size={18} strokeWidth={2.25} />}
+                            onClick={() => runVote("up", selectedProject.id)}
+                            label="Upvote"
+                            disabled={
+                              !canParticipate ||
+                              (upvoteMutation.isPending &&
+                                upvoteMutation.variables === selectedProject.id)
+                            }
+                            active={userVoteMap[selectedProject.id] === "up"}
+                            activeColor="text-brand-accent"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>Endorse this entry</TooltipContent>
+                      </Tooltip>
+                      <span className="text-foreground text-sm font-bold min-w-[24px] text-center">
+                        {counts[selectedProject.id] ?? 0}
+                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <VoteButton
+                            icon={<ThumbsDown size={18} strokeWidth={2.25} />}
+                            onClick={() => runVote("down", selectedProject.id)}
+                            label="Downvote"
+                            disabled={
+                              !canParticipate ||
+                              (downvoteMutation.isPending &&
+                                downvoteMutation.variables === selectedProject.id)
+                            }
+                            active={userVoteMap[selectedProject.id] === "down"}
+                            activeColor="text-destructive"
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>Remove your endorsement</TooltipContent>
+                      </Tooltip>
+                    </div>
 
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="outline"
-                    onClick={() => handleShare(selectedProject.slug, selectedProject.kind)}
-                    title="Copy link"
-                    className={copied ? "text-brand-accent" : ""}
-                  >
-                    {copied ? <Check size={14} /> : <Share2 size={14} />}
-                  </Button>
+                    {selectedProject.repository && (
+                      <Button asChild size="icon-sm" variant="outline">
+                        <a
+                          href={selectedProject.repository}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={selectedProject.repository}
+                        >
+                          {isGithubUrl(selectedProject.repository) ? (
+                            <GithubIcon size={14} />
+                          ) : (
+                            <Globe size={14} />
+                          )}
+                        </a>
+                      </Button>
+                    )}
 
-                  <Button asChild size="sm">
-                    <Link
-                      to="/projects/$kind/$slug"
-                      params={{ kind: selectedProject.kind, slug: selectedProject.slug }}
-                      search={{
-                        kind: search.kind,
-                        personal: search.personal,
-                        private: search.private,
-                      }}
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="outline"
+                      onClick={() => handleShare(selectedProject.slug, selectedProject.kind)}
+                      title="Copy link"
+                      className={copied ? "text-brand-accent" : ""}
                     >
-                      Open
-                      <ArrowUpRight size={13} />
-                    </Link>
-                  </Button>
+                      {copied ? <Check size={14} /> : <Share2 size={14} />}
+                    </Button>
 
-                  {canManageSelected && (
-                    <Button asChild size="sm" variant="outline">
+                    <Button asChild size="sm">
                       <Link
-                        to="/projects/$kind/$slug/edit"
+                        to="/projects/$kind/$slug"
                         params={{ kind: selectedProject.kind, slug: selectedProject.slug }}
                         search={{
-                          tab: "write",
                           kind: search.kind,
                           personal: search.personal,
                           private: search.private,
                         }}
                       >
-                        <Pencil size={13} />
-                        Edit
+                        Open
+                        <ArrowUpRight size={13} />
                       </Link>
                     </Button>
+
+                    {canManageSelected && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link
+                          to="/projects/$kind/$slug/edit"
+                          params={{ kind: selectedProject.kind, slug: selectedProject.slug }}
+                          search={{
+                            tab: "write",
+                            kind: search.kind,
+                            personal: search.personal,
+                            private: search.private,
+                          }}
+                        >
+                          <Pencil size={13} />
+                          Edit
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+                  {selectedProject.kind === "project" && selectedReadmeQuery.isLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading README…</div>
+                  ) : previewContent ? (
+                    <Markdown content={previewContent} />
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      {selectedProject.kind === "project"
+                        ? "No README available for this repository."
+                        : "No content written yet."}
+                    </div>
                   )}
                 </div>
               </div>
+            )}
+          </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-                {selectedProject.kind === "project" && selectedReadmeQuery.isLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading README…</div>
-                ) : previewContent ? (
-                  <Markdown content={previewContent} />
-                ) : (
-                  <div className="text-sm text-muted-foreground">
-                    {selectedProject.kind === "project"
-                      ? "No README available for this repository."
-                      : "No content written yet."}
-                  </div>
-                )}
-              </div>
+          {!canParticipate && (
+            <div className="absolute bottom-0 left-0 right-0 shrink-0 border-t border-border bg-card px-6 py-2 text-sm text-center text-muted-foreground">
+              Anonymous sessions can browse.{" "}
+              <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
+                Link an identity
+              </Link>{" "}
+              to publish and vote.
             </div>
           )}
         </div>
-
-        {!canParticipate && (
-          <div className="absolute bottom-0 left-0 right-0 shrink-0 border-t border-border bg-card px-6 py-2 text-sm text-center text-muted-foreground">
-            Anonymous sessions can browse.{" "}
-            <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
-              Link an identity
-            </Link>{" "}
-            to publish and vote.
-          </div>
-        )}
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -920,40 +934,38 @@ function ListRow({
         </div>
       </button>
 
-      {/* biome-ignore lint/a11y/useSemanticElements: stopPropagation container with nested buttons */}
-      <div
-        className="flex flex-col items-center shrink-0 gap-0.5"
-        role="button"
-        tabIndex={0}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      >
-        <VoteButton
-          icon={<ChevronUp size={14} strokeWidth={2.25} />}
-          onClick={onUpvote}
-          label="Upvote"
-          disabled={isUpvoting}
-          active={voteDirection === "up"}
-          activeColor="text-brand-accent"
-          size="compact"
-        />
+      <div className="flex shrink-0 items-center gap-1 rounded-lg bg-secondary px-1 py-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <VoteButton
+              icon={<ThumbsUp size={13} strokeWidth={2.25} />}
+              onClick={onUpvote}
+              label="Upvote"
+              disabled={isUpvoting}
+              active={voteDirection === "up"}
+              activeColor="text-brand-accent"
+              size="compact"
+            />
+          </TooltipTrigger>
+          <TooltipContent>Endorse this entry</TooltipContent>
+        </Tooltip>
         <span className="min-w-[20px] text-center text-[11px] font-bold leading-none text-foreground">
           {project.upvoteCount}
         </span>
-        <VoteButton
-          icon={<ChevronDown size={14} strokeWidth={2.25} />}
-          onClick={onDownvote}
-          label="Downvote"
-          disabled={isDownvoting}
-          active={voteDirection === "down"}
-          activeColor="text-destructive"
-          size="compact"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <VoteButton
+              icon={<ThumbsDown size={13} strokeWidth={2.25} />}
+              onClick={onDownvote}
+              label="Downvote"
+              disabled={isDownvoting}
+              active={voteDirection === "down"}
+              activeColor="text-destructive"
+              size="compact"
+            />
+          </TooltipTrigger>
+          <TooltipContent>Remove your endorsement</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

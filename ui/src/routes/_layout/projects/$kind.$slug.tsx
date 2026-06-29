@@ -5,8 +5,6 @@ import {
   ArrowLeft,
   BarChart2,
   Check,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   FileCode2,
   FileText,
@@ -16,6 +14,8 @@ import {
   Lock,
   Pencil,
   Share2,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
 } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { isProjectKind, parseProjectListSearch } from "./-search";
@@ -261,241 +262,253 @@ function ProjectDetailPage() {
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* top bar */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-        {/* breadcrumb */}
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
-            <Link
-              to="/projects"
-              search={{
-                preview: project.id,
-                kind: search.kind,
-                personal: search.personal,
-                private: search.private,
-              }}
-            >
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <span className="hidden text-muted-foreground sm:inline">/</span>
-          <span className="hidden max-w-[160px] truncate text-sm font-semibold text-foreground sm:block">
-            {project.slug}
-          </span>
-        </div>
+    <TooltipProvider>
+      <div className="flex h-full flex-col overflow-hidden">
+        {/* top bar */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
+          {/* breadcrumb */}
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
+              <Link
+                to="/projects"
+                search={{
+                  preview: project.id,
+                  kind: search.kind,
+                  personal: search.personal,
+                  private: search.private,
+                }}
+              >
+                <ArrowLeft size={15} />
+              </Link>
+            </Button>
+            <span className="hidden text-muted-foreground sm:inline">/</span>
+            <span className="hidden max-w-[160px] truncate text-sm font-semibold text-foreground sm:block">
+              {project.slug}
+            </span>
+          </div>
 
-        {/* actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* vote widget */}
-          <div className="inline-flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 bg-secondary">
+          {/* actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* vote widget */}
+            <div className="inline-flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 bg-secondary">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <VoteButton
+                    icon={<ThumbsUp size={18} strokeWidth={2.25} />}
+                    onClick={() => runVote("up")}
+                    label="Upvote"
+                    disabled={!canParticipate || upvoteMutation.isPending}
+                    active={voteDirection === "up"}
+                    activeColor="text-brand-accent"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Endorse this entry</TooltipContent>
+              </Tooltip>
+              <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
+                {voteCount}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <VoteButton
+                    icon={<ThumbsDown size={18} strokeWidth={2.25} />}
+                    onClick={() => runVote("down")}
+                    label="Downvote"
+                    disabled={!canParticipate || downvoteMutation.isPending}
+                    active={voteDirection === "down"}
+                    activeColor="text-destructive"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Remove your endorsement</TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* repo link */}
+            {project.repository && (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="hidden sm:inline-flex max-w-[160px]"
+              >
+                <a
+                  href={project.repository}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={project.repository}
+                >
+                  {isGithubUrl(project.repository) ? <GithubIcon size={13} /> : <Globe size={13} />}
+                  <span className="truncate">
+                    {project.repository
+                      .replace(/^https?:\/\/(www\.)?/, "")
+                      .split("/")
+                      .slice(0, 2)
+                      .join("/")}
+                  </span>
+                </a>
+              </Button>
+            )}
+
+            {/* share */}
             <VoteButton
-              icon={<ChevronUp size={18} strokeWidth={2.25} />}
-              onClick={() => runVote("up")}
-              label="Upvote"
-              disabled={!canParticipate || upvoteMutation.isPending}
-              active={voteDirection === "up"}
+              icon={copied ? <Check size={14} /> : <Share2 size={14} />}
+              onClick={handleShare}
+              label={copied ? "Link copied" : "Copy link"}
+              active={copied}
               activeColor="text-brand-accent"
             />
-            <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
-              {voteCount}
-            </span>
-            <VoteButton
-              icon={<ChevronDown size={18} strokeWidth={2.25} />}
-              onClick={() => runVote("down")}
-              label="Downvote"
-              disabled={!canParticipate || downvoteMutation.isPending}
-              active={voteDirection === "down"}
-              activeColor="text-destructive"
-            />
-          </div>
 
-          {/* repo link */}
-          {project.repository && (
+            {/* details sheet trigger */}
             <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="hidden sm:inline-flex max-w-[160px]"
+              type="button"
+              variant="secondary"
+              size="icon-sm"
+              className="sm:hidden"
+              onClick={() => setDetailsOpen(true)}
+              aria-label="Show details"
             >
-              <a
-                href={project.repository}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={project.repository}
-              >
-                {isGithubUrl(project.repository) ? <GithubIcon size={13} /> : <Globe size={13} />}
-                <span className="truncate">
-                  {project.repository
-                    .replace(/^https?:\/\/(www\.)?/, "")
-                    .split("/")
-                    .slice(0, 2)
-                    .join("/")}
-                </span>
-              </a>
+              <Info size={15} />
             </Button>
-          )}
 
-          {/* share */}
-          <VoteButton
-            icon={copied ? <Check size={14} /> : <Share2 size={14} />}
-            onClick={handleShare}
-            label={copied ? "Link copied" : "Copy link"}
-            active={copied}
-            activeColor="text-brand-accent"
-          />
-
-          {/* details sheet trigger */}
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon-sm"
-            className="sm:hidden"
-            onClick={() => setDetailsOpen(true)}
-            aria-label="Show details"
-          >
-            <Info size={15} />
-          </Button>
-
-          {canManage && (
-            <>
-              <Button asChild size="sm" variant="outline">
-                <Link
-                  to="/projects/$kind/$slug/edit"
-                  params={{ kind: project.kind, slug: project.slug }}
-                  search={{
-                    tab: "write",
-                    kind: search.kind,
-                    personal: search.personal,
-                    private: search.private,
-                  }}
-                >
-                  <Pencil size={13} />
-                  <span className="hidden sm:inline">Edit</span>
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-                }}
-                disabled={deleteMutation.isPending}
-              >
-                <Trash2 size={13} />
-                <span className="hidden sm:inline">Delete</span>
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-      {/* body */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* main content */}
-        <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-          <div className="mx-auto max-w-3xl space-y-4">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <KindChip kind={project.kind} />
-                {project.kind !== "result" && project.status !== "active" && (
-                  <StatusChip status={project.status as any} />
-                )}
-                <NewBadge createdAt={project.createdAt} />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[26px] sm:text-[30px] font-semibold leading-tight text-foreground">
-                  {project.title}
-                </h1>
-                {project.visibility === "private" && <PrivateIndicator />}
-              </div>
-              {project.description && (
-                <p className="text-[15px] leading-relaxed text-muted-foreground">
-                  {project.description}
-                </p>
-              )}
-              {project.repository && (
-                <Button asChild size="sm" variant="outline" className="w-fit">
-                  <a href={project.repository} target="_blank" rel="noopener noreferrer">
-                    {isGithubUrl(project.repository) ? (
-                      <GithubIcon size={13} />
-                    ) : (
-                      <Globe size={13} />
-                    )}
-                    <span className="max-w-[220px] truncate">
-                      {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
-                    </span>
-                    <ExternalLink size={11} className="text-muted-foreground shrink-0" />
-                  </a>
+            {canManage && (
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    to="/projects/$kind/$slug/edit"
+                    params={{ kind: project.kind, slug: project.slug }}
+                    search={{
+                      tab: "write",
+                      kind: search.kind,
+                      personal: search.personal,
+                      private: search.private,
+                    }}
+                  >
+                    <Pencil size={13} />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Link>
                 </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm("Delete this project permanently?")) deleteMutation.mutate();
+                  }}
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 size={13} />
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        {/* body */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* main content */}
+          <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+            <div className="mx-auto max-w-3xl space-y-4">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <KindChip kind={project.kind} />
+                  {project.kind !== "result" && project.status !== "active" && (
+                    <StatusChip status={project.status as any} />
+                  )}
+                  <NewBadge createdAt={project.createdAt} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-[26px] sm:text-[30px] font-semibold leading-tight text-foreground">
+                    {project.title}
+                  </h1>
+                  {project.visibility === "private" && <PrivateIndicator />}
+                </div>
+                {project.description && (
+                  <p className="text-[15px] leading-relaxed text-muted-foreground">
+                    {project.description}
+                  </p>
+                )}
+                {project.repository && (
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <a href={project.repository} target="_blank" rel="noopener noreferrer">
+                      {isGithubUrl(project.repository) ? (
+                        <GithubIcon size={13} />
+                      ) : (
+                        <Globe size={13} />
+                      )}
+                      <span className="max-w-[220px] truncate">
+                        {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                      </span>
+                      <ExternalLink size={11} className="text-muted-foreground shrink-0" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {project.kind === "project" && readmeQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">Loading README\u2026</p>
+              ) : renderedContent ? (
+                <Markdown content={renderedContent} />
+              ) : (
+                <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
+                  {project.kind === "project"
+                    ? "No README available for this repository."
+                    : project.kind === "scope"
+                      ? "This scope has no content yet."
+                      : project.kind === "result"
+                        ? "This result has no content yet."
+                        : "This idea has no content yet."}
+                </div>
+              )}
+
+              {(project.kind === "scope" || project.kind === "result") && (
+                <MentionsSection projectId={project.id} />
               )}
             </div>
+          </div>
 
-            <div className="h-px bg-border" />
-
-            {project.kind === "project" && readmeQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading README\u2026</p>
-            ) : renderedContent ? (
-              <Markdown content={renderedContent} />
-            ) : (
-              <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
-                {project.kind === "project"
-                  ? "No README available for this repository."
-                  : project.kind === "scope"
-                    ? "This scope has no content yet."
-                    : project.kind === "result"
-                      ? "This result has no content yet."
-                      : "This idea has no content yet."}
+          {/* desktop sidebar */}
+          <div className="hidden sm:block w-[220px] shrink-0 border-l border-border overflow-y-auto bg-muted px-5 py-6">
+            {metaItems}
+          </div>
+        </div>
+        {/* mobile details sheet */}
+        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <SheetContent side="bottom" hideCloseButton={false}>
+            <SheetHeader>
+              <SheetTitle>Details</SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto px-5 pb-2 pt-1">
+              <div className="space-y-4">
+                <MetaItem label="Visibility" value={project.visibility} />
+                <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
+                <MetaLinkItem
+                  label="Builder"
+                  to="/builders/$account"
+                  params={{ account: project.ownerId }}
+                  value={shortenId(project.ownerId)}
+                  mono
+                />
+                <MetaItem label="Slug" value={project.slug} mono />
+                {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
+                <MetaItem label="Created" value={formatDate(project.createdAt)} />
+                <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
               </div>
-            )}
-
-            {(project.kind === "scope" || project.kind === "result") && (
-              <MentionsSection projectId={project.id} />
-            )}
-          </div>
-        </div>
-
-        {/* desktop sidebar */}
-        <div className="hidden sm:block w-[220px] shrink-0 border-l border-border overflow-y-auto bg-muted px-5 py-6">
-          {metaItems}
-        </div>
-      </div>
-      {/* mobile details sheet */}
-      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <SheetContent side="bottom" hideCloseButton={false}>
-          <SheetHeader>
-            <SheetTitle>Details</SheetTitle>
-          </SheetHeader>
-          <div className="overflow-y-auto px-5 pb-2 pt-1">
-            <div className="space-y-4">
-              <MetaItem label="Visibility" value={project.visibility} />
-              <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
-              <MetaLinkItem
-                label="Builder"
-                to="/builders/$account"
-                params={{ account: project.ownerId }}
-                value={shortenId(project.ownerId)}
-                mono
-              />
-              <MetaItem label="Slug" value={project.slug} mono />
-              {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
-              <MetaItem label="Created" value={formatDate(project.createdAt)} />
-              <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
             </div>
-          </div>
-          <div
-            className="shrink-0 px-5 pt-3"
-            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
-          >
-            <SheetClose asChild>
-              <Button variant="outline" className="w-full">
-                Close
-              </Button>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </div>
+            <div
+              className="shrink-0 px-5 pt-3"
+              style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <SheetClose asChild>
+                <Button variant="outline" className="w-full">
+                  Close
+                </Button>
+              </SheetClose>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </TooltipProvider>
   );
 }
 

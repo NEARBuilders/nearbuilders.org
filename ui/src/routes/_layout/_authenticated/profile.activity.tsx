@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 
 type ActivitySubmission = {
@@ -265,10 +266,12 @@ function ProfileActivityPage() {
       </form>
 
       <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">Recent activity</h2>
-      <ActivityFeed
-        filters={feedFilters}
-        emptyHint="Submit your first contribution using the form above."
-      />
+      <TooltipProvider>
+        <ActivityFeed
+          filters={feedFilters}
+          emptyHint="Submit your first contribution using the form above."
+        />
+      </TooltipProvider>
     </div>
   );
 }

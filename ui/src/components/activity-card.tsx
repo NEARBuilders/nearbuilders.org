@@ -1,8 +1,9 @@
-import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useMemo } from "react";
 import { NearProfile } from "@/components/near-profile";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { type ActivityEvent, readActivityPayload } from "@/lib/queries/activity";
 import { formatRelativeTime } from "@/lib/queries/notifications";
@@ -51,27 +52,37 @@ export function ActivityCard({
   return (
     <div className="bg-card border border-border rounded-lg px-5 py-4 sm:px-6 sm:py-5 flex gap-4 hover:shadow-lg transition-shadow duration-200">
       <div className="flex flex-col items-center shrink-0 gap-0.5 pt-0.5">
-        <VoteButton
-          icon={<ChevronUp size={16} strokeWidth={2.25} />}
-          onClick={onUpvote}
-          label="Endorse"
-          disabled={isUpvoting}
-          active={hasUpvote}
-          activeColor="text-brand-accent"
-          size="compact"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <VoteButton
+              icon={<ThumbsUp size={16} strokeWidth={2.25} />}
+              onClick={onUpvote}
+              label="Endorse"
+              disabled={isUpvoting}
+              active={hasUpvote}
+              activeColor="text-brand-accent"
+              size="compact"
+            />
+          </TooltipTrigger>
+          <TooltipContent>Endorse this contribution</TooltipContent>
+        </Tooltip>
         <span className="min-w-[24px] text-center text-xs font-bold leading-none text-foreground tabular-nums">
           {count}
         </span>
-        <VoteButton
-          icon={<ChevronDown size={16} strokeWidth={2.25} />}
-          onClick={onDownvote}
-          label="Remove endorsement"
-          disabled={isDownvoting}
-          active={false}
-          activeColor="text-destructive"
-          size="compact"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <VoteButton
+              icon={<ThumbsDown size={16} strokeWidth={2.25} />}
+              onClick={onDownvote}
+              label="Remove endorsement"
+              disabled={isDownvoting}
+              active={false}
+              activeColor="text-destructive"
+              size="compact"
+            />
+          </TooltipTrigger>
+          <TooltipContent>Remove your endorsement</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="min-w-0 flex-1">

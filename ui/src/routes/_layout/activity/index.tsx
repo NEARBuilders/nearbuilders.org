@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 
 type SourceFilter = "all" | "manual" | "nearcatalog";
@@ -117,7 +118,9 @@ function ActivityPage() {
         </Select>
       </div>
 
-      <ActivityFeed filters={filters} sort={sort} />
+      <TooltipProvider>
+        <ActivityFeed filters={filters} sort={sort} />
+      </TooltipProvider>
     </div>
   );
 }
