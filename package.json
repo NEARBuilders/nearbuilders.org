@@ -65,7 +65,7 @@
     }
   },
   "scripts": {
-    "dev": "node_modules/.bin/bos dev",
+    "dev": "node_modules/.bin/bos dev --remote-plugins=activity,apps,builders,projects,events,notifications,proposals,votes",
     "dev:ui": "node_modules/.bin/bos dev --ui local --api remote",
     "dev:api": "node_modules/.bin/bos dev --ui remote --api local",
     "dev:proxy": "node_modules/.bin/bos dev --proxy",
