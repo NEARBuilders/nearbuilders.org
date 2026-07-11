@@ -16,6 +16,9 @@ import {
 type ApiContext = {
   userId?: string;
   walletAddress?: string;
+  near?: {
+    primaryAccountId?: string | null;
+  };
   user?: {
     id: string;
     role?: string;
@@ -38,6 +41,7 @@ type ProposalData = Pick<
 > & {
   rejectionReason?: string | null;
 };
+type CatalogClaimProposalStatus = "pending" | "rejected" | "approved" | "revoked";
 export type ProposalNotificationInput = {
   userId: string;
   type: string;
@@ -48,10 +52,14 @@ export type ProposalNotificationInput = {
 };
 export type ApprovalNotificationInput = ProposalNotificationInput;
 
+function resolveWalletAddress(context: ApiContext) {
+  return context.walletAddress ?? context.near?.primaryAccountId ?? undefined;
+}
+
 function pluginContext(context: ApiContext) {
   return {
     userId: context.userId,
-    walletAddress: context.walletAddress,
+    walletAddress: resolveWalletAddress(context),
     user: context.user,
     organizationId: context.organizationId,
     apiKey: context.apiKey,
@@ -60,11 +68,9 @@ function pluginContext(context: ApiContext) {
   };
 }
 
-// Notifications are scoped to the NEAR account: recipients come from `proposal.createdBy`
-// (the wallet address), not the better-auth user id. Feed the plugin the wallet address as
-// its `userId` so reads/writes share one identity namespace.
 function notificationContext(context: ApiContext) {
-  return { ...pluginContext(context), userId: context.walletAddress };
+  const resolved = pluginContext(context);
+  return { ...resolved, userId: resolved.walletAddress ?? resolved.userId };
 }
 
 function requireObjectPayload(payload: unknown) {
@@ -81,6 +87,60 @@ function readString(value: unknown): string | undefined {
 function readStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter((item): item is string => typeof item === "string");
+}
+
+const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
+
+function normalizeCatalogClaimRoles(roles: string[]) {
+  const normalized = new Map<string, string>();
+  for (const role of roles) {
+    const value = role.trim();
+    const key = value.toLowerCase();
+    if (value && !normalized.has(key)) normalized.set(key, value);
+  }
+  return Array.from(normalized.values());
+}
+
+function catalogClaimProposalStatus(proposal: {
+  reviewStatus: string;
+  removeStatus: string;
+}): CatalogClaimProposalStatus {
+  if (proposal.reviewStatus === "removed" || proposal.removeStatus === "removed") return "revoked";
+  if (proposal.reviewStatus === "approved") return "approved";
+  if (proposal.reviewStatus === "rejected") return "rejected";
+  return "pending";
+}
+
+function normalizeCatalogClaimProposal(proposal: {
+  id: string;
+  payload: unknown;
+  reviewStatus: string;
+  removeStatus: string;
+  rejectionReason: string | null;
+  submissionCount: number;
+  removedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  const payload = requireObjectPayload(proposal.payload);
+  const projectSlug = readString(payload.projectSlug);
+  const roles = normalizeCatalogClaimRoles(readStringArray(payload.roles) ?? []);
+  if (!projectSlug || roles.length === 0) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Catalog claim proposal contains invalid data",
+    });
+  }
+  return {
+    id: proposal.id,
+    projectSlug,
+    roles,
+    status: catalogClaimProposalStatus(proposal),
+    rejectionReason: proposal.rejectionReason,
+    submissionCount: proposal.submissionCount,
+    revokedAt: proposal.removedAt,
+    createdAt: proposal.createdAt,
+    updatedAt: proposal.updatedAt,
+  };
 }
 export function buildApprovalNotification(
   proposal: ProposalData,
@@ -484,6 +544,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
   context: z.object({
     userId: z.string().optional(),
     walletAddress: z.string().optional(),
+    near: z
+      .object({
+        primaryAccountId: z.string().nullable(),
+      })
+      .optional(),
     user: z
       .object({
         id: z.string(),
@@ -533,6 +598,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       })),
 
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
+        if (input.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Use the Catalog claim proposal endpoint",
+          });
+        }
         assertValidBuilderProposalAccount(input);
         return await services.plugins.proposals(pluginContext(context)).propose(input);
       }),
@@ -663,20 +733,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return removal;
       }),
 
-      getProposals: builder.getProposals.handler(async ({ input }) => {
-        return await services.plugins.proposals().getProposals(input);
+      getProposals: builder.getProposals.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(pluginContext(context)).getProposals(input);
       }),
 
-      getProposalCount: builder.getProposalCount.handler(async ({ input }) => {
-        return await services.plugins.proposals().getProposalCount(input);
+      getProposalCount: builder.getProposalCount.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(pluginContext(context)).getProposalCount(input);
       }),
 
-      getAuditLog: builder.getAuditLog.handler(async ({ input }) => {
-        return await services.plugins.proposals().getAuditLog(input);
+      getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(pluginContext(context)).getAuditLog(input);
       }),
 
-      subscribeProposals: builder.subscribeProposals.handler(async function* ({ input }) {
-        const iterator = await services.plugins.proposals().subscribe(input);
+      subscribeProposals: builder.subscribeProposals.handler(async function* ({
+        input,
+        context,
+        signal,
+        lastEventId,
+      }) {
+        const iterator = await services.plugins
+          .proposals(pluginContext(context))
+          .subscribe(input, { signal, lastEventId });
         for await (const event of iterator) {
           yield event;
         }
@@ -724,6 +801,79 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().getCatalogProject(input);
       }),
+
+      submitCatalogClaimProposal: builder.submitCatalogClaimProposal
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const builderProfile = await services.plugins
+            .builders(pluginContext(context))
+            .getMyBuilderProfile({});
+          if (!builderProfile.data) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "An approved builder profile is required",
+            });
+          }
+
+          const project = await services.plugins.nearcatalog().getCatalogProject({
+            slug: input.projectSlug,
+          });
+          if (project.data.status?.toLowerCase() !== "active") {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Only active Catalog projects can be claimed",
+            });
+          }
+
+          const nearAccount = builderProfile.data.nearAccount.trim().toLowerCase();
+          const roles = normalizeCatalogClaimRoles(input.roles);
+          const proposal = await services.plugins
+            .proposals({
+              ...pluginContext(context),
+              walletAddress: nearAccount,
+              allowPrivateSubmission: true,
+              resubmissionPolicy: "rejected-only",
+            })
+            .propose({
+              pluginId: CATALOG_CLAIM_PLUGIN_ID,
+              entityId: `claim:${nearAccount}:${input.projectSlug}`,
+              payload: {
+                nearAccount,
+                projectSlug: input.projectSlug,
+                roles,
+              },
+              source: "nearcatalog-claim",
+              idempotencyKey: input.idempotencyKey,
+            });
+
+          return { data: normalizeCatalogClaimProposal(proposal.data) };
+        }),
+
+      getMyCatalogClaimProposals: builder.getMyCatalogClaimProposals
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const builderProfile = await services.plugins
+            .builders(pluginContext(context))
+            .getMyBuilderProfile({});
+          if (!builderProfile.data) return { data: [] };
+
+          const nearAccount = builderProfile.data.nearAccount.trim().toLowerCase();
+          const proposalsClient = services.plugins.proposals({
+            ...pluginContext(context),
+            walletAddress: nearAccount,
+          });
+          const proposals = [] as Awaited<ReturnType<typeof proposalsClient.getProposals>>["data"];
+          let cursor: string | undefined;
+          do {
+            const page = await proposalsClient.getProposals({
+              pluginId: CATALOG_CLAIM_PLUGIN_ID,
+              limit: 100,
+              cursor,
+            });
+            proposals.push(...page.data.filter((proposal) => proposal.createdBy === nearAccount));
+            cursor = page.meta.nextCursor ?? undefined;
+          } while (cursor);
+
+          return { data: proposals.map(normalizeCatalogClaimProposal) };
+        }),
 
       listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().listCatalogClaims(input);

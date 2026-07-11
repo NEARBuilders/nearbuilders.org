@@ -91,6 +91,28 @@ describe("Catalog adapter", () => {
     expect(projects).toEqual([]);
   });
 
+  it("accepts the live empty-array tags shape without failing search", async () => {
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response({
+        "sample-page": {
+          slug: "sample-page",
+          profile: {
+            name: "📒 NEARCatalog",
+            tagline: "",
+            image: { url: "" },
+            tags: [],
+            phase: "",
+            status: "",
+          },
+        },
+      }),
+    );
+
+    const projects = await Effect.runPromise(catalog.searchProjects("nearcatalog"));
+
+    expect(projects).toEqual([]);
+  });
+
   it.each([
     [404, "NOT_FOUND"],
     [429, "RATE_LIMITED"],

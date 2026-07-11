@@ -86,6 +86,11 @@
     },
     "proposals": {
       "development": "local:plugins/proposals",
+      "variables": {
+        "privatePluginIds": [
+          "nearcatalog"
+        ]
+      },
       "secrets": [
         "PROPOSALS_DATABASE_URL"
       ],
