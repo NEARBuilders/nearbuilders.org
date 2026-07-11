@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildApprovalNotification, buildRejectionNotification } from "../../src/index";
+import {
+  buildApprovalNotification,
+  buildRejectionNotification,
+} from "../../src/services/proposal-notifications";
 
 describe("approval notification mapping", () => {
   it("maps approved projects to the mission project link", () => {

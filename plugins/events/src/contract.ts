@@ -31,7 +31,22 @@ const EventParticipantOutput = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+const LumaEventOutput = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  lumaUrl: z.string().url(),
+  startAt: z.iso.datetime().optional(),
+  endAt: z.iso.datetime().optional(),
+  location: z.string().optional(),
+});
+
 export const contract = oc.router({
+  fetchLumaEvent: oc
+    .route({ method: "GET", path: "/v1/luma/event" })
+    .input(z.object({ url: z.string().url().max(500) }))
+    .output(z.object({ data: LumaEventOutput }))
+    .errors({ BAD_REQUEST }),
+
   listEvents: oc
     .route({ method: "GET", path: "/v1/events" })
     .input(

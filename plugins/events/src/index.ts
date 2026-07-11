@@ -61,6 +61,10 @@ export default createPlugin({
     };
 
     return {
+      fetchLumaEvent: builder.fetchLumaEvent.handler(async ({ input }) => ({
+        data: await runEffect(services.event.fetchLumaEvent(input.url)),
+      })),
+
       listEvents: builder.listEvents.handler(async ({ input, context }) => {
         return await runEffect(
           services.event.listEvents(

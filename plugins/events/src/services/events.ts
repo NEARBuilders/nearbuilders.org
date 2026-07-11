@@ -204,6 +204,17 @@ export class EventService extends Context.Tag("events/EventService")<
       userRole?: string,
       alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
+    fetchLumaEvent: (url: string) => Effect.Effect<
+      {
+        title?: string;
+        description?: string;
+        lumaUrl: string;
+        startAt?: string;
+        endAt?: string;
+        location?: string;
+      },
+      ORPCError<string, unknown>
+    >;
   }
 >() {}
 
@@ -280,6 +291,31 @@ const viewableEventConditions = (userId?: string, alternateUserId?: string) => {
   if (ownerConditions.length > 0) visibleConditions.push(or(...ownerConditions));
   return or(...visibleConditions);
 };
+
+function htmlDecode(value: string) {
+  return value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#34;", '"')
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">");
+}
+
+function asIso(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+}
+
+function readLumaLocation(value: unknown) {
+  if (!value || typeof value !== "object") return undefined;
+  const location = value as { name?: unknown; address?: unknown };
+  return asString(location.name) ?? asString(location.address);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
 
 export const EventServiceLive = Layer.effect(
   EventService,
@@ -548,6 +584,72 @@ export const EventServiceLive = Layer.effect(
 
           yield* Effect.promise(() => db.delete(events).where(eq(events.id, id)));
           return { deleted: true };
+        }),
+
+      fetchLumaEvent: (url) =>
+        Effect.tryPromise({
+          try: async () => {
+            const parsed = new URL(url);
+            const hostname = parsed.hostname.replace(/^www\./, "");
+            if (parsed.protocol !== "https:" || (hostname !== "luma.com" && hostname !== "lu.ma")) {
+              throw new ORPCError("BAD_REQUEST", { message: "Enter a valid Luma URL" });
+            }
+
+            const response = await fetch(parsed.toString(), {
+              headers: { accept: "text/html" },
+              signal: AbortSignal.timeout(8000),
+            });
+            if (!response.ok) {
+              throw new ORPCError("BAD_REQUEST", { message: "Could not fetch Luma event" });
+            }
+
+            const html = await response.text();
+            const match = html.match(
+              /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i,
+            );
+            if (!match?.[1]) {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "Could not find event details on Luma page",
+              });
+            }
+
+            let data: {
+              "@type"?: unknown;
+              name?: unknown;
+              description?: unknown;
+              url?: unknown;
+              startDate?: unknown;
+              endDate?: unknown;
+              location?: unknown;
+            };
+            try {
+              data = JSON.parse(htmlDecode(match[1]));
+            } catch {
+              throw new ORPCError("BAD_REQUEST", {
+                message: "Could not read event details on Luma page",
+              });
+            }
+
+            if (data["@type"] !== "Event") {
+              throw new ORPCError("BAD_REQUEST", { message: "Luma URL is not an event" });
+            }
+
+            const description = asString(data.description);
+            return {
+              title: asString(data.name),
+              description,
+              lumaUrl: asString(data.url) ?? parsed.toString(),
+              startAt: asIso(data.startDate),
+              endAt: asIso(data.endDate),
+              location: readLumaLocation(data.location),
+            };
+          },
+          catch: (error) => {
+            if (error instanceof ORPCError) return error;
+            throw new ORPCError("BAD_REQUEST", {
+              message: error instanceof Error ? error.message : "Could not fetch Luma event",
+            });
+          },
         }),
     };
   }),
