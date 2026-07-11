@@ -118,6 +118,15 @@
       ],
       "production": "https://elliot-braem-5153-everything-dev-activity-plugin--a89b7a15b-ze.zephyrcloud.app",
       "integrity": "sha384-WBJtXI7brL39mSfRuAfFOlOpDcOUyFOuTaPY9csREm46waUudNL1LZlCZ/8h1AMF"
+    },
+    "nearcatalog": {
+      "development": "local:plugins/nearcatalog",
+      "variables": {
+        "baseUrl": "https://api.nearcatalog.xyz"
+      },
+      "secrets": [
+        "NEARCATALOG_DATABASE_URL"
+      ]
     }
   }
 }

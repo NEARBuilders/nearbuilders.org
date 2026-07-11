@@ -717,6 +717,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
       }),
 
+      searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().searchCatalogProjects(input);
+      }),
+
+      getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().getCatalogProject(input);
+      }),
+
+      listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listCatalogClaims(input);
+      }),
+
+      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listClaimedCatalogProjects(input);
+      }),
+
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
         return await services.plugins.activity(pluginContext(context)).emitActivity(input);
       }),
