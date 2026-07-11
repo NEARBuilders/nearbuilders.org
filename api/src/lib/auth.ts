@@ -7,6 +7,8 @@ export type ApiKeyContext = NonNullable<GeneratedAuthRequestContext["apiKey"]>;
 
 export interface RequestAuthContext {
   userId?: GeneratedAuthRequestContext["userId"];
+  walletAddress?: string;
+  near?: GeneratedAuthRequestContext["near"];
   user?: GeneratedAuthRequestContext["user"];
   organizationId?: GeneratedAuthRequestContext["organization"]["activeOrganizationId"];
   apiKey?: GeneratedAuthRequestContext["apiKey"];
@@ -39,6 +41,8 @@ export function getAuthClient(
 function toRequestAuthContext(context: RequestAuthContext): RequestAuthContext {
   return {
     userId: context.userId,
+    walletAddress: context.walletAddress ?? context.near?.primaryAccountId ?? undefined,
+    near: context.near,
     user: context.user,
     organizationId: context.organizationId,
     apiKey: context.apiKey,

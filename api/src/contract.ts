@@ -101,6 +101,8 @@ const CatalogProjectSlugSchema = z
   .max(120)
   .regex(/^[a-z0-9-]+$/);
 const CatalogCursorSchema = z.string().regex(/^\d+$/);
+const CatalogClaimRolesSchema = z.array(z.string().trim().min(1).max(50)).min(1).max(16);
+const CatalogClaimProposalStatusSchema = z.enum(["pending", "rejected", "approved", "revoked"]);
 
 const CatalogProjectSchema = z.object({
   slug: CatalogProjectSlugSchema,
@@ -136,6 +138,18 @@ const ClaimedCatalogProjectSchema = z.object({
       roles: z.array(z.string()),
     }),
   ),
+});
+
+const CatalogClaimProposalSchema = z.object({
+  id: z.string(),
+  projectSlug: CatalogProjectSlugSchema,
+  roles: z.array(z.string().min(1).max(50)).min(1).max(16),
+  status: CatalogClaimProposalStatusSchema,
+  rejectionReason: z.string().nullable(),
+  submissionCount: z.number().int().nonnegative(),
+  revokedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 const CatalogErrors = {
@@ -500,6 +514,23 @@ export const contract = oc.router({
     )
     .output(z.object({ data: CatalogProjectSchema }))
     .errors({ BAD_REQUEST, NOT_FOUND, ...CatalogErrors }),
+
+  submitCatalogClaimProposal: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/claim-proposals" })
+    .input(
+      z.object({
+        projectSlug: CatalogProjectSlugSchema,
+        roles: CatalogClaimRolesSchema,
+        idempotencyKey: z.string().trim().min(1).max(255),
+      }),
+    )
+    .output(z.object({ data: CatalogClaimProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND, ...CatalogErrors }),
+
+  getMyCatalogClaimProposals: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/claim-proposals/me" })
+    .output(z.object({ data: z.array(CatalogClaimProposalSchema) }))
+    .errors({ UNAUTHORIZED }),
 
   listCatalogClaims: oc
     .route({ method: "GET", path: "/v1/nearcatalog/claims" })

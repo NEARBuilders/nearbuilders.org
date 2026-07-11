@@ -6,6 +6,8 @@ import { catalogProjectReference } from "../project-reference";
 
 type CatalogProject = z.infer<typeof CatalogProjectSchema>;
 
+const RawTagsSchema = z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]);
+
 const RawProjectSchema = z.object({
   slug: CatalogProjectSlugSchema,
   profile: z.object({
@@ -14,14 +16,14 @@ const RawProjectSchema = z.object({
     description: z.string().nullable().optional(),
     image: z.object({ url: z.string().nullable().optional() }).nullable().optional(),
     linktree: z.record(z.string(), z.unknown()).nullable().optional(),
-    tags: z.record(z.string(), z.unknown()).nullable().optional(),
+    tags: RawTagsSchema.nullable().optional(),
     phase: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
   }),
 });
 
 const SearchResponseSchema = z.union([
-  z.record(z.string(), RawProjectSchema),
+  z.record(z.string(), z.unknown()),
   z.array(z.unknown()).max(0),
 ]);
 
@@ -43,7 +45,10 @@ function urlOrNull(value: unknown, hostname?: string): string | null {
 }
 
 function normalizeProject(raw: z.infer<typeof RawProjectSchema>): CatalogProject {
-  const tags = Object.values(raw.profile.tags ?? {}).filter(
+  const rawTags = Array.isArray(raw.profile.tags)
+    ? raw.profile.tags
+    : Object.values(raw.profile.tags ?? {});
+  const tags = rawTags.filter(
     (tag): tag is string => typeof tag === "string" && Boolean(tag.trim()),
   );
   const repositoryUrl = urlOrNull(raw.profile.linktree?.github, "github.com");
@@ -151,6 +156,10 @@ export function createCatalogMethods(
         const result = yield* fetchProjectData(`/search?${params}`, SearchResponseSchema);
         if (Array.isArray(result)) return [];
         return Object.values(result)
+          .flatMap((project) => {
+            const parsed = RawProjectSchema.safeParse(project);
+            return parsed.success ? [parsed.data] : [];
+          })
           .filter((project) => project.profile.status?.trim() === "active")
           .map(normalizeProject)
           .slice(0, Math.min(limit, 50));
