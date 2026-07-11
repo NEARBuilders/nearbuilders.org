@@ -1,3 +1,10 @@
+/**
+ * Rsbuild configuration with Module Federation for the UI remote.
+ *
+ * BE CAREFUL MODIFYING THIS FILE — changes will be overwritten by `bos sync` / `bos upgrade`.
+ * Prefer upstream changes at https://github.com/nearbuilders/everything-dev
+ */
+
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";

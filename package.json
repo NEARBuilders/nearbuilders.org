@@ -28,8 +28,8 @@
       "@better-auth/api-key": "1.6.9",
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.6.3",
-      "every-plugin": "^2.7.0",
-      "everything-dev": "^1.39.0",
+      "every-plugin": "^2.7.1",
+      "everything-dev": "^1.42.2",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -59,13 +59,13 @@
       "@rsbuild/plugin-react": "1.4.6",
       "zephyr-rspack-plugin": "^1.1.1",
       "zephyr-rsbuild-plugin": "^1.1.1",
-      "@tanstack/intent": "^0.0.40",
+      "@tanstack/intent": "^0.3.5",
       "@tanstack/store": "^0.11.0",
       "@opentelemetry/api": "^1.9.0"
     }
   },
   "scripts": {
-    "dev": "node_modules/.bin/bos dev --remote-plugins=activity,apps,builders,projects,events,notifications,proposals,votes",
+    "dev": "node_modules/.bin/bos dev",
     "dev:ui": "node_modules/.bin/bos dev --ui local --api remote",
     "dev:api": "node_modules/.bin/bos dev --ui remote --api local",
     "dev:proxy": "node_modules/.bin/bos dev --proxy",
@@ -85,7 +85,7 @@
     "version": "changeset version",
     "release": "echo 'Packages versioned - app release handled by workflow'",
     "db:push": "bun run --cwd api drizzle-kit push",
-    "db:studio": "bun run --cwd api drizzle-kit studio",
+    "db:studio": "node_modules/.bin/bos db:studio",
     "db:generate": "bun run --cwd api drizzle-kit generate",
     "db:migrate": "bun run --cwd api drizzle-kit migrate",
     "test": "bun run test:api",
@@ -104,7 +104,7 @@
     "dotenv": "^17.3.1",
     "tsx": "^4.21.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^catalog:"
+    "vitest": "catalog:"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
