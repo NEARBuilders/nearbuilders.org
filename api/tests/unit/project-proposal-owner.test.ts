@@ -62,11 +62,13 @@ describe("project proposal owner hardening", () => {
     const context = createProjectProposalOwnerContext(
       {
         userId: "admin.near",
-        walletAddress: "admin.near",
         user: {
           id: "admin.near",
           role: "admin",
           email: "admin@example.com",
+        },
+        near: {
+          primaryAccountId: "admin.near",
         },
         apiKey: {
           id: "key_1",
@@ -75,10 +77,15 @@ describe("project proposal owner hardening", () => {
         },
       },
       "builder.near",
-    );
+    ) as {
+      userId: string;
+      near: { primaryAccountId: string };
+      user: { id: string; role: string };
+      apiKey: { id: string };
+    };
 
     expect(context.userId).toBe("builder.near");
-    expect(context.walletAddress).toBe("builder.near");
+    expect(context.near?.primaryAccountId).toBe("builder.near");
     expect(context.user).toEqual({ id: "builder.near", role: "user" });
     expect(context.apiKey?.id).toBe("key_1");
   });

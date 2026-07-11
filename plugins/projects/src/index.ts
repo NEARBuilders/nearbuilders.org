@@ -4,6 +4,7 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
+import { ContextSchema } from "./lib/context";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 export default createPlugin({
@@ -13,28 +14,7 @@ export default createPlugin({
     PROJECTS_DATABASE_URL: z.string().default("pglite:.bos/projects/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    organizationId: z.string().optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -62,24 +42,20 @@ export default createPlugin({
           },
         });
       }
-      return next({
-        context: {
-          userId: context.userId,
-          walletAddress: context.walletAddress,
-          user: context.user,
-          reqHeaders: context.reqHeaders,
-        },
-      });
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: { userId?: string; walletAddress?: string }) =>
-      context.walletAddress && context.walletAddress !== context.userId
-        ? context.userId
+    const getAlternateOwnerId = (context: {
+      userId?: string | null;
+      near?: { primaryAccountId?: string | null };
+    }) =>
+      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
+        ? (context.userId ?? undefined)
         : undefined;
 
     return {
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
-        const ownerId = context.walletAddress ?? context.userId;
+        const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
           services.project.listProjects(input, ownerId, getAlternateOwnerId(context)),
         );
@@ -97,7 +73,7 @@ export default createPlugin({
       }),
 
       getProject: builder.getProject.handler(async ({ input, errors, context }) => {
-        const ownerId = context.walletAddress ?? context.userId;
+        const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
           services.project.getProject(input.id, ownerId, getAlternateOwnerId(context)),
         );
@@ -122,7 +98,7 @@ export default createPlugin({
       }),
 
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, errors, context }) => {
-        const ownerId = context.walletAddress ?? context.userId;
+        const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
           services.project.getProjectBySlug(input.slug, ownerId, getAlternateOwnerId(context)),
         );
@@ -147,9 +123,9 @@ export default createPlugin({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
-        const ownerId = context.walletAddress ?? context.userId;
+        const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.createProject(input, ownerId, context.user.role),
+          services.project.createProject(input, ownerId, context.user.role ?? undefined),
         );
 
         if (Exit.isFailure(exit)) {
@@ -171,8 +147,8 @@ export default createPlugin({
             services.project.updateProject(
               input.id,
               input,
-              context.walletAddress ?? context.userId,
-              context.user.role,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
               getAlternateOwnerId(context),
             ),
           );
@@ -203,8 +179,8 @@ export default createPlugin({
           const exit = await Effect.runPromiseExit(
             services.project.deleteProject(
               input.id,
-              context.walletAddress ?? context.userId,
-              context.user.role,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
               getAlternateOwnerId(context),
             ),
           );
@@ -252,8 +228,8 @@ export default createPlugin({
               input.projectId,
               input.accountId,
               input.domain,
-              context.walletAddress ?? context.userId,
-              context.user.role,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
               getAlternateOwnerId(context),
             ),
           );
@@ -286,8 +262,8 @@ export default createPlugin({
               input.projectId,
               input.accountId,
               input.domain,
-              context.walletAddress ?? context.userId,
-              context.user.role,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
               getAlternateOwnerId(context),
             ),
           );
@@ -317,7 +293,7 @@ export default createPlugin({
           services.project.listProjectsForApp(
             input.accountId,
             input.domain,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -338,7 +314,7 @@ export default createPlugin({
         const exit = await Effect.runPromiseExit(
           services.project.listMentions(
             input.id,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -359,7 +335,7 @@ export default createPlugin({
         const exit = await Effect.runPromiseExit(
           services.project.listMentionedBy(
             input.id,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );

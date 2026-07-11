@@ -4,6 +4,7 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
+import { ContextSchema } from "./lib/context";
 import { EventService, EventServiceLive } from "./services/events";
 
 export default createPlugin({
@@ -13,28 +14,7 @@ export default createPlugin({
     EVENTS_DATABASE_URL: z.string().default("pglite:.bos/events/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    organizationId: z.string().optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -57,19 +37,15 @@ export default createPlugin({
           message: "Authentication required",
         });
       }
-      return next({
-        context: {
-          userId: context.userId,
-          walletAddress: context.walletAddress,
-          user: context.user,
-          reqHeaders: context.reqHeaders,
-        },
-      });
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: { userId?: string; walletAddress?: string }) =>
-      context.walletAddress && context.walletAddress !== context.userId
-        ? context.userId
+    const getAlternateOwnerId = (context: {
+      userId?: string | null;
+      near?: { primaryAccountId?: string | null };
+    }) =>
+      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
+        ? (context.userId ?? undefined)
         : undefined;
 
     const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
@@ -89,7 +65,7 @@ export default createPlugin({
         return await runEffect(
           services.event.listEvents(
             input,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -99,7 +75,7 @@ export default createPlugin({
         const result = await runEffect(
           services.event.getEvent(
             input.id,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -116,7 +92,7 @@ export default createPlugin({
         const result = await runEffect(
           services.event.getEventBySlug(
             input.slug,
-            context.walletAddress ?? context.userId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -136,7 +112,7 @@ export default createPlugin({
               data: await runEffect(
                 services.event.listEventParticipants(
                   input.eventId,
-                  context.walletAddress ?? context.userId,
+                  context.near?.primaryAccountId ?? context.userId ?? undefined,
                   getAlternateOwnerId(context),
                 ),
               ),
@@ -159,8 +135,8 @@ export default createPlugin({
             data: await runEffect(
               services.event.joinEvent(
                 input.eventId,
-                context.walletAddress ?? context.userId,
-                context.walletAddress,
+                context.near?.primaryAccountId ?? context.userId ?? undefined,
+                context.near?.primaryAccountId ?? undefined,
                 context.user.name ?? context.user.email,
                 getAlternateOwnerId(context),
               ),
@@ -184,7 +160,7 @@ export default createPlugin({
             return await runEffect(
               services.event.leaveEvent(
                 input.eventId,
-                context.walletAddress ?? context.userId,
+                context.near?.primaryAccountId ?? context.userId ?? undefined,
                 getAlternateOwnerId(context),
               ),
             );
@@ -203,8 +179,8 @@ export default createPlugin({
         return await runEffect(
           services.event.createEvent(
             input,
-            context.walletAddress ?? context.userId,
-            context.user.role,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
             getAlternateOwnerId(context),
           ),
         );
@@ -218,8 +194,8 @@ export default createPlugin({
               services.event.updateEvent(
                 input.id,
                 input,
-                context.walletAddress ?? context.userId,
-                context.user.role,
+                context.near?.primaryAccountId ?? context.userId ?? undefined,
+                context.user.role ?? undefined,
                 getAlternateOwnerId(context),
               ),
             );
@@ -241,8 +217,8 @@ export default createPlugin({
             return await runEffect(
               services.event.deleteEvent(
                 input.id,
-                context.walletAddress ?? context.userId,
-                context.user.role,
+                context.near?.primaryAccountId ?? context.userId ?? undefined,
+                context.user.role ?? undefined,
                 getAlternateOwnerId(context),
               ),
             );

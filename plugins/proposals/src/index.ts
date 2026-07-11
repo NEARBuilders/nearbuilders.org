@@ -4,6 +4,7 @@ import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract, type ProposalEventSchema } from "./contract";
 import { DatabaseLive } from "./db/layer";
+import { ContextSchema } from "./lib/context";
 import { ProposalService, ProposalServiceLive } from "./services/proposals";
 
 type ProposalEvent = z.infer<typeof ProposalEventSchema>;
@@ -31,27 +32,7 @@ export default createPlugin({
     PROPOSALS_DATABASE_URL: z.string().default("pglite:.bos/proposals/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -104,12 +85,13 @@ export default createPlugin({
 
     return {
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
-        const actorId = context.walletAddress ?? context.userId ?? context.apiKey?.id ?? "unknown";
+        const actorId =
+          context.near?.primaryAccountId ?? context.userId ?? context.apiKey?.id ?? "unknown";
         const result = await runEffect(
           services.proposal.propose({
             ...input,
             actorId,
-            actor: context.user,
+            actor: context.user ?? undefined,
           }),
         );
         await publishProposalEvent("proposed", result);
@@ -121,7 +103,7 @@ export default createPlugin({
           services.proposal.approve({
             ...input,
             actorId: context.userId!,
-            actor: context.user,
+            actor: context.user ?? undefined,
           }),
         );
         await publishProposalEvent("approved", result);
@@ -133,7 +115,7 @@ export default createPlugin({
           services.proposal.reject({
             ...input,
             actorId: context.userId!,
-            actor: context.user,
+            actor: context.user ?? undefined,
           }),
         );
         await publishProposalEvent("rejected", result);
@@ -145,7 +127,7 @@ export default createPlugin({
           services.proposal.remove({
             ...input,
             actorId: context.userId!,
-            actor: context.user,
+            actor: context.user ?? undefined,
           }),
         );
         await publishProposalEvent("removed", result);

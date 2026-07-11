@@ -6,31 +6,13 @@ import { AccountIdSchema } from "near-kit/schemas";
 import type { ProposalSchema } from "../../plugins/proposals/src/contract";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
+import { type Context, ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import {
   assertProjectProposalOwner,
   createProjectProposalOwnerContext,
   resolveProjectProposalOwner,
 } from "./lib/project-proposal-owner";
-
-type ApiContext = {
-  userId?: string;
-  walletAddress?: string;
-  user?: {
-    id: string;
-    role?: string;
-    email?: string;
-    name?: string;
-  };
-  organizationId?: string;
-  apiKey?: {
-    id: string;
-    name: string | null;
-    permissions: Record<string, string[]> | null;
-  };
-  reqHeaders?: Headers;
-  getRawBody?: () => Promise<string>;
-};
 
 type ProposalData = Pick<
   z.infer<typeof ProposalSchema>,
@@ -48,23 +30,11 @@ export type ProposalNotificationInput = {
 };
 export type ApprovalNotificationInput = ProposalNotificationInput;
 
-function pluginContext(context: ApiContext) {
-  return {
-    userId: context.userId,
-    walletAddress: context.walletAddress,
-    user: context.user,
-    organizationId: context.organizationId,
-    apiKey: context.apiKey,
-    reqHeaders: context.reqHeaders,
-    getRawBody: context.getRawBody,
-  };
-}
-
 // Notifications are scoped to the NEAR account: recipients come from `proposal.createdBy`
-// (the wallet address), not the better-auth user id. Feed the plugin the wallet address as
-// its `userId` so reads/writes share one identity namespace.
-function notificationContext(context: ApiContext) {
-  return { ...pluginContext(context), userId: context.walletAddress };
+// (the primary account ID), not the better-auth user id. Feed the plugin the primary NEAR
+// account as its `userId` so reads/writes share one identity namespace.
+function notificationContext(context: Context) {
+  return { ...context, userId: context.near?.primaryAccountId ?? undefined };
 }
 
 function requireObjectPayload(payload: unknown) {
@@ -188,11 +158,10 @@ export function buildRejectionNotification(
 async function emitApprovalNotification(
   plugins: Omit<PluginsClient, "auth">,
   proposal: ProposalData,
-  context: ApiContext,
+  context: Context,
 ) {
   const notification = buildApprovalNotification(proposal);
   if (!notification) return;
-  // Best-effort: a notification failure must not fail an already-applied approval.
   try {
     await plugins.notifications(notificationContext(context)).createNotification(notification);
   } catch (error) {
@@ -203,7 +172,7 @@ async function emitApprovalNotification(
 async function emitRejectionNotification(
   plugins: Omit<PluginsClient, "auth">,
   proposal: ProposalData,
-  context: ApiContext,
+  context: Context,
 ) {
   const notification = buildRejectionNotification(proposal);
   if (!notification) return;
@@ -341,19 +310,19 @@ function isNotFoundError(error: unknown): boolean {
 type CreateCallback = (
   plugins: Omit<PluginsClient, "auth">,
   proposal: ProposalData,
-  context: ApiContext,
+  context: Context,
 ) => Promise<string>;
 
 type RemoveCallback = (
   plugins: Omit<PluginsClient, "auth">,
   proposal: ProposalData,
-  context: ApiContext,
+  context: Context,
 ) => Promise<void>;
 
 const createCallbacks: Record<string, CreateCallback> = {
   builders: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
-    const result = await plugins.builders(pluginContext(context)).createBuilder({
+    const result = await plugins.builders(context).createBuilder({
       nearAccount: proposal.entityId,
       userId: readString(payload.userId),
       name: readString(payload.name),
@@ -370,7 +339,7 @@ const createCallbacks: Record<string, CreateCallback> = {
   projects: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
     const ownerId = resolveProjectProposalOwner(payload, proposal.createdBy);
-    const projectsClient = plugins.projects(pluginContext(context));
+    const projectsClient = plugins.projects(context);
     const visibility =
       payload.visibility === "private" || payload.visibility === "unlisted"
         ? payload.visibility
@@ -388,7 +357,7 @@ const createCallbacks: Record<string, CreateCallback> = {
     }
 
     const proposalOwnerContext = createProjectProposalOwnerContext(context, ownerId);
-    const result = await plugins.projects(pluginContext(proposalOwnerContext)).createProject({
+    const result = await plugins.projects(proposalOwnerContext).createProject({
       id: proposal.entityId,
       kind: payload.kind === "idea" ? "idea" : "project",
       title: readString(payload.title) ?? proposal.entityId,
@@ -406,7 +375,7 @@ const createCallbacks: Record<string, CreateCallback> = {
   events: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
     const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
-    const eventsClient = plugins.events(pluginContext(context));
+    const eventsClient = plugins.events(context);
     const visibility =
       payload.visibility === "private" || payload.visibility === "unlisted"
         ? payload.visibility
@@ -425,7 +394,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       if (!isNotFoundError(error)) throw error;
     }
 
-    const result = await plugins.events(pluginContext(context)).createEvent({
+    const result = await plugins.events(context).createEvent({
       id: proposal.entityId,
       title: readString(payload.title) ?? proposal.entityId,
       slug: readString(payload.slug) ?? proposal.entityId,
@@ -444,7 +413,7 @@ const createCallbacks: Record<string, CreateCallback> = {
 
 const removeCallbacks: Record<string, RemoveCallback> = {
   builders: async (plugins, proposal, context) => {
-    await plugins.builders(pluginContext(context)).deleteBuilder({
+    await plugins.builders(context).deleteBuilder({
       nearAccount: proposal.entityId,
     });
   },
@@ -453,7 +422,7 @@ const removeCallbacks: Record<string, RemoveCallback> = {
     // The project is the owner's personal project that predates the proposal,
     // so removing the approval un-publishes it instead of deleting it.
     try {
-      await plugins.projects(pluginContext(context)).updateProject({
+      await plugins.projects(context).updateProject({
         id: projectId,
         visibility: "private",
       });
@@ -464,7 +433,7 @@ const removeCallbacks: Record<string, RemoveCallback> = {
   events: async (plugins, proposal, context) => {
     const eventId = proposal.appliedResourceId ?? proposal.entityId;
     try {
-      await plugins.events(pluginContext(context)).updateEvent({
+      await plugins.events(context).updateEvent({
         id: eventId,
         visibility: "private",
       });
@@ -481,28 +450,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    organizationId: z.string().optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -534,11 +482,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
         assertValidBuilderProposalAccount(input);
-        return await services.plugins.proposals(pluginContext(context)).propose(input);
+        return await services.plugins.proposals(context).propose(input);
       }),
 
       approve: builder.approve.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(pluginContext(context));
+        const proposalsClient = services.plugins.proposals(context);
         const approval = await proposalsClient.approve(input);
         const proposal: ProposalData = {
           pluginId: approval.data.pluginId,
@@ -590,7 +538,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       reject: builder.reject.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(pluginContext(context));
+        const proposalsClient = services.plugins.proposals(context);
         const rejected = await proposalsClient.reject(input);
         const proposal: ProposalData = {
           pluginId: rejected.data.pluginId,
@@ -605,7 +553,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       remove: builder.remove.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(pluginContext(context));
+        const proposalsClient = services.plugins.proposals(context);
         const listed = await proposalsClient.getProposals({
           pluginId: input.pluginId,
           entityId: input.entityId,
@@ -683,11 +631,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       upvote: builder.upvote.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.votes(pluginContext(context)).upvote(input);
+        return await services.plugins.votes(context).upvote(input);
       }),
 
       downvote: builder.downvote.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.votes(pluginContext(context)).downvote(input);
+        return await services.plugins.votes(context).downvote(input);
       }),
 
       getUpvoteCount: builder.getUpvoteCount.handler(async ({ input }) => {
@@ -695,11 +643,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       getUserVote: builder.getUserVote.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.votes(pluginContext(context)).getUserVote(input);
+        return await services.plugins.votes(context).getUserVote(input);
       }),
 
       getUserVotes: builder.getUserVotes.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.votes(pluginContext(context)).getUserVotes(input);
+        return await services.plugins.votes(context).getUserVotes(input);
       }),
 
       getUpvoteCounts: builder.getUpvoteCounts.handler(async ({ input }) => {
@@ -718,7 +666,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.activity(pluginContext(context)).emitActivity(input);
+        return await services.plugins.activity(context).emitActivity(input);
       }),
 
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
@@ -777,7 +725,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).listProjects(input);
+          return await services.plugins.projects(context).listProjects(input);
         } catch (err) {
           console.error(
             "[API] listProjects failed:",
@@ -789,7 +737,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getProject: builder.getProject.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).getProject(input);
+          return await services.plugins.projects(context).getProject(input);
         } catch (err) {
           console.error(
             "[API] getProject failed:",
@@ -801,7 +749,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).getProjectBySlug(input);
+          return await services.plugins.projects(context).getProjectBySlug(input);
         } catch (err) {
           console.error(
             "[API] getProjectBySlug failed:",
@@ -813,7 +761,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
-        if (!isAdmin && !context.walletAddress) {
+        if (!isAdmin && !context.near?.primaryAccountId) {
           throw new ORPCError("FORBIDDEN", {
             message: "Link a NEAR account to create projects",
           });
@@ -823,7 +771,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const visibility =
           !isAdmin && input.visibility === "public" ? "private" : (input.visibility ?? "private");
         try {
-          return await services.plugins.projects(pluginContext(context)).createProject({
+          return await services.plugins.projects(context).createProject({
             ...input,
             visibility,
           });
@@ -838,7 +786,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).updateProject(input);
+          return await services.plugins.projects(context).updateProject(input);
         } catch (err) {
           console.error(
             "[API] updateProject failed:",
@@ -850,7 +798,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).deleteProject(input);
+          return await services.plugins.projects(context).deleteProject(input);
         } catch (err) {
           console.error(
             "[API] deleteProject failed:",
@@ -862,7 +810,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).listProjectsForApp(input);
+          return await services.plugins.projects(context).listProjectsForApp(input);
         } catch (err) {
           console.error(
             "[API] listProjectsForApp failed:",
@@ -873,27 +821,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       listEvents: builder.listEvents.handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).listEvents(input);
+        return await services.plugins.events(context).listEvents(input);
       }),
 
       getEvent: builder.getEvent.handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).getEvent(input);
+        return await services.plugins.events(context).getEvent(input);
       }),
 
       getEventBySlug: builder.getEventBySlug.handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).getEventBySlug(input);
+        return await services.plugins.events(context).getEventBySlug(input);
       }),
 
       listEventParticipants: builder.listEventParticipants.handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).listEventParticipants(input);
+        return await services.plugins.events(context).listEventParticipants(input);
       }),
 
       joinEvent: builder.joinEvent.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).joinEvent(input);
+        return await services.plugins.events(context).joinEvent(input);
       }),
 
       leaveEvent: builder.leaveEvent.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).leaveEvent(input);
+        return await services.plugins.events(context).leaveEvent(input);
       }),
 
       fetchLumaEvent: builder.fetchLumaEvent.handler(async ({ input }) => ({
@@ -902,7 +850,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       createEvent: builder.createEvent.use(requireAuth).handler(async ({ input, context }) => {
         const isAdmin = context.user?.role === "admin";
-        if (!isAdmin && !context.walletAddress) {
+        if (!isAdmin && !context.near?.primaryAccountId) {
           throw new ORPCError("FORBIDDEN", {
             message: "Link a NEAR account to create events",
           });
@@ -910,7 +858,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const visibility =
           !isAdmin && input.visibility === "public" ? "private" : (input.visibility ?? "private");
         try {
-          return await services.plugins.events(pluginContext(context)).createEvent({
+          return await services.plugins.events(context).createEvent({
             ...input,
             visibility,
           });
@@ -924,16 +872,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateEvent: builder.updateEvent.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).updateEvent(input);
+        return await services.plugins.events(context).updateEvent(input);
       }),
 
       deleteEvent: builder.deleteEvent.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.events(pluginContext(context)).deleteEvent(input);
+        return await services.plugins.events(context).deleteEvent(input);
       }),
 
       listMentions: builder.listMentions.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).listMentions(input);
+          return await services.plugins.projects(context).listMentions(input);
         } catch (err) {
           console.error(
             "[API] listMentions failed:",
@@ -945,7 +893,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
         try {
-          return await services.plugins.projects(pluginContext(context)).listMentionedBy(input);
+          return await services.plugins.projects(context).listMentionedBy(input);
         } catch (err) {
           console.error(
             "[API] listMentionedBy failed:",
@@ -956,25 +904,23 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       listBuilders: builder.listBuilders.handler(async ({ input, context }) => {
-        return await services.plugins.builders(pluginContext(context)).listBuilders(input);
+        return await services.plugins.builders(context).listBuilders(input);
       }),
 
       getBuilder: builder.getBuilder.handler(async ({ input, context }) => {
-        return await services.plugins.builders(pluginContext(context)).getBuilder(input);
+        return await services.plugins.builders(context).getBuilder(input);
       }),
 
       getMyBuilderProfile: builder.getMyBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(pluginContext(context)).getMyBuilderProfile(input);
+          return await services.plugins.builders(context).getMyBuilderProfile(input);
         }),
 
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins
-            .builders(pluginContext(context))
-            .updateBuilderProfile(input);
+          return await services.plugins.builders(context).updateBuilderProfile(input);
         }),
 
       listRegistryApps: builder.listRegistryApps.handler(async ({ input }) => {

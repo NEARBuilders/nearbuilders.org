@@ -1,24 +1,5 @@
 import { ORPCError } from "every-plugin/orpc";
 
-export interface ProjectProposalContext {
-  userId?: string;
-  walletAddress?: string;
-  user?: {
-    id: string;
-    role?: string;
-    email?: string;
-    name?: string;
-  };
-  organizationId?: string;
-  apiKey?: {
-    id: string;
-    name: string | null;
-    permissions: Record<string, string[]> | null;
-  };
-  reqHeaders?: Headers;
-  getRawBody?: () => Promise<string>;
-}
-
 // NEAR account ids: 2-64 chars of lowercase alphanumeric segments separated by
 // . - _ with no leading/trailing/adjacent separators. Opaque auth user ids and
 // API key ids (mixed-case nanoids) don't match, so they can't become owners.
@@ -49,9 +30,9 @@ export function resolveProjectProposalOwner(
 }
 
 export function createProjectProposalOwnerContext(
-  context: ProjectProposalContext,
+  context: Record<string, unknown>,
   ownerId: string,
-): ProjectProposalContext {
+): Record<string, unknown> {
   const normalizedOwnerId = readOwnerId(ownerId);
   if (!normalizedOwnerId) {
     throw new ORPCError("BAD_REQUEST", {
@@ -62,10 +43,15 @@ export function createProjectProposalOwnerContext(
   return {
     ...context,
     userId: normalizedOwnerId,
-    walletAddress: normalizedOwnerId,
     user: {
       id: normalizedOwnerId,
       role: "user",
+    },
+    near: {
+      ...(typeof context.near === "object" && context.near
+        ? (context.near as Record<string, unknown>)
+        : {}),
+      primaryAccountId: normalizedOwnerId,
     },
   };
 }

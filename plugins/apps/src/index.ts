@@ -3,14 +3,9 @@ import { Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
+import { ContextSchema } from "./lib/context";
 import { RegistryConfigService } from "./services/fastkv";
 import { RegistryService } from "./services/registry";
-
-interface AuthContext {
-  userId: string;
-  nearAccountId?: string;
-  reqHeaders?: Headers;
-}
 
 export default createPlugin({
   variables: z.object({
@@ -23,12 +18,7 @@ export default createPlugin({
     REGISTRY_RELAY_NETWORK: z.enum(["mainnet", "testnet"]).optional(),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    nearAccountId: z.string().optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -53,7 +43,7 @@ export default createPlugin({
 
   createRouter: (services, builder) => {
     const requireNearAccount = builder.middleware(async ({ context, next }) => {
-      if (!context.nearAccountId) {
+      if (!context.near?.primaryAccountId) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "NEAR wallet required",
           data: {
@@ -63,12 +53,7 @@ export default createPlugin({
         });
       }
 
-      return next({
-        context: {
-          nearAccountId: context.nearAccountId,
-          reqHeaders: context.reqHeaders,
-        } as AuthContext,
-      });
+      return next({ context });
     });
 
     return {
@@ -129,7 +114,7 @@ export default createPlugin({
           try {
             const senderId = services.registryService.getRegistryRelaySender(input.payload);
 
-            if (context.nearAccountId && senderId !== context.nearAccountId) {
+            if (context.near?.primaryAccountId && senderId !== context.near?.primaryAccountId) {
               throw errors.FORBIDDEN({
                 message: "Signed delegate payload does not match your linked NEAR account",
                 data: { action: "relay" },
@@ -176,7 +161,7 @@ export default createPlugin({
           try {
             const senderId = services.registryService.getRegistryRelaySender(input.payload);
 
-            if (context.nearAccountId && senderId !== context.nearAccountId) {
+            if (context.near?.primaryAccountId && senderId !== context.near?.primaryAccountId) {
               throw errors.FORBIDDEN({
                 message: "Signed delegate payload does not match your linked NEAR account",
                 data: { action: "relay" },

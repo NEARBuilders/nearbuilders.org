@@ -4,6 +4,7 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
+import { ContextSchema } from "./lib/context";
 import { BuilderService, BuilderServiceLive } from "./services/builders";
 
 export default createPlugin({
@@ -13,28 +14,7 @@ export default createPlugin({
     BUILDERS_DATABASE_URL: z.string().default("pglite:.bos/builders/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    organizationId: z.string().optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
@@ -57,14 +37,7 @@ export default createPlugin({
           message: "Authentication required",
         });
       }
-      return next({
-        context: {
-          userId: context.userId,
-          walletAddress: context.walletAddress,
-          user: context.user,
-          reqHeaders: context.reqHeaders,
-        },
-      });
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
     const requireAdmin = builder.middleware(async ({ context, next }) => {
@@ -74,14 +47,7 @@ export default createPlugin({
       if (context.user.role !== "admin") {
         throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
       }
-      return next({
-        context: {
-          userId: context.userId,
-          walletAddress: context.walletAddress,
-          user: context.user,
-          reqHeaders: context.reqHeaders,
-        },
-      });
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
     const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
@@ -116,7 +82,10 @@ export default createPlugin({
         .use(requireAuth)
         .handler(async ({ context }) => {
           const result = await runEffect(
-            services.builder.getBuilderByUserId(context.userId, context.walletAddress),
+            services.builder.getBuilderByUserId(
+              context.userId,
+              context.near?.primaryAccountId ?? undefined,
+            ),
           );
           return { data: result };
         }),
@@ -134,8 +103,8 @@ export default createPlugin({
               input.nearAccount,
               input,
               context.userId,
-              context.walletAddress,
-              context.user.role,
+              context.near?.primaryAccountId ?? undefined,
+              context.user.role ?? undefined,
             ),
           );
           if (!result) {

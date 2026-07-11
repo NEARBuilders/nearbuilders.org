@@ -4,6 +4,7 @@ import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract, type NotificationSchema } from "./contract";
 import { DatabaseLive } from "./db/layer";
+import { ContextSchema } from "./lib/context";
 import { NotificationService, NotificationServiceLive } from "./services/notifications";
 
 type NotificationEvent = z.infer<typeof NotificationSchema>;
@@ -31,28 +32,7 @@ export default createPlugin({
     NOTIFICATIONS_DATABASE_URL: z.string().default("pglite:.bos/notifications/:memory:"),
   }),
 
-  context: z.object({
-    userId: z.string().optional(),
-    walletAddress: z.string().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
-    organizationId: z.string().optional(),
-    apiKey: z
-      .object({
-        id: z.string(),
-        name: z.string().nullable(),
-        permissions: z.record(z.string(), z.array(z.string())).nullable(),
-      })
-      .optional(),
-    reqHeaders: z.custom<Headers>().optional(),
-    getRawBody: z.custom<() => Promise<string>>().optional(),
-  }),
+  context: ContextSchema,
 
   contract,
 
