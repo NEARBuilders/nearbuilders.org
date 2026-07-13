@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray, notInArray, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -7,6 +7,7 @@ import { proposalAuditLog, proposalSubmissions, proposals } from "../db/schema";
 type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
 type ApplyStatus = "not_started" | "applied" | "failed";
 type RemoveStatus = "not_started" | "removed" | "failed";
+type ResubmissionPolicy = "rejected-only" | "rejected-or-removed";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -32,6 +33,15 @@ function parseJson(value: string | null | undefined): unknown {
 
 function actorLabel(user?: { name?: string; email?: string }, source?: string): string | null {
   return source ?? user?.name ?? user?.email ?? null;
+}
+
+function resubmissionError(reviewStatus: ReviewStatus, removeStatus: RemoveStatus) {
+  if (reviewStatus === "removed" || removeStatus === "removed") {
+    return "Removed proposals cannot be resubmitted";
+  }
+  if (reviewStatus === "pending") return "This proposal is already pending";
+  if (reviewStatus === "approved") return "This proposal is already approved";
+  return "This proposal cannot be resubmitted";
 }
 
 async function countSubmissions(db: any, proposalId: string) {
@@ -110,6 +120,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       idempotencyKey?: string;
       actorId: string;
       actor?: { name?: string; email?: string };
+      resubmissionPolicy?: ResubmissionPolicy;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     approve: (input: {
       pluginId: string;
@@ -155,6 +166,9 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       reviewStatus?: ReviewStatus;
       limit?: number;
       cursor?: string;
+      privatePluginIds?: string[];
+      viewerId?: string;
+      isAdmin?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getProposalCount: (input: {
       pluginId: string;
@@ -181,7 +195,11 @@ export const ProposalServiceLive = Layer.effect(
           if (idempotencyKey) {
             const [existingSubmission] = yield* Effect.promise(() =>
               db
-                .select({ proposalId: proposalSubmissions.proposalId })
+                .select({
+                  proposalId: proposalSubmissions.proposalId,
+                  entityId: proposalSubmissions.entityId,
+                  submittedBy: proposalSubmissions.submittedBy,
+                })
                 .from(proposalSubmissions)
                 .where(
                   and(
@@ -193,6 +211,16 @@ export const ProposalServiceLive = Layer.effect(
             );
 
             if (existingSubmission?.proposalId) {
+              if (
+                existingSubmission.entityId !== input.entityId ||
+                existingSubmission.submittedBy !== input.actorId
+              ) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", {
+                    message: "Idempotency key was already used for another submission",
+                  }),
+                );
+              }
               const existingProposal = yield* Effect.promise(() =>
                 loadProposal(db, input.pluginId, input.entityId),
               );
@@ -212,6 +240,38 @@ export const ProposalServiceLive = Layer.effect(
           );
 
           const proposalId = existing?.id ?? generateId("prop");
+
+          if (
+            existing &&
+            input.resubmissionPolicy === "rejected-only" &&
+            existing.reviewStatus !== "rejected"
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: resubmissionError(
+                  existing.reviewStatus as ReviewStatus,
+                  (existing.removeStatus as RemoveStatus) ?? "not_started",
+                ),
+              }),
+            );
+          }
+
+          if (
+            existing &&
+            input.resubmissionPolicy === "rejected-or-removed" &&
+            existing.reviewStatus !== "rejected" &&
+            existing.reviewStatus !== "removed" &&
+            existing.removeStatus !== "removed"
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: resubmissionError(
+                  existing.reviewStatus as ReviewStatus,
+                  (existing.removeStatus as RemoveStatus) ?? "not_started",
+                ),
+              }),
+            );
+          }
 
           if (!existing) {
             yield* Effect.promise(() =>
@@ -237,10 +297,6 @@ export const ProposalServiceLive = Layer.effect(
               }),
             );
           } else {
-            // Re-proposing always returns the proposal to the review queue —
-            // including previously approved/applied ones, so an entity that
-            // was un-published can be submitted again. Prior decisions stay
-            // in the submissions history and audit log.
             yield* Effect.promise(() =>
               db
                 .update(proposals)
@@ -248,8 +304,13 @@ export const ProposalServiceLive = Layer.effect(
                   payload: serialize(input.payload),
                   reviewStatus: "pending",
                   applyStatus: "not_started",
+                  removeStatus: "not_started",
                   rejectionReason: null,
                   applyError: null,
+                  removeError: null,
+                  appliedResourceId: null,
+                  appliedAt: null,
+                  removedAt: null,
                   updatedAt: now,
                 })
                 .where(eq(proposals.id, existing.id)),
@@ -633,6 +694,21 @@ export const ProposalServiceLive = Layer.effect(
           if (input.pluginId) conditions.push(eq(proposals.pluginId, input.pluginId));
           if (input.entityId) conditions.push(eq(proposals.entityId, input.entityId));
           if (input.reviewStatus) conditions.push(eq(proposals.reviewStatus, input.reviewStatus));
+          const privatePluginIds = input.privatePluginIds ?? [];
+          if (!input.isAdmin && privatePluginIds.length > 0) {
+            const publicProposal = notInArray(proposals.pluginId, privatePluginIds);
+            conditions.push(
+              input.viewerId
+                ? or(
+                    publicProposal,
+                    and(
+                      inArray(proposals.pluginId, privatePluginIds),
+                      eq(proposals.createdBy, input.viewerId),
+                    ),
+                  )
+                : publicProposal,
+            );
+          }
 
           const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

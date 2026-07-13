@@ -14,6 +14,7 @@ type ProposalData = Pick<
 type NotificationsClient = ReturnType<PluginsClient["notifications"]>;
 export type ProposalNotificationInput = Parameters<NotificationsClient["createNotification"]>[0];
 export type ApprovalNotificationInput = ProposalNotificationInput;
+const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
 
 export function buildApprovalNotification(
   proposal: ProposalData,
@@ -59,6 +60,17 @@ export function buildApprovalNotification(
       subject: `${name} approved`,
       body: "Your builder profile was approved and is now public on NEAR Builders.",
       link: `/builders/${account}`,
+    };
+  }
+
+  if (proposal.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_claim_approved",
+      source: CATALOG_CLAIM_PLUGIN_ID,
+      subject: "Project contribution approved",
+      body: "Your NEAR Catalog contribution is now verified and visible.",
+      link: `/builders/${proposal.createdBy}`,
     };
   }
 
@@ -112,6 +124,17 @@ export function buildRejectionNotification(
       subject: `${name} rejected`,
       body: buildRejectionBody("Your builder profile was not approved by NEAR Builders.", reason),
       link: "/dashboard",
+    };
+  }
+
+  if (proposal.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_claim_rejected",
+      source: CATALOG_CLAIM_PLUGIN_ID,
+      subject: "Project contribution needs changes",
+      body: buildRejectionBody("Your NEAR Catalog contribution was not approved.", reason),
+      link: "/profile/activity?mode=claim",
     };
   }
 

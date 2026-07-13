@@ -179,6 +179,36 @@
         "typescript": "catalog:",
       },
     },
+    "plugins/nearcatalog": {
+      "name": "@everything-dev/nearcatalog-plugin",
+      "version": "1.0.0",
+      "dependencies": {
+        "@electric-sql/pglite": "catalog:",
+        "@orpc/contract": "catalog:",
+        "@orpc/server": "catalog:",
+        "drizzle-orm": "catalog:",
+        "pg": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/language-service": "^0.85.1",
+        "@module-federation/node": "catalog:",
+        "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4",
+        "@rspack/cli": "catalog:",
+        "@rspack/core": "catalog:",
+        "@types/node": "catalog:",
+        "@types/pg": "catalog:",
+        "dotenv": "^17.2.3",
+        "drizzle-kit": "catalog:",
+        "every-plugin": "catalog:",
+        "everything-dev": "catalog:",
+        "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "catalog:",
+        "zephyr-rspack-plugin": "catalog:",
+      },
+      "peerDependencies": {
+        "typescript": "catalog:",
+      },
+    },
     "plugins/notifications": {
       "name": "@everything-dev/notifications-plugin",
       "version": "1.0.0",
@@ -432,7 +462,7 @@
     "drizzle-orm": "^0.45.1",
     "effect": "3.21.2",
     "every-plugin": "^2.7.1",
-    "everything-dev": "^1.44.0",
+    "everything-dev": "^1.44.1",
     "near-kit": "^0.14.0",
     "pg": "^8.12.0",
     "react": "19.2.4",
@@ -659,6 +689,8 @@
     "@everything-dev/builders-plugin": ["@everything-dev/builders-plugin@workspace:plugins/builders"],
 
     "@everything-dev/events-plugin": ["@everything-dev/events-plugin@workspace:plugins/events"],
+
+    "@everything-dev/nearcatalog-plugin": ["@everything-dev/nearcatalog-plugin@workspace:plugins/nearcatalog"],
 
     "@everything-dev/notifications-plugin": ["@everything-dev/notifications-plugin@workspace:plugins/notifications"],
 
@@ -1734,7 +1766,7 @@
 
     "every-plugin": ["every-plugin@2.7.1", "", { "dependencies": { "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "@orpc/contract": "^1.13.4", "@orpc/experimental-publisher": "^1.13.4", "@orpc/server": "^1.13.4", "@orpc/tanstack-query": "1.14.3" }, "peerDependencies": { "@orpc/client": "1.14.3", "@orpc/openapi": "1.14.3", "@orpc/zod": "1.14.3", "@rspack/core": "1.7.11", "effect": "3.21.2", "typescript": "^5.9.3", "zod": "4.3.6" } }, "sha512-PtZPGZIDroBy+NesPRqQZakAebHA+faagXyRblodiGazr+EgNCNmc97wyiocBqU7ejyvJHmGsbQxvVwFzvo+VA=="],
 
-    "everything-dev": ["everything-dev@1.44.0", "", { "dependencies": { "@clack/prompts": "^0.10.1", "@effect/platform": "^0.96.1", "@effect/platform-node": "^0.106.0", "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "chalk": "^5.6.2", "defu": "^6.1.7", "dotenv": "^17.3.1", "effect": "^3.21.0", "every-plugin": "^2.7.1", "execa": "^9.5.2", "glob": "^13.0.6", "gradient-string": "^3.0.0", "ink": "^6.8.0", "tar": "^7.4.3" }, "peerDependencies": { "@tanstack/react-query": ">=5.0.0", "@tanstack/react-router": ">=1.0.0", "react": ">=19.0.0", "react-dom": ">=19.0.0", "zod": "4.3.6" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/react-router"], "bin": { "everything-dev": "dist/cli.mjs", "bos": "dist/cli.mjs" } }, "sha512-8IYBkxqnPFXmKGvLThDnr5I3pJTNBBlubUehJwbwxwiJF0+idxtyBdKipH6UGNDqStLxiibiIE1SHNvcoCzo3w=="],
+    "everything-dev": ["everything-dev@1.44.1", "", { "dependencies": { "@clack/prompts": "^0.10.1", "@effect/platform": "^0.96.1", "@effect/platform-node": "^0.106.0", "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "chalk": "^5.6.2", "defu": "^6.1.7", "dotenv": "^17.3.1", "effect": "^3.21.0", "every-plugin": "^2.7.1", "execa": "^9.5.2", "glob": "^13.0.6", "gradient-string": "^3.0.0", "ink": "^6.8.0", "tar": "^7.4.3" }, "peerDependencies": { "@tanstack/react-query": ">=5.0.0", "@tanstack/react-router": ">=1.0.0", "react": ">=19.0.0", "react-dom": ">=19.0.0", "zod": "4.3.6" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/react-router"], "bin": { "everything-dev": "dist/cli.mjs", "bos": "dist/cli.mjs" } }, "sha512-yTbF+BwpJU7RwMpL3k5D+4zNsbk9siOl4tYmlrfvMYvhS45nBNmfscxqQurCbddP7wODfTMMm/wpfAKZ6nDsOg=="],
 
     "execa": ["execa@9.6.1", "", { "dependencies": { "@sindresorhus/merge-streams": "^4.0.0", "cross-spawn": "^7.0.6", "figures": "^6.1.0", "get-stream": "^9.0.0", "human-signals": "^8.0.1", "is-plain-obj": "^4.1.0", "is-stream": "^4.0.1", "npm-run-path": "^6.0.0", "pretty-ms": "^9.2.0", "signal-exit": "^4.1.0", "strip-final-newline": "^4.0.0", "yoctocolors": "^2.1.1" } }, "sha512-9Be3ZoN4LmYR90tUoVu2te2BsbzHfhJyfEiAVfz7N5/zv+jduIfLrV2xdQXOHbaD6KgpGdO9PRPM1Y4Q9QkPkA=="],
 
@@ -2749,6 +2781,8 @@
     "@everything-dev/builders-plugin/vite-tsconfig-paths": ["vite-tsconfig-paths@5.1.4", "", { "dependencies": { "debug": "^4.1.1", "globrex": "^0.1.2", "tsconfck": "^3.0.3" }, "peerDependencies": { "vite": "*" }, "optionalPeers": ["vite"] }, "sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w=="],
 
     "@everything-dev/events-plugin/vite-tsconfig-paths": ["vite-tsconfig-paths@5.1.4", "", { "dependencies": { "debug": "^4.1.1", "globrex": "^0.1.2", "tsconfck": "^3.0.3" }, "peerDependencies": { "vite": "*" }, "optionalPeers": ["vite"] }, "sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w=="],
+
+    "@everything-dev/nearcatalog-plugin/vite-tsconfig-paths": ["vite-tsconfig-paths@5.1.4", "", { "dependencies": { "debug": "^4.1.1", "globrex": "^0.1.2", "tsconfck": "^3.0.3" }, "peerDependencies": { "vite": "*" }, "optionalPeers": ["vite"] }, "sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w=="],
 
     "@everything-dev/notifications-plugin/vite-tsconfig-paths": ["vite-tsconfig-paths@5.1.4", "", { "dependencies": { "debug": "^4.1.1", "globrex": "^0.1.2", "tsconfck": "^3.0.3" }, "peerDependencies": { "vite": "*" }, "optionalPeers": ["vite"] }, "sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w=="],
 

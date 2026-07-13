@@ -61,6 +61,11 @@
     },
     "proposals": {
       "development": "local:plugins/proposals",
+      "variables": {
+        "privatePluginIds": [
+          "nearcatalog"
+        ]
+      },
       "secrets": [
         "PROPOSALS_DATABASE_URL"
       ],
@@ -90,6 +95,15 @@
       ],
       "production": "https://elliot-braem-5628-everything-dev-activity-plugin--5ad411686-ze.zephyrcloud.app",
       "integrity": "sha384-7FFNYF1PxXSYqCArK6I9EUfQB6diodv/IxVUtLjfM3/jvNYzCmnwVu7HLeF+iX1G"
+    },
+    "nearcatalog": {
+      "development": "local:plugins/nearcatalog",
+      "variables": {
+        "baseUrl": "https://api.nearcatalog.xyz"
+      },
+      "secrets": [
+        "NEARCATALOG_DATABASE_URL"
+      ]
     }
   }
 }

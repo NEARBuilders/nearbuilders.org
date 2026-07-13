@@ -6,6 +6,7 @@ import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { createCatalogClaims } from "./services/catalog-claims";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
   assertValidBuilderProposalAccount,
@@ -13,7 +14,13 @@ import {
 } from "./services/proposal-orchestration";
 
 function notificationContext(context: Record<string, unknown>) {
-  return { ...context, userId: (context as any).near?.primaryAccountId ?? undefined };
+  return {
+    ...context,
+    userId:
+      (context as any).near?.primaryAccountId ??
+      (context as any).userId ??
+      (context as any).user?.id,
+  };
 }
 
 type VisibilityValue = "private" | "unlisted" | "public";
@@ -48,10 +55,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const { auth, ...restPlugins } = plugins;
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
+      const catalogClaims = createCatalogClaims(restPlugins);
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
       console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return { auth, plugins: restPlugins, notifications, orchestration };
+      return { auth, plugins: restPlugins, notifications, orchestration, catalogClaims };
     }),
 
   shutdown: () => Effect.log("[API] Shutdown"),
@@ -60,6 +68,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const { requireAuth, requireAdmin, requireAuthOrApiKey } = createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection } = services.notifications;
     const orchestration = services.orchestration;
+    const catalogClaims = services.catalogClaims;
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -74,6 +83,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       })),
 
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
+        if (input.pluginId === "nearcatalog") {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Use the Catalog claim proposal endpoint",
+          });
+        }
         assertValidBuilderProposalAccount(input);
         return await services.plugins.proposals(context).propose(input);
       }),
@@ -87,6 +101,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           payload: approval.data.payload,
           appliedResourceId: approval.data.appliedResourceId,
           createdBy: approval.data.createdBy,
+          submissionCount: approval.data.submissionCount,
         };
 
         if (approval.data.applyStatus === "applied") {
@@ -190,20 +205,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return removal;
       }),
 
-      getProposals: builder.getProposals.handler(async ({ input }) => {
-        return await services.plugins.proposals().getProposals(input);
+      getProposals: builder.getProposals.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(context).getProposals(input);
       }),
 
-      getProposalCount: builder.getProposalCount.handler(async ({ input }) => {
-        return await services.plugins.proposals().getProposalCount(input);
+      getProposalCount: builder.getProposalCount.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(context).getProposalCount(input);
       }),
 
-      getAuditLog: builder.getAuditLog.handler(async ({ input }) => {
-        return await services.plugins.proposals().getAuditLog(input);
+      getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
+        return await services.plugins.proposals(context).getAuditLog(input);
       }),
 
-      subscribeProposals: builder.subscribeProposals.handler(async function* ({ input }) {
-        const iterator = await services.plugins.proposals().subscribe(input);
+      subscribeProposals: builder.subscribeProposals.handler(async function* ({ input, context }) {
+        const iterator = await services.plugins.proposals(context).subscribe(input);
         for await (const event of iterator) {
           yield event;
         }
@@ -242,6 +257,34 @@ export default createPlugin.withPlugins<PluginsClient>()({
         for await (const event of iterator) {
           yield event;
         }
+      }),
+
+      searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().searchCatalogProjects(input);
+      }),
+
+      getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().getCatalogProject(input);
+      }),
+
+      submitCatalogClaimProposal: builder.submitCatalogClaimProposal
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogClaims.submit(input, context);
+        }),
+
+      getMyCatalogClaimProposals: builder.getMyCatalogClaimProposals
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          return await catalogClaims.getMine(context);
+        }),
+
+      listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listCatalogClaims(input);
+      }),
+
+      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listClaimedCatalogProjects(input);
       }),
 
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {

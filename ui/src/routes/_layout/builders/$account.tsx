@@ -3,10 +3,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, MapPin, Pencil, ThumbsUp } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, Plus, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
+import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +21,7 @@ import {
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
+import { claimedCatalogProjectsQueryOptions } from "@/lib/queries/catalog";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { linkLabel } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,7 @@ export const Route = createFileRoute("/_layout/builders/$account")({
       queryClient.prefetchInfiniteQuery(
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
+      queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
     ]);
 
     const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
@@ -261,9 +264,8 @@ function LoadedProfile({
   const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
-  const canEdit =
-    session?.user?.role === "admin" ||
-    (Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase());
+  const isOwner = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
+  const canEdit = session?.user?.role === "admin" || isOwner;
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
     queryKey: ["near-profile", account],
@@ -342,17 +344,27 @@ function LoadedProfile({
             />
           )}
           {canEdit && (
-            <Button
-              asChild
-              variant="secondary"
-              size="sm"
-              className="absolute right-4 top-4 gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
-            >
-              <Link to="/builders/$account/edit" params={{ account }}>
-                <Pencil size={13} />
-                Edit profile
-              </Link>
-            </Button>
+            <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
+              {isOwner && (
+                <Button asChild size="sm" className="gap-1.5 rounded-full">
+                  <Link to="/profile/activity" search={{ mode: "claim" }}>
+                    <Plus size={13} />
+                    Add contribution
+                  </Link>
+                </Button>
+              )}
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
+              >
+                <Link to="/builders/$account/edit" params={{ account }}>
+                  <Pencil size={13} />
+                  Edit profile
+                </Link>
+              </Button>
+            </div>
           )}
           <div className="absolute -bottom-10 left-6 sm:left-8">
             <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">
@@ -514,6 +526,7 @@ function LoadedProfile({
             projects={projects}
             hasMore={projectsResult?.meta.hasMore ?? false}
           />
+          <ContributedProjects nearAccount={account} />
         </TabsContent>
         <TabsContent value="activity">
           <TooltipProvider>

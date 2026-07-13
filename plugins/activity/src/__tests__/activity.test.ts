@@ -21,6 +21,8 @@ async function createService() {
       "actor" text NOT NULL,
       "payload" jsonb NOT NULL,
       "verified" boolean DEFAULT false NOT NULL,
+      "idempotency_key" text UNIQUE,
+      "hidden_at" timestamp with time zone,
       "created_at" timestamp with time zone DEFAULT now() NOT NULL
     )
   `);
@@ -44,6 +46,7 @@ describe("activity service", () => {
           type: "upload",
           actor: "alice.near",
           payload: { title: "Demo" },
+          verified: false,
         }),
       );
       await Effect.runPromise(
@@ -53,6 +56,7 @@ describe("activity service", () => {
           actor: "alice.near",
           payload: { number: 1 },
           verified: true,
+          idempotencyKey: "github:1",
         }),
       );
       await Effect.runPromise(
@@ -61,6 +65,7 @@ describe("activity service", () => {
           type: "claim",
           actor: "bob.near",
           payload: {},
+          verified: false,
         }),
       );
 
@@ -77,8 +82,28 @@ describe("activity service", () => {
         endorsementScore: 3,
         topSources: ["github", "manual"],
       });
+
+      const duplicate = await Effect.runPromise(
+        activity.emitActivity({
+          source: "github",
+          type: "pr",
+          actor: "alice.near",
+          payload: { number: 1 },
+          verified: true,
+          idempotencyKey: "github:1",
+        }),
+      );
+      await Effect.runPromise(activity.hideActivity(duplicate.id));
+      const hiddenFeed = await Effect.runPromise(activity.getActivityFeed({ actor: "alice.near" }));
+      const hiddenLeaderboard = await Effect.runPromise(
+        activity.getLeaderboard({ period: "all-time", limit: 10 }),
+      );
+
+      expect(duplicate.id).not.toBe(manual.id);
+      expect(hiddenFeed.data).toHaveLength(1);
+      expect(hiddenLeaderboard[0]).toMatchObject({ eventCount: 1, endorsementScore: 1 });
     } finally {
       await cleanup();
     }
-  });
+  }, 20_000);
 });

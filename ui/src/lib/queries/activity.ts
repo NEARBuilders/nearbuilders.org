@@ -1,4 +1,6 @@
-import type { ApiClient } from "@/app";
+import type { QueryClient } from "@tanstack/react-query";
+import type { ApiClient, AuthClient } from "@/app";
+import { ensureNearProfiles } from "@/lib/queries/builders";
 
 export const PAGE_SIZE = 24;
 
@@ -71,5 +73,26 @@ export function activityFeedQueryOptions(apiClient: ApiClient, filters: Activity
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: ActivityFeedPage) =>
       lastPage.meta.hasMore ? (lastPage.meta.nextCursor ?? undefined) : undefined,
+  };
+}
+
+export function activityFeedWithProfilesQueryOptions(
+  apiClient: ApiClient,
+  authClient: AuthClient,
+  queryClient: QueryClient,
+  filters: ActivityFilters = {},
+) {
+  const options = activityFeedQueryOptions(apiClient, filters);
+  return {
+    ...options,
+    queryFn: async (context: { pageParam: string | undefined }) => {
+      const page = await options.queryFn(context);
+      await ensureNearProfiles(
+        queryClient,
+        authClient,
+        page.data.map((event) => event.actor),
+      );
+      return page;
+    },
   };
 }

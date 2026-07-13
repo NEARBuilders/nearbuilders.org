@@ -29,7 +29,7 @@
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.6.3",
       "every-plugin": "^2.7.1",
-      "everything-dev": "^1.44.0",
+      "everything-dev": "^1.44.1",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -65,7 +65,7 @@
     }
   },
   "scripts": {
-    "dev": "node_modules/.bin/bos dev --remote-plugins=activity,apps,builders,projects,events,notifications,proposals,votes",
+    "dev": "node_modules/.bin/bos dev --remote-plugins=apps,builders,projects,events,notifications,votes",
     "dev:ui": "node_modules/.bin/bos dev --ui local --api remote",
     "dev:api": "node_modules/.bin/bos dev --ui remote --api local",
     "dev:proxy": "node_modules/.bin/bos dev --proxy",

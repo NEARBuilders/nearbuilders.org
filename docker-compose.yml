@@ -67,6 +67,17 @@ services:
     volumes:
       - work_efiz_near_postgres_events_data:/var/lib/postgresql/data
 
+  postgres-nearcatalog:
+    <<: *pg-common
+    container_name: work.efiz.near-postgres-nearcatalog
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: nearcatalog_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - work_efiz_near_postgres_nearcatalog_data:/var/lib/postgresql/data
+
   postgres-notifications:
     <<: *pg-common
     container_name: work.efiz.near-postgres-notifications
@@ -122,6 +133,8 @@ volumes:
     name: work_efiz_near_postgres_builders_data
   work_efiz_near_postgres_events_data:
     name: work_efiz_near_postgres_events_data
+  work_efiz_near_postgres_nearcatalog_data:
+    name: work_efiz_near_postgres_nearcatalog_data
   work_efiz_near_postgres_notifications_data:
     name: work_efiz_near_postgres_notifications_data
   work_efiz_near_postgres_projects_data:

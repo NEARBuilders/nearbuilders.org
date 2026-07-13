@@ -9,10 +9,10 @@ import {
   type ActivityEvent,
   type ActivityFeedPage,
   type ActivityFilters,
-  activityFeedQueryOptions,
+  activityFeedWithProfilesQueryOptions,
   activityKeys,
 } from "@/lib/queries/activity";
-import { upvoteCountsOptions, userVotesOptions } from "@/lib/queries/builders";
+import { ensureNearProfiles, upvoteCountsOptions, userVotesOptions } from "@/lib/queries/builders";
 
 type FeedData = { pages: ActivityFeedPage[]; pageParams: (string | undefined)[] };
 type CountsMap = Record<string, { entityId: string; totalCount: number }>;
@@ -44,7 +44,7 @@ export function ActivityFeed({
   const feedKey = useMemo(() => activityKeys.feed(filters), [filters]);
 
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery(activityFeedQueryOptions(apiClient, filters));
+    useInfiniteQuery(activityFeedWithProfilesQueryOptions(apiClient, auth, queryClient, filters));
 
   const events = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
@@ -72,18 +72,38 @@ export function ActivityFeed({
 
   useEffect(() => {
     if (!latestEvent) return;
-    queryClient.setQueryData(feedKey, (old: FeedData | undefined) => {
-      if (!old?.pages.length) return old;
-      const exists = old.pages.some((page) => page.data.some((e) => e.id === latestEvent.id));
-      if (exists) return old;
-      const [first, ...rest] = old.pages;
-      const next: ActivityFeedPage = {
-        data: [latestEvent as ActivityEvent, ...first.data],
-        meta: { ...first.meta, total: first.meta.total + 1 },
-      };
-      return { ...old, pages: [next, ...rest] };
-    });
-  }, [latestEvent, queryClient, feedKey]);
+    const updateFeed = async () => {
+      if (!latestEvent.hiddenAt) {
+        await ensureNearProfiles(queryClient, auth, [latestEvent.actor]);
+      }
+      queryClient.setQueryData(feedKey, (old: FeedData | undefined) => {
+        if (!old?.pages.length) return old;
+        if (latestEvent.hiddenAt) {
+          const pages = old.pages.map((page) => {
+            const data = page.data.filter((event) => event.id !== latestEvent.id);
+            return {
+              ...page,
+              data,
+              meta: {
+                ...page.meta,
+                total: Math.max(0, page.meta.total - (data.length === page.data.length ? 0 : 1)),
+              },
+            };
+          });
+          return { ...old, pages };
+        }
+        const exists = old.pages.some((page) => page.data.some((e) => e.id === latestEvent.id));
+        if (exists) return old;
+        const [first, ...rest] = old.pages;
+        const next: ActivityFeedPage = {
+          data: [latestEvent as ActivityEvent, ...first.data],
+          meta: { ...first.meta, total: first.meta.total + 1 },
+        };
+        return { ...old, pages: [next, ...rest] };
+      });
+    };
+    void updateFeed();
+  }, [latestEvent, queryClient, feedKey, auth]);
 
   const { data: latestVote } = useQuery({
     ...orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),

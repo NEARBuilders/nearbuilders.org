@@ -1,10 +1,12 @@
 import { CheckCircle2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useMemo } from "react";
+import { CatalogClaimActivity } from "@/components/catalog-claim-activity";
 import { NearProfile } from "@/components/near-profile";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { readCatalogClaimActivityPayload } from "@/lib/catalog-activity";
 import { type ActivityEvent, readActivityPayload } from "@/lib/queries/activity";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import { cn } from "@/lib/utils";
@@ -48,6 +50,13 @@ export function ActivityCard({
   onDownvote: () => void;
 }) {
   const payload = useMemo(() => readActivityPayload(event.payload), [event.payload]);
+  const catalogClaim = useMemo(
+    () =>
+      event.source === "nearcatalog" && event.type === "claim"
+        ? readCatalogClaimActivityPayload(event.payload)
+        : null,
+    [event.payload, event.source, event.type],
+  );
 
   return (
     <div className="bg-card border border-border rounded-lg px-5 py-4 sm:px-6 sm:py-5 flex gap-4 hover:shadow-lg transition-shadow duration-200">
@@ -112,50 +121,54 @@ export function ActivityCard({
           <NearProfile accountId={event.actor} variant="badge" className="w-auto" />
         </div>
 
-        {payload.title && (
-          <h3 className="mt-2 text-base font-semibold text-foreground leading-snug">
-            {payload.title}
-          </h3>
-        )}
-
-        <div className="mt-1 flex gap-3">
-          {payload.description && (
-            <p className="text-sm text-muted-foreground line-clamp-3 flex-1 min-w-0">
-              {payload.description}
-            </p>
-          )}
-          {payload.mediaUrl && (
-            <img
-              src={payload.mediaUrl}
-              alt={payload.title ?? "Activity media"}
-              className="size-16 rounded-md object-cover border border-border shrink-0"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          )}
-        </div>
-
-        {payload.tags && payload.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {payload.tags.slice(0, 6).map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="rounded-full px-1.5 py-0 text-[10px] font-medium"
-              >
-                {tag}
-              </Badge>
-            ))}
-            {payload.tags.length > 6 && (
-              <Badge
-                variant="secondary"
-                className="rounded-full px-1.5 py-0 text-[10px] font-medium"
-              >
-                +{payload.tags.length - 6}
-              </Badge>
+        {catalogClaim ? (
+          <CatalogClaimActivity payload={catalogClaim} />
+        ) : (
+          <>
+            {payload.title && (
+              <h3 className="mt-2 text-base font-semibold text-foreground leading-snug">
+                {payload.title}
+              </h3>
             )}
-          </div>
+            <div className="mt-1 flex gap-3">
+              {payload.description && (
+                <p className="text-sm text-muted-foreground line-clamp-3 flex-1 min-w-0">
+                  {payload.description}
+                </p>
+              )}
+              {payload.mediaUrl && (
+                <img
+                  src={payload.mediaUrl}
+                  alt={payload.title ?? "Activity media"}
+                  className="size-16 rounded-md object-cover border border-border shrink-0"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
+            </div>
+            {payload.tags && payload.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {payload.tags.slice(0, 6).map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="rounded-full px-1.5 py-0 text-[10px] font-medium"
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+                {payload.tags.length > 6 && (
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full px-1.5 py-0 text-[10px] font-medium"
+                  >
+                    +{payload.tags.length - 6}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

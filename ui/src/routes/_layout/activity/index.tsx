@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { activityFeedQueryOptions } from "@/lib/queries/activity";
+import { activityFeedWithProfilesQueryOptions } from "@/lib/queries/activity";
 
 type SourceFilter = "all" | "manual" | "nearcatalog";
 type TypeFilter = "all" | "upload" | "claim";
@@ -33,8 +33,10 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
 
 export const Route = createFileRoute("/_layout/activity/")({
   loader: ({ context }) => {
-    const { queryClient, apiClient } = context;
-    void queryClient.prefetchInfiniteQuery(activityFeedQueryOptions(apiClient, {}));
+    const { queryClient, apiClient, authClient } = context;
+    void queryClient.prefetchInfiniteQuery(
+      activityFeedWithProfilesQueryOptions(apiClient, authClient, queryClient, {}),
+    );
   },
   head: () => ({
     meta: [

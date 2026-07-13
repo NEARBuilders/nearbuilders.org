@@ -18,7 +18,7 @@ export type AuthContext = AuthPluginContext;
 export type RequestAuthUser = NonNullable<AuthContext["user"]>;
 export type ApiKeyContext = NonNullable<AuthContext["apiKey"]>;
 
-export interface AuthenticatedContext extends AuthContext {
+export interface AuthenticatedContext extends AuthContext, Record<string, unknown> {
   userId: string;
   user: RequestAuthUser;
 }
@@ -65,14 +65,7 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
   options?: { orgMetaSchema?: TOrgMetaSchema },
 ) {
   type TOrgMeta = OrgMetaType<TOrgMetaSchema>;
-  type UserMiddleware = DecoratedMiddleware<
-    AuthContext,
-    { userId: string; user: RequestAuthUser },
-    any,
-    any,
-    any,
-    any
-  >;
+  type UserMiddleware = DecoratedMiddleware<AuthContext, AuthenticatedContext, any, any, any, any>;
   type OrgMiddleware = DecoratedMiddleware<
     AuthContext,
     {
@@ -121,7 +114,7 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
           data: { hint: "Sign in to continue" },
         });
       }
-      return next({ context: { userId: context.userId, user: context.user } });
+      return next({ context: { ...context, userId: context.userId, user: context.user } });
     },
   ) as UserMiddleware;
 
@@ -152,7 +145,7 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
           data: { requiredRoles: roles, currentRole },
         });
       }
-      return next({ context: { userId: context.userId, user: context.user } });
+      return next({ context: { ...context, userId: context.userId, user: context.user } });
     }) as UserMiddleware;
 
   const requireAdmin = requireRole("admin");

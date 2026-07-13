@@ -1,4 +1,4 @@
-import { UNAUTHORIZED } from "every-plugin/errors";
+import { FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
@@ -9,6 +9,7 @@ export const ActivityEventSchema = z.object({
   actor: z.string(),
   payload: z.unknown(),
   verified: z.boolean(),
+  hiddenAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 
@@ -37,9 +38,12 @@ export const ActivityFiltersSchema = z.object({
 export const EmitActivityInputSchema = z.object({
   source: z.string().min(1),
   type: z.string().min(1),
-  actor: z.string().min(1),
   payload: z.unknown(),
-  verified: z.boolean().optional(),
+});
+
+export const EmitTrustedActivityInputSchema = EmitActivityInputSchema.extend({
+  actor: z.string().min(1),
+  idempotencyKey: z.string().min(1).max(255),
 });
 
 export const ActivityFeedInputSchema = ActivityFiltersSchema.extend({
@@ -58,6 +62,18 @@ export const contract = oc.router({
     .input(EmitActivityInputSchema)
     .output(ActivityEventSchema)
     .errors({ UNAUTHORIZED }),
+
+  emitTrustedActivity: oc
+    .route({ method: "POST", path: "/v1/internal/activity" })
+    .input(EmitTrustedActivityInputSchema)
+    .output(ActivityEventSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  hideActivity: oc
+    .route({ method: "DELETE", path: "/v1/internal/activity/{id}" })
+    .input(z.object({ id: z.string().min(1).max(255) }))
+    .output(ActivityEventSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   getActivityFeed: oc
     .route({ method: "GET", path: "/v1/activity" })

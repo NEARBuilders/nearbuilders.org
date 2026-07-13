@@ -3,6 +3,7 @@ import type { Profile } from "better-near-auth";
 import Markdown from "react-markdown";
 import { useAuthClient } from "@/app";
 import { Skeleton } from "@/components/ui/skeleton";
+import { nearProfileOptions } from "@/lib/queries/builders";
 
 interface NearProfileProps {
   accountId?: string;
@@ -24,14 +25,7 @@ export function NearProfile({
     data: profile,
     isLoading,
     error,
-  } = useQuery<Profile | null>({
-    queryKey: ["near-profile", accountId],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(accountId);
-      return res.data || null;
-    },
-    enabled: !!accountId,
-  });
+  } = useQuery<Profile | null>(nearProfileOptions(auth, accountId ?? ""));
 
   const profileName = profile?.name?.trim();
   const displayName = profileName || accountId || "Builder";

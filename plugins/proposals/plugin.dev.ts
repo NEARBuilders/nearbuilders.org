@@ -7,7 +7,9 @@ export default {
   pluginId: packageJson.name,
   port: Number(process.env.PORT) || 3013,
   config: {
-    variables: {},
+    variables: {
+      privatePluginIds: ["nearcatalog"],
+    },
     secrets: {
       PROPOSALS_DATABASE_URL:
         process.env.PROPOSALS_DATABASE_URL || "pglite:.bos/proposals/:memory:",

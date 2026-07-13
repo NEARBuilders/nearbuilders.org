@@ -1,4 +1,13 @@
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
+import {
+  BAD_REQUEST,
+  CONNECTION_ERROR,
+  FORBIDDEN,
+  NOT_FOUND,
+  RATE_LIMITED,
+  SERVICE_UNAVAILABLE,
+  TIMEOUT,
+  UNAUTHORIZED,
+} from "every-plugin/errors";
 import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
@@ -77,6 +86,7 @@ export const ActivityEventSchema = z.object({
   actor: z.string(),
   payload: z.unknown(),
   verified: z.boolean(),
+  hiddenAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 
@@ -85,6 +95,72 @@ export const ActivityFiltersSchema = z.object({
   type: z.string().optional(),
   actor: z.string().optional(),
 });
+
+const CatalogProjectSlugSchema = z
+  .string()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9-]+$/);
+const CatalogCursorSchema = z.string().regex(/^\d+$/);
+const CatalogClaimRolesSchema = z.array(z.string().trim().min(1).max(50)).min(1).max(16);
+const CatalogClaimProposalStatusSchema = z.enum(["pending", "rejected", "approved", "revoked"]);
+
+const CatalogProjectSchema = z.object({
+  slug: CatalogProjectSlugSchema,
+  projectRef: z.string().regex(/^nearcatalog:[a-z0-9-]+$/),
+  name: z.string(),
+  tagline: z.string().nullable(),
+  description: z.string().nullable(),
+  imageUrl: z.string().url().nullable(),
+  repositoryUrl: z.string().url().nullable(),
+  catalogUrl: z.string().url(),
+  tags: z.array(z.string()),
+  phase: z.string().nullable(),
+  status: z.string().nullable(),
+});
+
+const CatalogClaimSchema = z.object({
+  id: z.string(),
+  nearAccount: z.string(),
+  projectSlug: CatalogProjectSlugSchema,
+  roles: z.array(z.string()),
+  activityEventId: z.string().nullable(),
+  revokedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+const ClaimedCatalogProjectSchema = z.object({
+  project: CatalogProjectSchema,
+  contributors: z.array(
+    z.object({
+      id: z.string(),
+      nearAccount: z.string(),
+      roles: z.array(z.string()),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime(),
+    }),
+  ),
+});
+
+const CatalogClaimProposalSchema = z.object({
+  id: z.string(),
+  projectSlug: CatalogProjectSlugSchema,
+  roles: z.array(z.string().min(1).max(50)).min(1).max(16),
+  status: CatalogClaimProposalStatusSchema,
+  rejectionReason: z.string().nullable(),
+  submissionCount: z.number().int().nonnegative(),
+  revokedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+const CatalogErrors = {
+  CONNECTION_ERROR,
+  RATE_LIMITED,
+  SERVICE_UNAVAILABLE,
+  TIMEOUT,
+};
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -395,6 +471,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/upvotes/feed" })
     .input(
       z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -421,15 +498,94 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/upvotes/stream" })
     .output(eventIterator(VoteEventSchema)),
 
+  searchCatalogProjects: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/projects/search" })
+    .input(
+      z.object({
+        query: z.string().trim().min(1).max(100),
+        limit: z.number().int().min(1).max(50).optional(),
+      }),
+    )
+    .output(z.object({ data: z.array(CatalogProjectSchema) }))
+    .errors({ BAD_REQUEST, ...CatalogErrors }),
+
+  getCatalogProject: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/projects/{slug}" })
+    .input(
+      z.object({
+        slug: CatalogProjectSlugSchema,
+      }),
+    )
+    .output(z.object({ data: CatalogProjectSchema }))
+    .errors({ BAD_REQUEST, NOT_FOUND, ...CatalogErrors }),
+
+  submitCatalogClaimProposal: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/claim-proposals" })
+    .input(
+      z.object({
+        projectSlug: CatalogProjectSlugSchema,
+        roles: CatalogClaimRolesSchema,
+        idempotencyKey: z.string().trim().min(1).max(255),
+      }),
+    )
+    .output(z.object({ data: CatalogClaimProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND, ...CatalogErrors }),
+
+  getMyCatalogClaimProposals: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/claim-proposals/me" })
+    .output(z.object({ data: z.array(CatalogClaimProposalSchema) }))
+    .errors({ UNAUTHORIZED }),
+
+  listCatalogClaims: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/claims" })
+    .input(
+      z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
+        projectSlug: CatalogProjectSlugSchema.optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: CatalogCursorSchema.optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(CatalogClaimSchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  listClaimedCatalogProjects: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/claimed-projects" })
+    .input(
+      z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: CatalogCursorSchema.optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(ClaimedCatalogProjectSchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+    )
+    .errors({ BAD_REQUEST, NOT_FOUND, ...CatalogErrors }),
+
   emitActivity: oc
     .route({ method: "POST", path: "/v1/activity" })
     .input(
       z.object({
         source: z.string().min(1),
         type: z.string().min(1),
-        actor: z.string().min(1),
         payload: z.unknown(),
-        verified: z.boolean().optional(),
       }),
     )
     .output(ActivityEventSchema)

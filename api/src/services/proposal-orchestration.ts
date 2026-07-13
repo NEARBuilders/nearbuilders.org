@@ -2,6 +2,7 @@ import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
 import { AccountIdSchema } from "near-kit/schemas";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
+import { applyCatalogClaimApplication } from "../lib/catalog-claim-application";
 import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import {
@@ -16,6 +17,7 @@ type ProposalData = Pick<
   "pluginId" | "entityId" | "payload" | "appliedResourceId" | "createdBy"
 > & {
   rejectionReason?: string | null;
+  submissionCount?: number;
 };
 
 type CreateCallback = (
@@ -31,6 +33,41 @@ type RemoveCallback = (
 ) => Promise<void>;
 
 const IMPLICIT_ACCOUNT_ID_RE = /^[0-9a-f]{64}$/;
+const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
+
+function normalizeCatalogClaimRoles(roles: string[]) {
+  const normalized = new Map<string, string>();
+  for (const role of roles) {
+    const value = role.trim();
+    const key = value.toLowerCase();
+    if (value && !normalized.has(key)) normalized.set(key, value);
+  }
+  return Array.from(normalized.values());
+}
+
+function applyCatalogClaimProposal(
+  plugins: Omit<PluginsClient, "auth">,
+  proposal: ProposalData,
+  context: Context,
+) {
+  const payload = requireObjectPayload(proposal.payload);
+  const nearAccount = readString(payload.nearAccount)?.toLowerCase();
+  const projectSlug = readString(payload.projectSlug);
+  const roles = normalizeCatalogClaimRoles(readStringArray(payload.roles) ?? []);
+  if (!nearAccount || !projectSlug || roles.length === 0) {
+    throw new ORPCError("BAD_REQUEST", { message: "Invalid Catalog claim proposal" });
+  }
+  return applyCatalogClaimApplication({
+    plugins,
+    context,
+    entityId: proposal.entityId,
+    createdBy: proposal.createdBy,
+    submissionCount: proposal.submissionCount ?? 1,
+    nearAccount,
+    projectSlug,
+    roles,
+  });
+}
 
 export function assertValidBuilderProposalAccount(input: { pluginId: string; entityId: string }) {
   if (input.pluginId !== "builders") return;
@@ -147,6 +184,7 @@ const createCallbacks: Record<string, CreateCallback> = {
     });
     return result.id;
   },
+  [CATALOG_CLAIM_PLUGIN_ID]: applyCatalogClaimProposal,
 };
 
 const removeCallbacks: Record<string, RemoveCallback> = {
@@ -175,6 +213,13 @@ const removeCallbacks: Record<string, RemoveCallback> = {
       });
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
+    }
+  },
+  [CATALOG_CLAIM_PLUGIN_ID]: async (plugins, proposal, context) => {
+    const claimId = proposal.appliedResourceId ?? proposal.entityId;
+    const revoked = await plugins.nearcatalog(context).revokeCatalogClaim({ id: claimId });
+    if (revoked.data.activityEventId) {
+      await plugins.activity(context).hideActivity({ id: revoked.data.activityEventId });
     }
   },
 };

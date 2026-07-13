@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import type { Profile } from "better-near-auth";
 import type { ApiClient, AuthClient } from "@/app";
 
@@ -138,5 +139,21 @@ export function nearProfileOptions(authClient: AuthClient, accountId: string) {
     },
     enabled: !!accountId,
     staleTime: 5 * 60 * 1000,
+    retry: false,
   };
+}
+
+export async function ensureNearProfiles(
+  queryClient: QueryClient,
+  authClient: AuthClient,
+  accountIds: Array<string | null | undefined>,
+) {
+  const uniqueAccountIds = Array.from(
+    new Set(accountIds.filter((accountId): accountId is string => Boolean(accountId))),
+  );
+  await Promise.allSettled(
+    uniqueAccountIds.map((accountId) =>
+      queryClient.ensureQueryData(nearProfileOptions(authClient, accountId)),
+    ),
+  );
 }
