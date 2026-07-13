@@ -89,8 +89,6 @@ function ProfileActivityPage() {
       apiClient.emitActivity({
         source: "manual",
         type: "upload",
-        verified: false,
-        actor: nearAccountId ?? "",
         payload,
       }),
     onSuccess: () => {

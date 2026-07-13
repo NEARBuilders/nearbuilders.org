@@ -96,11 +96,13 @@ describe("NearCatalog plugin", () => {
     await expect(anonymous.applyCatalogClaim(input)).rejects.toThrow("Authentication required");
     await expect(member.applyCatalogClaim(input)).rejects.toThrow("Admin access required");
     const applied = await admin.applyCatalogClaim(input);
-    await admin.applyCatalogClaim({
+    await admin.setCatalogClaimActivity({ id: applied.data.id, activityEventId: "act-alice" });
+    const offline = await admin.applyCatalogClaim({
       nearAccount: "bob.near",
       projectSlug: "offline-project",
       roles: ["Contributor"],
     });
+    await admin.setCatalogClaimActivity({ id: offline.data.id, activityEventId: "act-bob" });
     const listed = await publicClient.listCatalogClaims({ nearAccount: "alice.near" });
 
     expect(applied.data.id).toBe("claim:alice.near:ref-finance");
@@ -108,8 +110,21 @@ describe("NearCatalog plugin", () => {
     offlineProjectUnavailable = true;
 
     const claimedProjects = await publicClient.listClaimedCatalogProjects({});
+    const personalProjects = await publicClient.listClaimedCatalogProjects({
+      nearAccount: "alice.near",
+    });
 
     expect(claimedProjects.data).toHaveLength(1);
     expect(claimedProjects.data[0]?.project.slug).toBe("ref-finance");
+    expect(personalProjects.data[0]?.contributors).toEqual([
+      expect.objectContaining({ nearAccount: "alice.near", roles: ["Developer"] }),
+    ]);
+
+    await admin.revokeCatalogClaim({ id: applied.data.id });
+    const revokedClaims = await publicClient.listCatalogClaims({ nearAccount: "alice.near" });
+    const projectsAfterRevocation = await publicClient.listClaimedCatalogProjects({});
+
+    expect(revokedClaims.data).toEqual([]);
+    expect(projectsAfterRevocation.data).toEqual([]);
   });
 });

@@ -71,6 +71,8 @@ describe("Catalog claims", { timeout: 15_000 }, () => {
           roles: ["Community"],
         }),
       );
+      await Effect.runPromise(claims.setClaimActivity("claim:alice.near:ref-finance", "act-alice"));
+      await Effect.runPromise(claims.setClaimActivity("claim:bob.near:ref-finance", "act-bob"));
 
       const projectClaims = await Effect.runPromise(
         claims.listClaims({ projectSlug: "ref-finance" }),
@@ -144,6 +146,7 @@ describe("Catalog claims", { timeout: 15_000 }, () => {
           roles: ["Developer"],
         }),
       );
+      await Effect.runPromise(claims.setClaimActivity("claim:alice.near:project-one", "act-one"));
       await Effect.runPromise(
         claims.applyClaim({
           nearAccount: "bob.near",
@@ -151,13 +154,16 @@ describe("Catalog claims", { timeout: 15_000 }, () => {
           roles: ["Designer"],
         }),
       );
+      await Effect.runPromise(claims.setClaimActivity("claim:bob.near:project-two", "act-two"));
 
       const firstPage = await Effect.runPromise(claims.listClaims({ limit: 1 }));
       const grouped = await Effect.runPromise(claims.listClaimsByProject());
+      const personal = await Effect.runPromise(claims.listClaimsByProject("alice.near"));
 
       expect(firstPage.data).toHaveLength(1);
       expect(firstPage.meta).toMatchObject({ total: 2, hasMore: true, nextCursor: "1" });
       expect(Array.from(grouped.keys())).toEqual(["project-one", "project-two"]);
+      expect(Array.from(personal.keys())).toEqual(["project-one"]);
     } finally {
       await cleanup();
     }

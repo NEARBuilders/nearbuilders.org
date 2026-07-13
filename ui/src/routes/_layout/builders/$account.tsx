@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Pencil, Plus, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
+import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ import {
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
+import { claimedCatalogProjectsQueryOptions } from "@/lib/queries/catalog";
 import { linkLabel } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/_layout/builders/$account")({
       queryClient.prefetchInfiniteQuery(
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
+      queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
     ]);
 
     const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
@@ -497,6 +500,7 @@ function LoadedProfile({
             projects={projects}
             hasMore={projectsResult?.meta.hasMore ?? false}
           />
+          <ContributedProjects nearAccount={account} />
         </TabsContent>
         <TabsContent value="activity">
           <TooltipProvider>

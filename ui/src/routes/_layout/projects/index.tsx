@@ -4,12 +4,10 @@ import { Reorder } from "framer-motion";
 import {
   ArrowDownUp,
   ArrowUpRight,
-  BarChart2,
   Check,
   ChevronDown,
   FileText,
   Globe,
-  Layers,
   Lock,
   Pencil,
   Plus,
@@ -21,6 +19,17 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
+import { NearProfile } from "@/components/near-profile";
+import {
+  GithubIcon,
+  isGithubUrl,
+  KindBadge,
+  PrivateIndicator,
+  type ProjectDirectoryItem,
+  ProjectDirectoryListRow,
+  StatusBadge,
+  type VoteDirection,
+} from "@/components/project-directory-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -34,31 +43,15 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import {
+  normalizeCatalogDirectoryProject,
+  shouldLoadCatalogProjects,
+} from "@/lib/catalog-projects";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
 import { type ProjectKindFilter, type ProjectSort, parseProjectListSearch } from "./-search";
 
-type VoteDirection = "up" | "down" | null;
-
-type ProjectKind = "project" | "idea" | "scope" | "result";
-
-interface RankedProject {
-  id: string;
-  ownerId: string;
-  organizationId: string | null;
-  kind: ProjectKind;
-  slug: string;
-  title: string;
-  description: string | null;
-  content: string | null;
-  status: "active" | "paused" | "archived";
-  visibility: "private" | "unlisted" | "public";
-  repository: string | null;
-  domain: string | null;
-  createdAt: string;
-  updatedAt: string;
-  upvoteCount: number;
-}
+type RankedProject = ProjectDirectoryItem;
 
 const PAGE_SIZE = 24;
 
@@ -99,21 +92,20 @@ export const Route = createFileRoute("/_layout/projects/")({
         }),
       initialPageParam: undefined,
     });
+    if (activeKind === "all" || activeKind === "project") {
+      void queryClient.prefetchInfiniteQuery({
+        queryKey: ["catalog-projects", null],
+        queryFn: ({ pageParam }) =>
+          apiClient.listClaimedCatalogProjects({
+            limit: PAGE_SIZE,
+            cursor: pageParam as string | undefined,
+          }),
+        initialPageParam: undefined,
+      });
+    }
   },
   component: ProjectsList,
 });
-
-function isGithubUrl(url: string) {
-  return /github\.com/i.test(url);
-}
-
-function GithubIcon({ size = 13 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577v-2.165c-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.085 1.84 1.237 1.84 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.76-1.605-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.52 11.52 0 0 1 12 6.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.218.694.825.576C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
-    </svg>
-  );
-}
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,
@@ -169,11 +161,12 @@ function ProjectsList() {
     [activeKind, isPersonalOnly, isPrivateOnly, ownerFilterId],
   );
 
-  const handleShare = useCallback((projectSlug: string, projectKind: string) => {
+  const handleShare = useCallback((project: RankedProject) => {
     const url =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/projects/${projectKind}/${projectSlug}`
-        : "";
+      project.catalogUrl ??
+      (typeof window !== "undefined"
+        ? `${window.location.origin}/projects/${project.kind}/${project.slug}`
+        : "");
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       toast.success("Link copied");
@@ -202,7 +195,55 @@ function ProjectsList() {
     enabled: !isPersonalOnly || Boolean(ownerFilterId),
   });
 
-  const projects = useMemo(() => pages?.pages.flatMap((page) => page.data) ?? [], [pages]);
+  const catalogEnabled = shouldLoadCatalogProjects({
+    kind: activeKind,
+    personal: isPersonalOnly,
+    privateOnly: isPrivateOnly,
+    ownerId: ownerFilterId,
+  });
+  const catalogQuery = useInfiniteQuery({
+    queryKey: ["catalog-projects", isPersonalOnly ? (ownerFilterId ?? null) : null],
+    queryFn: ({ pageParam }) =>
+      apiClient.listClaimedCatalogProjects({
+        nearAccount: isPersonalOnly ? ownerFilterId : undefined,
+        limit: PAGE_SIZE,
+        cursor: pageParam,
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+    enabled: catalogEnabled,
+  });
+  const localProjects = useMemo(
+    () =>
+      (pages?.pages.flatMap((page) => page.data) ?? []).map((project) => ({
+        ...project,
+        source: "local" as const,
+        catalogUrl: null,
+        imageUrl: null,
+        contributors: [],
+      })),
+    [pages],
+  );
+  const catalogProjects = useMemo(
+    () =>
+      catalogQuery.data?.pages.flatMap((page) => page.data).map(normalizeCatalogDirectoryProject) ??
+      [],
+    [catalogQuery.data],
+  );
+  const projects = useMemo(
+    () => [...localProjects, ...catalogProjects],
+    [catalogProjects, localProjects],
+  );
+  const isProjectsLoading = isLoading || (catalogEnabled && catalogQuery.isLoading);
+  const hasMoreProjects = hasNextPage || (catalogEnabled && catalogQuery.hasNextPage);
+  const isFetchingMoreProjects =
+    isFetchingNextPage || (catalogEnabled && catalogQuery.isFetchingNextPage);
+  const fetchMoreProjects = useCallback(async () => {
+    await Promise.all([
+      hasNextPage ? fetchNextPage() : Promise.resolve(),
+      catalogEnabled && catalogQuery.hasNextPage ? catalogQuery.fetchNextPage() : Promise.resolve(),
+    ]);
+  }, [catalogEnabled, catalogQuery, fetchNextPage, hasNextPage]);
   const projectIdList = useMemo(() => projects.map((p) => p.id), [projects]);
 
   const upvoteCounts = useQuery({
@@ -226,7 +267,10 @@ function ProjectsList() {
 
   const counts = upvoteCounts.data ?? {};
   const rankedProjects = useMemo<RankedProject[]>(() => {
-    const withCounts = projects.map((p) => ({ ...p, upvoteCount: counts[p.id] ?? 0 }));
+    const withCounts: RankedProject[] = projects.map((p) => ({
+      ...p,
+      upvoteCount: counts[p.id] ?? 0,
+    }));
     const byCreatedAt = (a: RankedProject, b: RankedProject) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     switch (activeSort) {
@@ -285,18 +329,32 @@ function ProjectsList() {
 
   const selectedProjectId =
     rankedProjects.find((p) => p.id === search.preview)?.id ?? rankedProjects[0]?.id;
+  const selectedSummary = rankedProjects.find((project) => project.id === selectedProjectId);
 
   const selectedProjectQuery = useQuery({
     queryKey: ["project", selectedProjectId],
     queryFn: () => apiClient.getProject({ id: selectedProjectId! }),
-    enabled: Boolean(selectedProjectId),
+    enabled: Boolean(selectedProjectId) && selectedSummary?.source === "local",
   });
 
-  const selectedProject = selectedProjectQuery.data?.data;
+  const selectedProject: RankedProject | undefined =
+    selectedSummary?.source === "nearcatalog"
+      ? selectedSummary
+      : selectedProjectQuery.data?.data
+        ? {
+            ...selectedProjectQuery.data.data,
+            upvoteCount: counts[selectedProjectQuery.data.data.id] ?? 0,
+            source: "local",
+            catalogUrl: null,
+            imageUrl: null,
+            contributors: [],
+          }
+        : selectedSummary;
 
   const isAdminUser = user?.role === "admin";
   const canManageSelected =
-    isAdminUser || isCurrentUserOwner(selectedProject?.ownerId, user, nearAccountId);
+    selectedProject?.source === "local" &&
+    (isAdminUser || isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId));
 
   const selectedReadmeQuery = useQuery({
     queryKey: ["projectPreviewReadme", selectedProject?.id, selectedProject?.repository],
@@ -340,19 +398,23 @@ function ProjectsList() {
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (observerRef.current) observerRef.current.disconnect();
-      if (!node || !hasNextPage || isFetchingNextPage) return;
+      if (!node || !hasMoreProjects || isFetchingMoreProjects) return;
       observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) fetchNextPage();
+        if (entries[0]?.isIntersecting) void fetchMoreProjects();
       });
       observerRef.current.observe(node);
     },
-    [fetchNextPage, hasNextPage, isFetchingNextPage],
+    [fetchMoreProjects, hasMoreProjects, isFetchingMoreProjects],
   );
 
-  const handleMobileRowTap = (projectSlug: string, projectKind: string) => {
+  const handleMobileRowTap = (project: RankedProject) => {
+    if (project.catalogUrl) {
+      window.open(project.catalogUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     void navigate({
       to: "/projects/$kind/$slug",
-      params: { kind: projectKind, slug: projectSlug },
+      params: { kind: project.kind, slug: project.slug },
       search: {
         kind: search.kind,
         personal: search.personal,
@@ -543,7 +605,7 @@ function ProjectsList() {
 
   const projectList = (
     <div className="flex flex-col overflow-hidden flex-1 min-h-0">
-      {isLoading ? (
+      {isProjectsLoading ? (
         <div className="flex flex-col">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 border-b border-border px-3.5 py-3">
@@ -610,7 +672,7 @@ function ProjectsList() {
                 dragListener={false}
                 transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
               >
-                <ListRow
+                <ProjectDirectoryListRow
                   rank={index + 1}
                   project={project}
                   isSelected={selectedProjectId === project.id}
@@ -619,7 +681,7 @@ function ProjectsList() {
                   isDownvoting={
                     downvoteMutation.isPending && downvoteMutation.variables === project.id
                   }
-                  onMobileTap={() => handleMobileRowTap(project.slug, project.kind)}
+                  onMobileTap={() => handleMobileRowTap(project)}
                   onDesktopSelect={() => handleDesktopRowSelect(project.id)}
                   onUpvote={() => runVote("up", project.id)}
                   onDownvote={() => runVote("down", project.id)}
@@ -632,15 +694,15 @@ function ProjectsList() {
             ref={sentinelRef}
             className="flex justify-center py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
           >
-            {isFetchingNextPage && (
+            {isFetchingMoreProjects && (
               <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
             )}
-            {hasNextPage && !isFetchingNextPage && (
+            {hasMoreProjects && !isFetchingMoreProjects && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => fetchNextPage()}
+                onClick={() => void fetchMoreProjects()}
                 className="text-muted-foreground font-semibold"
               >
                 <ChevronDown size={14} />
@@ -683,8 +745,8 @@ function ProjectsList() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted">
-            {rankedProjects.length === 0 && !isLoading ? null : !selectedProject ||
-              selectedProjectQuery.isLoading ? (
+            {rankedProjects.length === 0 && !isProjectsLoading ? null : !selectedProject ||
+              (selectedSummary?.source === "local" && selectedProjectQuery.isLoading) ? (
               <div className="flex flex-1 flex-col gap-3 p-8">
                 <div className="animate-pulse bg-border h-7 w-[200px] rounded-md" />
                 <div className="animate-pulse bg-border h-4 w-4/5 rounded-md" />
@@ -696,6 +758,9 @@ function ProjectsList() {
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <KindBadge kind={selectedProject.kind} />
+                      {selectedProject.source === "nearcatalog" && (
+                        <Badge variant="outline">NearCatalog</Badge>
+                      )}
                       <StatusBadge status={selectedProject.status} />
                       <NewBadge createdAt={selectedProject.createdAt} />
                     </div>
@@ -774,7 +839,7 @@ function ProjectsList() {
                       type="button"
                       size="icon-sm"
                       variant="outline"
-                      onClick={() => handleShare(selectedProject.slug, selectedProject.kind)}
+                      onClick={() => handleShare(selectedProject)}
                       title="Copy link"
                       className={copied ? "text-brand-accent" : ""}
                     >
@@ -782,18 +847,29 @@ function ProjectsList() {
                     </Button>
 
                     <Button asChild size="sm">
-                      <Link
-                        to="/projects/$kind/$slug"
-                        params={{ kind: selectedProject.kind, slug: selectedProject.slug }}
-                        search={{
-                          kind: search.kind,
-                          personal: search.personal,
-                          private: search.private,
-                        }}
-                      >
-                        Open
-                        <ArrowUpRight size={13} />
-                      </Link>
+                      {selectedProject.catalogUrl ? (
+                        <a
+                          href={selectedProject.catalogUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Open Catalog
+                          <ArrowUpRight size={13} />
+                        </a>
+                      ) : (
+                        <Link
+                          to="/projects/$kind/$slug"
+                          params={{ kind: selectedProject.kind, slug: selectedProject.slug }}
+                          search={{
+                            kind: search.kind,
+                            personal: search.personal,
+                            private: search.private,
+                          }}
+                        >
+                          Open
+                          <ArrowUpRight size={13} />
+                        </Link>
+                      )}
                     </Button>
 
                     {canManageSelected && (
@@ -817,6 +893,40 @@ function ProjectsList() {
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+                  {selectedProject.source === "nearcatalog" &&
+                    selectedProject.contributors.length > 0 && (
+                      <section className="mb-6 rounded-xl border border-border bg-card p-4">
+                        <h3 className="font-semibold text-foreground">Verified contributors</h3>
+                        <div className="mt-3 space-y-3">
+                          {selectedProject.contributors.map((contributor) => (
+                            <div
+                              key={contributor.nearAccount}
+                              className="rounded-lg border border-border p-3"
+                            >
+                              <Link
+                                to="/builders/$account"
+                                params={{ account: contributor.nearAccount }}
+                                className="inline-flex rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                aria-label={`View ${contributor.nearAccount}'s builder profile`}
+                              >
+                                <NearProfile
+                                  accountId={contributor.nearAccount}
+                                  variant="badge"
+                                  className="w-auto"
+                                />
+                              </Link>
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                {contributor.roles.map((role) => (
+                                  <Badge key={role} variant="secondary">
+                                    {role}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
                   {selectedProject.kind === "project" && selectedReadmeQuery.isLoading ? (
                     <div className="text-sm text-muted-foreground">Loading README…</div>
                   ) : previewContent ? (
@@ -845,186 +955,5 @@ function ProjectsList() {
         </div>
       </div>
     </TooltipProvider>
-  );
-}
-
-function ListRow({
-  rank,
-  project,
-  isSelected,
-  voteDirection,
-  isUpvoting,
-  isDownvoting,
-  onMobileTap,
-  onDesktopSelect,
-  onUpvote,
-  onDownvote,
-}: {
-  rank: number;
-  project: RankedProject;
-  isSelected: boolean;
-  voteDirection: VoteDirection;
-  isUpvoting: boolean;
-  isDownvoting: boolean;
-  onMobileTap: () => void;
-  onDesktopSelect: () => void;
-  onUpvote: () => void;
-  onDownvote: () => void;
-}) {
-  return (
-    <div
-      className={`border-b border-border flex items-center gap-2.5 px-3.5 py-3 transition-all duration-[120ms] ${isSelected ? "lg:bg-brand-accent-light lg:border-l-[3px] lg:border-l-brand-accent" : "border-l-[3px] border-l-transparent hover:bg-muted/60"}`}
-    >
-      <span
-        className={`hidden lg:block w-6 text-xs font-bold text-center shrink-0 ${isSelected ? "text-brand-accent" : "text-muted-foreground/40"}`}
-      >
-        {rank}
-      </span>
-
-      <button
-        type="button"
-        onClick={onMobileTap}
-        className="flex flex-1 min-w-0 items-center gap-3 text-left bg-transparent border-none p-0 cursor-pointer lg:hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-      >
-        <span className="w-5 text-[11px] font-bold text-center text-muted-foreground/40 shrink-0">
-          {rank}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 mb-0.5">
-            <KindBadge kind={project.kind} compact />
-            <span className="text-sm font-semibold text-foreground truncate">{project.title}</span>
-            {project.visibility === "private" && <PrivateIndicator size={11} />}
-            <NewBadge createdAt={project.createdAt} compact />
-          </div>
-          {project.description && (
-            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
-          )}
-        </div>
-      </button>
-
-      <button
-        type="button"
-        onClick={onDesktopSelect}
-        className="hidden lg:flex flex-1 min-w-0 items-center gap-2 cursor-pointer bg-transparent border-none p-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <KindBadge kind={project.kind} size="sidebar" />
-            <span className="text-base font-semibold text-foreground truncate flex-1 min-w-0 leading-tight">
-              {project.title}
-            </span>
-            <NewBadge createdAt={project.createdAt} compact />
-            {project.visibility === "private" && <PrivateIndicator size={11} />}
-            {project.repository && (
-              <a
-                href={project.repository}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={project.repository}
-                onClick={(e) => e.stopPropagation()}
-                className="text-muted-foreground/40 hover:text-foreground inline-flex items-center shrink-0 transition-colors duration-[120ms]"
-              >
-                {isGithubUrl(project.repository) ? <GithubIcon size={12} /> : <Globe size={12} />}
-              </a>
-            )}
-          </div>
-          {project.description && (
-            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
-          )}
-        </div>
-      </button>
-
-      <div className="flex shrink-0 items-center gap-1 rounded-lg bg-secondary px-1 py-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <VoteButton
-              icon={<ThumbsUp size={13} strokeWidth={2.25} />}
-              onClick={onUpvote}
-              label="Upvote"
-              disabled={isUpvoting}
-              active={voteDirection === "up"}
-              activeColor="text-brand-accent"
-              size="compact"
-            />
-          </TooltipTrigger>
-          <TooltipContent>Endorse this entry</TooltipContent>
-        </Tooltip>
-        <span className="min-w-[20px] text-center text-[11px] font-bold leading-none text-foreground">
-          {project.upvoteCount}
-        </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <VoteButton
-              icon={<ThumbsDown size={13} strokeWidth={2.25} />}
-              onClick={onDownvote}
-              label="Downvote"
-              disabled={isDownvoting}
-              active={voteDirection === "down"}
-              activeColor="text-destructive"
-              size="compact"
-            />
-          </TooltipTrigger>
-          <TooltipContent>Remove your endorsement</TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
-  );
-}
-
-function PrivateIndicator({ size = 12 }: { size?: number }) {
-  return (
-    <span
-      title="Private"
-      className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary p-1 text-muted-foreground"
-    >
-      <Lock size={size} />
-    </span>
-  );
-}
-
-function KindBadge({
-  kind,
-  compact,
-  size,
-}: {
-  kind: ProjectKind;
-  compact?: boolean;
-  size?: "default" | "sidebar";
-}) {
-  const isCompact = compact ?? size === "sidebar";
-  const KindIcon =
-    kind === "idea" ? FileText : kind === "scope" ? Layers : kind === "result" ? BarChart2 : null;
-  return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "shrink-0 rounded-[4px] border-border text-foreground",
-        kind === "idea" || kind === "scope" || kind === "result" ? "bg-muted" : "bg-secondary",
-        size === "sidebar"
-          ? "gap-1 px-2 py-0.5 text-[11px] [&>svg]:size-2.5"
-          : isCompact
-            ? "gap-0.5 px-1.5 py-0 text-[10px] [&>svg]:size-[9px]"
-            : "gap-1 px-2 py-0.5 text-[11px] [&>svg]:size-2.5",
-      )}
-    >
-      {KindIcon ? <KindIcon /> : null}
-      {kind}
-    </Badge>
-  );
-}
-
-function StatusBadge({ status }: { status: "active" | "paused" | "archived" }) {
-  const statusClasses = {
-    active: "border-brand-accent bg-brand-accent-light text-foreground",
-    paused: "border-border bg-secondary text-foreground",
-    archived: "border-destructive/40 bg-destructive/10 text-destructive",
-  };
-  return (
-    <Badge
-      variant="outline"
-      className={cn("rounded-[4px] px-2 py-0.5 text-[11px]", statusClasses[status])}
-    >
-      {status}
-    </Badge>
   );
 }

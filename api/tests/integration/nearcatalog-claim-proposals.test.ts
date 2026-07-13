@@ -53,11 +53,11 @@ describe("Catalog claim proposal API", () => {
       const existing = proposalRecords.find(
         (record) => record.pluginId === input.pluginId && record.entityId === input.entityId,
       );
-      if (
-        existing &&
-        context.resubmissionPolicy === "rejected-only" &&
-        existing.reviewStatus !== "rejected"
-      ) {
+      const canResubmit =
+        existing?.reviewStatus === "rejected" ||
+        (context.resubmissionPolicy === "rejected-or-removed" &&
+          (existing?.reviewStatus === "removed" || existing?.removeStatus === "removed"));
+      if (existing && context.resubmissionPolicy && !canResubmit) {
         if (existing.reviewStatus === "removed" || existing.removeStatus === "removed") {
           throw new Error("Removed proposals cannot be resubmitted");
         }
@@ -72,6 +72,7 @@ describe("Catalog claim proposal API", () => {
       };
       record.payload = input.payload;
       record.reviewStatus = "pending";
+      record.removeStatus = "not_started";
       record.rejectionReason = null;
       record.submissionCount += existing ? 1 : 0;
       record.updatedAt = now;
@@ -233,7 +234,7 @@ describe("Catalog claim proposal API", () => {
     expect(proposeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         walletAddress: "alice.near",
-        resubmissionPolicy: "rejected-only",
+        resubmissionPolicy: "rejected-or-removed",
       }),
       expect.objectContaining({
         pluginId: "nearcatalog",
@@ -312,9 +313,16 @@ describe("Catalog claim proposal API", () => {
 
     record.reviewStatus = "removed";
     record.removeStatus = "removed";
-    await expect(
-      client.submitCatalogClaimProposal({ ...input, idempotencyKey: "removed-revision" }),
-    ).rejects.toThrow("Removed proposals cannot be resubmitted");
+    const restored = await client.submitCatalogClaimProposal({
+      ...input,
+      roles: ["Maintainer"],
+      idempotencyKey: "removed-revision",
+    });
+    expect(restored.data).toMatchObject({
+      status: "pending",
+      roles: ["Maintainer"],
+      submissionCount: 3,
+    });
   });
 
   it("returns only the caller's normalized proposal statuses", async () => {

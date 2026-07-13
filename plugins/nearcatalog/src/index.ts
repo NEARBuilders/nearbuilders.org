@@ -120,7 +120,9 @@ export default createPlugin({
       }),
 
       listClaimedCatalogProjects: builder.listClaimedCatalogProjects.handler(async ({ input }) => {
-        const claimsByProject = await runEffect(services.claims.listClaimsByProject());
+        const claimsByProject = await runEffect(
+          services.claims.listClaimsByProject(input.nearAccount),
+        );
         const projects = await mapWithConcurrency(
           Array.from(claimsByProject),
           5,
@@ -130,10 +132,12 @@ export default createPlugin({
               if (project.status !== "active") return null;
               return {
                 project,
-                contributors: claims.map(({ id, nearAccount, roles }) => ({
+                contributors: claims.map(({ id, nearAccount, roles, createdAt, updatedAt }) => ({
                   id,
                   nearAccount,
                   roles,
+                  createdAt,
+                  updatedAt,
                 })),
               };
             } catch (error) {

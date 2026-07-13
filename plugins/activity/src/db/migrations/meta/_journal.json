@@ -8,6 +8,13 @@
       "when": 1782299122315,
       "tag": "0000_third_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783924992496,
+      "tag": "0001_clear_champions",
+      "breakpoints": true
     }
   ]
 }

@@ -52,7 +52,7 @@ export default createPlugin({
       })
       .optional(),
     allowPrivateSubmission: z.boolean().optional(),
-    resubmissionPolicy: z.enum(["rejected-only"]).optional(),
+    resubmissionPolicy: z.enum(["rejected-only", "rejected-or-removed"]).optional(),
     reqHeaders: z.custom<Headers>().optional(),
     getRawBody: z.custom<() => Promise<string>>().optional(),
   }),

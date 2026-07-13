@@ -27,6 +27,8 @@ export declare const CatalogContributorSchema: z.ZodObject<{
     id: z.ZodString;
     nearAccount: z.ZodString;
     roles: z.ZodArray<z.ZodString>;
+    createdAt: z.ZodISODateTime;
+    updatedAt: z.ZodISODateTime;
 }, z.core.$strip>;
 export declare const CatalogClaimHistorySchema: z.ZodObject<{
     id: z.ZodString;
@@ -60,6 +62,8 @@ export declare const ClaimedCatalogProjectSchema: z.ZodObject<{
         id: z.ZodString;
         nearAccount: z.ZodString;
         roles: z.ZodArray<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export declare const contract: {
@@ -240,6 +244,7 @@ export declare const contract: {
         };
     }>>, Record<never, never>>;
     listClaimedCatalogProjects: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        nearAccount: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
@@ -261,6 +266,8 @@ export declare const contract: {
                 id: z.ZodString;
                 nearAccount: z.ZodString;
                 roles: z.ZodArray<z.ZodString>;
+                createdAt: z.ZodISODateTime;
+                updatedAt: z.ZodISODateTime;
             }, z.core.$strip>>;
         }, z.core.$strip>>;
         meta: z.ZodObject<{

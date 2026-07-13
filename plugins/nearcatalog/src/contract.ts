@@ -50,6 +50,8 @@ export const CatalogContributorSchema = CatalogClaimSchema.pick({
   id: true,
   nearAccount: true,
   roles: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const CatalogClaimHistorySchema = z.object({
@@ -119,6 +121,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/nearcatalog/claimed-projects" })
     .input(
       z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: CursorSchema.optional(),
       }),

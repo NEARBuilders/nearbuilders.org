@@ -7,7 +7,7 @@ import { proposalAuditLog, proposalSubmissions, proposals } from "../db/schema";
 type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
 type ApplyStatus = "not_started" | "applied" | "failed";
 type RemoveStatus = "not_started" | "removed" | "failed";
-type ResubmissionPolicy = "rejected-only";
+type ResubmissionPolicy = "rejected-only" | "rejected-or-removed";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -256,6 +256,23 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
+          if (
+            existing &&
+            input.resubmissionPolicy === "rejected-or-removed" &&
+            existing.reviewStatus !== "rejected" &&
+            existing.reviewStatus !== "removed" &&
+            existing.removeStatus !== "removed"
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: resubmissionError(
+                  existing.reviewStatus as ReviewStatus,
+                  (existing.removeStatus as RemoveStatus) ?? "not_started",
+                ),
+              }),
+            );
+          }
+
           if (!existing) {
             yield* Effect.promise(() =>
               db.insert(proposals).values({
@@ -287,8 +304,13 @@ export const ProposalServiceLive = Layer.effect(
                   payload: serialize(input.payload),
                   reviewStatus: "pending",
                   applyStatus: "not_started",
+                  removeStatus: "not_started",
                   rejectionReason: null,
                   applyError: null,
+                  removeError: null,
+                  appliedResourceId: null,
+                  appliedAt: null,
+                  removedAt: null,
                   updatedAt: now,
                 })
                 .where(eq(proposals.id, existing.id)),

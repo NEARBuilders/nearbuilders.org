@@ -101,6 +101,16 @@ describe.sequential("Proposals plugin", () => {
     });
   }
 
+  function restorableAliceClient() {
+    return loaded.createClient({
+      userId: "user-alice",
+      walletAddress: "alice.near",
+      user: { id: "user-alice", role: "member" },
+      allowPrivateSubmission: true,
+      resubmissionPolicy: "rejected-or-removed",
+    });
+  }
+
   function adminClient() {
     return loaded.createClient({
       userId: "admin",
@@ -220,5 +230,19 @@ describe.sequential("Proposals plugin", () => {
     await expect(
       aliceClient().propose({ ...input, idempotencyKey: "removed-revision" }),
     ).rejects.toThrow("Removed proposals cannot be resubmitted");
+
+    const restored = await restorableAliceClient().propose({
+      ...input,
+      payload: { roles: ["Maintainer"] },
+      idempotencyKey: "restored-revision",
+    });
+    expect(restored.data).toMatchObject({
+      reviewStatus: "pending",
+      applyStatus: "not_started",
+      removeStatus: "not_started",
+      appliedResourceId: null,
+      removedAt: null,
+      payload: { roles: ["Maintainer"] },
+    });
   });
 });

@@ -6,6 +6,7 @@ export declare const ActivityEventSchema: z.ZodObject<{
     actor: z.ZodString;
     payload: z.ZodUnknown;
     verified: z.ZodBoolean;
+    hiddenAt: z.ZodNullable<z.ZodISODateTime>;
     createdAt: z.ZodISODateTime;
 }, z.core.$strip>;
 export declare const ActivityFeedSchema: z.ZodObject<{
@@ -16,6 +17,7 @@ export declare const ActivityFeedSchema: z.ZodObject<{
         actor: z.ZodString;
         payload: z.ZodUnknown;
         verified: z.ZodBoolean;
+        hiddenAt: z.ZodNullable<z.ZodISODateTime>;
         createdAt: z.ZodISODateTime;
     }, z.core.$strip>>;
     meta: z.ZodObject<{
@@ -38,9 +40,14 @@ export declare const ActivityFiltersSchema: z.ZodObject<{
 export declare const EmitActivityInputSchema: z.ZodObject<{
     source: z.ZodString;
     type: z.ZodString;
-    actor: z.ZodString;
     payload: z.ZodUnknown;
-    verified: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>;
+export declare const EmitTrustedActivityInputSchema: z.ZodObject<{
+    source: z.ZodString;
+    type: z.ZodString;
+    payload: z.ZodUnknown;
+    actor: z.ZodString;
+    idempotencyKey: z.ZodString;
 }, z.core.$strip>;
 export declare const ActivityFeedInputSchema: z.ZodObject<{
     source: z.ZodOptional<z.ZodString>;
@@ -61,9 +68,7 @@ export declare const contract: {
     emitActivity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         source: z.ZodString;
         type: z.ZodString;
-        actor: z.ZodString;
         payload: z.ZodUnknown;
-        verified: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         source: z.ZodString;
@@ -71,6 +76,7 @@ export declare const contract: {
         actor: z.ZodString;
         payload: z.ZodUnknown;
         verified: z.ZodBoolean;
+        hiddenAt: z.ZodNullable<z.ZodISODateTime>;
         createdAt: z.ZodISODateTime;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
         UNAUTHORIZED: {
@@ -83,6 +89,81 @@ export declare const contract: {
                     oauth: "oauth";
                     token: "token";
                 }>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    emitTrustedActivity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        source: z.ZodString;
+        type: z.ZodString;
+        payload: z.ZodUnknown;
+        actor: z.ZodString;
+        idempotencyKey: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        source: z.ZodString;
+        type: z.ZodString;
+        actor: z.ZodString;
+        payload: z.ZodUnknown;
+        verified: z.ZodBoolean;
+        hiddenAt: z.ZodNullable<z.ZodISODateTime>;
+        createdAt: z.ZodISODateTime;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    hideActivity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        source: z.ZodString;
+        type: z.ZodString;
+        actor: z.ZodString;
+        payload: z.ZodUnknown;
+        verified: z.ZodBoolean;
+        hiddenAt: z.ZodNullable<z.ZodISODateTime>;
+        createdAt: z.ZodISODateTime;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
@@ -100,6 +181,7 @@ export declare const contract: {
             actor: z.ZodString;
             payload: z.ZodUnknown;
             verified: z.ZodBoolean;
+            hiddenAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>>;
         meta: z.ZodObject<{
@@ -119,6 +201,7 @@ export declare const contract: {
         actor: string;
         payload: unknown;
         verified: boolean;
+        hiddenAt: string | null;
         createdAt: string;
     }, unknown, void>, import("@orpc/shared").AsyncIteratorClass<{
         id: string;
@@ -127,6 +210,7 @@ export declare const contract: {
         actor: string;
         payload: unknown;
         verified: boolean;
+        hiddenAt: string | null;
         createdAt: string;
     }, unknown, void>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
     getLeaderboard: import("@orpc/contract").ContractProcedure<z.ZodObject<{

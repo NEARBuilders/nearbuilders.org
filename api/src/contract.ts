@@ -86,6 +86,7 @@ export const ActivityEventSchema = z.object({
   actor: z.string(),
   payload: z.unknown(),
   verified: z.boolean(),
+  hiddenAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 
@@ -136,6 +137,8 @@ const ClaimedCatalogProjectSchema = z.object({
       id: z.string(),
       nearAccount: z.string(),
       roles: z.array(z.string()),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime(),
     }),
   ),
 });
@@ -468,6 +471,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/upvotes/feed" })
     .input(
       z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -558,6 +562,7 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/nearcatalog/claimed-projects" })
     .input(
       z.object({
+        nearAccount: z.string().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: CatalogCursorSchema.optional(),
       }),
@@ -580,9 +585,7 @@ export const contract = oc.router({
       z.object({
         source: z.string().min(1),
         type: z.string().min(1),
-        actor: z.string().min(1),
         payload: z.unknown(),
-        verified: z.boolean().optional(),
       }),
     )
     .output(ActivityEventSchema)

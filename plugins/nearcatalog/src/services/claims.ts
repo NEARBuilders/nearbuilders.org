@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Effect } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
@@ -79,7 +79,10 @@ export function createClaimMethods(db: NearCatalogDatabase) {
       Effect.gen(function* () {
         const limit = Math.min(input.limit ?? 50, 100);
         const offset = input.cursor ? Math.max(Number.parseInt(input.cursor, 10) || 0, 0) : 0;
-        const conditions = [isNull(nearcatalogClaims.revokedAt)];
+        const conditions = [
+          isNull(nearcatalogClaims.revokedAt),
+          isNotNull(nearcatalogClaims.activityEventId),
+        ];
         if (input.nearAccount)
           conditions.push(
             eq(nearcatalogClaims.nearAccount, input.nearAccount.trim().toLowerCase()),
@@ -114,13 +117,20 @@ export function createClaimMethods(db: NearCatalogDatabase) {
         };
       }),
 
-    listClaimsByProject: () =>
+    listClaimsByProject: (nearAccount?: string) =>
       Effect.gen(function* () {
+        const conditions = [
+          isNull(nearcatalogClaims.revokedAt),
+          isNotNull(nearcatalogClaims.activityEventId),
+        ];
+        if (nearAccount) {
+          conditions.push(eq(nearcatalogClaims.nearAccount, nearAccount.trim().toLowerCase()));
+        }
         const rows = yield* Effect.promise(() =>
           db
             .select()
             .from(nearcatalogClaims)
-            .where(isNull(nearcatalogClaims.revokedAt))
+            .where(and(...conditions))
             .orderBy(nearcatalogClaims.projectSlug, nearcatalogClaims.nearAccount),
         );
         const grouped = new Map<string, CatalogClaim[]>();
@@ -239,6 +249,15 @@ export function createClaimMethods(db: NearCatalogDatabase) {
 
     revokeClaim: (id: string) =>
       Effect.gen(function* () {
+        const [existing] = yield* Effect.promise(() =>
+          db.select().from(nearcatalogClaims).where(eq(nearcatalogClaims.id, id)).limit(1),
+        );
+        if (!existing) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Catalog claim not found" }),
+          );
+        }
+        if (existing.revokedAt) return rowToClaim(existing);
         const now = new Date();
         const updated = yield* Effect.promise(() =>
           db.transaction(async (tx) => {
@@ -255,11 +274,7 @@ export function createClaimMethods(db: NearCatalogDatabase) {
             return claim;
           }),
         );
-        if (!updated) {
-          return yield* Effect.fail(
-            new ORPCError("NOT_FOUND", { message: "Catalog claim not found" }),
-          );
-        }
+        if (!updated) return rowToClaim(existing);
         return updated;
       }),
   };

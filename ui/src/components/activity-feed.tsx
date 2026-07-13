@@ -74,6 +74,20 @@ export function ActivityFeed({
     if (!latestEvent) return;
     queryClient.setQueryData(feedKey, (old: FeedData | undefined) => {
       if (!old?.pages.length) return old;
+      if (latestEvent.hiddenAt) {
+        const pages = old.pages.map((page) => {
+          const data = page.data.filter((event) => event.id !== latestEvent.id);
+          return {
+            ...page,
+            data,
+            meta: {
+              ...page.meta,
+              total: Math.max(0, page.meta.total - (data.length === page.data.length ? 0 : 1)),
+            },
+          };
+        });
+        return { ...old, pages };
+      }
       const exists = old.pages.some((page) => page.data.some((e) => e.id === latestEvent.id));
       if (exists) return old;
       const [first, ...rest] = old.pages;

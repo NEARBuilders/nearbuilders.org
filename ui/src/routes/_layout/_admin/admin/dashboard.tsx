@@ -20,6 +20,7 @@ import {
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
+import { CatalogClaimReviewCard } from "@/components/catalog-claim-review-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,12 +47,14 @@ type ProposalStatus = "pending" | "approved" | "rejected" | "removed";
 
 interface ProposalRecord {
   id: string;
-  pluginId: "builders" | "projects" | "events";
+  pluginId: "builders" | "projects" | "events" | "nearcatalog";
   entityId: string;
   payload: unknown;
   createdBy: string;
   reviewStatus: ProposalStatus;
   rejectionReason: string | null;
+  applyStatus?: "not_started" | "applied" | "failed";
+  applyError?: string | null;
   submissionCount: number;
   createdAt: string;
   updatedAt: string;
@@ -97,7 +100,9 @@ function formatTimeRange(startAt: string, endAt: string | null) {
 }
 
 function AdminDashboard() {
-  const [pluginTab, setPluginTab] = useState<"builders" | "projects" | "events">("builders");
+  const [pluginTab, setPluginTab] = useState<"builders" | "projects" | "events" | "nearcatalog">(
+    "builders",
+  );
   const apiClient = useApiClient();
 
   const { data, isLoading } = useQuery({
@@ -105,19 +110,24 @@ function AdminDashboard() {
     queryFn: () =>
       apiClient.getProposals({
         pluginId: pluginTab,
-        reviewStatus: "pending",
+        reviewStatus: pluginTab === "nearcatalog" ? undefined : "pending",
         limit: 50,
       }),
   });
 
-  const proposals = (data?.data ?? []) as ProposalRecord[];
+  const proposals = ((data?.data ?? []) as ProposalRecord[]).filter(
+    (proposal) =>
+      pluginTab !== "nearcatalog" ||
+      proposal.reviewStatus === "pending" ||
+      proposal.reviewStatus === "approved",
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8">
         <h1 className="mb-1 text-3xl font-black tracking-tight text-foreground">Admin Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          Review builder, project, and event proposals.
+          Review builder, project, event, and NEAR Catalog contribution proposals.
         </p>
       </div>
 
@@ -127,6 +137,7 @@ function AdminDashboard() {
             ["builders", "Builders"],
             ["projects", "Projects"],
             ["events", "Events"],
+            ["nearcatalog", "NearCatalog"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -170,6 +181,10 @@ function AdminDashboard() {
 }
 
 function ProposalReviewCard({ proposal }: { proposal: ProposalRecord }) {
+  if (proposal.pluginId === "nearcatalog") {
+    return <CatalogClaimReviewCard proposal={proposal} />;
+  }
+
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [showRejectForm, setShowRejectForm] = useState(false);

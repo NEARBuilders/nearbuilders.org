@@ -71,15 +71,47 @@ export default createPlugin({
 
   createRouter: (services, builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
-      if (!context.user || !context.userId) {
+      if (!context.user || !context.userId || !context.walletAddress) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
       }
       return next({ context });
     });
 
+    const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context });
+    });
+
     return {
-      emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input }) => {
-        const event = await runEffect(services.activity.emitActivity(input));
+      emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
+        const event = await runEffect(
+          services.activity.emitActivity({
+            ...input,
+            actor: context.walletAddress!,
+            verified: false,
+          }),
+        );
+        await services.publisher.publish("activity", event);
+        return event;
+      }),
+
+      emitTrustedActivity: builder.emitTrustedActivity
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const event = await runEffect(
+            services.activity.emitActivity({ ...input, verified: true }),
+          );
+          await services.publisher.publish("activity", event);
+          return event;
+        }),
+
+      hideActivity: builder.hideActivity.use(requireAdmin).handler(async ({ input }) => {
+        const event = await runEffect(services.activity.hideActivity(input.id));
         await services.publisher.publish("activity", event);
         return event;
       }),

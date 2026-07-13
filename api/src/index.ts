@@ -6,6 +6,7 @@ import { AccountIdSchema } from "near-kit/schemas";
 import type { ProposalSchema } from "../../plugins/proposals/src/contract";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
+import { applyCatalogClaimApplication } from "./lib/catalog-claim-application";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import {
   assertProjectProposalOwner,
@@ -39,7 +40,9 @@ type ProposalData = Pick<
   z.infer<typeof ProposalSchema>,
   "pluginId" | "entityId" | "payload" | "appliedResourceId" | "createdBy"
 > & {
+  id?: string;
   rejectionReason?: string | null;
+  submissionCount?: number;
 };
 type CatalogClaimProposalStatus = "pending" | "rejected" | "approved" | "revoked";
 export type ProposalNotificationInput = {
@@ -189,6 +192,17 @@ export function buildApprovalNotification(
     };
   }
 
+  if (proposal.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_claim_approved",
+      source: CATALOG_CLAIM_PLUGIN_ID,
+      subject: "Project contribution approved",
+      body: "Your NEAR Catalog contribution is now verified and visible.",
+      link: `/builders/${proposal.createdBy}`,
+    };
+  }
+
   return null;
 }
 
@@ -239,6 +253,17 @@ export function buildRejectionNotification(
       subject: `${name} rejected`,
       body: buildRejectionBody("Your builder profile was not approved by NEAR Builders.", reason),
       link: "/dashboard",
+    };
+  }
+
+  if (proposal.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_claim_rejected",
+      source: CATALOG_CLAIM_PLUGIN_ID,
+      subject: "Project contribution needs changes",
+      body: buildRejectionBody("Your NEAR Catalog contribution was not approved.", reason),
+      link: "/profile/activity?mode=claim",
     };
   }
 
@@ -410,6 +435,30 @@ type RemoveCallback = (
   context: ApiContext,
 ) => Promise<void>;
 
+function applyCatalogClaimProposal(
+  plugins: Omit<PluginsClient, "auth">,
+  proposal: ProposalData,
+  context: ApiContext,
+) {
+  const payload = requireObjectPayload(proposal.payload);
+  const nearAccount = readString(payload.nearAccount)?.toLowerCase();
+  const projectSlug = readString(payload.projectSlug);
+  const roles = normalizeCatalogClaimRoles(readStringArray(payload.roles) ?? []);
+  if (!nearAccount || !projectSlug || roles.length === 0) {
+    throw new ORPCError("BAD_REQUEST", { message: "Invalid Catalog claim proposal" });
+  }
+  return applyCatalogClaimApplication({
+    plugins,
+    context: pluginContext(context),
+    entityId: proposal.entityId,
+    createdBy: proposal.createdBy,
+    submissionCount: proposal.submissionCount ?? 1,
+    nearAccount,
+    projectSlug,
+    roles,
+  });
+}
+
 const createCallbacks: Record<string, CreateCallback> = {
   builders: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
@@ -500,6 +549,7 @@ const createCallbacks: Record<string, CreateCallback> = {
     });
     return result.id;
   },
+  nearcatalog: applyCatalogClaimProposal,
 };
 
 const removeCallbacks: Record<string, RemoveCallback> = {
@@ -530,6 +580,17 @@ const removeCallbacks: Record<string, RemoveCallback> = {
       });
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
+    }
+  },
+  nearcatalog: async (plugins, proposal, context) => {
+    const claimId = proposal.appliedResourceId ?? proposal.entityId;
+    const revoked = await plugins.nearcatalog(pluginContext(context)).revokeCatalogClaim({
+      id: claimId,
+    });
+    if (revoked.data.activityEventId) {
+      await plugins.activity(pluginContext(context)).hideActivity({
+        id: revoked.data.activityEventId,
+      });
     }
   },
 };
@@ -611,11 +672,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const proposalsClient = services.plugins.proposals(pluginContext(context));
         const approval = await proposalsClient.approve(input);
         const proposal: ProposalData = {
+          id: approval.data.id,
           pluginId: approval.data.pluginId,
           entityId: approval.data.entityId,
           payload: approval.data.payload,
           appliedResourceId: approval.data.appliedResourceId,
           createdBy: approval.data.createdBy,
+          submissionCount: approval.data.submissionCount,
         };
 
         if (approval.data.applyStatus === "applied") {
@@ -830,7 +893,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               ...pluginContext(context),
               walletAddress: nearAccount,
               allowPrivateSubmission: true,
-              resubmissionPolicy: "rejected-only",
+              resubmissionPolicy: "rejected-or-removed",
             })
             .propose({
               pluginId: CATALOG_CLAIM_PLUGIN_ID,

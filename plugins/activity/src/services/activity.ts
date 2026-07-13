@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
@@ -6,7 +6,6 @@ import type {
   ActivityEventSchema,
   ActivityFeedInputSchema,
   ActivityLeaderboardInputSchema,
-  EmitActivityInputSchema,
   LeaderboardEntrySchema,
 } from "../contract";
 import type { ActivityDatabase } from "../db";
@@ -14,7 +13,6 @@ import { DatabaseTag } from "../db/layer";
 import { activityEvents } from "../db/schema";
 
 export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
-export type EmitActivityInput = z.infer<typeof EmitActivityInputSchema>;
 export type ActivityFeedInput = z.infer<typeof ActivityFeedInputSchema>;
 export type ActivityLeaderboardInput = z.infer<typeof ActivityLeaderboardInputSchema>;
 export type ActivityLeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
@@ -31,17 +29,22 @@ function rowToActivity(row: typeof activityEvents.$inferSelect): ActivityEvent {
     actor: row.actor,
     payload: row.payload,
     verified: row.verified,
+    hiddenAt: row.hiddenAt
+      ? row.hiddenAt instanceof Date
+        ? row.hiddenAt.toISOString()
+        : String(row.hiddenAt)
+      : null,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
   };
 }
 
 function filterWhere(input: { source?: string; type?: string; actor?: string; since?: Date }) {
-  const conditions = [] as any[];
+  const conditions = [isNull(activityEvents.hiddenAt)] as any[];
   if (input.source) conditions.push(eq(activityEvents.source, input.source));
   if (input.type) conditions.push(eq(activityEvents.type, input.type));
   if (input.actor) conditions.push(eq(activityEvents.actor, input.actor));
   if (input.since) conditions.push(gte(activityEvents.createdAt, input.since));
-  return conditions.length > 0 ? and(...conditions) : undefined;
+  return and(...conditions);
 }
 
 function periodStart(period: ActivityLeaderboardInput["period"]): Date | undefined {
@@ -52,7 +55,14 @@ function periodStart(period: ActivityLeaderboardInput["period"]): Date | undefin
 
 export function createActivityMethods(db: ActivityDatabase) {
   return {
-    emitActivity: (input: EmitActivityInput) =>
+    emitActivity: (input: {
+      source: string;
+      type: string;
+      actor: string;
+      payload: unknown;
+      verified: boolean;
+      idempotencyKey?: string;
+    }) =>
       Effect.gen(function* () {
         const [created] = yield* Effect.promise(() =>
           db
@@ -63,7 +73,13 @@ export function createActivityMethods(db: ActivityDatabase) {
               type: input.type,
               actor: input.actor,
               payload: input.payload === undefined ? null : input.payload,
-              verified: input.verified ?? false,
+              verified: input.verified,
+              idempotencyKey: input.idempotencyKey ?? null,
+              hiddenAt: null,
+            })
+            .onConflictDoUpdate({
+              target: activityEvents.idempotencyKey,
+              set: { hiddenAt: null },
             })
             .returning(),
         );
@@ -79,6 +95,23 @@ export function createActivityMethods(db: ActivityDatabase) {
         return rowToActivity(created);
       }),
 
+    hideActivity: (id: string) =>
+      Effect.gen(function* () {
+        const [updated] = yield* Effect.promise(() =>
+          db
+            .update(activityEvents)
+            .set({ hiddenAt: new Date() })
+            .where(eq(activityEvents.id, id))
+            .returning(),
+        );
+        if (!updated) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Activity event not found" }),
+          );
+        }
+        return rowToActivity(updated);
+      }),
+
     getActivityFeed: (input: ActivityFeedInput) =>
       Effect.gen(function* () {
         const limit = Math.min(input.limit ?? 50, 100);
@@ -86,27 +119,18 @@ export function createActivityMethods(db: ActivityDatabase) {
         const where = filterWhere(input);
 
         const counted = yield* Effect.promise(() =>
-          where
-            ? db.select({ count: count() }).from(activityEvents).where(where)
-            : db.select({ count: count() }).from(activityEvents),
+          db.select({ count: count() }).from(activityEvents).where(where),
         );
         const total = counted[0]?.count ?? 0;
 
         const rows = yield* Effect.promise(() =>
-          where
-            ? db
-                .select()
-                .from(activityEvents)
-                .where(where)
-                .orderBy(desc(activityEvents.createdAt))
-                .limit(limit)
-                .offset(offset)
-            : db
-                .select()
-                .from(activityEvents)
-                .orderBy(desc(activityEvents.createdAt))
-                .limit(limit)
-                .offset(offset),
+          db
+            .select()
+            .from(activityEvents)
+            .where(where)
+            .orderBy(desc(activityEvents.createdAt))
+            .limit(limit)
+            .offset(offset),
         );
 
         const nextOffset = offset + limit;
@@ -127,9 +151,7 @@ export function createActivityMethods(db: ActivityDatabase) {
         const limit = Math.min(input.limit ?? 20, 100);
         const where = filterWhere({ since: periodStart(input.period) });
 
-        const rows = yield* Effect.promise(() =>
-          where ? db.select().from(activityEvents).where(where) : db.select().from(activityEvents),
-        );
+        const rows = yield* Effect.promise(() => db.select().from(activityEvents).where(where));
 
         const byActor = new Map<
           string,
