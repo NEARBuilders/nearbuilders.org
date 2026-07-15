@@ -7,6 +7,7 @@ import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { createCatalogClaims } from "./services/catalog-claims";
+import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
   assertValidBuilderProposalAccount,
@@ -50,13 +51,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
   initialize: (_config, plugins) =>
     Effect.sync(() => {
       const { auth, ...restPlugins } = plugins;
+      const activity = createProposalActivity(restPlugins);
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
       console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return { auth, plugins: restPlugins, notifications, orchestration, catalogClaims };
+      return { auth, plugins: restPlugins, activity, notifications, orchestration, catalogClaims };
     }),
 
   shutdown: () => Effect.log("[API] Shutdown"),
@@ -64,6 +66,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
   createRouter: (services, builder) => {
     const { requireAuth, requireAdmin, requireAuthOrApiKey } = createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection } = services.notifications;
+    const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
 
@@ -93,6 +96,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const proposalsClient = services.plugins.proposals(context);
         const approval = await proposalsClient.approve(input);
         const proposal = {
+          id: approval.data.id,
           pluginId: approval.data.pluginId,
           entityId: approval.data.entityId,
           payload: approval.data.payload,
@@ -116,6 +120,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
                 }),
             }),
           );
+          await activity.emitApproval(proposal, context);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           await proposalsClient.markApplyFailed({

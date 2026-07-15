@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BarChart2,
@@ -45,10 +45,18 @@ export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
 });
 
 type ProposalStatus = "pending" | "approved" | "rejected" | "removed";
+type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
+
+const PROPOSAL_TABS = [
+  ["builders", "Builders"],
+  ["projects", "Projects"],
+  ["events", "Events"],
+  ["nearcatalog", "NearCatalog"],
+] as const satisfies ReadonlyArray<readonly [ProposalPluginId, string]>;
 
 interface ProposalRecord {
   id: string;
-  pluginId: "builders" | "projects" | "events" | "nearcatalog";
+  pluginId: ProposalPluginId;
   entityId: string;
   payload: unknown;
   createdBy: string;
@@ -101,11 +109,23 @@ function formatTimeRange(startAt: string, endAt: string | null) {
 }
 
 function AdminDashboard() {
-  const [pluginTab, setPluginTab] = useState<"builders" | "projects" | "events" | "nearcatalog">(
-    "builders",
-  );
+  const [pluginTab, setPluginTab] = useState<ProposalPluginId>("builders");
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
+
+  const pendingCountQueries = useQueries({
+    queries: PROPOSAL_TABS.map(([pluginId]) => ({
+      queryKey: ["admin-proposals", pluginId, "count"],
+      queryFn: async () => {
+        const result = await apiClient.getProposals({
+          pluginId,
+          reviewStatus: "pending",
+          limit: 1,
+        });
+        return result.meta.total;
+      },
+    })),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-proposals", pluginTab],
@@ -143,14 +163,7 @@ function AdminDashboard() {
       </div>
 
       <div className="mb-6 flex gap-1">
-        {(
-          [
-            ["builders", "Builders"],
-            ["projects", "Projects"],
-            ["events", "Events"],
-            ["nearcatalog", "NearCatalog"],
-          ] as const
-        ).map(([value, label]) => (
+        {PROPOSAL_TABS.map(([value, label], index) => (
           <button
             key={value}
             type="button"
@@ -161,7 +174,7 @@ function AdminDashboard() {
                 : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            {label}
+            {label} ({pendingCountQueries[index]?.data ?? 0})
           </button>
         ))}
       </div>
@@ -221,6 +234,7 @@ function ProposalReviewCard({ proposal }: { proposal: ProposalRecord }) {
       queryClient.invalidateQueries({ queryKey: ["builder-proposals"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["project-proposal", proposal.entityId] });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to approve"),
   });
@@ -238,6 +252,7 @@ function ProposalReviewCard({ proposal }: { proposal: ProposalRecord }) {
       queryClient.invalidateQueries({ queryKey: ["admin-proposals", proposal.pluginId] });
       queryClient.invalidateQueries({ queryKey: ["builder-proposals"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["project-proposal", proposal.entityId] });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to reject"),
   });

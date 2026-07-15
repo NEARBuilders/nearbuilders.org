@@ -124,6 +124,7 @@ function EditProjectPage() {
       queryClient.invalidateQueries({ queryKey: ["project", slug] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["admin-proposals", "projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project-proposal", projectId] });
       navigate({
         to: "/projects/$kind/$slug",
         params: { kind: project!.kind, slug: project!.slug },

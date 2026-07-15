@@ -3,6 +3,7 @@ import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { readString } from "../lib/utils";
+import { buildProposalApproval } from "./proposal-approval";
 
 type ProposalData = Pick<
   z.infer<typeof ProposalSchema>,
@@ -19,49 +20,16 @@ const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
 export function buildApprovalNotification(
   proposal: ProposalData,
 ): ProposalNotificationInput | null {
-  const payload =
-    proposal.payload && typeof proposal.payload === "object" && !Array.isArray(proposal.payload)
-      ? (proposal.payload as Record<string, unknown>)
-      : {};
-
-  if (proposal.pluginId === "projects") {
-    const slug = readString(payload.slug) ?? proposal.entityId;
-    const title = readString(payload.title) ?? "Project";
+  const approval = buildProposalApproval(proposal);
+  if (approval)
     return {
       userId: proposal.createdBy,
-      type: "project_approved",
-      source: "projects",
-      subject: `${title} approved`,
-      body: "Your project was approved and is now public on NEAR Builders.",
-      link: `/projects/project/${slug}`,
+      type: approval.notificationType,
+      source: approval.source,
+      subject: approval.title,
+      body: approval.notificationDescription,
+      link: approval.link,
     };
-  }
-
-  if (proposal.pluginId === "events") {
-    const slug = readString(payload.slug) ?? proposal.entityId;
-    const title = readString(payload.title) ?? "Event";
-    return {
-      userId: proposal.createdBy,
-      type: "event_approved",
-      source: "events",
-      subject: `${title} approved`,
-      body: "Your event was approved and is now public on NEAR Builders.",
-      link: `/events/${slug}`,
-    };
-  }
-
-  if (proposal.pluginId === "builders") {
-    const account = proposal.entityId;
-    const name = readString(payload.name) ?? account;
-    return {
-      userId: proposal.createdBy,
-      type: "builder_approved",
-      source: "builders",
-      subject: `${name} approved`,
-      body: "Your builder profile was approved and is now public on NEAR Builders.",
-      link: `/builders/${account}`,
-    };
-  }
 
   if (proposal.pluginId === CATALOG_CLAIM_PLUGIN_ID) {
     return {

@@ -21,6 +21,7 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
@@ -246,7 +247,8 @@ function ProjectDetailPage() {
   }
 
   const isAdmin = session?.user?.role === "admin";
-  const canManage = isAdmin || isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
+  const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
+  const canManage = isAdmin || isOwner;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
   const voteDirection = userVoteQuery.data ?? null;
 
@@ -420,6 +422,7 @@ function ProjectDetailPage() {
           {/* main content */}
           <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
             <div className="mx-auto max-w-3xl space-y-4">
+              <ProjectReviewStatus projectId={project.id} visible={isOwner} />
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <KindChip kind={project.kind} />

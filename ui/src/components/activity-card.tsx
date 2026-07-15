@@ -2,11 +2,13 @@ import { CheckCircle2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useMemo } from "react";
 import { CatalogClaimActivity } from "@/components/catalog-claim-activity";
 import { NearProfile } from "@/components/near-profile";
+import { ProjectApprovalActivity } from "@/components/project-approval-activity";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { readCatalogClaimActivityPayload } from "@/lib/catalog-activity";
+import { readProjectApprovalActivityPayload } from "@/lib/project-activity";
 import { type ActivityEvent, readActivityPayload } from "@/lib/queries/activity";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import { cn } from "@/lib/utils";
@@ -54,6 +56,13 @@ export function ActivityCard({
     () =>
       event.source === "nearcatalog" && event.type === "claim"
         ? readCatalogClaimActivityPayload(event.payload)
+        : null,
+    [event.payload, event.source, event.type],
+  );
+  const projectApproval = useMemo(
+    () =>
+      event.source === "projects" && event.type === "approved"
+        ? readProjectApprovalActivityPayload(event.payload)
         : null,
     [event.payload, event.source, event.type],
   );
@@ -123,6 +132,8 @@ export function ActivityCard({
 
         {catalogClaim ? (
           <CatalogClaimActivity payload={catalogClaim} />
+        ) : projectApproval ? (
+          <ProjectApprovalActivity payload={projectApproval} />
         ) : (
           <>
             {payload.title && (
