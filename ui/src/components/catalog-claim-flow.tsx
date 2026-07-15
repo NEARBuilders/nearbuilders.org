@@ -76,7 +76,18 @@ function createIdempotencyKey() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : nanoid();
 }
 
+function isInactiveProject(project: Pick<CatalogProject, "phase" | "status">) {
+  return [project.phase, project.status].some(
+    (value) => value?.trim().toLowerCase() === "inactive",
+  );
+}
+
+function projectAvailabilityLabel(project: CatalogProject) {
+  return isInactiveProject(project) ? "Inactive" : null;
+}
+
 function CatalogProjectPreview({ project }: { project: CatalogProject }) {
+  const availabilityLabel = projectAvailabilityLabel(project);
   return (
     <div className="flex gap-4 rounded-xl border border-border bg-muted/30 p-4">
       {project.imageUrl ? (
@@ -91,7 +102,10 @@ function CatalogProjectPreview({ project }: { project: CatalogProject }) {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-foreground">{project.name}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold text-foreground">{project.name}</p>
+          {availabilityLabel && <Badge variant="secondary">{availabilityLabel}</Badge>}
+        </div>
         {project.tagline && <p className="mt-1 text-sm text-muted-foreground">{project.tagline}</p>}
         {project.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -245,7 +259,7 @@ export function CatalogClaimFlow({ apiClient }: { apiClient: CatalogClaimApiClie
 
   const searchQuery = useQuery({
     queryKey: ["catalog-project-search", debouncedSearch],
-    queryFn: () => apiClient.searchCatalogProjects({ query: debouncedSearch, limit: 20 }),
+    queryFn: () => apiClient.searchCatalogProjects({ query: debouncedSearch }),
     enabled: debouncedSearch.length > 0,
     retry: false,
   });
@@ -349,7 +363,7 @@ export function CatalogClaimFlow({ apiClient }: { apiClient: CatalogClaimApiClie
         <div>
           <h2 className="text-xl font-bold text-foreground">Add a project contribution</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Choose an active NEAR Catalog project and describe how you contributed.
+            Choose a NEAR Catalog project and describe how you contributed.
           </p>
         </div>
 
@@ -402,13 +416,14 @@ export function CatalogClaimFlow({ apiClient }: { apiClient: CatalogClaimApiClie
             searchQuery.isSuccess &&
             searchResults.length === 0 && (
               <p className="py-3 text-sm text-muted-foreground">
-                No claimable active Catalog projects match this search.
+                No Catalog projects match this search.
               </p>
             )}
           {!selectedProject && !isDebouncing && searchResults.length > 0 && (
             <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border p-2">
               {searchResults.map((project) => {
                 const existingProposal = proposalsByProject.get(project.slug);
+                const availabilityLabel = projectAvailabilityLabel(project);
                 return (
                   <button
                     key={project.slug}
@@ -444,11 +459,18 @@ export function CatalogClaimFlow({ apiClient }: { apiClient: CatalogClaimApiClie
                         </span>
                       )}
                     </span>
-                    {existingProposal ? (
-                      <Badge variant={statusVariant(existingProposal.status)}>
-                        {proposalSearchLabel(existingProposal.status)}
-                      </Badge>
-                    ) : null}
+                    {(availabilityLabel || existingProposal) && (
+                      <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        {availabilityLabel && (
+                          <Badge variant="secondary">{availabilityLabel}</Badge>
+                        )}
+                        {existingProposal && (
+                          <Badge variant={statusVariant(existingProposal.status)}>
+                            {proposalSearchLabel(existingProposal.status)}
+                          </Badge>
+                        )}
+                      </span>
+                    )}
                   </button>
                 );
               })}

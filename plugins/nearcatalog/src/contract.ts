@@ -11,14 +11,13 @@ import {
 import { oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
-export const CatalogProjectSlugSchema = z
-  .string()
-  .min(1)
-  .max(120)
-  .regex(/^[a-z0-9-]+$/);
+const CatalogProjectSlugPattern = /^(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/;
+export const CatalogProjectSlugSchema = z.string().min(1).max(120).regex(CatalogProjectSlugPattern);
 const RolesSchema = z.array(z.string().trim().min(1).max(50)).min(1).max(16);
 const CursorSchema = z.string().regex(/^\d+$/);
-const CatalogProjectReferenceSchema = z.string().regex(/^nearcatalog:[a-z0-9-]+$/);
+const CatalogProjectReferenceSchema = z
+  .string()
+  .regex(/^nearcatalog:(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/);
 const CatalogClaimHistoryActionSchema = z.enum(["applied", "activity-linked", "revoked"]);
 
 export const CatalogProjectSchema = z.object({
@@ -83,7 +82,6 @@ export const contract = oc.router({
     .input(
       z.object({
         query: z.string().trim().min(1).max(100),
-        limit: z.number().int().min(1).max(50).optional(),
       }),
     )
     .output(z.object({ data: z.array(CatalogProjectSchema) }))

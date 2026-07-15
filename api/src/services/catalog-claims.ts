@@ -54,12 +54,7 @@ export function createCatalogClaims(plugins: Omit<PluginsClient, "auth">) {
         });
       }
 
-      const project = await plugins.nearcatalog().getCatalogProject({ slug: input.projectSlug });
-      if (project.data.status?.toLowerCase() !== "active") {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "Only active Catalog projects can be claimed",
-        });
-      }
+      await plugins.nearcatalog().getCatalogProject({ slug: input.projectSlug });
 
       const nearAccount = builderProfile.data.nearAccount.trim().toLowerCase();
       const roles = normalizeCatalogClaimRoles(input.roles);

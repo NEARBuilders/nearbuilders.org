@@ -96,18 +96,15 @@ export const ActivityFiltersSchema = z.object({
   actor: z.string().optional(),
 });
 
-const CatalogProjectSlugSchema = z
-  .string()
-  .min(1)
-  .max(120)
-  .regex(/^[a-z0-9-]+$/);
+const CatalogProjectSlugPattern = /^(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/;
+const CatalogProjectSlugSchema = z.string().min(1).max(120).regex(CatalogProjectSlugPattern);
 const CatalogCursorSchema = z.string().regex(/^\d+$/);
 const CatalogClaimRolesSchema = z.array(z.string().trim().min(1).max(50)).min(1).max(16);
 const CatalogClaimProposalStatusSchema = z.enum(["pending", "rejected", "approved", "revoked"]);
 
 const CatalogProjectSchema = z.object({
   slug: CatalogProjectSlugSchema,
-  projectRef: z.string().regex(/^nearcatalog:[a-z0-9-]+$/),
+  projectRef: z.string().regex(/^nearcatalog:(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/),
   name: z.string(),
   tagline: z.string().nullable(),
   description: z.string().nullable(),
@@ -503,7 +500,6 @@ export const contract = oc.router({
     .input(
       z.object({
         query: z.string().trim().min(1).max(100),
-        limit: z.number().int().min(1).max(50).optional(),
       }),
     )
     .output(z.object({ data: z.array(CatalogProjectSchema) }))

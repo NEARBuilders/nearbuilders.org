@@ -30,9 +30,6 @@ export async function applyCatalogClaimApplication({
 
   await plugins.builders(context).getBuilder({ nearAccount });
   const catalogProject = await plugins.nearcatalog().getCatalogProject({ slug: projectSlug });
-  if (catalogProject.data.status?.toLowerCase() !== "active") {
-    throw new ORPCError("BAD_REQUEST", { message: "Only active Catalog projects can be claimed" });
-  }
 
   let claimId: string | undefined;
   let activityEventId: string | undefined;

@@ -69,7 +69,6 @@ export declare const ClaimedCatalogProjectSchema: z.ZodObject<{
 export declare const contract: {
     searchCatalogProjects: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         query: z.ZodString;
-        limit: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodArray<z.ZodObject<{
             slug: z.ZodString;

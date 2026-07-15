@@ -31,7 +31,7 @@ async function effectError(effect: Effect.Effect<unknown, ORPCError<string, unkn
 }
 
 describe("Catalog adapter", () => {
-  it("filters inactive search results and normalizes project metadata", async () => {
+  it("returns all valid search results and normalizes project metadata", async () => {
     const fetchMock = async () =>
       response({
         active: activeProject,
@@ -43,7 +43,7 @@ describe("Catalog adapter", () => {
       });
     const catalog = createCatalogMethods("https://api.nearcatalog.xyz", fetchMock);
 
-    const projects = await Effect.runPromise(catalog.searchProjects("ref", 10));
+    const projects = await Effect.runPromise(catalog.searchProjects("ref"));
 
     expect(projects).toEqual([
       {
@@ -58,6 +58,19 @@ describe("Catalog adapter", () => {
         tags: ["DeFi", "DEX"],
         phase: "mainnet",
         status: "active",
+      },
+      {
+        slug: "inactive-project",
+        projectRef: "nearcatalog:inactive-project",
+        name: "Ref Finance",
+        tagline: "DeFi on NEAR",
+        description: "Decentralized exchange",
+        imageUrl: "https://example.com/ref.png",
+        repositoryUrl: "https://github.com/ref-finance/ref-ui",
+        catalogUrl: "https://nearcatalog.xyz/project/inactive-project",
+        tags: ["DeFi", "DEX"],
+        phase: "inactive",
+        status: null,
       },
     ]);
   });
@@ -110,7 +123,91 @@ describe("Catalog adapter", () => {
 
     const projects = await Effect.runPromise(catalog.searchProjects("nearcatalog"));
 
-    expect(projects).toEqual([]);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toMatchObject({
+      slug: "sample-page",
+      tags: [],
+      phase: null,
+      status: null,
+    });
+  });
+
+  it("treats blank-status mainnet projects as active", async () => {
+    const mainnetProject = {
+      slug: "degen-arena",
+      profile: {
+        name: "Degen Arena",
+        tagline: "See you in the arena",
+        image: { url: "https://indexer.nearcatalog.xyz/degen-arena.jpg" },
+        tags: { dapp: "Dapp", game: "Game" },
+        phase: "mainnet",
+        status: "",
+      },
+    };
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response({ "degen-arena": mainnetProject }),
+    );
+
+    const projects = await Effect.runPromise(catalog.searchProjects("degen"));
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toMatchObject({
+      slug: "degen-arena",
+      name: "Degen Arena",
+      phase: "mainnet",
+      status: "active",
+    });
+  });
+
+  it("accepts percent-encoded Catalog slugs", async () => {
+    const slug = "curate-fun-%ef%b8%8f-autonomous-news";
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response({
+        [slug]: {
+          ...activeProject,
+          slug,
+          profile: { ...activeProject.profile, phase: "inactive", status: "" },
+        },
+      }),
+    );
+
+    const projects = await Effect.runPromise(catalog.searchProjects("curate"));
+
+    expect(projects).toEqual([
+      expect.objectContaining({
+        slug,
+        projectRef: `nearcatalog:${slug}`,
+      }),
+    ]);
+  });
+
+  it("returns every project in the upstream search response", async () => {
+    const responseProjects = Object.fromEntries(
+      Array.from({ length: 60 }, (_, index) => {
+        const slug = `project-${index}`;
+        return [slug, { ...activeProject, slug }];
+      }),
+    );
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response(responseProjects),
+    );
+
+    const projects = await Effect.runPromise(catalog.searchProjects("project"));
+
+    expect(projects).toHaveLength(60);
+  });
+
+  it("preserves conflicting phase and status metadata", async () => {
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response({
+        ...activeProject,
+        profile: { ...activeProject.profile, phase: "inactive", status: "active" },
+      }),
+    );
+
+    const project = await Effect.runPromise(catalog.getProject("ref-finance"));
+
+    expect(project).toMatchObject({ phase: "inactive", status: "active" });
   });
 
   it.each([

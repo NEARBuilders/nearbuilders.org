@@ -88,7 +88,7 @@ export default createPlugin({
 
     return {
       searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => ({
-        data: await runEffect(services.catalog.searchProjects(input.query, input.limit)),
+        data: await runEffect(services.catalog.searchProjects(input.query)),
       })),
 
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => ({
@@ -109,7 +109,6 @@ export default createPlugin({
           async ([slug, claims]) => {
             try {
               const project = await runEffect(services.catalog.getProject(slug));
-              if (project.status !== "active") return null;
               return {
                 project,
                 contributors: claims.map(({ id, nearAccount, roles, createdAt, updatedAt }) => ({
@@ -149,18 +148,10 @@ export default createPlugin({
           data: await runEffect(services.claims.getClaimHistory(input.id)),
         })),
 
-      applyCatalogClaim: builder.applyCatalogClaim
-        .use(requireAdmin)
-        .handler(async ({ input, errors }) => {
-          const project = await runEffect(services.catalog.getProject(input.projectSlug));
-          if (project.status !== "active") {
-            throw errors.BAD_REQUEST({
-              message: "Only active Catalog projects can be claimed",
-              data: {},
-            });
-          }
-          return { data: await runEffect(services.claims.applyClaim(input)) };
-        }),
+      applyCatalogClaim: builder.applyCatalogClaim.use(requireAdmin).handler(async ({ input }) => {
+        await runEffect(services.catalog.getProject(input.projectSlug));
+        return { data: await runEffect(services.claims.applyClaim(input)) };
+      }),
 
       setCatalogClaimActivity: builder.setCatalogClaimActivity
         .use(requireAdmin)

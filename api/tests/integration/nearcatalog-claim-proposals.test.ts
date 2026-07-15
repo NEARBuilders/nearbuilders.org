@@ -270,14 +270,13 @@ describe("Catalog claim proposal API", () => {
     expect(applyCatalogClaimMock).not.toHaveBeenCalled();
     expect(emitActivityMock).not.toHaveBeenCalled();
 
-    await expect(
-      client.submitCatalogClaimProposal({
-        projectSlug: "inactive-project",
-        roles: ["Developer"],
-        idempotencyKey: "inactive",
-      }),
-    ).rejects.toThrow("Only active Catalog projects can be claimed");
-    expect(proposeMock).toHaveBeenCalledTimes(1);
+    const inactive = await client.submitCatalogClaimProposal({
+      projectSlug: "inactive-project",
+      roles: ["Developer"],
+      idempotencyKey: "inactive",
+    });
+    expect(inactive.data).toMatchObject({ projectSlug: "inactive-project", status: "pending" });
+    expect(proposeMock).toHaveBeenCalledTimes(2);
 
     await expect(
       client.propose({
@@ -286,7 +285,7 @@ describe("Catalog claim proposal API", () => {
         payload: { nearAccount: "mallory.near" },
       }),
     ).rejects.toThrow("Use the Catalog claim proposal endpoint");
-    expect(proposeMock).toHaveBeenCalledTimes(1);
+    expect(proposeMock).toHaveBeenCalledTimes(2);
   });
 
   it("keeps retries idempotent and only permits rejected proposal revisions", async () => {

@@ -31,6 +31,8 @@ const catalogProject = {
   },
 };
 
+const encodedProjectSlug = "curate-fun-%ef%b8%8f-autonomous-news";
+
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
   const files = ["0000_happy_black_bolt.sql", "0001_plain_tusk.sql"];
@@ -64,7 +66,27 @@ describe("NearCatalog plugin", () => {
           return new Response("Unavailable", { status: 503 });
         }
         if (input.pathname === "/search") {
+          if (input.searchParams.get("kw") === "curate") {
+            return new Response(
+              JSON.stringify({
+                [encodedProjectSlug]: {
+                  ...catalogProject,
+                  slug: encodedProjectSlug,
+                  profile: { ...catalogProject.profile, phase: "inactive", status: "" },
+                },
+              }),
+            );
+          }
           return new Response(JSON.stringify({ "ref-finance": catalogProject }));
+        }
+        if (projectSlug === encodedProjectSlug) {
+          return new Response(
+            JSON.stringify({
+              ...catalogProject,
+              slug: encodedProjectSlug,
+              profile: { ...catalogProject.profile, phase: "inactive", status: "" },
+            }),
+          );
         }
         if (projectSlug === "offline-project") {
           return new Response(JSON.stringify({ ...catalogProject, slug: projectSlug }));
@@ -96,6 +118,7 @@ describe("NearCatalog plugin", () => {
     });
     const publicClient = loaded.createClient();
     const search = await publicClient.searchCatalogProjects({ query: "ref" });
+    const encodedSearch = await publicClient.searchCatalogProjects({ query: "curate" });
     const project = await publicClient.getCatalogProject({ slug: "ref-finance" });
     const input = {
       nearAccount: "alice.near",
@@ -104,10 +127,20 @@ describe("NearCatalog plugin", () => {
     };
 
     expect(search.data[0]?.projectRef).toBe("nearcatalog:ref-finance");
+    expect(encodedSearch.data[0]).toMatchObject({
+      slug: encodedProjectSlug,
+      projectRef: `nearcatalog:${encodedProjectSlug}`,
+    });
     expect(project.data.repositoryUrl).toBe("https://github.com/ref-finance/ref-ui");
     await expect(anonymous.applyCatalogClaim(input)).rejects.toThrow("Authentication required");
     await expect(member.applyCatalogClaim(input)).rejects.toThrow("Admin access required");
     const applied = await admin.applyCatalogClaim(input);
+    const inactiveApplied = await admin.applyCatalogClaim({
+      nearAccount: "curator.near",
+      projectSlug: encodedProjectSlug,
+      roles: ["Curator"],
+    });
+    await admin.revokeCatalogClaim({ id: inactiveApplied.data.id });
     await admin.setCatalogClaimActivity({ id: applied.data.id, activityEventId: "act-alice" });
     const offline = await admin.applyCatalogClaim({
       nearAccount: "bob.near",
@@ -118,6 +151,7 @@ describe("NearCatalog plugin", () => {
     const listed = await publicClient.listCatalogClaims({ nearAccount: "alice.near" });
 
     expect(applied.data.id).toBe("claim:alice.near:ref-finance");
+    expect(inactiveApplied.data.id).toBe(`claim:curator.near:${encodedProjectSlug}`);
     expect(listed.data).toHaveLength(1);
     offlineProjectUnavailable = true;
 

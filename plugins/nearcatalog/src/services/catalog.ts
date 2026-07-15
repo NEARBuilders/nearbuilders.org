@@ -32,6 +32,15 @@ function textOrNull(value: string | null | undefined): string | null {
   return normalized ? normalized : null;
 }
 
+function projectStatus(
+  status: string | null | undefined,
+  phase: string | null | undefined,
+): string | null {
+  const normalizedStatus = textOrNull(status);
+  if (normalizedStatus) return normalizedStatus;
+  return phase?.trim().toLowerCase() === "mainnet" ? "active" : null;
+}
+
 function urlOrNull(value: unknown, hostname?: string): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
@@ -52,6 +61,8 @@ function normalizeProject(raw: z.infer<typeof RawProjectSchema>): CatalogProject
     (tag): tag is string => typeof tag === "string" && Boolean(tag.trim()),
   );
   const repositoryUrl = urlOrNull(raw.profile.linktree?.github, "github.com");
+  const phase = textOrNull(raw.profile.phase);
+  const status = projectStatus(raw.profile.status, raw.profile.phase);
 
   return {
     slug: raw.slug,
@@ -63,8 +74,8 @@ function normalizeProject(raw: z.infer<typeof RawProjectSchema>): CatalogProject
     repositoryUrl,
     catalogUrl: `https://nearcatalog.xyz/project/${raw.slug}`,
     tags: Array.from(new Set(tags.map((tag) => tag.trim()))),
-    phase: textOrNull(raw.profile.phase),
-    status: textOrNull(raw.profile.status),
+    phase,
+    status,
   };
 }
 
@@ -150,7 +161,7 @@ export function createCatalogMethods(
     });
 
   return {
-    searchProjects: (query: string, limit = 20) =>
+    searchProjects: (query: string) =>
       Effect.gen(function* () {
         const params = new URLSearchParams({ kw: query.trim() });
         const result = yield* fetchProjectData(`/search?${params}`, SearchResponseSchema);
@@ -160,9 +171,7 @@ export function createCatalogMethods(
             const parsed = RawProjectSchema.safeParse(project);
             return parsed.success ? [parsed.data] : [];
           })
-          .filter((project) => project.profile.status?.trim() === "active")
-          .map(normalizeProject)
-          .slice(0, Math.min(limit, 50));
+          .map(normalizeProject);
       }),
 
     getProject: (slug: string) =>
