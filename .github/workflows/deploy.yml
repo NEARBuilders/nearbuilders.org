@@ -81,43 +81,8 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "chore: update deployment URLs [skip ci]"
             for i in 1 2 3; do
-              git pull --rebase origin "$TARGET_BRANCH" && git push origin HEAD:"$TARGET_BRANCH" && break
+              git pull --rebase origin "$TARGET_BRANCH" && git push origin HEAD:"$TARGET_BRANCH" && exit 0
               sleep 3
             done
+            exit 1
           fi
-
-      - name: Create GitHub Releases for deployed workspaces
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          shopt -s nullglob
-          changelogs=( */CHANGELOG.md plugins/*/CHANGELOG.md )
-          shopt -u nullglob
-
-          for changelog in "${changelogs[@]}"; do
-            pkg_dir=$(dirname "$changelog")
-
-            [[ "$(basename "$pkg_dir")" == _* ]] && continue
-
-            PKG_JSON="$pkg_dir/package.json"
-            [ ! -f "$PKG_JSON" ] && continue
-
-            VERSION=$(jq -r '.version // empty' "$PKG_JSON")
-            NAME=$(jq -r '.name // empty' "$PKG_JSON")
-            [ -z "$VERSION" ] || [ -z "$NAME" ] && continue
-
-            TAG="${NAME}@${VERSION}"
-
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "Release $TAG already exists, skipping"
-              continue
-            fi
-
-            NOTES=$(sed -n "/^## ${VERSION}/,/^## [0-9]/p" "$changelog" | sed '$d' | tail -n +2)
-            [ -z "$NOTES" ] && NOTES="Release $TAG"
-
-            gh release create "$TAG" \
-              --title "$TAG" \
-              --notes "$NOTES" \
-              --target "$TARGET_BRANCH"
-          done

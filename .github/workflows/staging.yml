@@ -73,7 +73,8 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "chore: update staging deployment URLs [skip ci]"
             for i in 1 2 3; do
-              git pull --rebase origin "$TARGET_BRANCH" && git push origin HEAD:"$TARGET_BRANCH" && break
+              git pull --rebase origin "$TARGET_BRANCH" && git push origin HEAD:"$TARGET_BRANCH" && exit 0
               sleep 3
             done
+            exit 1
           fi
