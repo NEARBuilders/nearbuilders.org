@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, RefreshCw } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { customAlphabet } from "nanoid";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
@@ -16,11 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  getEventFormErrorMessage,
-  normalizeEventFormValues,
-  normalizeLumaEventDetails,
-} from "./-event-form-utils";
+import { getEventFormErrorMessage, normalizeEventFormValues } from "./-event-form-utils";
 
 type Visibility = "private" | "unlisted" | "public";
 
@@ -85,32 +81,6 @@ function NewEventPage() {
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [startAt, setStartAt] = useState(toDateTimeLocalValue());
   const [endAt, setEndAt] = useState("");
-
-  const lumaMutation = useMutation({
-    mutationFn: async () => {
-      if (!lumaUrl.trim()) {
-        throw new Error("Luma URL is required");
-      }
-      return await apiClient.fetchLumaEvent({ url: lumaUrl.trim() });
-    },
-    onSuccess: ({ data }) => {
-      const normalized = normalizeLumaEventDetails(data, lumaUrl);
-      if (normalized.lumaUrl) setLumaUrl(normalized.lumaUrl);
-      if (normalized.title) setTitle(normalized.title);
-      if (normalized.description) setDescription(normalized.description);
-      if (normalized.content && !content.trim()) setContent(normalized.content);
-      if (normalized.location) setLocation(normalized.location);
-      if (data.startAt) setStartAt(toDateTimeLocalValue(new Date(data.startAt)));
-      if (data.endAt) setEndAt(toDateTimeLocalValue(new Date(data.endAt)));
-      toast.success(
-        normalized.wasTrimmed
-          ? "Fetched Luma event details and shortened long fields"
-          : "Fetched Luma event details",
-      );
-    },
-    onError: (err: Error) =>
-      toast.error(getEventFormErrorMessage(err, "Failed to fetch Luma event")),
-  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -212,25 +182,14 @@ function NewEventPage() {
           <div className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="lumaUrl">Luma URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="lumaUrl"
-                  type="url"
-                  value={lumaUrl}
-                  onChange={(e) => setLumaUrl(e.target.value)}
-                  placeholder="https://luma.com/..."
-                  maxLength={500}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={lumaMutation.isPending}
-                  onClick={() => lumaMutation.mutate()}
-                >
-                  <RefreshCw size={14} className={lumaMutation.isPending ? "animate-spin" : ""} />
-                  Fetch
-                </Button>
-              </div>
+              <Input
+                id="lumaUrl"
+                type="url"
+                value={lumaUrl}
+                onChange={(e) => setLumaUrl(e.target.value)}
+                placeholder="https://luma.com/..."
+                maxLength={500}
+              />
             </div>
 
             <div className="space-y-1.5">

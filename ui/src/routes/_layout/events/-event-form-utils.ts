@@ -4,22 +4,6 @@ const CONTENT_MAX_LENGTH = 50000;
 const LOCATION_MAX_LENGTH = 200;
 const LUMA_URL_MAX_LENGTH = 500;
 
-type LumaEventDetails = {
-  title?: string;
-  description?: string;
-  lumaUrl?: string;
-  location?: string;
-};
-
-type NormalizedLumaEventDetails = {
-  title?: string;
-  description?: string;
-  content?: string;
-  lumaUrl?: string;
-  location?: string;
-  wasTrimmed: boolean;
-};
-
 type EventFormValues = {
   title: string;
   description: string;
@@ -45,33 +29,6 @@ function trimToMax(value: string | undefined, maxLength: number) {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   return trimmed.length > maxLength ? trimmed.slice(0, maxLength).trimEnd() : trimmed;
-}
-
-export function normalizeLumaEventDetails(
-  data: LumaEventDetails,
-  fallbackLumaUrl: string,
-): NormalizedLumaEventDetails {
-  const title = trimToMax(data.title, TITLE_MAX_LENGTH);
-  const description = trimToMax(data.description, DESCRIPTION_MAX_LENGTH);
-  const content = data.description?.trim() || undefined;
-  const location = trimToMax(data.location, LOCATION_MAX_LENGTH);
-  const lumaUrl =
-    data.lumaUrl && data.lumaUrl.length <= LUMA_URL_MAX_LENGTH
-      ? data.lumaUrl
-      : trimToMax(fallbackLumaUrl, LUMA_URL_MAX_LENGTH);
-
-  return {
-    title,
-    description,
-    content,
-    lumaUrl,
-    location,
-    wasTrimmed:
-      (!!data.title && title !== data.title.trim()) ||
-      (!!data.description && description !== data.description.trim()) ||
-      (!!data.location && location !== data.location.trim()) ||
-      (!!data.lumaUrl && lumaUrl !== data.lumaUrl),
-  };
 }
 
 export function normalizeEventFormValues(values: EventFormValues): NormalizedEventFormValues {
