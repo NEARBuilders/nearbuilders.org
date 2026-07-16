@@ -29,7 +29,7 @@
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.7.0",
       "every-plugin": "^2.7.1",
-      "everything-dev": "^1.46.1",
+      "everything-dev": "^1.47.0",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -99,7 +99,7 @@
   "type": "module",
   "devDependencies": {
     "@biomejs/biome": "2.4.14",
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^2.29.8",
     "@types/bun": "latest",
     "dotenv": "^17.3.1",
     "tsx": "^4.21.0",

@@ -405,15 +405,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       listLumaCalendars: builder.listLumaCalendars.handler(async () => {
-        return await services.plugins.events().listLumaCalendars();
+        try {
+          return await services.plugins.events().listLumaCalendars();
+        } catch (error) {
+          console.error("[API] Failed to list Luma calendars:", error);
+          throw error;
+        }
       }),
 
       listLumaEvents: builder.listLumaEvents.handler(async ({ input, context }) => {
-        return await services.plugins.events(context).listLumaEvents(input);
+        try {
+          return await services.plugins.events(context).listLumaEvents(input);
+        } catch (error) {
+          console.error("[API] Failed to list Luma events:", error);
+          throw error;
+        }
       }),
 
       getLumaEvent: builder.getLumaEvent.handler(async ({ input, context }) => {
-        return await services.plugins.events(context).getLumaEvent(input);
+        try {
+          return await services.plugins.events(context).getLumaEvent(input);
+        } catch (error) {
+          console.error("[API] Failed to get Luma event:", error);
+          throw error;
+        }
       }),
 
       createEvent: builder.createEvent.use(requireAuth).handler(async ({ input, context }) => {

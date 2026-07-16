@@ -19,7 +19,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: activity_db
     ports:
-      - "5434:5432"
+      - "5440:5432"
     volumes:
       - nearbuilding_near_postgres_activity_data:/var/lib/postgresql/data
 
@@ -52,7 +52,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: builders_db
     ports:
-      - "5435:5432"
+      - "5442:5432"
     volumes:
       - nearbuilding_near_postgres_builders_data:/var/lib/postgresql/data
 
@@ -63,7 +63,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: events_db
     ports:
-      - "5436:5432"
+      - "5443:5432"
     volumes:
       - nearbuilding_near_postgres_events_data:/var/lib/postgresql/data
 
@@ -74,7 +74,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: nearcatalog_db
     ports:
-      - "5437:5432"
+      - "5441:5432"
     volumes:
       - nearbuilding_near_postgres_nearcatalog_data:/var/lib/postgresql/data
 
@@ -85,7 +85,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: notifications_db
     ports:
-      - "5438:5432"
+      - "5444:5432"
     volumes:
       - nearbuilding_near_postgres_notifications_data:/var/lib/postgresql/data
 
@@ -96,7 +96,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: projects_db
     ports:
-      - "5439:5432"
+      - "5445:5432"
     volumes:
       - nearbuilding_near_postgres_projects_data:/var/lib/postgresql/data
 
@@ -107,7 +107,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: proposals_db
     ports:
-      - "5440:5432"
+      - "5437:5432"
     volumes:
       - nearbuilding_near_postgres_proposals_data:/var/lib/postgresql/data
 
@@ -118,7 +118,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: votes_db
     ports:
-      - "5441:5432"
+      - "5446:5432"
     volumes:
       - nearbuilding_near_postgres_votes_data:/var/lib/postgresql/data
 

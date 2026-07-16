@@ -1,38 +1,53 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { Data } from "every-plugin/effect";
 import * as schema from "./schema";
 
-export type VotesDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
+export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export interface DatabaseDriver {
-  readonly db: VotesDatabase;
+  readonly db: Database;
   close(): Promise<void>;
 }
+
+export class DatabaseError extends Data.TaggedError("DatabaseError")<{
+  stage: "driver" | "migration" | "load" | "close";
+  migrationTag?: string;
+  statementIndex?: number;
+  cause: unknown;
+}> {}
 
 export async function createDatabaseDriver(url: string): Promise<DatabaseDriver> {
   if (url.startsWith("pglite:") || url === ":memory:") {
     const { drizzle } = await import("drizzle-orm/pglite");
+    const { PGlite } = await import("@electric-sql/pglite");
     const rawDir = url === ":memory:" ? ":memory:" : url.replace("pglite:", "");
     const dataDir = rawDir.endsWith("/:memory:") || rawDir === ":memory:" ? ":memory:" : rawDir;
     if (dataDir !== ":memory:") {
       mkdirSync(dirname(dataDir), { recursive: true });
     }
-    const db = drizzle(dataDir, { schema });
+    const pglite = new PGlite(dataDir);
+    const db = drizzle(pglite, { schema });
     return {
       db,
-      close: async () => {},
+      close: async () => {
+        await pglite.close();
+      },
     };
   }
 
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
   const pool = new Pool({
     connectionString: url,
-    ssl:
-      url.includes("localhost") || url.includes("127.0.0.1")
-        ? false
-        : { rejectUnauthorized: false },
+    ssl: isLocal
+      ? false
+      : { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false" },
+    max: Number(process.env.DB_POOL_MAX) || 10,
+    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 30_000,
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30_000,
   });
   return {
     db: drizzle(pool, { schema }),

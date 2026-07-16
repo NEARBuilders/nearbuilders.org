@@ -29,7 +29,13 @@ export default createPlugin({
 
       console.log("[Events] Services Initialized");
       return { event, luma };
-    }),
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          console.error("[Events] Plugin initialization failed:", error);
+        }),
+      ),
+    ),
 
   shutdown: () => Effect.log("[Events] Shutdown"),
 
@@ -65,7 +71,12 @@ export default createPlugin({
 
     return {
       listLumaCalendars: builder.listLumaCalendars.handler(async () => {
-        return await services.luma.listCalendars();
+        try {
+          return await services.luma.listCalendars();
+        } catch (error) {
+          console.error("[Events] Failed to list Luma calendars:", error);
+          throw error;
+        }
       }),
 
       listLumaEvents: builder.listLumaEvents.handler(async ({ input, errors, context }) => {
@@ -75,6 +86,7 @@ export default createPlugin({
             isAdmin: context.user?.role === "admin",
           });
         } catch (error) {
+          console.error("[Events] Failed to list Luma events:", error);
           throw errors.BAD_REQUEST({
             message: error instanceof Error ? error.message : "Could not list Luma events",
             data: {},

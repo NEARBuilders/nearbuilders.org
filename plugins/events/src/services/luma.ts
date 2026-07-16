@@ -419,7 +419,8 @@ export class LumaService {
         });
         events.push(...page.events);
         nextState[calendar.id] = page.nextCursor;
-      } catch {
+      } catch (error) {
+        console.error(`[Luma] Failed to list events for calendar ${calendar.id}:`, error);
         unavailableCalendarIds.push(calendar.id);
         nextState[calendar.id] = null;
       }
@@ -498,6 +499,7 @@ export class LumaService {
 
     for (const result of results) {
       if (result.status === "rejected") {
+        console.error("[Luma] Failed to load calendar with API key:", result.reason);
         unavailableCount += 1;
         continue;
       }
