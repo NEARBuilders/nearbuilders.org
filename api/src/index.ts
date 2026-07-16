@@ -404,8 +404,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.events(context).leaveEvent(input);
       }),
 
-      fetchLumaEvent: builder.fetchLumaEvent.handler(async ({ input }) => {
-        return await services.plugins.events().fetchLumaEvent(input);
+      listLumaCalendars: builder.listLumaCalendars.handler(async () => {
+        return await services.plugins.events().listLumaCalendars();
+      }),
+
+      listLumaEvents: builder.listLumaEvents.handler(async ({ input }) => {
+        return await services.plugins.events().listLumaEvents(input);
+      }),
+
+      getLumaEvent: builder.getLumaEvent.handler(async ({ input }) => {
+        return await services.plugins.events().getLumaEvent(input);
       }),
 
       createEvent: builder.createEvent.use(requireAuth).handler(async ({ input, context }) => {

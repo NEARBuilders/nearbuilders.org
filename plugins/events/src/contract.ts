@@ -31,21 +31,92 @@ const EventParticipantOutput = z.object({
   updatedAt: z.iso.datetime(),
 });
 
-const LumaEventOutput = z.object({
-  title: z.string().optional(),
-  description: z.string().optional(),
-  lumaUrl: z.string().url(),
-  startAt: z.iso.datetime().optional(),
-  endAt: z.iso.datetime().optional(),
-  location: z.string().optional(),
+const LumaCalendarOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string().nullable(),
+  url: z.string().url(),
+  avatarUrl: z.string().url().nullable(),
+  coverImageUrl: z.string().url().nullable(),
+  description: z.string().nullable(),
+  timezone: z.string().nullable(),
+});
+
+const LumaCalendarEventOutput = z.object({
+  id: z.string(),
+  calendarId: z.string(),
+  platform: z.enum(["luma", "external"]),
+  title: z.string(),
+  url: z.string().url(),
+  coverUrl: z.string().url().nullable(),
+  startAt: z.iso.datetime(),
+  endAt: z.iso.datetime().nullable(),
+  timezone: z.string(),
+  location: z.string().nullable(),
+  locationType: z.string().nullable(),
+  visibility: z.enum(["public", "members-only", "private"]),
+  access: z.enum(["manage", "view"]).nullable(),
+});
+
+const LumaEventDetailsOutput = LumaCalendarEventOutput.extend({
+  description: z.string().nullable(),
+  descriptionMarkdown: z.string().nullable(),
+  hosts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      avatarUrl: z.string().url().nullable(),
+    }),
+  ),
+  guestCount: z.number().int().nonnegative(),
+  registrationOpen: z.boolean(),
+  spotsRemaining: z.number().int().nonnegative().nullable(),
+  requireApproval: z.boolean(),
+  waitlistEnabled: z.boolean(),
+  displayPrice: z
+    .object({
+      amount: z.number().nonnegative(),
+      currency: z.string(),
+      isFlexible: z.boolean(),
+    })
+    .nullable(),
 });
 
 export const contract = oc.router({
-  fetchLumaEvent: oc
-    .route({ method: "GET", path: "/v1/luma/event" })
-    .input(z.object({ url: z.string().url().max(500) }))
-    .output(z.object({ data: LumaEventOutput }))
+  listLumaCalendars: oc.route({ method: "GET", path: "/v1/luma/calendars" }).output(
+    z.object({
+      data: z.array(LumaCalendarOutput),
+      unavailableCount: z.number().int().nonnegative(),
+    }),
+  ),
+
+  listLumaEvents: oc
+    .route({ method: "GET", path: "/v1/luma/events" })
+    .input(
+      z.object({
+        after: z.iso.datetime().optional(),
+        before: z.iso.datetime().optional(),
+        cursor: z.string().optional(),
+        limitPerCalendar: z.number().int().min(1).max(50).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(LumaCalendarEventOutput),
+        meta: z.object({
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+        unavailableCalendarIds: z.array(z.string()),
+      }),
+    )
     .errors({ BAD_REQUEST }),
+
+  getLumaEvent: oc
+    .route({ method: "GET", path: "/v1/luma/calendars/{calendarId}/events/{eventId}" })
+    .input(z.object({ calendarId: z.string().min(1), eventId: z.string().min(1) }))
+    .output(z.object({ data: LumaEventDetailsOutput }))
+    .errors({ NOT_FOUND }),
 
   listEvents: oc
     .route({ method: "GET", path: "/v1/events" })

@@ -52,6 +52,7 @@ import { Route as LayoutAuthenticatedDashboardResultsIndexRouteImport } from './
 import { Route as LayoutAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/index'
 import { Route as LayoutAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/ideas.index'
 import { Route as LayoutProjectsKindSlugEditRouteImport } from './routes/_layout/projects/$kind.$slug_.edit'
+import { Route as LayoutEventsLumaCalendarIdEventIdRouteImport } from './routes/_layout/events/luma/$calendarId/$eventId'
 import { Route as LayoutAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/security'
 import { Route as LayoutAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/profile'
 import { Route as LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/auth-methods'
@@ -288,6 +289,12 @@ const LayoutProjectsKindSlugEditRoute =
     path: '/$kind/$slug/edit',
     getParentRoute: () => LayoutProjectsRoute,
   } as any)
+const LayoutEventsLumaCalendarIdEventIdRoute =
+  LayoutEventsLumaCalendarIdEventIdRouteImport.update({
+    id: '/luma/$calendarId/$eventId',
+    path: '/luma/$calendarId/$eventId',
+    getParentRoute: () => LayoutEventsRoute,
+  } as any)
 const LayoutAuthenticatedDashboardSettingsSecurityRoute =
   LayoutAuthenticatedDashboardSettingsSecurityRouteImport.update({
     id: '/security',
@@ -365,6 +372,7 @@ export interface FileRoutesByFullPath {
   '/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
   '/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
   '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof LayoutProjectsKindSlugEditRoute
   '/ideas/': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/organizations/': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
@@ -408,6 +416,7 @@ export interface FileRoutesByTo {
   '/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
   '/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
   '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof LayoutProjectsKindSlugEditRoute
   '/ideas': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/organizations': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
@@ -460,6 +469,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard/settings/auth-methods': typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRoute
   '/_layout/_authenticated/_dashboard/settings/profile': typeof LayoutAuthenticatedDashboardSettingsProfileRoute
   '/_layout/_authenticated/_dashboard/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
+  '/_layout/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/_layout/projects/$kind/$slug_/edit': typeof LayoutProjectsKindSlugEditRoute
   '/_layout/_authenticated/_dashboard/ideas/': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/_layout/_authenticated/_dashboard/organizations/': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
@@ -509,6 +519,7 @@ export interface FileRouteTypes {
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
+    | '/events/luma/$calendarId/$eventId'
     | '/projects/$kind/$slug/edit'
     | '/ideas/'
     | '/organizations/'
@@ -552,6 +563,7 @@ export interface FileRouteTypes {
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
+    | '/events/luma/$calendarId/$eventId'
     | '/projects/$kind/$slug/edit'
     | '/ideas'
     | '/organizations'
@@ -603,6 +615,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard/settings/auth-methods'
     | '/_layout/_authenticated/_dashboard/settings/profile'
     | '/_layout/_authenticated/_dashboard/settings/security'
+    | '/_layout/events/luma/$calendarId/$eventId'
     | '/_layout/projects/$kind/$slug_/edit'
     | '/_layout/_authenticated/_dashboard/ideas/'
     | '/_layout/_authenticated/_dashboard/organizations/'
@@ -918,6 +931,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsKindSlugEditRouteImport
       parentRoute: typeof LayoutProjectsRoute
     }
+    '/_layout/events/luma/$calendarId/$eventId': {
+      id: '/_layout/events/luma/$calendarId/$eventId'
+      path: '/luma/$calendarId/$eventId'
+      fullPath: '/events/luma/$calendarId/$eventId'
+      preLoaderRoute: typeof LayoutEventsLumaCalendarIdEventIdRouteImport
+      parentRoute: typeof LayoutEventsRoute
+    }
     '/_layout/_authenticated/_dashboard/settings/security': {
       id: '/_layout/_authenticated/_dashboard/settings/security'
       path: '/security'
@@ -1067,6 +1087,7 @@ interface LayoutEventsRouteChildren {
   LayoutEventsNewRoute: typeof LayoutEventsNewRoute
   LayoutEventsIndexRoute: typeof LayoutEventsIndexRoute
   LayoutEventsSlugEditRoute: typeof LayoutEventsSlugEditRoute
+  LayoutEventsLumaCalendarIdEventIdRoute: typeof LayoutEventsLumaCalendarIdEventIdRoute
 }
 
 const LayoutEventsRouteChildren: LayoutEventsRouteChildren = {
@@ -1074,6 +1095,8 @@ const LayoutEventsRouteChildren: LayoutEventsRouteChildren = {
   LayoutEventsNewRoute: LayoutEventsNewRoute,
   LayoutEventsIndexRoute: LayoutEventsIndexRoute,
   LayoutEventsSlugEditRoute: LayoutEventsSlugEditRoute,
+  LayoutEventsLumaCalendarIdEventIdRoute:
+    LayoutEventsLumaCalendarIdEventIdRoute,
 }
 
 const LayoutEventsRouteWithChildren = LayoutEventsRoute._addFileChildren(

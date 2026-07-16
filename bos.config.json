@@ -58,7 +58,8 @@
     "events": {
       "development": "local:plugins/events",
       "secrets": [
-        "EVENTS_DATABASE_URL"
+        "EVENTS_DATABASE_URL",
+        "LUMA_CALENDAR_API_KEYS"
       ],
       "production": "https://elliot-braem-5995-everything-dev-events-plugin-ne-fb2592704-ze.zephyrcloud.app",
       "integrity": "sha384-QKH4zlAveKpSAqRBW9lCFqrMHeWb+QFUM0rSN12vJNZAh4La4vnCRUAG5g4PQxDz"

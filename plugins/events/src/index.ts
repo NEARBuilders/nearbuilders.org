@@ -6,12 +6,14 @@ import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { EventService, EventServiceLive } from "./services/events";
+import { LumaService, parseLumaApiKeys } from "./services/luma";
 
 export default createPlugin({
   variables: z.object({}),
 
   secrets: z.object({
     EVENTS_DATABASE_URL: z.string().default("pglite:.bos/events/:memory:"),
+    LUMA_CALENDAR_API_KEYS: z.string().default("[]"),
   }),
 
   context: ContextSchema,
@@ -23,9 +25,10 @@ export default createPlugin({
       const Database = DatabaseLive(config.secrets.EVENTS_DATABASE_URL);
       const EventServices = EventServiceLive.pipe(Layer.provide(Database));
       const event = yield* Effect.provide(EventService, EventServices);
+      const luma = new LumaService(parseLumaApiKeys(config.secrets.LUMA_CALENDAR_API_KEYS));
 
       console.log("[Events] Services Initialized");
-      return { event };
+      return { event, luma };
     }),
 
   shutdown: () => Effect.log("[Events] Shutdown"),
@@ -61,9 +64,31 @@ export default createPlugin({
     };
 
     return {
-      fetchLumaEvent: builder.fetchLumaEvent.handler(async ({ input }) => ({
-        data: await runEffect(services.event.fetchLumaEvent(input.url)),
-      })),
+      listLumaCalendars: builder.listLumaCalendars.handler(async () => {
+        return await services.luma.listCalendars();
+      }),
+
+      listLumaEvents: builder.listLumaEvents.handler(async ({ input, errors }) => {
+        try {
+          return await services.luma.listEvents(input);
+        } catch (error) {
+          throw errors.BAD_REQUEST({
+            message: error instanceof Error ? error.message : "Could not list Luma events",
+            data: {},
+          });
+        }
+      }),
+
+      getLumaEvent: builder.getLumaEvent.handler(async ({ input, errors }) => {
+        try {
+          return await services.luma.getEvent(input.calendarId, input.eventId);
+        } catch {
+          throw errors.NOT_FOUND({
+            message: "Luma event not found",
+            data: { resource: "luma-event", resourceId: input.eventId },
+          });
+        }
+      }),
 
       listEvents: builder.listEvents.handler(async ({ input, context }) => {
         return await runEffect(

@@ -1,18 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Clock, Lock, MapPin, Plus, Share2, Users } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { CalendarDays, Clock, Lock, MapPin, Plus, Share2, Users, Video } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CalendarFilters } from "./-calendar-filters";
+import { EventDayGroup, type EventDayGroupData } from "./-event-day-group";
+import {
+  buildTimelineEvents,
+  type EventRecord,
+  type EventTab,
+  formatEventTimeRange,
+  type TimelineEvent,
+} from "./-event-sources";
+import { LumaEventCard } from "./-luma-event-card";
 
-type EventRecord = Awaited<
-  ReturnType<ReturnType<typeof useApiClient>["listEvents"]>
->["data"][number];
-
-type EventTab = "upcoming" | "past";
 type EventProposalStatus = "pending" | "approved" | "rejected" | "removed";
+const LUMA_QUERY_STALE_TIME_MS = 60 * 1000;
 
 export const Route = createFileRoute("/_layout/events/")({
   loader: async ({ context }) => {
@@ -20,18 +26,46 @@ export const Route = createFileRoute("/_layout/events/")({
       sessionQueryOptions(context.authClient, context.session),
     );
     const viewerKey = session?.user?.id ?? "anonymous";
+    const timeBoundary = new Date().toISOString();
 
-    await context.queryClient.prefetchQuery({
-      queryKey: ["events", viewerKey],
-      queryFn: () => context.apiClient.listEvents({ limit: 100 }),
-    });
-
+    const prefetches = [
+      context.queryClient.prefetchQuery({
+        queryKey: ["events", viewerKey],
+        queryFn: () => context.apiClient.listEvents({ limit: 100 }),
+      }),
+      context.queryClient.prefetchQuery({
+        queryKey: ["luma-calendars"],
+        queryFn: () => context.apiClient.listLumaCalendars(),
+      }),
+      context.queryClient.prefetchInfiniteQuery({
+        queryKey: ["luma-events", "upcoming", timeBoundary],
+        queryFn: ({ pageParam }) =>
+          context.apiClient.listLumaEvents({
+            after: timeBoundary,
+            cursor: pageParam ?? undefined,
+            limitPerCalendar: 20,
+          }),
+        initialPageParam: null as string | null,
+      }),
+      context.queryClient.prefetchQuery({
+        queryKey: ["luma-events", "ongoing", timeBoundary],
+        queryFn: () =>
+          context.apiClient.listLumaEvents({
+            before: timeBoundary,
+            limitPerCalendar: 50,
+          }),
+      }),
+    ];
     if (session?.user && !session.user.isAnonymous) {
-      await context.queryClient.prefetchQuery({
-        queryKey: ["event-proposals", viewerKey],
-        queryFn: () => context.apiClient.getProposals({ pluginId: "events", limit: 100 }),
-      });
+      prefetches.push(
+        context.queryClient.prefetchQuery({
+          queryKey: ["event-proposals", viewerKey],
+          queryFn: () => context.apiClient.getProposals({ pluginId: "events", limit: 100 }),
+        }),
+      );
     }
+    await Promise.all(prefetches);
+    return { timeBoundary };
   },
   head: () => ({
     meta: [
@@ -55,6 +89,7 @@ function isCurrentUserOwner(
 }
 
 function EventsPage() {
+  const { timeBoundary } = Route.useLoaderData();
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
@@ -64,6 +99,7 @@ function EventsPage() {
   const isAdmin = session?.user?.role === "admin";
   const [copied, setCopied] = useState<string | null>(null);
   const [tab, setTab] = useState<EventTab>("upcoming");
+  const [disabledSourceIds, setDisabledSourceIds] = useState<Set<string>>(() => new Set());
 
   const eventsQuery = useQuery({
     queryKey: ["events", viewerKey],
@@ -71,6 +107,38 @@ function EventsPage() {
   });
 
   const events = eventsQuery.data?.data ?? [];
+  const lumaCalendarsQuery = useQuery({
+    queryKey: ["luma-calendars"],
+    queryFn: () => apiClient.listLumaCalendars(),
+    staleTime: LUMA_QUERY_STALE_TIME_MS,
+  });
+  const lumaCalendars = lumaCalendarsQuery.data?.data ?? [];
+  const lumaEventsQuery = useInfiniteQuery({
+    queryKey: ["luma-events", tab, timeBoundary],
+    queryFn: ({ pageParam }) =>
+      apiClient.listLumaEvents({
+        ...(tab === "upcoming" ? { after: timeBoundary } : { before: timeBoundary }),
+        cursor: pageParam ?? undefined,
+        limitPerCalendar: 20,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.meta.nextCursor ?? undefined,
+    enabled: lumaCalendars.length > 0,
+    staleTime: LUMA_QUERY_STALE_TIME_MS,
+  });
+  const lumaOngoingEventsQuery = useQuery({
+    queryKey: ["luma-events", "ongoing", timeBoundary],
+    queryFn: () => apiClient.listLumaEvents({ before: timeBoundary, limitPerCalendar: 50 }),
+    enabled: lumaCalendars.length > 0 && tab === "upcoming",
+    staleTime: LUMA_QUERY_STALE_TIME_MS,
+  });
+  const lumaEvents = useMemo(
+    () => [
+      ...(tab === "upcoming" ? (lumaOngoingEventsQuery.data?.data ?? []) : []),
+      ...(lumaEventsQuery.data?.pages.flatMap((page) => page.data) ?? []),
+    ],
+    [lumaEventsQuery.data?.pages, lumaOngoingEventsQuery.data?.data, tab],
+  );
   const eventProposalsQuery = useQuery({
     queryKey: ["event-proposals", viewerKey],
     queryFn: () => apiClient.getProposals({ pluginId: "events", limit: 100 }),
@@ -98,8 +166,31 @@ function EventsPage() {
     return { upcoming: up, past: pa };
   }, [events]);
 
-  const visibleEvents = tab === "upcoming" ? upcoming : past;
-  const monthGroups = useMemo(() => groupByMonth(visibleEvents), [visibleEvents]);
+  const visibleEvents = useMemo(
+    () =>
+      buildTimelineEvents(
+        tab === "upcoming" ? upcoming : past,
+        lumaEvents,
+        disabledSourceIds,
+        tab,
+        timeBoundary,
+      ),
+    [disabledSourceIds, lumaEvents, past, tab, timeBoundary, upcoming],
+  );
+  const dayGroups = useMemo(() => groupByDay(visibleEvents), [visibleEvents]);
+  const isLumaInitialLoading =
+    lumaCalendarsQuery.isLoading ||
+    (lumaCalendars.length > 0 &&
+      (lumaEventsQuery.isLoading || (tab === "upcoming" && lumaOngoingEventsQuery.isLoading)));
+
+  const toggleSource = (sourceId: string) => {
+    setDisabledSourceIds((current) => {
+      const next = new Set(current);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
+  };
 
   const copyEventLink = (event: EventRecord) => {
     const url =
@@ -130,90 +221,94 @@ function EventsPage() {
         )}
       </div>
 
-      <div className="mt-6 flex items-center gap-2">
-        {(
-          [
-            ["upcoming", "Upcoming"],
-            ["past", "Past"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={cn(
-              "h-8 rounded-xl border px-3 text-sm font-semibold transition-all duration-150",
-              tab === value
-                ? "border-brand-accent bg-brand-accent-light text-foreground"
-                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {(
+            [
+              ["upcoming", "Upcoming"],
+              ["past", "Past"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={cn(
+                "h-8 rounded-xl border px-3 text-sm font-semibold transition-all duration-150",
+                tab === value
+                  ? "border-brand-accent bg-brand-accent-light text-foreground"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {lumaCalendars.length > 0 && (
+          <CalendarFilters
+            calendars={lumaCalendars}
+            disabledSourceIds={disabledSourceIds}
+            onToggle={toggleSource}
+          />
+        )}
       </div>
+
+      {(lumaCalendarsQuery.data?.unavailableCount ?? 0) > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {lumaCalendarsQuery.data?.unavailableCount} configured Luma calendar could not be loaded.
+        </p>
+      )}
 
       <div className="mt-8">
         {eventsQuery.isLoading ? (
           <TimelineSkeleton />
-        ) : visibleEvents.length === 0 ? (
+        ) : visibleEvents.length === 0 && !isLumaInitialLoading ? (
           <EmptyState tab={tab} />
         ) : (
-          <div className="grid grid-cols-[2.5rem_1.25rem_minmax(0,1fr)] sm:grid-cols-[3rem_1.5rem_minmax(0,1fr)]">
-            {monthGroups.map((group, groupIndex) => (
-              <Fragment key={group.key}>
-                <div aria-hidden />
-                <Spine />
-                <div className={cn("pb-3", groupIndex > 0 && "pt-7")}>
-                  <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                    {group.label}
-                  </h2>
-                </div>
-
-                {group.events.map((event) => (
-                  <Fragment key={event.id}>
-                    <div className="flex flex-col items-end pr-1 pt-2 text-right sm:pr-2">
-                      <span className="text-lg font-bold leading-none text-foreground">
-                        {formatDayNumber(event)}
-                      </span>
-                      <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {formatWeekday(event)}
-                      </span>
-                    </div>
-                    <Spine isPast={tab === "past"} withDot />
-                    <div className="pb-4">
-                      <EventCard
-                        event={event}
-                        proposalStatus={eventProposalStatuses.get(event.id)}
-                        showStatus={
-                          isAdmin || isCurrentUserOwner(event.ownerId, session?.user, nearAccountId)
-                        }
-                        copied={copied === event.id}
-                        onShare={copyEventLink}
-                      />
-                    </div>
-                  </Fragment>
-                ))}
-              </Fragment>
+          <div>
+            {dayGroups.map((group) => (
+              <EventDayGroup key={group.key} group={group} tab={tab}>
+                {group.events.map((event) =>
+                  event.source === "internal" ? (
+                    <EventCard
+                      key={event.key}
+                      event={event}
+                      proposalStatus={eventProposalStatuses.get(event.id)}
+                      showStatus={
+                        isAdmin || isCurrentUserOwner(event.ownerId, session?.user, nearAccountId)
+                      }
+                      copied={copied === event.id}
+                      onShare={copyEventLink}
+                    />
+                  ) : (
+                    <LumaEventCard key={event.key} event={event} />
+                  ),
+                )}
+              </EventDayGroup>
             ))}
+            {isLumaInitialLoading && <LumaEventsSkeleton />}
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-function Spine({ isPast, withDot }: { isPast?: boolean; withDot?: boolean }) {
-  return (
-    <div className="relative">
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
-      {withDot && (
-        <span
-          className={cn(
-            "absolute left-1/2 top-2.5 size-2.5 -translate-x-1/2 rounded-full ring-4 ring-background",
-            isPast ? "bg-muted-foreground/40" : "bg-brand-accent",
-          )}
-        />
+      {lumaEventsQuery.hasNextPage && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={lumaEventsQuery.isFetchingNextPage}
+            onClick={() => lumaEventsQuery.fetchNextPage()}
+          >
+            {lumaEventsQuery.isFetchingNextPage ? "Loading…" : "Load more calendar events"}
+          </Button>
+        </div>
+      )}
+
+      {(lumaEventsQuery.data?.pages.at(-1)?.unavailableCalendarIds.length ?? 0) > 0 && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Some calendar events are temporarily unavailable.
+        </p>
       )}
     </div>
   );
@@ -235,12 +330,8 @@ function EventCard({
   const isCancelled = event.status === "cancelled";
   const status = getEventCardStatus(event, proposalStatus);
   return (
-    <Link
-      to="/events/$slug"
-      params={{ slug: event.slug }}
-      className="group relative block rounded-lg border border-border bg-card px-4 py-3.5 transition-all duration-200 hover:shadow-lg sm:px-5 sm:py-4"
-    >
-      <div className="absolute right-4 top-3 flex items-center gap-2 sm:right-5">
+    <div className="group relative rounded-lg border border-border bg-card transition-all duration-200 hover:shadow-lg">
+      <div className="absolute right-4 top-3 z-10 flex items-center gap-1 sm:right-5">
         {showStatus && (
           <span
             className={cn(
@@ -259,7 +350,7 @@ function EventCard({
             onShare(event);
           }}
           className={cn(
-            "shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground group-hover:opacity-100",
+            "shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
             copied && "text-brand-accent opacity-100",
           )}
           aria-label="Copy event link"
@@ -267,10 +358,20 @@ function EventCard({
           <Share2 size={14} />
         </button>
       </div>
-      <div className="flex items-start gap-2">
-        <div className={cn("min-w-0 flex-1", showStatus ? "pr-32 sm:pr-36" : "pr-10")}>
-          <div className="flex items-start gap-3">
-            <div className="flex min-w-0 items-center gap-1.5">
+      <Link
+        to="/events/$slug"
+        params={{ slug: event.slug }}
+        className="block px-4 py-3.5 sm:px-5 sm:py-4"
+      >
+        <div className="flex items-start gap-2">
+          <div className={cn("min-w-0 flex-1", showStatus ? "pr-28 sm:pr-32" : "pr-10")}>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Clock size={12} className="shrink-0" />
+                {formatEventTimeRange(event)}
+              </span>
+            </div>
+            <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
               <span
                 className={cn(
                   "truncate text-base font-semibold text-foreground",
@@ -283,39 +384,27 @@ function EventCard({
                 <Lock size={12} className="shrink-0 text-muted-foreground" />
               )}
             </div>
-            <span
-              className={cn(
-                "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5",
-                status.className,
-              )}
-            >
-              {status.label}
-            </span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Clock size={12} className="shrink-0" />
-              {formatTimeRange(event)}
-            </span>
-            {event.location && (
-              <span className="flex min-w-0 items-center gap-1">
+            <div className="mt-1.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+              {event.location ? (
                 <MapPin size={12} className="shrink-0" />
-                <span className="truncate">{event.location}</span>
-              </span>
-            )}
-            <span className="flex items-center gap-1">
+              ) : (
+                <Video size={12} className="shrink-0" />
+              )}
+              <span className="truncate">{event.location ?? "Virtual"}</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               <Users size={12} className="shrink-0" />
               {event.participantCount}
-            </span>
+            </div>
+            {event.description && (
+              <p className="mt-1.5 line-clamp-2 break-words text-sm leading-relaxed text-muted-foreground">
+                {event.description}
+              </p>
+            )}
           </div>
-          {event.description && (
-            <p className="mt-1.5 line-clamp-2 break-words text-sm leading-relaxed text-muted-foreground">
-              {event.description}
-            </p>
-          )}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
@@ -329,7 +418,7 @@ function getEventCardStatus(event: EventRecord, proposalStatus?: EventProposalSt
   if (proposalStatus === "pending") {
     return {
       label: "Pending",
-      className: "border-yellow-500/20 bg-yellow-500/5 text-yellow-700 dark:text-yellow-300/90",
+      className: "border-border bg-secondary/60 text-muted-foreground",
     };
   }
   if (proposalStatus === "rejected") {
@@ -377,48 +466,70 @@ function EmptyState({ tab }: { tab: EventTab }) {
 }
 
 function TimelineSkeleton() {
+  return <EventGroupsSkeleton />;
+}
+
+function LumaEventsSkeleton() {
   return (
-    <div className="grid grid-cols-[2.5rem_1.25rem_minmax(0,1fr)] sm:grid-cols-[3rem_1.5rem_minmax(0,1fr)]">
-      <div aria-hidden />
-      <Spine />
-      <div className="pb-3">
-        <div className="h-3 w-24 animate-pulse rounded bg-secondary" />
-      </div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Fragment key={i}>
-          <div className="flex flex-col items-end pr-1 pt-2 text-right sm:pr-2">
-            <div className="h-5 w-6 animate-pulse rounded bg-secondary" />
+    <div className="mt-4" role="status" aria-label="Loading Luma events" aria-live="polite">
+      <EventGroupsSkeleton />
+    </div>
+  );
+}
+
+function EventGroupsSkeleton() {
+  return (
+    <div aria-hidden>
+      {[2, 3, 2].map((eventCount, groupIndex) => (
+        <div key={groupIndex} className="relative pb-7 last:pb-0">
+          <div className="absolute bottom-0 left-1.5 top-4 w-px bg-border" />
+          <div className="absolute left-0 top-4 size-3 animate-pulse rounded-full bg-secondary" />
+          <div className="mb-3 ml-6 h-5 w-32 animate-pulse rounded bg-secondary" />
+          <div className="ml-6 space-y-3">
+            {Array.from({ length: eventCount }, (_, eventIndex) => (
+              <div
+                key={eventIndex}
+                className="flex rounded-lg border border-border bg-card px-4 py-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="h-3 w-24 animate-pulse rounded bg-secondary" />
+                  <div className="mt-3 h-5 w-3/4 animate-pulse rounded bg-secondary" />
+                  <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-secondary" />
+                  <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-secondary" />
+                </div>
+                <div className="ml-4 size-20 animate-pulse rounded-lg bg-secondary" />
+              </div>
+            ))}
           </div>
-          <Spine withDot />
-          <div className="pb-4">
-            <div className="rounded-lg border border-border bg-card px-4 py-4">
-              <div className="h-4 w-1/2 animate-pulse rounded bg-secondary" />
-              <div className="mt-2 h-3 w-3/4 animate-pulse rounded bg-secondary" />
-            </div>
-          </div>
-        </Fragment>
+        </div>
       ))}
     </div>
   );
 }
 
-type MonthGroup = {
-  key: string;
-  label: string;
-  events: EventRecord[];
-};
-
-function groupByMonth(events: EventRecord[]): MonthGroup[] {
-  const groups: MonthGroup[] = [];
-  const index = new Map<string, MonthGroup>();
+function groupByDay(events: TimelineEvent[]): EventDayGroupData[] {
+  const groups: EventDayGroupData[] = [];
+  const index = new Map<string, EventDayGroupData>();
+  const now = new Date();
+  const today = startOfDay(now);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   for (const event of events) {
     const start = new Date(event.startAt);
-    const key = `${start.getFullYear()}-${start.getMonth()}`;
+    const key = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
     let group = index.get(key);
     if (!group) {
+      const eventDay = startOfDay(start);
+      const isToday = eventDay.getTime() === today.getTime();
+      const isTomorrow = eventDay.getTime() === tomorrow.getTime();
       group = {
         key,
-        label: start.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+        primaryLabel: isToday
+          ? "Today"
+          : isTomorrow
+            ? "Tomorrow"
+            : start.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        secondaryLabel: start.toLocaleDateString(undefined, { weekday: "long" }),
         events: [],
       };
       index.set(key, group);
@@ -429,24 +540,6 @@ function groupByMonth(events: EventRecord[]): MonthGroup[] {
   return groups;
 }
 
-function formatDayNumber(event: EventRecord) {
-  return new Date(event.startAt).toLocaleDateString(undefined, { day: "numeric" });
-}
-
-function formatWeekday(event: EventRecord) {
-  return new Date(event.startAt).toLocaleDateString(undefined, { weekday: "short" });
-}
-
-function formatTimeRange(event: EventRecord) {
-  const start = new Date(event.startAt);
-  const end = event.endAt ? new Date(event.endAt) : null;
-  const startLabel = start.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  if (!end) return startLabel;
-  return `${startLabel} - ${end.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
