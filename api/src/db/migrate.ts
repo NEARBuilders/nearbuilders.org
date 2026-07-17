@@ -4,6 +4,12 @@ import { join, resolve } from "node:path";
 import type { Migration } from "virtual:drizzle-migrations.sql";
 import { sql } from "drizzle-orm";
 import { Effect } from "every-plugin/effect";
+import {
+  extractExpectedTables,
+  getLegacyCandidates,
+  getMigrationStorage,
+  type MigrationStorage,
+} from "everything-dev/db";
 import { type Database, DatabaseError } from "./index";
 
 function normalizeRows<T>(result: unknown): T[] {
@@ -17,6 +23,15 @@ function normalizeRows<T>(result: unknown): T[] {
 export interface LoadedMigrations {
   migrations: Migration[];
   source: "virtual" | "disk";
+}
+
+export interface DriftReport {
+  status: "healthy" | "empty" | "legacy-importable" | "drift-safe-repair" | "drift-manual";
+  expectedTables: string[];
+  missingTables: string[];
+  appliedHashes: number;
+  localHashes: number;
+  storage: MigrationStorage;
 }
 
 export function loadMigrations(): Effect.Effect<LoadedMigrations, DatabaseError> {
@@ -97,18 +112,32 @@ function loadMigrationsFromDisk(): Effect.Effect<Migration[], DatabaseError> {
   });
 }
 
+function journalRef(s: MigrationStorage): ReturnType<typeof sql> {
+  return sql.raw(`"${s.schema}"."${s.table}"`);
+}
+
 export function migrate(
   db: Database,
   migrations: Migration[],
+  storage?: MigrationStorage,
 ): Effect.Effect<number, DatabaseError> {
   return Effect.gen(function* () {
     const sorted = [...migrations].sort((a, b) => a.idx - b.idx);
+    const journal = storage ?? {
+      schema: "drizzle",
+      table: "__drizzle_migrations",
+      slug: "default",
+    };
 
-    yield* ensureMigrationTable(db);
-    yield* migrateLegacyTable(db);
+    yield* ensureMigrationTable(db, journal);
 
+    if (storage) {
+      yield* importLegacyHashes(db, sorted, journal);
+    }
+
+    const ref = journalRef(journal);
     const rawResult = yield* Effect.tryPromise({
-      try: () => db.execute(sql`SELECT hash FROM "drizzle"."__drizzle_migrations"`),
+      try: () => db.execute(sql`SELECT hash FROM ${ref}`),
       catch: (cause) =>
         new DatabaseError({ stage: "migration", migrationTag: "read-applied", cause }),
     });
@@ -138,7 +167,7 @@ export function migrate(
               }
             }
             await tx.execute(
-              sql`INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES (${migration.hash}, ${migration.when})`,
+              sql`INSERT INTO ${ref} (hash, created_at) VALUES (${migration.hash}, ${migration.when})`,
             );
           }),
         catch: (cause) =>
@@ -153,7 +182,11 @@ export function migrate(
   });
 }
 
-function ensureMigrationTable(db: Database): Effect.Effect<void, DatabaseError> {
+function ensureMigrationTable(
+  db: Database,
+  storage: MigrationStorage,
+): Effect.Effect<void, DatabaseError> {
+  const ref = journalRef(storage);
   return Effect.gen(function* () {
     yield* Effect.tryPromise({
       try: () => db.execute(sql`CREATE SCHEMA IF NOT EXISTS "drizzle"`),
@@ -164,7 +197,7 @@ function ensureMigrationTable(db: Database): Effect.Effect<void, DatabaseError> 
     yield* Effect.tryPromise({
       try: () =>
         db.execute(sql`
-          CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
+          CREATE TABLE IF NOT EXISTS ${ref} (
             id SERIAL PRIMARY KEY,
             hash text NOT NULL,
             created_at bigint
@@ -176,41 +209,207 @@ function ensureMigrationTable(db: Database): Effect.Effect<void, DatabaseError> 
   });
 }
 
-function migrateLegacyTable(db: Database): Effect.Effect<void, DatabaseError> {
+function importLegacyHashes(
+  db: Database,
+  localMigrations: Migration[],
+  storage: MigrationStorage,
+): Effect.Effect<void, DatabaseError> {
   return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
+    const ref = journalRef(storage);
+
+    const existingRaw = yield* Effect.tryPromise({
+      try: () => db.execute(sql`SELECT count(*)::int AS cnt FROM ${ref}`),
+      catch: () =>
+        new DatabaseError({
+          stage: "migration",
+          migrationTag: "init-table",
+          cause: new Error("Failed to check existing count"),
+        }),
+    }).pipe(Effect.catchAll(() => Effect.succeed({ rows: [{ cnt: 0 }] })));
+
+    if ((normalizeRows<{ cnt: number }>(existingRaw)[0]?.cnt ?? 0) > 0) return;
+
+    const localHashes = [...new Set(localMigrations.map((m) => m.hash))];
+    if (localHashes.length === 0) return;
+
+    for (const candidate of getLegacyCandidates()) {
+      const candidateRef = sql.raw(`"${candidate.schema}"."${candidate.table}"`);
+
+      const legacyResult = yield* Effect.tryPromise({
+        try: () =>
+          db.execute(sql`
+            SELECT hash, created_at FROM ${candidateRef}
+            WHERE hash = ANY(${localHashes})
+          `),
+        catch: () =>
+          new DatabaseError({
+            stage: "migration",
+            migrationTag: "legacy-import",
+            cause: new Error("Legacy import query failed"),
+          }),
+      }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+      if (!legacyResult) continue;
+      const rows = normalizeRows<{ hash: string; created_at: number }>(legacyResult);
+      if (rows.length === 0) continue;
+
+      const imported = rows.filter((r) => r.hash && r.created_at);
+      if (imported.length === 0) continue;
+
+      yield* Effect.logInfo(
+        `[Database] Importing ${imported.length} legacy migration hash(es) from ${candidate.schema}.${candidate.table}`,
+      );
+
+      for (const row of imported) {
+        yield* Effect.tryPromise({
+          try: () =>
+            db.execute(sql`
+              INSERT INTO ${ref} (hash, created_at)
+              SELECT ${row.hash}::text, ${row.created_at}::bigint
+              WHERE NOT EXISTS (
+                SELECT 1 FROM ${ref} WHERE hash = ${row.hash}
+              )
+            `),
+          catch: () =>
+            new DatabaseError({
+              stage: "migration",
+              migrationTag: "legacy-import",
+              cause: new Error("Legacy row import failed"),
+            }),
+        }).pipe(Effect.ignore);
+      }
+    }
+  });
+}
+
+export function detectDrift(
+  db: Database,
+  migrations: Migration[],
+  storage?: MigrationStorage,
+): Effect.Effect<DriftReport, DatabaseError> {
+  return Effect.gen(function* () {
+    const journal = storage ?? getMigrationStorage();
+    const expectedTables = extractExpectedTables(migrations);
+    const ref = journalRef(journal);
+
+    const rawResult = yield* Effect.tryPromise({
+      try: () => db.execute(sql`SELECT hash FROM ${ref}`),
+      catch: () =>
+        new DatabaseError({
+          stage: "migration",
+          migrationTag: "drift-check",
+          cause: new Error("Failed to read applied hashes"),
+        }),
+    }).pipe(Effect.catchAll(() => Effect.succeed({ rows: [] })));
+    const appliedHashes = normalizeRows<{ hash: string }>(rawResult);
+    const appliedCount = appliedHashes.length;
+
+    if (expectedTables.length === 0) {
+      return {
+        status: "empty",
+        expectedTables: [],
+        missingTables: [],
+        appliedHashes: appliedCount,
+        localHashes: migrations.length,
+        storage: journal,
+      };
+    }
+
+    if (appliedCount === 0) {
+      const hasLegacy = yield* checkLegacyHasMatchingHashes(db, migrations);
+      return {
+        status: hasLegacy ? "legacy-importable" : "healthy",
+        expectedTables,
+        missingTables: expectedTables,
+        appliedHashes: 0,
+        localHashes: migrations.length,
+        storage: journal,
+      };
+    }
+
+    const tableResult = yield* Effect.tryPromise({
       try: () =>
         db.execute(sql`
           SELECT table_name FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'drizzle_migrations'
+          WHERE table_schema = 'public'
+            AND table_name = ANY(${expectedTables})
         `),
-      catch: (cause) =>
-        new DatabaseError({ stage: "migration", migrationTag: "legacy-check", cause }),
-    });
+      catch: () =>
+        new DatabaseError({
+          stage: "migration",
+          migrationTag: "drift-check-tables",
+          cause: new Error("Failed to check expected tables"),
+        }),
+    }).pipe(Effect.catchAll(() => Effect.succeed({ rows: [] })));
 
-    if (normalizeRows(result).length === 0) return;
-
-    yield* Effect.logInfo(
-      "[Database] Migrating legacy drizzle_migrations to drizzle.__drizzle_migrations",
+    const existingTables = new Set(
+      normalizeRows<{ table_name: string }>(tableResult).map((r) => r.table_name),
     );
 
-    yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          await tx.execute(sql`
-            INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at)
-            SELECT hash, created_at FROM "drizzle_migrations"
-            WHERE NOT EXISTS (
-              SELECT 1 FROM "drizzle"."__drizzle_migrations" dm
-              WHERE dm.hash = "drizzle_migrations".hash
-            )
-          `);
-          await tx.execute(sql`DROP TABLE "drizzle_migrations"`);
-        }),
-      catch: (cause) =>
-        new DatabaseError({ stage: "migration", migrationTag: "legacy-migrate", cause }),
-    });
+    const missingTables = expectedTables.filter((t) => !existingTables.has(t));
 
-    yield* Effect.logInfo("[Database] Legacy migration table migrated successfully");
+    if (missingTables.length === 0) {
+      return {
+        status: "healthy",
+        expectedTables,
+        missingTables: [],
+        appliedHashes: appliedCount,
+        localHashes: migrations.length,
+        storage: journal,
+      };
+    }
+
+    if (missingTables.length === expectedTables.length) {
+      return {
+        status: "drift-safe-repair",
+        expectedTables,
+        missingTables,
+        appliedHashes: appliedCount,
+        localHashes: migrations.length,
+        storage: journal,
+      };
+    }
+
+    return {
+      status: "drift-manual",
+      expectedTables,
+      missingTables,
+      appliedHashes: appliedCount,
+      localHashes: migrations.length,
+      storage: journal,
+    };
+  });
+}
+
+function checkLegacyHasMatchingHashes(
+  db: Database,
+  migrations: Migration[],
+): Effect.Effect<boolean, never> {
+  return Effect.gen(function* () {
+    const localHashes = [...new Set(migrations.map((m) => m.hash))];
+    if (localHashes.length === 0) return false;
+
+    for (const candidate of getLegacyCandidates()) {
+      const ref = sql.raw(`"${candidate.schema}"."${candidate.table}"`);
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          db.execute(sql`
+            SELECT count(*)::int AS cnt FROM ${ref}
+            WHERE hash = ANY(${localHashes})
+          `),
+        catch: () =>
+          new DatabaseError({
+            stage: "migration",
+            migrationTag: "legacy-check",
+            cause: new Error("Legacy hash check failed"),
+          }),
+      }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+      if (!result) continue;
+      const cnt = normalizeRows<{ cnt: number }>(result)[0]?.cnt ?? 0;
+      if (cnt > 0) return true;
+    }
+
+    return false;
   });
 }

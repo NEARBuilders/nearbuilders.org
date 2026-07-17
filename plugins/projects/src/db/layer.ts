@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
+import { getMigrationStorage } from "everything-dev/db";
 import { createDatabaseDriver, type Database, DatabaseError } from "./index";
-import { loadMigrations, migrate } from "./migrate";
+import { detectDrift, loadMigrations, migrate } from "./migrate";
 
 export class DatabaseTag extends Context.Tag("Database")<Database, Database>() {}
 
@@ -20,6 +21,7 @@ export const DatabaseLive = (url: string) =>
           }).pipe(Effect.ignore),
       );
 
+      const storage = getMigrationStorage();
       const { migrations, source } = yield* loadMigrations();
 
       if (migrations.length === 0) {
@@ -27,10 +29,45 @@ export const DatabaseLive = (url: string) =>
           `[Database] No migrations found (source: ${source}) — schema may be missing`,
         );
       } else {
-        const applied = yield* migrate(driver.db, migrations);
+        const applied = yield* migrate(driver.db, migrations, storage);
         yield* Effect.logInfo(
-          `[Database] Migrations applied: ${applied}/${migrations.length} (source: ${source})`,
+          `[Database] Migrations applied: ${applied}/${migrations.length} (source: ${source}, journal: ${storage.schema}.${storage.table})`,
         );
+
+        if (applied === 0) {
+          const drift = yield* detectDrift(driver.db, migrations, storage);
+          if (drift.status === "drift-safe-repair") {
+            yield* Effect.logWarning(
+              `[Database] ⚠️ Migration drift detected: ${drift.missingTables.length} expected table(s) missing: ${drift.missingTables.join(", ")}`,
+            );
+            yield* Effect.logWarning(
+              `[Database] Run \`bos db doctor ${storage.slug}\` to diagnose and \`bos db repair ${storage.slug}\` to fix.`,
+            );
+            throw new DatabaseError({
+              stage: "migration",
+              migrationTag: "drift-safe-repair",
+              cause: new Error(
+                `Migration journal has ${drift.appliedHashes} applied hashes but all ${drift.expectedTables.length} expected table(s) are missing. ` +
+                  `Run \`bos db repair ${storage.slug}\` to reset the isolated migration history and reapply migrations. ` +
+                  `Missing tables: ${drift.missingTables.join(", ")}`,
+              ),
+            });
+          }
+          if (drift.status === "drift-manual") {
+            yield* Effect.logWarning(
+              `[Database] ⚠️ Partial migration drift detected: ${drift.missingTables.length}/${drift.expectedTables.length} expected table(s) missing.`,
+            );
+            throw new DatabaseError({
+              stage: "migration",
+              migrationTag: "drift-manual",
+              cause: new Error(
+                `Partial schema drift — ${drift.missingTables.length}/${drift.expectedTables.length} expected table(s) are missing. ` +
+                  `Run \`bos db doctor ${storage.slug}\` for details. Manual intervention required. ` +
+                  `Missing tables: ${drift.missingTables.join(", ")}`,
+              ),
+            });
+          }
+        }
       }
 
       return driver.db;
