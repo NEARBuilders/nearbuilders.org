@@ -74,7 +74,7 @@ function loadMigrationsFromDisk(): Effect.Effect<Migration[], DatabaseError> {
 
 export function migrate(db: Database, migrations: Migration[]): Effect.Effect<void, DatabaseError> {
   return Effect.gen(function* () {
-    const sorted = [...migrations].sort((a, b) => (a as any).idx - (b as any).idx);
+    const sorted = [...migrations].sort((a, b) => a.idx - b.idx);
 
     yield* ensureMigrationTable(db);
     yield* migrateLegacyTable(db);
@@ -109,7 +109,7 @@ export function migrate(db: Database, migrations: Migration[]): Effect.Effect<vo
               }
             }
             await tx.execute(
-              sql`INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES (${migration.hash}, ${(migration as any).when})`,
+              sql`INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES (${migration.hash}, ${migration.when})`,
             );
           }),
         catch: (cause) =>

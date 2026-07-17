@@ -111,13 +111,15 @@ export default createPlugin({
               const project = await runEffect(services.catalog.getProject(slug));
               return {
                 project,
-                contributors: claims.map(({ id, nearAccount, roles, createdAt, updatedAt }: Record<string, any>) => ({
-                  id,
-                  nearAccount,
-                  roles,
-                  createdAt,
-                  updatedAt,
-                })),
+                contributors: claims.map(
+                  ({ id, nearAccount, roles, createdAt, updatedAt }: Record<string, any>) => ({
+                    id,
+                    nearAccount,
+                    roles,
+                    createdAt,
+                    updatedAt,
+                  }),
+                ),
               };
             } catch (error) {
               if (error instanceof ORPCError) return null;
@@ -125,7 +127,9 @@ export default createPlugin({
             }
           },
         );
-        const available = projects.filter((project): project is NonNullable<typeof project> => project !== null);
+        const available = projects.filter(
+          (project): project is NonNullable<typeof project> => project !== null,
+        );
         const limit = Math.min(input.limit ?? 50, 100);
         const offset = input.cursor ? Math.max(Number.parseInt(input.cursor, 10) || 0, 0) : 0;
         const data = available.slice(offset, offset + limit);

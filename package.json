@@ -29,7 +29,7 @@
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.7.0",
       "every-plugin": "^2.9.0",
-      "everything-dev": "^1.47.0",
+      "everything-dev": "^1.47.2",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -95,7 +95,7 @@
     "dev:postgres:down": "docker compose down",
     "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait"
   },
-  "packageManager": "bun@1.2.20",
+  "packageManager": "bun@1.3.14",
   "type": "module",
   "devDependencies": {
     "@biomejs/biome": "2.4.14",
