@@ -20,10 +20,18 @@ export const DatabaseLive = (url: string) =>
           }).pipe(Effect.ignore),
       );
 
-      const migrations = yield* loadMigrations();
-      yield* migrate(driver.db, migrations);
+      const { migrations, source } = yield* loadMigrations();
 
-      yield* Effect.logInfo("[Database] Migrations applied");
+      if (migrations.length === 0) {
+        yield* Effect.logWarning(
+          `[Database] No migrations found (source: ${source}) — schema may be missing`,
+        );
+      } else {
+        const applied = yield* migrate(driver.db, migrations);
+        yield* Effect.logInfo(
+          `[Database] Migrations applied: ${applied}/${migrations.length} (source: ${source})`,
+        );
+      }
 
       return driver.db;
     }),

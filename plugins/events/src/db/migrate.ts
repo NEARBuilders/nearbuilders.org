@@ -14,7 +14,12 @@ function normalizeRows<T>(result: unknown): T[] {
   return [];
 }
 
-export function loadMigrations(): Effect.Effect<Migration[], DatabaseError> {
+export interface LoadedMigrations {
+  migrations: Migration[];
+  source: "virtual" | "disk";
+}
+
+export function loadMigrations(): Effect.Effect<LoadedMigrations, DatabaseError> {
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise({
       try: () => import("virtual:drizzle-migrations.sql") as Promise<{ default?: Migration[] }>,
@@ -22,16 +27,36 @@ export function loadMigrations(): Effect.Effect<Migration[], DatabaseError> {
     }).pipe(Effect.either);
 
     if (result._tag === "Right" && result.right?.default?.length) {
-      return result.right.default;
+      const migrations = result.right.default;
+      yield* Effect.logInfo(
+        `[Database] Loaded ${migrations.length} migration(s) from virtual module`,
+      );
+      return { migrations, source: "virtual" as const };
     }
 
     const reason =
       result._tag === "Left" ? String(result.left.cause) : "no migrations in virtual module";
-    yield* Effect.logDebug(
-      `[Database] Virtual migrations unavailable (${reason}), loading from disk`,
-    );
 
-    return yield* loadMigrationsFromDisk();
+    if (result._tag === "Left") {
+      yield* Effect.logDebug(
+        `[Database] Virtual migrations unavailable (${reason}), loading from disk`,
+      );
+    } else {
+      yield* Effect.logInfo("[Database] Virtual migrations empty, loading from disk");
+    }
+
+    const diskResult = yield* loadMigrationsFromDisk().pipe(Effect.either);
+
+    if (diskResult._tag === "Right") {
+      const migrations = diskResult.right;
+      yield* Effect.logInfo(`[Database] Loaded ${migrations.length} migration(s) from disk`);
+      return { migrations, source: "disk" as const };
+    }
+
+    yield* Effect.logWarning(
+      `[Database] No migrations found from virtual or disk: ${diskResult.left.message}`,
+    );
+    return { migrations: [], source: "disk" as const };
   });
 }
 
@@ -72,7 +97,10 @@ function loadMigrationsFromDisk(): Effect.Effect<Migration[], DatabaseError> {
   });
 }
 
-export function migrate(db: Database, migrations: Migration[]): Effect.Effect<void, DatabaseError> {
+export function migrate(
+  db: Database,
+  migrations: Migration[],
+): Effect.Effect<number, DatabaseError> {
   return Effect.gen(function* () {
     const sorted = [...migrations].sort((a, b) => a.idx - b.idx);
 
@@ -86,6 +114,7 @@ export function migrate(db: Database, migrations: Migration[]): Effect.Effect<vo
     });
     const appliedHashes = new Set(normalizeRows<{ hash: string }>(rawResult).map((r) => r.hash));
 
+    let applied = 0;
     for (const migration of sorted) {
       const isApplied =
         appliedHashes.has(migration.hash) || appliedHashes.has(migration.hash.slice(0, 12));
@@ -117,7 +146,10 @@ export function migrate(db: Database, migrations: Migration[]): Effect.Effect<vo
             ? cause
             : new DatabaseError({ stage: "migration", migrationTag: migration.tag, cause }),
       });
+      applied++;
     }
+
+    return applied;
   });
 }
 
