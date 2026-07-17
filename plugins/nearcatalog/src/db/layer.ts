@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from "every-plugin/effect";
 import { createDatabaseDriver, type DatabaseDriver, DatabaseError } from "./index";
 import { loadMigrations, migrate } from "./migrate";
 
-export class DatabaseTag extends Context.Tag("api/Database")<DatabaseDriver, DatabaseDriver>() {}
+export class DatabaseTag extends Context.Tag("Database")<DatabaseDriver, DatabaseDriver>() {}
 
 export const DatabaseLive = (url: string) =>
   Layer.scoped(

@@ -174,7 +174,7 @@ export default createPlugin({
       const { createDatabaseDriver } = await import("./db/index");
       const driver = await createDatabaseDriver(config.secrets.VOTES_DATABASE_URL);
       const migrations = await import("virtual:drizzle-migrations.sql");
-      const { migrate } = await import("./db/migrator");
+      const { migrate } = await import("./db/migrate");
       await migrate(driver.db, migrations.default);
       const publisher = new MemoryPublisher<VoteEvents>({ resumeRetentionSeconds: 120 });
       const voteService = createVoteService(driver.db, publisher);

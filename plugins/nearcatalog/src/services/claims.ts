@@ -3,7 +3,7 @@ import { Effect } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
 import type { CatalogClaimHistorySchema, CatalogClaimSchema } from "../contract";
-import type { NearCatalogDatabase } from "../db";
+import type { Database } from "../db";
 import { nearcatalogClaimHistory, nearcatalogClaims } from "../db/schema";
 import { catalogClaimId } from "../project-reference";
 
@@ -68,7 +68,7 @@ function claimHistoryValues(
   };
 }
 
-export function createClaimMethods(db: NearCatalogDatabase) {
+export function createClaimMethods(db: Database) {
   return {
     listClaims: (input: {
       nearAccount?: string;
