@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   Clock,
+  Download,
   ExternalLink,
   Eye,
   FileCode2,
@@ -34,6 +35,7 @@ import {
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { exportProjectProposals } from "@/lib/export-csv";
 import { ensureCatalogProjects } from "@/lib/queries/catalog";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 
@@ -153,13 +155,39 @@ function AdminDashboard() {
       proposal.reviewStatus === "approved",
   );
 
+  const exportMutation = useMutation({
+    mutationFn: () => exportProjectProposals(apiClient),
+    onSuccess: (count) => {
+      toast.success(`${count} project proposal${count !== 1 ? "s" : ""} exported`);
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to export"),
+  });
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="mb-1 text-3xl font-black tracking-tight text-foreground">Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Review builder, project, event, and NEAR Catalog contribution proposals.
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="mb-1 text-3xl font-black tracking-tight text-foreground">
+            Admin Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Review builder, project, event, and NEAR Catalog contribution proposals.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => exportMutation.mutate()}
+          disabled={exportMutation.isPending}
+          className="shrink-0"
+        >
+          {exportMutation.isPending ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <Download size={13} />
+          )}
+          Export projects
+        </Button>
       </div>
 
       <div className="mb-6 flex gap-1">
