@@ -45,11 +45,11 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.PROPOSALS_DATABASE_URL);
       const ProposalServices = ProposalServiceLive.pipe(Layer.provide(Database));
-      const proposal = yield* Effect.provide(ProposalService, ProposalServices);
+      const proposal = yield* tools.buildService(ProposalService, ProposalServices);
       const publisher = new MemoryPublisher<ProposalEvents>({ resumeRetentionSeconds: 120 });
 
       console.log("[Proposals] Services Initialized");

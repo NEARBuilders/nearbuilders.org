@@ -89,7 +89,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { name: "format-detection", content: "telephone=no" },
         { name: "robots", content: "index, follow" },
         ...getSocialImageMeta({
-          imageUrl: "/metadata.png",
+          imageUrl: siteUrl ? `${siteUrl}/metadata.png` : "/metadata.png",
           title,
           description,
           siteName: title,

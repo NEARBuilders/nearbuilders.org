@@ -1,14 +1,12 @@
-import migrations from "virtual:drizzle-migrations.sql";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit } from "every-plugin/effect";
+import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
-import { createDatabaseDriver } from "./db";
-import { migrate } from "./db/migrator";
+import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
-import { createCatalogMethods } from "./services/catalog";
-import { createClaimMethods } from "./services/claims";
+import { CatalogService, CatalogServiceLive } from "./services/catalog";
+import { ClaimService, ClaimServiceLive } from "./services/claims";
 
 async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
   const exit = await Effect.runPromiseExit(effect);
@@ -52,27 +50,15 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
-    Effect.promise(async () => {
-      const driver = await createDatabaseDriver(config.secrets.NEARCATALOG_DATABASE_URL);
-      try {
-        await migrate(driver.db, migrations);
-      } catch (error) {
-        await driver.close();
-        throw error;
-      }
-      const claims = createClaimMethods(driver.db);
-      const catalog = createCatalogMethods(config.variables.baseUrl);
+  initialize: (config, _plugins, tools) =>
+    Effect.gen(function* () {
+      const Database = DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL);
+      const Claims = ClaimServiceLive.pipe(Layer.provide(Database));
+      const Catalog = CatalogServiceLive(config.variables.baseUrl);
+      const catalog = yield* tools.buildService(CatalogService, Catalog);
+      const claims = yield* tools.buildService(ClaimService, Claims);
 
-      console.log("[NearCatalog] Migrations applied");
-      console.log("[NearCatalog] Services Initialized");
-      return { catalog, claims, driver };
-    }),
-
-  shutdown: (services) =>
-    Effect.promise(async () => {
-      await services.driver.close();
-      console.log("[NearCatalog] Shutdown");
+      return { catalog, claims };
     }),
 
   createRouter: (services, builder) => {

@@ -20,11 +20,11 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.EVENTS_DATABASE_URL);
       const EventServices = EventServiceLive.pipe(Layer.provide(Database));
-      const event = yield* Effect.provide(EventService, EventServices);
+      const event = yield* tools.buildService(EventService, EventServices);
       const luma = new LumaService(parseLumaApiKeys(config.secrets.LUMA_CALENDAR_API_KEYS));
 
       console.log("[Events] Services Initialized");

@@ -1,9 +1,10 @@
 import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import { Effect } from "every-plugin/effect";
+import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
 import type { CatalogClaimHistorySchema, CatalogClaimSchema } from "../contract";
-import type { NearCatalogDatabase } from "../db";
+import type { Database } from "../db";
+import { DatabaseTag } from "../db/layer";
 import { nearcatalogClaimHistory, nearcatalogClaims } from "../db/schema";
 import { catalogClaimId } from "../project-reference";
 
@@ -68,7 +69,7 @@ function claimHistoryValues(
   };
 }
 
-export function createClaimMethods(db: NearCatalogDatabase) {
+export function createClaimMethods(db: Database) {
   return {
     listClaims: (input: {
       nearAccount?: string;
@@ -279,3 +280,18 @@ export function createClaimMethods(db: NearCatalogDatabase) {
       }),
   };
 }
+
+type ClaimMethods = ReturnType<typeof createClaimMethods>;
+
+export class ClaimService extends Context.Tag("nearcatalog/ClaimService")<
+  ClaimService,
+  ClaimMethods
+>() {}
+
+export const ClaimServiceLive = Layer.effect(
+  ClaimService,
+  Effect.gen(function* () {
+    const db = yield* DatabaseTag;
+    return createClaimMethods(db);
+  }),
+);
