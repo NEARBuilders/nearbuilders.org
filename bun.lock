@@ -36,7 +36,7 @@
     },
     "api": {
       "name": "api",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -69,7 +69,7 @@
     },
     "plugins/activity": {
       "name": "@everything-dev/activity-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -124,7 +124,7 @@
     },
     "plugins/builders": {
       "name": "@everything-dev/builders-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -154,7 +154,7 @@
     },
     "plugins/events": {
       "name": "@everything-dev/events-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -184,7 +184,7 @@
     },
     "plugins/nearcatalog": {
       "name": "@everything-dev/nearcatalog-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -214,7 +214,7 @@
     },
     "plugins/notifications": {
       "name": "@everything-dev/notifications-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -244,7 +244,7 @@
     },
     "plugins/projects": {
       "name": "@everything-dev/projects-plugin",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -274,7 +274,7 @@
     },
     "plugins/proposals": {
       "name": "@everything-dev/proposals-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -304,7 +304,7 @@
     },
     "plugins/votes": {
       "name": "@everything-dev/votes-plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
         "@orpc/contract": "catalog:",
@@ -334,7 +334,7 @@
     },
     "ui": {
       "name": "ui",
-      "version": "1.5.1",
+      "version": "1.6.0",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
         "@better-auth/core": "catalog:",
@@ -464,8 +464,8 @@
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
     "effect": "3.21.2",
-    "every-plugin": "^2.9.3",
-    "everything-dev": "^1.51.0",
+    "every-plugin": "^2.9.4",
+    "everything-dev": "^1.51.1",
     "near-kit": "^0.14.0",
     "pg": "^8.12.0",
     "react": "19.2.4",
@@ -1765,9 +1765,9 @@
 
     "eventsource-parser": ["eventsource-parser@3.1.0", "", {}, "sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg=="],
 
-    "every-plugin": ["every-plugin@2.9.3", "", { "dependencies": { "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "@orpc/contract": "^1.13.4", "@orpc/experimental-publisher": "^1.13.4", "@orpc/server": "^1.13.4", "@orpc/tanstack-query": "1.14.3" }, "peerDependencies": { "@orpc/client": "1.14.3", "@orpc/openapi": "1.14.3", "@orpc/zod": "1.14.3", "@rspack/core": "1.7.11", "effect": "3.21.2", "typescript": "^5.9.3", "zod": "4.3.6" } }, "sha512-PxAIcOgAHaoJRNeF6pm7E+R2ScmJJPXCcfhAoGTNNGImUB2sdIB+hhvSDqassaHJD7Y4k4cXKJZ6yHwOZaoH9Q=="],
+    "every-plugin": ["every-plugin@2.9.4", "", { "dependencies": { "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "@orpc/contract": "^1.13.4", "@orpc/experimental-publisher": "^1.13.4", "@orpc/server": "^1.13.4", "@orpc/tanstack-query": "1.14.3" }, "peerDependencies": { "@orpc/client": "1.14.3", "@orpc/openapi": "1.14.3", "@orpc/zod": "1.14.3", "@rspack/core": "1.7.11", "effect": "3.21.2", "typescript": "^5.9.3", "zod": "4.3.6" } }, "sha512-vQv5vAXauvahAtQ/BvZ+iaWn66LoeYHlqTKF+HHEZ8/30VXcwLA0oSj36elrNf3lDU6DK3NSQrIJZuyW8xA0+Q=="],
 
-    "everything-dev": ["everything-dev@1.51.0", "", { "dependencies": { "@clack/prompts": "^0.10.1", "@effect/platform": "^0.96.1", "@effect/platform-node": "^0.106.0", "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "chalk": "^5.6.2", "defu": "^6.1.7", "dotenv": "^17.3.1", "effect": "^3.21.0", "every-plugin": "^2.9.2", "execa": "^9.5.2", "glob": "^13.0.6", "gradient-string": "^3.0.0", "ink": "^6.8.0", "tar": "^7.4.3" }, "peerDependencies": { "@tanstack/react-query": ">=5.0.0", "@tanstack/react-router": ">=1.0.0", "react": ">=19.0.0", "react-dom": ">=19.0.0", "zod": "4.3.6" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/react-router"], "bin": { "everything-dev": "dist/cli.mjs", "bos": "dist/cli.mjs" } }, "sha512-MOeTVMHmBIZ0cvRsMmy1E60rT3aXYOedk0cIYFtPCdPW2qCHXhkLHh8mW/VKgdsE6IBOnMssWyU4ImoTyvilPQ=="],
+    "everything-dev": ["everything-dev@1.51.1", "", { "dependencies": { "@clack/prompts": "^0.10.1", "@effect/platform": "^0.96.1", "@effect/platform-node": "^0.106.0", "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "chalk": "^5.6.2", "defu": "^6.1.7", "dotenv": "^17.3.1", "effect": "^3.21.0", "every-plugin": "^2.9.4", "execa": "^9.5.2", "glob": "^13.0.6", "gradient-string": "^3.0.0", "ink": "^6.8.0", "tar": "^7.4.3" }, "peerDependencies": { "@tanstack/react-query": ">=5.0.0", "@tanstack/react-router": ">=1.0.0", "react": ">=19.0.0", "react-dom": ">=19.0.0", "zod": "4.3.6" }, "optionalPeers": ["@tanstack/react-query", "@tanstack/react-router"], "bin": { "everything-dev": "dist/cli.mjs", "bos": "dist/cli.mjs" } }, "sha512-1Hg3o0CEfx8izKqeW/lSniLV0YvOxnaii9WcSGgHIIKLRpPlU6mL5+oJThCyMoSb94axEYsNqc84pMNir1SRuA=="],
 
     "execa": ["execa@9.6.1", "", { "dependencies": { "@sindresorhus/merge-streams": "^4.0.0", "cross-spawn": "^7.0.6", "figures": "^6.1.0", "get-stream": "^9.0.0", "human-signals": "^8.0.1", "is-plain-obj": "^4.1.0", "is-stream": "^4.0.1", "npm-run-path": "^6.0.0", "pretty-ms": "^9.2.0", "signal-exit": "^4.1.0", "strip-final-newline": "^4.0.0", "yoctocolors": "^2.1.1" } }, "sha512-9Be3ZoN4LmYR90tUoVu2te2BsbzHfhJyfEiAVfz7N5/zv+jduIfLrV2xdQXOHbaD6KgpGdO9PRPM1Y4Q9QkPkA=="],
 
@@ -2890,8 +2890,6 @@
     "enhanced-resolve/tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
 
     "esrecurse/estraverse": ["estraverse@5.3.0", "", {}, "sha512-MMdARuVEQziNTeJD8DgMqmhwR11BRQ/cBP+pLtYdSTnf3MIO8fFeiINEbX36ZdNlfU/7A9f3gUw49B3oQsvwBA=="],
-
-    "everything-dev/every-plugin": ["every-plugin@2.9.2", "", { "dependencies": { "@module-federation/enhanced": "^2.4.0", "@module-federation/node": "^2.7.42", "@module-federation/runtime-core": "^2.4.0", "@orpc/contract": "^1.13.4", "@orpc/experimental-publisher": "^1.13.4", "@orpc/server": "^1.13.4", "@orpc/tanstack-query": "1.14.3" }, "peerDependencies": { "@orpc/client": "1.14.3", "@orpc/openapi": "1.14.3", "@orpc/zod": "1.14.3", "@rspack/core": "1.7.11", "effect": "3.21.2", "typescript": "^5.9.3", "zod": "4.3.6" } }, "sha512-7s+LfvF1W4OnDlQG8OEmSUTBpoTdUmC4QNTO/GM+EDZmhEzn+UN6QLIYuxnKbAGn2jarp+WVJmHrbG7QCg0bVg=="],
 
     "express/cookie": ["cookie@0.7.2", "", {}, "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w=="],
 
