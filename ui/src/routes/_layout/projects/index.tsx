@@ -43,10 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
-import {
-  selectCatalogDirectoryProjects,
-  shouldLoadCatalogProjects,
-} from "@/lib/catalog-projects";
+import { selectCatalogDirectoryProjects, shouldLoadCatalogProjects } from "@/lib/catalog-projects";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
 import { type ProjectKindFilter, type ProjectSort, parseProjectListSearch } from "./-search";
