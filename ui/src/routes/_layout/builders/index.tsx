@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
+  getBuilderCategoryCounts,
   pendingProposalsOptions,
   upvoteCountsOptions,
   userVotesOptions,
@@ -188,11 +189,10 @@ function BuildersPage() {
     return sortedCards.filter((c) => c.kind === "nominated");
   }, [sortedCards, category]);
 
-  const categoryCounts = useMemo(() => {
-    const approved = sortedCards.filter((c) => c.kind === "builder").length;
-    const nominated = sortedCards.filter((c) => c.kind === "nominated").length;
-    return { all: sortedCards.length, approved, nominated };
-  }, [sortedCards]);
+  const categoryCounts = getBuilderCategoryCounts(
+    infiniteData?.pages[0]?.meta.total ?? 0,
+    proposalsData?.meta.total ?? 0,
+  );
 
   const sortedIds = useMemo(() => filteredCards.map(getCardId), [filteredCards]);
 

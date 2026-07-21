@@ -37,6 +37,14 @@ export interface Proposal {
   updatedAt: string;
 }
 
+export function getBuilderCategoryCounts(approved: number, nominated: number) {
+  return {
+    all: approved + nominated,
+    approved,
+    nominated,
+  };
+}
+
 export function buildersInfiniteOptions(
   apiClient: ApiClient,
   search: string,
