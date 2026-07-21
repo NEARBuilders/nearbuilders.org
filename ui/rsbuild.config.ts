@@ -157,7 +157,7 @@ function createClientConfig() {
       },
     },
     server: {
-      port: isServerBuild ? 3004 : 3003,
+      port: Number(process.env.PORT) || (isServerBuild ? 3004 : 3003),
       printUrls: ({ urls }) => urls.filter((url) => url.includes("localhost")),
       headers: {
         "Access-Control-Allow-Origin": "*",

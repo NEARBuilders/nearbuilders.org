@@ -1,7 +1,9 @@
 declare module "virtual:drizzle-migrations.sql" {
   export interface Migration {
-    hash: string;
+    idx: number;
+    when: number;
     tag: string;
+    hash: string;
     sql: string[];
   }
 

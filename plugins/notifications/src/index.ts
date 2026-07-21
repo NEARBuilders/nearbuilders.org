@@ -36,11 +36,11 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.NOTIFICATIONS_DATABASE_URL);
       const NotificationServices = NotificationServiceLive.pipe(Layer.provide(Database));
-      const notification = yield* Effect.provide(NotificationService, NotificationServices);
+      const notification = yield* tools.buildService(NotificationService, NotificationServices);
       const publisher = new MemoryPublisher<NotificationEvents>({ resumeRetentionSeconds: 120 });
 
       console.log("[Notifications] Services Initialized");

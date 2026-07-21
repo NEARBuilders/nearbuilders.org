@@ -36,11 +36,11 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.ACTIVITY_DATABASE_URL);
       const ActivityServices = ActivityServiceLive.pipe(Layer.provide(Database));
-      const activity = yield* Effect.provide(ActivityService, ActivityServices);
+      const activity = yield* tools.buildService(ActivityService, ActivityServices);
       const publisher = new MemoryPublisher<ActivityEvents>({ resumeRetentionSeconds: 120 });
 
       console.log("[Activity] Services Initialized");

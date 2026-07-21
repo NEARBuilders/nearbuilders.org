@@ -1,4 +1,4 @@
-import { Effect } from "every-plugin/effect";
+import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { type CatalogProjectSchema, CatalogProjectSlugSchema } from "../contract";
@@ -184,3 +184,13 @@ export function createCatalogMethods(
       }),
   };
 }
+
+type CatalogMethods = ReturnType<typeof createCatalogMethods>;
+
+export class CatalogService extends Context.Tag("nearcatalog/CatalogService")<
+  CatalogService,
+  CatalogMethods
+>() {}
+
+export const CatalogServiceLive = (baseUrl: string) =>
+  Layer.succeed(CatalogService, createCatalogMethods(baseUrl));

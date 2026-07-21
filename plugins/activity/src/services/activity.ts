@@ -8,7 +8,7 @@ import type {
   ActivityLeaderboardInputSchema,
   LeaderboardEntrySchema,
 } from "../contract";
-import type { ActivityDatabase } from "../db";
+import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import { activityEvents } from "../db/schema";
 
@@ -53,7 +53,7 @@ function periodStart(period: ActivityLeaderboardInput["period"]): Date | undefin
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
-export function createActivityMethods(db: ActivityDatabase) {
+export function createActivityMethods(db: Database) {
   return {
     emitActivity: (input: {
       source: string;

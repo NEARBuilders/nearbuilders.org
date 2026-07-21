@@ -11,19 +11,13 @@
   "repository": "https://github.com/nearbuilders/everything-dev",
   "app": {
     "ui": {
-      "development": "local:ui",
-      "production": "https://elliot-braem-6112-ui-nearbuilders-org-nearbuilder-ef6a5992b-ze.zephyrcloud.app",
-      "integrity": "sha384-+pYzv5LmKnQPU1LIhaHLCxEisL8SEdT650B4+WviJ0jdnFiDbf9B+8UKLHZnRuFs",
-      "ssr": "https://elliot-braem-6123-ui-nearbuilders-org-nearbuilder-aeab9d8e9-ze.zephyrcloud.app",
-      "ssrIntegrity": "sha384-uYg3QSAYut0vSUFalSVYrTFObTK/4HtgfH3So2tPFhh8R2IQWIkl4gyZCBu6V2Ba"
+      "development": "local:ui"
     },
     "api": {
       "development": "local:api",
       "secrets": [
         "API_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6122-api-nearbuilders-org-nearbuilde-de052328d-ze.zephyrcloud.app",
-      "integrity": "sha384-ZWgkvw0cJd58d7Jzbm2UycwZKI05+6UDYSeYYCFebfelscSmDzyWQrAINVAc/Jiq"
+      ]
     }
   },
   "plugins": {
@@ -35,34 +29,26 @@
       "routes": [
         "ui/src/routes/_layout/apps/**",
         "ui/src/routes/_layout/index.tsx"
-      ],
-      "production": "https://elliot-braem-6113-everything-dev-apps-plugin-near-39c4d1d98-ze.zephyrcloud.app",
-      "integrity": "sha384-HPiVuU82n5Vht3Oc8fUbtMYM1Xrrk5iMyEZjiMwfFPygqs9AQolmNfA1napCiJWu"
+      ]
     },
     "projects": {
       "development": "local:plugins/projects",
       "secrets": [
         "PROJECTS_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6119-everything-dev-projects-plugin--ce5a356c9-ze.zephyrcloud.app",
-      "integrity": "sha384-qhd8ZmLVpEg5Tx/lrFT6oJA0WhBBrFr77bTYtKE6UXAUu0+COTDCkji6yVY3XtGA"
+      ]
     },
     "builders": {
       "development": "local:plugins/builders",
       "secrets": [
         "BUILDERS_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6115-everything-dev-builders-plugin--f25b4c888-ze.zephyrcloud.app",
-      "integrity": "sha384-fIAHv0S0RuSLLftyElsU6ffPk5SXZ78hVh76cTCm/dvkF+SlGvW7RbM8AvWAETDE"
+      ]
     },
     "events": {
       "development": "local:plugins/events",
       "secrets": [
         "EVENTS_DATABASE_URL",
         "LUMA_CALENDAR_API_KEYS"
-      ],
-      "production": "https://elliot-braem-6121-everything-dev-events-plugin-ne-c8efce735-ze.zephyrcloud.app",
-      "integrity": "sha384-6XyYiT+HEP3mM2W16e3KNaty6zESx0eaAyPFfX8cGahseUuYR5wfr3Fk4j3+UR5V"
+      ]
     },
     "proposals": {
       "development": "local:plugins/proposals",
@@ -73,33 +59,25 @@
       },
       "secrets": [
         "PROPOSALS_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6114-everything-dev-proposals-plugin-dd49a2b79-ze.zephyrcloud.app",
-      "integrity": "sha384-Ksy+2/NSByHdqhGf6sdpBphO9Fh+CF4dR4rzg0GBNZyampq92fIs/U5y2SaVQgnE"
+      ]
     },
     "votes": {
       "development": "local:plugins/votes",
       "secrets": [
         "VOTES_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6118-everything-dev-votes-plugin-nea-8ed3ce1d1-ze.zephyrcloud.app",
-      "integrity": "sha384-Yc3kQSTWzT6xLd7FRYBQSUqsj+wcuAI8x8aGicTbaBbDpKOqepEWt4GqMzpv7JIY"
+      ]
     },
     "notifications": {
       "development": "local:plugins/notifications",
       "secrets": [
         "NOTIFICATIONS_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6117-everything-dev-notifications-pl-b077e87dc-ze.zephyrcloud.app",
-      "integrity": "sha384-aN61uHGIvtFdQUB8HwjcQnygVVZMW62f7WdfA/1kftQtvLC5sLjRYUzG1YynfEZX"
+      ]
     },
     "activity": {
       "development": "local:plugins/activity",
       "secrets": [
         "ACTIVITY_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6120-everything-dev-activity-plugin--7e835b821-ze.zephyrcloud.app",
-      "integrity": "sha384-/GtTWzXCh2fIBmnEjZlKDICHN7eK5rKn5zwz5xc0rbNHVadcRU2+sqYTNfyBmDHA"
+      ]
     },
     "nearcatalog": {
       "development": "local:plugins/nearcatalog",
@@ -108,9 +86,7 @@
       },
       "secrets": [
         "NEARCATALOG_DATABASE_URL"
-      ],
-      "production": "https://elliot-braem-6116-everything-dev-nearcatalog-plug-6e4d8bece-ze.zephyrcloud.app",
-      "integrity": "sha384-jKhEv1m7AP1ulQHbZEnO1hm8N+l1hDBjN2Aqw315p/GCXVh/EtByioTAGRzo9vpz"
+      ]
     }
   }
 }

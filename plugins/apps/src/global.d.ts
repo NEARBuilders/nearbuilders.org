@@ -6,6 +6,7 @@ declare module "virtual:drizzle-migrations.sql" {
     hash: string;
     sql: string[];
   }
+
   const migrations: Migration[];
   export default migrations;
 }

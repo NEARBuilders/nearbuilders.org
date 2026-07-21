@@ -18,12 +18,12 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.PROJECTS_DATABASE_URL);
 
       const ProjectServices = ProjectServiceLive.pipe(Layer.provide(Database));
-      const project = yield* Effect.provide(ProjectService, ProjectServices);
+      const project = yield* tools.buildService(ProjectService, ProjectServices);
 
       console.log("[Projects] Services Initialized");
       return { project };
