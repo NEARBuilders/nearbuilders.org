@@ -31,6 +31,13 @@ export function normalizeCatalogDirectoryProject({ project, contributors }: Clai
   };
 }
 
+export function selectCatalogDirectoryProjects(
+  projects: ClaimedCatalogProject[],
+  enabled: boolean,
+) {
+  return enabled ? projects.map(normalizeCatalogDirectoryProject) : [];
+}
+
 export function shouldLoadCatalogProjects({
   kind,
   personal,
