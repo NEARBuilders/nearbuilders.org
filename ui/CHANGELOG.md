@@ -1,5 +1,114 @@
 # ui
 
+## 1.6.0
+
+### Minor Changes
+
+- 13d6175: Add a public `/activity` page with a live feed (#23).
+
+  - **Activity feed**: New browse page at `/activity` rendering activity-ledger events as cards — source/type/verified badges, actor via the NEAR profile badge, payload preview (title, description, media thumbnail, tags), and a relative timestamp. Filter by source (All/Manual/NearCatalog) and type (All/Upload/Claim), and sort by Recent or Most Endorsed.
+  - **Endorsements**: Up/down vote arrows on each card endorse events through the existing votes plugin (the activity event id is the vote `entityId`), with endorsement counts batched via `getUpvoteCounts` and optimistic updates.
+  - **Live updates**: SSE subscriptions stream new activity events (prepended to the feed) and endorsement-count changes in real time.
+  - **Navigation**: "Activity" added to the main nav (desktop + mobile) alongside Builders/Projects/Events.
+  - **Query layer**: New `ui/src/lib/queries/activity.ts` with `activityFeedQueryOptions` (infinite), `leaderboardQueryOptions`, `emitActivityMutationOptions` (with cache invalidation), and an `ActivityEvent` type.
+
+- 142958d: Add edit builder profile (#11).
+
+  - **api**: Expose an `updateBuilderProfile` route on the API shell that proxies to the builders plugin, which enforces owner-or-admin permissions. Builds on the existing plugin contract and service.
+  - **ui**: Add a `/builders/{account}/edit` route where the profile owner (or an admin) can update their display name, bio, skills, and location with TanStack Form validation and error handling. An "Edit profile" entry point now appears on the builder profile for the owner/admin. Profile and background images continue to come from NEAR Social and are out of scope.
+
+- Add events plugin with full CRUD, participant management, and Luma import (#24).
+
+  - **events plugin**: Full events plugin providing create, read, update, delete, and participant join/leave flows backed by a PostgreSQL schema. Supports event visibility levels and status tracking.
+  - **api**: Expose events endpoints — list, create, get, update, delete, join/leave participants, list participants, and fetch event metadata from external Luma URLs.
+  - **ui**: Public events pages at `/events` with listing, detail, creation, and editing views. Admin dashboard now supports events proposals alongside builders and projects.
+  - **infra**: New `postgres-events` container, `EVENTS_DATABASE_URL` env var, and port renumbering for the existing plugin databases.
+
+- e94dd22: Fix project creation attribution and rework the project proposal flow (#7).
+
+  - **api**: Add a `createProject` route so projects are always created directly, owned by the logged-in user's NEAR account. Non-admins cannot create public projects directly (public visibility is clamped to private) and must have a linked NEAR account. The proposal approve callback now updates the existing project's visibility instead of recreating it, so the approving admin is never recorded as the creator; proposals for projects that don't exist yet (e.g. API-key sources) are still created and attributed to the original proposer.
+  - **projects plugin**: Non-admins can no longer flip a project to public via `updateProject`; making a project public requires admin approval through a proposal.
+  - **ui**: Creating a project now creates it immediately (private first) and, when public visibility is requested, submits a proposal to make it public. The edit page routes public-visibility changes through the same proposal flow. Owner attribution no longer falls back to the opaque auth user id.
+  - **proposals plugin**: Re-proposing an already approved/applied proposal resets it to pending instead of erroring, so a project that went public and was later made private can be submitted for review again. Prior decisions remain in the submissions history and audit log.
+  - **api**: Project proposal owners must be valid NEAR account ids — opaque auth user ids and API key ids are rejected. Removing an applied project proposal now reverts the project to private instead of deleting it.
+
+- 22f3232: Integrate Luma calendar subscriptions to display external events alongside internal NEAR Builders events (#77).
+
+  - **events plugin**: New `LumaService` with calendar key configuration (comma-separated `LUMA_CALENDAR_API_KEYS`), calendar metadata fetching, paginated event aggregation with cursor-based navigation across multiple calendars, in-memory caching with TTL and concurrent request deduplication, and admin visibility for private events.
+  - **api**: New `listLumaCalendars`, `listLumaEvents`, and `getLumaEvent` endpoints. Luma endpoints receive user context for admin role detection.
+  - **ui**: Luma events display alongside internal events on `/events` with calendar source filtering dropdown, URL-based deduplication across sources, Luma event detail pages at `/events/luma/$calendarId/$eventId`, and a re-usable `EventDetail` component shared between internal and Luma event views.
+
+- c801c40: Complete the reviewed NEAR Catalog claim lifecycle and public presentation for issues #54 and #55.
+
+  - Derive manual activity identity from authentication, add trusted admin-only activity emission, make emitted events idempotent, and support hiding revoked activity from feeds and leaderboards.
+  - Apply approved Catalog claims through a compensating workflow that verifies current builder and Catalog state, records a verified activity snapshot, and safely retries or rolls back partial failures.
+  - Support rejected and removed claim resubmissions while preserving proposal history, and expose complete claim review, retry, rejection, and revocation controls to administrators.
+  - Present claimed Catalog contributions on builder profiles, render specialized claim activity, and merge current Catalog projects into the public and personal project directories without duplicating local projects.
+
+- c801c40: Add the approved-builder NEAR Catalog contribution proposal flow.
+
+  - Keep Catalog proposals private to their submitter and administrators across proposal lists, counts, audit logs, and event streams.
+  - Add authenticated Catalog claim proposal submission and current-builder status APIs with server-derived claimant identity, active-project validation, normalized roles, idempotent retries, and rejected-only revisions.
+  - Resolve linked NEAR identity from the auth context so notification reads and streams remain authenticated.
+  - Accept array-shaped Catalog tags and isolate malformed search entries without converting valid empty results into upstream errors.
+  - Add URL-backed manual activity and project contribution tabs with Project contribution as the approved-builder default, Catalog project search and preview, multi-role submission, proposal status cards, rejected-proposal editing, and an owner-only builder profile CTA.
+
+- 164ae1c: Add notifications plugin with approval alerts and real-time delivery (#30).
+
+  - **notifications plugin**: New generic notification store following the every-plugin scaffold — oRPC contract (`createNotification`, `getMyNotifications`, `markAsRead`, `markAllAsRead`, `subscribeNotifications`), an Effect-TS service backed by a Drizzle PostgreSQL schema, and a `MemoryPublisher` for SSE streaming. All read/write routes are user-scoped.
+  - **api**: Passthrough for the user-facing notification routes (all `requireAuth`), scoped to the caller's NEAR account. The `approve` handler emits a best-effort notification to `proposal.createdBy` after a successful apply — `project_approved`, `event_approved`, or `builder_approved` with a deep link to the new resource. SSE `signal`/`lastEventId` are forwarded so reconnects resume cleanly.
+  - **ui**: Bell icon in the header (left of the avatar on desktop, left of the menu button on mobile) with a live unread badge, a dropdown of recent notifications with per-item "mark as read", and a full `/notifications` page with infinite scroll, optimistic mark-read / mark-all-read, loading/empty/error states, and SSE-driven live updates. Read state is persisted via the TanStack Query cache.
+  - **infra**: New `postgres-notifications` container and `NOTIFICATIONS_DATABASE_URL` env var.
+
+- 6ec106d: Add a private `/profile/activity` page (#34).
+
+  - Auth-gated page where a builder views their own activity feed (filtered by their NEAR account) and manually submits contributions.
+  - Submission form (TanStack Form): title, description, media URL, and comma-separated tags with a live badge preview; emits an activity event with `source: "manual"`, `type: "upload"`, `verified: false`. Success/error toasts, and the feed refetches on submit.
+  - Extracts the activity feed into a shared `ActivityFeed` component (and a presentational `ActivityCard`) reused by both the public `/activity` page and this private page, so the feed/endorsement/SSE logic lives in one place.
+
+- Move projects to public layout with sort, badge, and metadata (#25).
+
+  - **ui**: Project pages (`/projects`) are now publicly viewable instead of locked behind the authenticated dashboard. Project creation and editing routes add `beforeLoad` auth redirects.
+  - **ui**: New `NewBadge` component highlights projects created in the last 7 days on both the list and detail views.
+  - **ui**: Project list gains a sort dropdown (most votes, newest, oldest) with URL search param persistence.
+  - **ui**: Project detail pages emit Open Graph meta tags (title, description, social image) for link previews.
+
+- 4484095: Add a project proposal preview modal to the admin dashboard.
+
+  - Admins can open full project proposal details from pending project review cards before approving or rejecting.
+  - Project proposals render description, visibility, repository link, and markdown content in a scrollable dialog.
+  - Repository README content is fetched and shown for project submissions when available, giving reviewers a closer preview of the submitted project page.
+
+- 1a2f1d5: Fix stale vote counts and add social preview metadata to detail pages.
+
+  - **ui**: Fix a query-key mismatch on the projects list page (`projectIds` vs `projectIdList`) that left upvote/downvote counts stale until a full page reload. The vote mutations and the live-vote subscription now write to the same cache key the on-screen counts read from. Also fixes the project detail page's `userVoteState` cache to store the shape its query actually reads instead of a bare string.
+  - **ui**: Add `siteUrl` to Open Graph/social preview metadata on builder profile, event, and project detail pages via a shared `getSiteUrl` helper, so shared links on these pages render proper previews and canonical URLs.
+
+- 974cf46: Merge builder nominations into the builders list: nominated builders now appear inline alongside approved builders with auto-reordering by vote count, dashed borders for nominated-only entries, a unified row-style card layout, and animated upvote/pop interactions. Builder profile pages now show nomination status and history with fallback views for unapproved builders.
+- 06966e9: Add reusable proposals and votes plugins, move API to orchestration, and shift builder/project review flows onto proposal-backed admin moderation.
+
+### Patch Changes
+
+- 1c028d1: Swap suspense queries for regular queries with loading/error fallback on builders page.
+
+  - **ui**: Replace `useSuspenseInfiniteQuery`/`useSuspenseQuery` with `useInfiniteQuery`/`useQuery` on the builders list page, adding a loading spinner and a graceful error state ("Unable to load builders") instead of relying on suspense boundaries.
+
+- 974cf46: Fix proposal attribution: store NEAR wallet address as `createdBy` instead of opaque user ID, and fix project ownership when proposals are approved by admins.
+
+  - **proposals plugin**: Prefer `walletAddress` for `actorId` so `createdBy` stores the nominator's NEAR account (e.g. `alice.near`), making "Nominated by" display as a linkable identity on the builders page.
+  - **api**: Use `proposal.createdBy` as fallback for `ownerId` in the projects create callback, so approved projects are attributed to the original proposer instead of the approving admin.
+  - **ui**: Always include `defaultOwnerId` in project proposal payloads so non-admin proposals carry the proposer's identity even when the ownerId field is hidden from the form.
+
+- 766736f: Refine the notifications menu layout, responsive sizing, unread hierarchy, and action alignment.
+- 1c028d1: Fix PR review issues from #27: slug API paths, kind validation, filter preservation, and event error handling.
+
+  - **api**: Change slug lookup paths from `/v1/{resource}/slug/{slug}` to `/v1/{resource}/by-slug/{slug}` for both projects and events.
+  - **events plugin**: Remove redundant SELECT-before-INSERT duplicate slug check (DB unique constraint + catch handler suffice).
+  - **projects plugin**: Re-add `isProjectKind` validation in `beforeLoad` on project detail and edit routes to redirect invalid kinds to `/projects`.
+  - **projects plugin**: Restore `kind` search param in navigation links so the kind filter is preserved when moving between list, detail, and edit views.
+  - **ui**: Change `reviewFailed` toast on event creation to include actionable guidance ("Edit to resubmit.").
+  - **fix**: Correct `vitest` catalog reference from `"^catalog:"` to `"catalog:"`.
+
 ## 1.5.1
 
 ### Patch Changes

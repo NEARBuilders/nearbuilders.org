@@ -1,5 +1,35 @@
 # @everything-dev/projects-plugin
 
+## 1.4.0
+
+### Minor Changes
+
+- 06966e9: Add reusable proposals and votes plugins, move API to orchestration, and shift builder/project review flows onto proposal-backed admin moderation.
+
+### Patch Changes
+
+- 1c028d1: Add error logging and database connection verification for better observability.
+
+  - **api**: Wrap project handler calls (`listProjects`, `getProject`, `createProject`, `updateProject`, `deleteProject`, etc.) in try/catch blocks with `console.error` logging for improved debuggability.
+  - **projects plugin**: Verify database connectivity on startup by issuing `SELECT 1` before running migrations; add `console.error` logging to all Effect exit failures for easier debugging of production issues.
+
+- e94dd22: Fix project creation attribution and rework the project proposal flow (#7).
+
+  - **api**: Add a `createProject` route so projects are always created directly, owned by the logged-in user's NEAR account. Non-admins cannot create public projects directly (public visibility is clamped to private) and must have a linked NEAR account. The proposal approve callback now updates the existing project's visibility instead of recreating it, so the approving admin is never recorded as the creator; proposals for projects that don't exist yet (e.g. API-key sources) are still created and attributed to the original proposer.
+  - **projects plugin**: Non-admins can no longer flip a project to public via `updateProject`; making a project public requires admin approval through a proposal.
+  - **ui**: Creating a project now creates it immediately (private first) and, when public visibility is requested, submits a proposal to make it public. The edit page routes public-visibility changes through the same proposal flow. Owner attribution no longer falls back to the opaque auth user id.
+  - **proposals plugin**: Re-proposing an already approved/applied proposal resets it to pending instead of erroring, so a project that went public and was later made private can be submitted for review again. Prior decisions remain in the submissions history and audit log.
+  - **api**: Project proposal owners must be valid NEAR account ids — opaque auth user ids and API key ids are rejected. Removing an applied project proposal now reverts the project to private instead of deleting it.
+
+- 1c028d1: Fix PR review issues from #27: slug API paths, kind validation, filter preservation, and event error handling.
+
+  - **api**: Change slug lookup paths from `/v1/{resource}/slug/{slug}` to `/v1/{resource}/by-slug/{slug}` for both projects and events.
+  - **events plugin**: Remove redundant SELECT-before-INSERT duplicate slug check (DB unique constraint + catch handler suffice).
+  - **projects plugin**: Re-add `isProjectKind` validation in `beforeLoad` on project detail and edit routes to redirect invalid kinds to `/projects`.
+  - **projects plugin**: Restore `kind` search param in navigation links so the kind filter is preserved when moving between list, detail, and edit views.
+  - **ui**: Change `reviewFailed` toast on event creation to include actionable guidance ("Edit to resubmit.").
+  - **fix**: Correct `vitest` catalog reference from `"^catalog:"` to `"catalog:"`.
+
 ## 1.3.3
 
 ### Patch Changes

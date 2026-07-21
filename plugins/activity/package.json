@@ -1,6 +1,6 @@
 {
   "name": "@everything-dev/activity-plugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Activity plugin for NEAR Builders",
   "type": "module",
   "exports": {
