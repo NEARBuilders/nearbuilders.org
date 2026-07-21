@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCatalogDirectoryProject, shouldLoadCatalogProjects } from "./catalog-projects";
+import {
+  normalizeCatalogDirectoryProject,
+  selectCatalogDirectoryProjects,
+  shouldLoadCatalogProjects,
+} from "./catalog-projects";
 
 const claimedProject = {
   project: {
@@ -75,5 +79,10 @@ describe("Catalog project projections", () => {
         ownerId: "alice.near",
       }),
     ).toBe(false);
+  });
+
+  it("does not project cached catalog data into disabled filters", () => {
+    expect(selectCatalogDirectoryProjects([claimedProject], false)).toEqual([]);
+    expect(selectCatalogDirectoryProjects([claimedProject], true)).toHaveLength(1);
   });
 });

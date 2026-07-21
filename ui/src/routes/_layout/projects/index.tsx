@@ -44,7 +44,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import {
-  normalizeCatalogDirectoryProject,
+  selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
@@ -226,9 +226,11 @@ function ProjectsList() {
   );
   const catalogProjects = useMemo(
     () =>
-      catalogQuery.data?.pages.flatMap((page) => page.data).map(normalizeCatalogDirectoryProject) ??
-      [],
-    [catalogQuery.data],
+      selectCatalogDirectoryProjects(
+        catalogQuery.data?.pages.flatMap((page) => page.data) ?? [],
+        catalogEnabled,
+      ),
+    [catalogEnabled, catalogQuery.data],
   );
   const projects = useMemo(
     () => [...localProjects, ...catalogProjects],
