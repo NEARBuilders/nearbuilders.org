@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
@@ -59,11 +59,13 @@ function Layout() {
 
   return (
     <div className="min-h-dvh flex flex-col bg-background text-foreground">
-      {isNavigating && (
-        <div className="fixed top-0 left-0 right-0 h-0.5 z-50 overflow-hidden">
-          <div className="h-full bg-brand-green animate-progress-bar" />
-        </div>
-      )}
+      <ClientOnly>
+        {isNavigating && (
+          <div className="fixed top-0 left-0 right-0 h-0.5 z-50 overflow-hidden">
+            <div className="h-full bg-brand-green animate-progress-bar" />
+          </div>
+        )}
+      </ClientOnly>
 
       <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
