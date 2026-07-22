@@ -71,19 +71,20 @@ function Dashboard() {
     queryFn: () => apiClient.getMyBuilderProfile({}),
     enabled: Boolean(user && !user.isAnonymous),
   });
+  const builderProfile = builderResult?.data ?? null;
+  const builderAccountId = builderProfile?.nearAccount ?? nearAccountId;
 
   const { data: builderProposalResult, isLoading: builderProposalLoading } = useQuery({
-    queryKey: ["builder-proposals", nearAccountId],
+    queryKey: ["builder-proposals", builderAccountId],
     queryFn: () =>
       apiClient.getProposals({
         pluginId: "builders",
-        entityId: nearAccountId!,
+        entityId: builderAccountId!,
         limit: 1,
       }),
-    enabled: Boolean(nearAccountId),
+    enabled: Boolean(builderAccountId),
   });
 
-  const builderProfile = builderResult?.data ?? null;
   const builderProposal = builderProposalResult?.data[0] ?? null;
   const builderStatus = getBuilderStatusSummary(builderProfile, builderProposal);
 
@@ -98,14 +99,14 @@ function Dashboard() {
   });
 
   const { data: auditLogResult, isLoading: auditLogLoading } = useQuery({
-    queryKey: ["builder-audit-log", nearAccountId],
+    queryKey: ["builder-audit-log", builderAccountId],
     queryFn: () =>
       apiClient.getAuditLog({
         pluginId: "builders",
-        entityId: nearAccountId!,
+        entityId: builderAccountId!,
         limit: 4,
       }),
-    enabled: Boolean(nearAccountId && (builderProfile || builderProposal)),
+    enabled: Boolean(builderAccountId && (builderProfile || builderProposal)),
   });
 
   const totalProjectVotes = Object.values(projectVoteCounts ?? {}).reduce(
@@ -253,7 +254,7 @@ function Dashboard() {
             builderProfile={builderProfile}
             builderProposal={builderProposal}
             isLoading={builderLoading || builderProposalLoading}
-            nearAccountId={nearAccountId}
+            nearAccountId={builderAccountId ?? nearAccountId}
             apiClient={apiClient}
           />
         </aside>

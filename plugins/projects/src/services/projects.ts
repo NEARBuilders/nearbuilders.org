@@ -114,7 +114,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         cursor?: string;
       },
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<
       {
         data: Project[];
@@ -126,13 +126,13 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
     getProject: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     getProjectBySlug: (
       slug: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     createProject: (
@@ -151,7 +151,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<Project, ORPCError<string, unknown>>;
 
     updateProject: (
@@ -169,14 +169,14 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<Project, ORPCError<string, unknown>>;
 
     deleteProject: (
       id: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
     listProjectApps: (projectId: string) => Effect.Effect<ProjectApp[], ORPCError<string, unknown>>;
@@ -187,7 +187,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       domain: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<ProjectApp, ORPCError<string, unknown>>;
 
     unlinkAppFromProject: (
@@ -196,44 +196,48 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       domain: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
     listProjectsForApp: (
       accountId: string,
       domain: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
 
     listMentions: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
 
     listMentionedBy: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateUserIds?: string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
   }
 >() {}
 
-function isProjectOwner(projectOwnerId: string, userId?: string, alternateUserId?: string) {
-  return projectOwnerId === userId || projectOwnerId === alternateUserId;
+export function isProjectOwner(
+  projectOwnerId: string,
+  userId?: string,
+  alternateUserIds: string[] = [],
+) {
+  return projectOwnerId === userId || alternateUserIds.includes(projectOwnerId);
 }
 
-const canViewProjectRecord = (project: any, userId?: string, alternateUserId?: string) => {
+const canViewProjectRecord = (project: any, userId?: string, alternateUserIds: string[] = []) => {
   if (project.visibility === "public" || project.visibility === "unlisted") {
     return true;
   }
 
-  if (!userId && !alternateUserId) {
+  if (!userId && alternateUserIds.length === 0) {
     return false;
   }
 
-  return isProjectOwner(project.ownerId, userId, alternateUserId);
+  return isProjectOwner(project.ownerId, userId, alternateUserIds);
 };
 
 const canEditProject = (
@@ -241,7 +245,7 @@ const canEditProject = (
   projectId: string,
   userId: string,
   userRole?: string,
-  alternateUserId?: string,
+  alternateUserIds: string[] = [],
 ) =>
   Effect.gen(function* () {
     if (userRole === "admin") {
@@ -258,7 +262,7 @@ const canEditProject = (
       return false;
     }
 
-    return isProjectOwner(project.ownerId, userId, alternateUserId);
+    return isProjectOwner(project.ownerId, userId, alternateUserIds);
   });
 
 const syncMentions = (db: any, sourceId: string, content: string | null) =>
@@ -346,7 +350,7 @@ export const ProjectServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
-      listProjects: (input, userId?: string, alternateUserId?: string) =>
+      listProjects: (input, userId?: string, alternateUserIds: string[] = []) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
@@ -357,7 +361,12 @@ export const ProjectServiceLive = Layer.effect(
           }
 
           if (input.ownerId) {
-            conditions.push(eq(projects.ownerId, input.ownerId));
+            const ownerIds = isProjectOwner(input.ownerId, userId, alternateUserIds)
+              ? [userId, ...alternateUserIds].filter(
+                  (ownerId): ownerId is string => typeof ownerId === "string",
+                )
+              : [input.ownerId];
+            conditions.push(inArray(projects.ownerId, [...new Set(ownerIds)]));
           }
 
           if (input.kind) {
@@ -372,10 +381,10 @@ export const ProjectServiceLive = Layer.effect(
             conditions.push(eq(projects.visibility, input.visibility));
           } else {
             const visibleConditions: any[] = [inArray(projects.visibility, ["public", "unlisted"])];
-            if (userId || alternateUserId) {
+            if (userId || alternateUserIds.length > 0) {
               const ownerConditions = [
                 userId ? eq(projects.ownerId, userId) : undefined,
-                alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+                ...alternateUserIds.map((ownerId) => eq(projects.ownerId, ownerId)),
               ].filter(Boolean);
               if (ownerConditions.length > 0) {
                 visibleConditions.push(or(...ownerConditions));
@@ -417,7 +426,7 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      getProject: (id, userId, alternateUserId) =>
+      getProject: (id, userId, alternateUserIds) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, id)).limit(1),
@@ -427,11 +436,11 @@ export const ProjectServiceLive = Layer.effect(
             return null;
           }
 
-          if (!canViewProjectRecord(project, userId, alternateUserId)) return null;
+          if (!canViewProjectRecord(project, userId, alternateUserIds)) return null;
           return yield* mapProjectDetail(db, project);
         }),
 
-      getProjectBySlug: (slug, userId, alternateUserId) =>
+      getProjectBySlug: (slug, userId, alternateUserIds) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.slug, slug)).limit(1),
@@ -441,7 +450,7 @@ export const ProjectServiceLive = Layer.effect(
             return null;
           }
 
-          if (!canViewProjectRecord(project, userId, alternateUserId)) return null;
+          if (!canViewProjectRecord(project, userId, alternateUserIds)) return null;
           return yield* mapProjectDetail(db, project);
         }),
 
@@ -524,9 +533,9 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      updateProject: (id, input, userId, userRole, alternateUserId) =>
+      updateProject: (id, input, userId, userRole, alternateUserIds) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserIds);
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -609,9 +618,9 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      deleteProject: (id, userId, userRole, alternateUserId) =>
+      deleteProject: (id, userId, userRole, alternateUserIds) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserIds);
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -645,9 +654,9 @@ export const ProjectServiceLive = Layer.effect(
           }));
         }),
 
-      linkAppToProject: (projectId, accountId, domain, userId, userRole, alternateUserId) =>
+      linkAppToProject: (projectId, accountId, domain, userId, userRole, alternateUserIds) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserIds);
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -711,10 +720,10 @@ export const ProjectServiceLive = Layer.effect(
         domain: string,
         userId: string,
         userRole?: string,
-        alternateUserId?: string,
+        alternateUserIds?: string[],
       ) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserIds);
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -738,7 +747,7 @@ export const ProjectServiceLive = Layer.effect(
           return { deleted: true };
         }),
 
-      listProjectsForApp: (accountId, domain, userId, alternateUserId) =>
+      listProjectsForApp: (accountId, domain, userId, alternateUserIds) =>
         Effect.gen(function* () {
           const results = yield* Effect.promise(() =>
             db
@@ -751,14 +760,14 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = results.filter((r: any) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateUserIds)) return true;
             return false;
           });
 
           return filtered.map((r: any) => mapProject(r.project));
         }),
 
-      listMentions: (id, userId, alternateUserId) =>
+      listMentions: (id, userId, alternateUserIds) =>
         Effect.gen(function* () {
           const rows = (yield* Effect.promise(() =>
             db
@@ -771,14 +780,14 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = rows.filter((r) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateUserIds)) return true;
             return false;
           });
 
           return filtered.map((r) => mapProject(r.project));
         }),
 
-      listMentionedBy: (id, userId, alternateUserId) =>
+      listMentionedBy: (id, userId, alternateUserIds) =>
         Effect.gen(function* () {
           const rows = (yield* Effect.promise(() =>
             db
@@ -791,7 +800,7 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = rows.filter((r) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateUserIds)) return true;
             return false;
           });
 
