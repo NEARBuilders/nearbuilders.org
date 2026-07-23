@@ -25,4 +25,22 @@ describe("Project approval activity payload", () => {
   it("rejects incomplete snapshots", () => {
     expect(readProjectApprovalActivityPayload({ projectId: "project-1" })).toBeNull();
   });
+
+  it("reads historical snapshots with omitted optional metadata", () => {
+    expect(
+      readProjectApprovalActivityPayload({
+        projectId: "idea-1",
+        projectKind: "idea",
+        projectSlug: "example-idea",
+        projectTitle: "Example Idea",
+      }),
+    ).toEqual({
+      projectId: "idea-1",
+      projectKind: "idea",
+      projectSlug: "example-idea",
+      projectTitle: "Example Idea",
+      projectDescription: null,
+      repositoryUrl: null,
+    });
+  });
 });
