@@ -28,8 +28,8 @@
       "@better-auth/api-key": "1.6.9",
       "@better-auth/passkey": "1.6.9",
       "better-near-auth": "1.7.2",
-      "every-plugin": "^2.9.4",
-      "everything-dev": "^1.51.1",
+      "every-plugin": "^2.9.6",
+      "everything-dev": "^1.51.5",
       "typescript": "^5.9.3",
       "vitest": "^4.1.8",
       "@libsql/client": "0.17.0",
@@ -95,7 +95,17 @@
     "dev:postgres:down": "docker compose down",
     "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait",
     "db:doctor": "node_modules/.bin/bos db:doctor",
-    "db:repair": "node_modules/.bin/bos db:repair"
+    "db:repair": "node_modules/.bin/bos db:repair",
+    "regression:start:dev": "BOS_NO_PERSIST_PORTS=1 bun packages/everything-dev/src/cli.ts dev --no-interactive --port 4100 --api-port 4101 --auth-port 4102 --ui-port 4103 --plugin-port-start 4110",
+    "regression:start:prod": "BOS_NO_PERSIST_PORTS=1 PORT=4100 bun ./node_modules/everything-dev/dist/cli.mjs start --no-interactive",
+    "test:regression:http:dev": "REGRESSION_MODE=dev sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
+    "test:regression:http:prod": "REGRESSION_MODE=prod sh -lc 'cd tests/regression/http && go test ./... -count=1 -v -timeout 10m'",
+    "test:regression:browser:install": "bunx playwright install --with-deps chromium",
+    "test:regression:browser:dev": "REGRESSION_MODE=dev bunx playwright test -c tests/regression/browser/playwright.config.mjs --project=dev",
+    "test:regression:browser:prod": "REGRESSION_MODE=prod bunx playwright test -c tests/regression/browser/playwright.config.mjs --project=prod",
+    "test:regression:dev": "bun run test:regression:http:dev && bun run test:regression:browser:dev",
+    "test:regression:prod": "bun run test:regression:http:prod && bun run test:regression:browser:prod",
+    "test:regression": "bun run test:regression:dev"
   },
   "packageManager": "bun@1.3.14",
   "type": "module",
@@ -107,7 +117,8 @@
     "tsx": "^4.21.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "catalog:",
-    "@types/pg": "catalog:"
+    "@types/pg": "catalog:",
+    "@playwright/test": "^1.58.1"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
