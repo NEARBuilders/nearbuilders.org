@@ -167,6 +167,18 @@ export default createPlugin({
         return { data: result };
       }),
 
+      reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
+        const result = await runEffect(
+          services.proposal.reopen({
+            ...input,
+            actorId: context.userId!,
+            actor: context.user ?? undefined,
+          }),
+        );
+        await publishProposalEvent("reopened", result);
+        return { data: result };
+      }),
+
       remove: builder.remove.use(requireAdmin).handler(async ({ input, context }) => {
         const result = await runEffect(
           services.proposal.remove({
@@ -221,6 +233,10 @@ export default createPlugin({
           return { data: [] };
         }
         return await runEffect(services.proposal.getAuditLog(input));
+      }),
+
+      getReviewHistory: builder.getReviewHistory.use(requireAdmin).handler(async ({ input }) => {
+        return await runEffect(services.proposal.getReviewHistory(input));
       }),
 
       subscribe: builder.subscribe.handler(async function* ({
