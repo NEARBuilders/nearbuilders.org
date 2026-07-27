@@ -7,17 +7,21 @@ import { type Passkey, type SessionData, sessionQueryOptions, useAuthClient } fr
 import { Badge, Button, ConfirmDialog } from "@/components";
 import { useUserPasskeys } from "@/components/settings-sections";
 import { Input } from "@/components/ui/input";
+import { nearAccountsOptions, nearAccountsQueryKey } from "@/lib/queries/near-accounts";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/auth-methods")({
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData({
-      queryKey: ["passkeys"],
-      queryFn: async () => {
-        const { data } = await context.authClient.passkey.listUserPasskeys();
-        return (data || []) as Passkey[];
-      },
-      staleTime: 60 * 1000,
-    });
+    await Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["passkeys"],
+        queryFn: async () => {
+          const { data } = await context.authClient.passkey.listUserPasskeys();
+          return (data || []) as Passkey[];
+        },
+        staleTime: 60 * 1000,
+      }),
+      context.queryClient.ensureQueryData(nearAccountsOptions(context.authClient)),
+    ]);
   },
   component: AuthMethodsSettings,
 });
@@ -27,19 +31,25 @@ function AuthMethodsSettings() {
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
   const user = session?.user;
   const { data: passkeys = [] } = useUserPasskeys(!!user);
-  const nearAccountId = auth.near.getAccountId();
+  const { data: nearAccountsData, isLoading: nearAccountsLoading } = useQuery(
+    nearAccountsOptions(auth),
+  );
+  const nearAccounts = nearAccountsData?.accounts ?? [];
 
   if (!user) return null;
 
   const linkedMethodCount =
-    Number(!!user.email) + Number(!!nearAccountId) + Number(!!user.phoneNumber) + passkeys.length;
+    Number(!!user.email) +
+    Number(nearAccounts.length > 0) +
+    Number(!!user.phoneNumber) +
+    passkeys.length;
 
   return (
     <div className="space-y-5">
       <AuthOverview linkedMethodCount={linkedMethodCount} passkeyCount={passkeys.length} />
       <div className="grid gap-4 lg:grid-cols-2">
         <EmailMethod user={user} />
-        <NearMethod nearAccountId={nearAccountId} />
+        <NearMethod accounts={nearAccounts} isLoading={nearAccountsLoading} />
         <div className="lg:col-span-2">
           <PhoneMethod user={user} />
         </div>
@@ -94,44 +104,97 @@ function EmailMethod({ user }: { user: { email?: string; isAnonymous?: boolean |
   );
 }
 
-function NearMethod({ nearAccountId }: { nearAccountId: string | null }) {
+function NearMethod({
+  accounts,
+  isLoading,
+}: {
+  accounts: Array<{
+    accountId: string;
+    network: "mainnet" | "testnet";
+    isActive: boolean;
+  }>;
+  isLoading: boolean;
+}) {
   const auth = useAuthClient();
   const queryClient = useQueryClient();
 
   const linkNearMutation = useMutation({
-    mutationFn: async () => {
-      const result: unknown = await auth.signIn.near();
-      if (
-        result &&
-        typeof result === "object" &&
-        "error" in result &&
-        result.error &&
-        typeof result.error === "object" &&
-        "message" in result.error
-      ) {
-        throw new Error(String(result.error.message));
-      }
-    },
+    mutationFn: () =>
+      new Promise<void>((resolve, reject) => {
+        void auth.near.link({ onSuccess: resolve, onError: reject });
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["session"] });
-      queryClient.invalidateQueries({ queryKey: ["near-accounts"] });
+      toast.success("NEAR account linked");
+      void queryClient.invalidateQueries({ queryKey: ["session"] });
+      void queryClient.invalidateQueries({ queryKey: nearAccountsQueryKey });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const setPrimaryMutation = useMutation({
+    mutationFn: async (account: { accountId: string; network: "mainnet" | "testnet" }) => {
+      const { error } = await auth.near.setPrimaryAccount(account);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast.success("Primary NEAR account updated");
+      void queryClient.invalidateQueries({ queryKey: ["session"] });
+      void queryClient.invalidateQueries({ queryKey: nearAccountsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
+      void queryClient.invalidateQueries({ queryKey: ["projects-personal"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const hasAccounts = accounts.length > 0;
+
   return (
     <MethodCard
       icon={Wallet}
-      title="NEAR Wallet"
-      description="Recoverable wallet sign-in."
-      status={nearAccountId ? "Linked" : "Not linked"}
-      linked={!!nearAccountId}
+      title="NEAR Wallets"
+      description="Link multiple wallets and choose which account is active."
+      status={hasAccounts ? `${accounts.length} linked` : "Not linked"}
+      linked={hasAccounts}
     >
-      {nearAccountId ? (
-        <div className="rounded-md border border-border bg-muted px-3.5 py-3 font-mono text-xs break-all text-foreground">
-          {nearAccountId}
-        </div>
-      ) : (
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="rounded-md border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
+            Loading linked accounts...
+          </div>
+        ) : hasAccounts ? (
+          <div className="flex flex-col gap-2">
+            {accounts.map((account) => (
+              <div
+                key={`${account.accountId}:${account.network}`}
+                className="flex flex-col gap-3 rounded-md border border-border bg-muted px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="break-all font-mono text-xs text-foreground">
+                    {account.accountId}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{account.network}</div>
+                </div>
+                {account.isActive ? (
+                  <Badge variant="success">Primary</Badge>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setPrimaryMutation.mutate(account)}
+                    disabled={setPrimaryMutation.isPending}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Make primary
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-md border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
+            No NEAR wallets linked yet.
+          </div>
+        )}
         <Button
           type="button"
           onClick={() => linkNearMutation.mutate()}
@@ -139,9 +202,13 @@ function NearMethod({ nearAccountId }: { nearAccountId: string | null }) {
           variant="outline"
           size="sm"
         >
-          {linkNearMutation.isPending ? "connecting..." : "connect NEAR wallet"}
+          {linkNearMutation.isPending
+            ? "Connecting..."
+            : hasAccounts
+              ? "Link another wallet"
+              : "Connect NEAR wallet"}
         </Button>
-      )}
+      </div>
     </MethodCard>
   );
 }

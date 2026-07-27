@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -70,6 +70,18 @@ function generateId(): string {
   return `bld_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+export function isBuilderOwner(
+  builder: Pick<Builder, "nearAccount" | "userId">,
+  userId: string,
+  walletAddresses: string[] = [],
+) {
+  return (
+    builder.userId === userId ||
+    builder.nearAccount === userId ||
+    walletAddresses.includes(builder.nearAccount)
+  );
+}
+
 export class BuilderService extends Context.Tag("builders/BuilderService")<
   BuilderService,
   {
@@ -90,7 +102,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
 
     getBuilderByUserId: (
       userId: string,
-      walletAddress?: string,
+      walletAddresses?: string[],
     ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
 
     createBuilder: (input: {
@@ -113,7 +125,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
         links?: Record<string, string>;
       },
       userId: string,
-      walletAddress?: string,
+      walletAddresses?: string[],
       userRole?: string,
     ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
@@ -191,11 +203,15 @@ export const BuilderServiceLive = Layer.effect(
           return row ? rowToBuilder(row) : null;
         }),
 
-      getBuilderByUserId: (userId, walletAddress) =>
+      getBuilderByUserId: (userId, walletAddresses = []) =>
         Effect.gen(function* () {
-          const conditions: any[] = [];
-          if (walletAddress) conditions.push(eq(builders.nearAccount, walletAddress));
-          conditions.push(eq(builders.userId, userId));
+          const linkedAccounts = [...new Set(walletAddresses)];
+          const conditions: any[] = [eq(builders.userId, userId)];
+          if (linkedAccounts.length > 0) {
+            conditions.push(
+              and(isNull(builders.userId), inArray(builders.nearAccount, linkedAccounts)),
+            );
+          }
 
           const [row] = yield* Effect.promise(() =>
             db
@@ -204,6 +220,12 @@ export const BuilderServiceLive = Layer.effect(
               .where(and(or(...conditions)))
               .limit(1),
           );
+          if (row && !row.userId) {
+            yield* Effect.promise(() =>
+              db.update(builders).set({ userId }).where(eq(builders.id, row.id)),
+            );
+            row.userId = userId;
+          }
           return row ? rowToBuilder(row) : null;
         }),
 
@@ -274,7 +296,7 @@ export const BuilderServiceLive = Layer.effect(
           };
         }),
 
-      updateBuilderProfile: (nearAccount, input, userId, walletAddress, userRole) =>
+      updateBuilderProfile: (nearAccount, input, userId, walletAddresses = [], userRole) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
@@ -286,10 +308,7 @@ export const BuilderServiceLive = Layer.effect(
             );
           }
 
-          const isOwner =
-            existing.nearAccount === walletAddress ||
-            existing.nearAccount === userId ||
-            existing.userId === userId;
+          const isOwner = isBuilderOwner(existing, userId, walletAddresses);
 
           if (userRole !== "admin" && !isOwner) {
             return yield* Effect.fail(
@@ -301,6 +320,9 @@ export const BuilderServiceLive = Layer.effect(
 
           const now = new Date();
           const updates: any = { updatedAt: now };
+          if (!existing.userId && walletAddresses.includes(existing.nearAccount)) {
+            updates.userId = userId;
+          }
 
           if (input.name !== undefined) updates.name = input.name.trim() || null;
           if (input.bio !== undefined) updates.bio = input.bio.trim() || null;

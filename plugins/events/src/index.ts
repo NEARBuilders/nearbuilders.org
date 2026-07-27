@@ -43,13 +43,21 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: {
+    const getAlternateOwnerIds = (context: {
       userId?: string | null;
-      near?: { primaryAccountId?: string | null };
-    }) =>
-      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
-        ? (context.userId ?? undefined)
-        : undefined;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId: string }>;
+      };
+    }) => {
+      const primaryAccountId = context.near?.primaryAccountId;
+      return [
+        context.userId,
+        ...(context.near?.linkedAccounts?.map((account) => account.accountId) ?? []),
+      ]
+        .filter((ownerId): ownerId is string => Boolean(ownerId && ownerId !== primaryAccountId))
+        .filter((ownerId, index, ownerIds) => ownerIds.indexOf(ownerId) === index);
+    };
 
     const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
       const exit = await Effect.runPromiseExit(effect);
@@ -100,7 +108,7 @@ export default createPlugin({
           services.event.listEvents(
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
       }),
@@ -110,7 +118,7 @@ export default createPlugin({
           services.event.getEvent(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
         if (!result) {
@@ -127,7 +135,7 @@ export default createPlugin({
           services.event.getEventBySlug(
             input.slug,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
         if (!result) {
@@ -147,7 +155,7 @@ export default createPlugin({
                 services.event.listEventParticipants(
                   input.eventId,
                   context.near?.primaryAccountId ?? context.userId ?? undefined,
-                  getAlternateOwnerId(context),
+                  getAlternateOwnerIds(context),
                 ),
               ),
             };
@@ -172,7 +180,7 @@ export default createPlugin({
                 context.near?.primaryAccountId ?? context.userId ?? undefined,
                 context.near?.primaryAccountId ?? undefined,
                 context.user.name ?? context.user.email,
-                getAlternateOwnerId(context),
+                getAlternateOwnerIds(context),
               ),
             ),
           };
@@ -195,7 +203,7 @@ export default createPlugin({
               services.event.leaveEvent(
                 input.eventId,
                 context.near?.primaryAccountId ?? context.userId ?? undefined,
-                getAlternateOwnerId(context),
+                getAlternateOwnerIds(context),
               ),
             );
           } catch (error) {
@@ -215,7 +223,7 @@ export default createPlugin({
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
       }),
@@ -230,7 +238,7 @@ export default createPlugin({
                 input,
                 context.near?.primaryAccountId ?? context.userId ?? undefined,
                 context.user.role ?? undefined,
-                getAlternateOwnerId(context),
+                getAlternateOwnerIds(context),
               ),
             );
           } catch (error) {
@@ -253,7 +261,7 @@ export default createPlugin({
                 input.id,
                 context.near?.primaryAccountId ?? context.userId ?? undefined,
                 context.user.role ?? undefined,
-                getAlternateOwnerId(context),
+                getAlternateOwnerIds(context),
               ),
             );
           } catch (error) {

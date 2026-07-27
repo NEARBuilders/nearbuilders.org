@@ -31,6 +31,19 @@ export default createPlugin({
   shutdown: () => Effect.log("[Builders] Shutdown"),
 
   createRouter: (services, builder) => {
+    const getLinkedAccountIds = (context: {
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId: string }>;
+      };
+    }) =>
+      [
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts?.map((account) => account.accountId) ?? []),
+      ]
+        .filter((accountId): accountId is string => Boolean(accountId))
+        .filter((accountId, index, accountIds) => accountIds.indexOf(accountId) === index);
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -82,10 +95,7 @@ export default createPlugin({
         .use(requireAuth)
         .handler(async ({ context }) => {
           const result = await runEffect(
-            services.builder.getBuilderByUserId(
-              context.userId,
-              context.near?.primaryAccountId ?? undefined,
-            ),
+            services.builder.getBuilderByUserId(context.userId, getLinkedAccountIds(context)),
           );
           return { data: result };
         }),
@@ -103,7 +113,7 @@ export default createPlugin({
               input.nearAccount,
               input,
               context.userId,
-              context.near?.primaryAccountId ?? undefined,
+              getLinkedAccountIds(context),
               context.user.role ?? undefined,
             ),
           );

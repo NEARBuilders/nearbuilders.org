@@ -45,19 +45,27 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: {
+    const getAlternateOwnerIds = (context: {
       userId?: string | null;
-      near?: { primaryAccountId?: string | null };
-    }) =>
-      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
-        ? (context.userId ?? undefined)
-        : undefined;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId: string }>;
+      };
+    }) => {
+      const primaryAccountId = context.near?.primaryAccountId;
+      return [
+        context.userId,
+        ...(context.near?.linkedAccounts?.map((account) => account.accountId) ?? []),
+      ]
+        .filter((ownerId): ownerId is string => Boolean(ownerId && ownerId !== primaryAccountId))
+        .filter((ownerId, index, ownerIds) => ownerIds.indexOf(ownerId) === index);
+    };
 
     return {
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.listProjects(input, ownerId, getAlternateOwnerId(context)),
+          services.project.listProjects(input, ownerId, getAlternateOwnerIds(context)),
         );
 
         if (Exit.isFailure(exit)) {
@@ -75,7 +83,7 @@ export default createPlugin({
       getProject: builder.getProject.handler(async ({ input, errors, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.getProject(input.id, ownerId, getAlternateOwnerId(context)),
+          services.project.getProject(input.id, ownerId, getAlternateOwnerIds(context)),
         );
 
         if (Exit.isFailure(exit)) {
@@ -100,7 +108,7 @@ export default createPlugin({
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, errors, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.getProjectBySlug(input.slug, ownerId, getAlternateOwnerId(context)),
+          services.project.getProjectBySlug(input.slug, ownerId, getAlternateOwnerIds(context)),
         );
 
         if (Exit.isFailure(exit)) {
@@ -149,7 +157,7 @@ export default createPlugin({
               input,
               context.near?.primaryAccountId ?? context.userId ?? undefined,
               context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+              getAlternateOwnerIds(context),
             ),
           );
 
@@ -181,7 +189,7 @@ export default createPlugin({
               input.id,
               context.near?.primaryAccountId ?? context.userId ?? undefined,
               context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+              getAlternateOwnerIds(context),
             ),
           );
 
@@ -230,7 +238,7 @@ export default createPlugin({
               input.domain,
               context.near?.primaryAccountId ?? context.userId ?? undefined,
               context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+              getAlternateOwnerIds(context),
             ),
           );
 
@@ -264,7 +272,7 @@ export default createPlugin({
               input.domain,
               context.near?.primaryAccountId ?? context.userId ?? undefined,
               context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+              getAlternateOwnerIds(context),
             ),
           );
 
@@ -294,7 +302,7 @@ export default createPlugin({
             input.accountId,
             input.domain,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
 
@@ -315,7 +323,7 @@ export default createPlugin({
           services.project.listMentions(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
 
@@ -336,7 +344,7 @@ export default createPlugin({
           services.project.listMentionedBy(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
 
