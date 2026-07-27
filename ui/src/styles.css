@@ -25,7 +25,6 @@
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-overlay: var(--overlay);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -109,7 +108,6 @@
   --border-strong: #d5dce1;
   --input: #fff;
   --ring: #00d9a3;
-  --overlay: #000;
   --radius: 0.75rem;
 
   --brand-cyan: #00d9a3;
@@ -156,7 +154,6 @@
   --border-strong: #3a4a5a;
   --input: #1d2b36;
   --ring: #00d9a3;
-  --overlay: #000;
   --radius: 0.75rem;
 
   --brand-cyan: #00d9a3;

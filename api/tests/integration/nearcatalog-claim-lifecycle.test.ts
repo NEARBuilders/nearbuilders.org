@@ -78,20 +78,6 @@ describe("Catalog claim approval lifecycle", () => {
     record.applyError = error;
     return { data: record };
   });
-  const removeMock = vi.fn(async () => {
-    record.reviewStatus = "removed";
-    return { data: record };
-  });
-  const markRemovedMock = vi.fn(async () => {
-    record.removeStatus = "removed";
-    record.removeError = null;
-    return { data: record };
-  });
-  const markRemoveFailedMock = vi.fn(async ({ error }: { error: string }) => {
-    record.removeStatus = "failed";
-    record.removeError = error;
-    return { data: record };
-  });
   let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"api">>>;
 
   beforeAll(async () => {
@@ -146,9 +132,15 @@ describe("Catalog claim approval lifecycle", () => {
             return { data: record };
           },
           markApplyFailed: markApplyFailedMock,
-          remove: removeMock,
-          markRemoved: markRemovedMock,
-          markRemoveFailed: markRemoveFailedMock,
+          remove: async () => {
+            record.reviewStatus = "removed";
+            return { data: record };
+          },
+          markRemoved: async () => {
+            record.removeStatus = "removed";
+            return { data: record };
+          },
+          markRemoveFailed: vi.fn(),
         }),
         votes: () => ({}),
       } as never,
@@ -233,36 +225,6 @@ describe("Catalog claim approval lifecycle", () => {
     expect(applyClaimMock).not.toHaveBeenCalled();
     expect(emitTrustedActivityMock).not.toHaveBeenCalled();
     expect(setClaimActivityMock).not.toHaveBeenCalled();
-  });
-
-  it("keeps approval active when revocation fails and permits a retry", async () => {
-    await adminClient().approve({ pluginId: "nearcatalog", entityId });
-    revokeClaimMock.mockRejectedValueOnce(new Error("Could not revoke claim"));
-
-    await expect(adminClient().remove({ pluginId: "nearcatalog", entityId })).rejects.toThrow(
-      "Could not revoke claim",
-    );
-
-    expect(removeMock).not.toHaveBeenCalled();
-    expect(markRemovedMock).not.toHaveBeenCalled();
-    expect(markRemoveFailedMock).toHaveBeenCalledWith(
-      expect.objectContaining({ error: "Could not revoke claim" }),
-    );
-    expect(record).toMatchObject({
-      reviewStatus: "approved",
-      removeStatus: "failed",
-      removeError: "Could not revoke claim",
-    });
-
-    await adminClient().remove({ pluginId: "nearcatalog", entityId });
-
-    expect(removeMock).toHaveBeenCalledTimes(1);
-    expect(markRemovedMock).toHaveBeenCalledTimes(1);
-    expect(record).toMatchObject({
-      reviewStatus: "removed",
-      removeStatus: "removed",
-      removeError: null,
-    });
   });
 
   it("compensates a failed link and records apply failure", async () => {

@@ -65,7 +65,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   createRouter: (services, builder) => {
     const { requireAuth, requireAdmin, requireAuthOrApiKey } = createAuthMiddleware(builder);
-    const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
+    const { notifyApproval, notifyRejection } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
@@ -155,10 +155,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return rejected;
       }),
 
-      reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
-        return await services.plugins.proposals(context).reopen(input);
-      }),
-
       remove: builder.remove.use(requireAdmin).handler(async ({ input, context }) => {
         const proposalsClient = services.plugins.proposals(context);
         const listed = await proposalsClient.getProposals({
@@ -172,9 +168,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           throw new ORPCError("NOT_FOUND", { message: "Proposal not found" });
         }
 
-        const wasApproved =
-          proposalData.reviewStatus === "approved" ||
-          (proposalData.reviewStatus === "removed" && proposalData.removeStatus === "failed");
+        const removal = await proposalsClient.remove(input);
 
         const proposal = {
           pluginId: proposalData.pluginId,
@@ -184,8 +178,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           createdBy: proposalData.createdBy,
         };
 
-        try {
-          if (proposalData.applyStatus === "applied") {
+        if (proposalData.applyStatus === "applied") {
+          try {
             await runEffect(
               Effect.tryPromise({
                 try: () => orchestration.removeProposal(proposal, context),
@@ -195,26 +189,22 @@ export default createPlugin.withPlugins<PluginsClient>()({
                   }),
               }),
             );
+            return await proposalsClient.markRemoved({
+              pluginId: input.pluginId,
+              entityId: input.entityId,
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            await proposalsClient.markRemoveFailed({
+              pluginId: input.pluginId,
+              entityId: input.entityId,
+              error: message,
+            });
+            throw error;
           }
-
-          await proposalsClient.remove(input);
-          const removed = await proposalsClient.markRemoved({
-            pluginId: input.pluginId,
-            entityId: input.entityId,
-          });
-          if (wasApproved) {
-            await notifyRevocation(proposal, context);
-          }
-          return removed;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          await proposalsClient.markRemoveFailed({
-            pluginId: input.pluginId,
-            entityId: input.entityId,
-            error: message,
-          });
-          throw error;
         }
+
+        return removal;
       }),
 
       getProposals: builder.getProposals.handler(async ({ input, context }) => {
@@ -228,12 +218,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).getAuditLog(input);
       }),
-
-      getReviewHistory: builder.getReviewHistory
-        .use(requireAdmin)
-        .handler(async ({ input, context }) => {
-          return await services.plugins.proposals(context).getReviewHistory(input);
-        }),
 
       subscribeProposals: builder.subscribeProposals.handler(async function* ({ input, context }) {
         const iterator = await services.plugins.proposals(context).subscribe(input);

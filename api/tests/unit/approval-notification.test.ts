@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildApprovalNotification,
   buildRejectionNotification,
-  buildRevocationNotification,
 } from "../../src/services/proposal-notifications";
 
 describe("approval notification mapping", () => {
@@ -76,23 +75,20 @@ describe("approval notification mapping", () => {
 describe("rejection notification mapping", () => {
   it("maps rejected projects with the rejection reason", () => {
     expect(
-      buildRejectionNotification(
-        {
-          pluginId: "projects",
-          entityId: "project-1",
-          appliedResourceId: null,
-          createdBy: "user-1",
-          payload: { title: "Example Project", slug: "example-project" },
-          rejectionReason: "Missing project details.",
-        },
-        "reviewer.near",
-      ),
+      buildRejectionNotification({
+        pluginId: "projects",
+        entityId: "project-1",
+        appliedResourceId: null,
+        createdBy: "user-1",
+        payload: { title: "Example Project", slug: "example-project" },
+        rejectionReason: "Missing project details.",
+      }),
     ).toMatchObject({
       userId: "user-1",
       type: "project_rejected",
       source: "projects",
       subject: "Example Project rejected",
-      body: "Your project was not approved by NEAR Builders. Rejected by reviewer.near. Reason: Missing project details.",
+      body: "Your project was not approved by NEAR Builders. Reason: Missing project details.",
       link: "/dashboard",
     });
   });
@@ -148,29 +144,5 @@ describe("rejection notification mapping", () => {
         rejectionReason: "Nope.",
       }),
     ).toBeNull();
-  });
-});
-
-describe("revocation notification mapping", () => {
-  it("tells project owners that the project is private and names the admin", () => {
-    expect(
-      buildRevocationNotification(
-        {
-          pluginId: "projects",
-          entityId: "project-1",
-          appliedResourceId: "project-1",
-          createdBy: "user-1",
-          payload: { title: "Example Project", slug: "example-project" },
-        },
-        "truevest7869.near",
-      ),
-    ).toMatchObject({
-      userId: "user-1",
-      type: "project_approval_revoked",
-      source: "projects",
-      subject: "Example Project approval revoked",
-      body: "Your project is now private. Revoked by truevest7869.near.",
-      link: "/dashboard",
-    });
   });
 });

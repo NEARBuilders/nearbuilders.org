@@ -43,53 +43,6 @@ export declare const ProposalAuditEntrySchema: z.ZodObject<{
     details: z.ZodNullable<z.ZodUnknown>;
     createdAt: z.ZodISODateTime;
 }, z.core.$strip>;
-export declare const ProposalReviewHistoryEntrySchema: z.ZodObject<{
-    id: z.ZodString;
-    pluginId: z.ZodString;
-    entityId: z.ZodString;
-    actor: z.ZodString;
-    actorLabel: z.ZodNullable<z.ZodString>;
-    details: z.ZodNullable<z.ZodUnknown>;
-    createdAt: z.ZodISODateTime;
-    action: z.ZodEnum<{
-        approved: "approved";
-        rejected: "rejected";
-    }>;
-    proposal: z.ZodObject<{
-        id: z.ZodString;
-        pluginId: z.ZodString;
-        entityId: z.ZodString;
-        operation: z.ZodLiteral<"create">;
-        payload: z.ZodUnknown;
-        schemaVersion: z.ZodString;
-        createdBy: z.ZodString;
-        reviewStatus: z.ZodEnum<{
-            pending: "pending";
-            approved: "approved";
-            rejected: "rejected";
-            removed: "removed";
-        }>;
-        applyStatus: z.ZodEnum<{
-            not_started: "not_started";
-            applied: "applied";
-            failed: "failed";
-        }>;
-        removeStatus: z.ZodEnum<{
-            removed: "removed";
-            not_started: "not_started";
-            failed: "failed";
-        }>;
-        rejectionReason: z.ZodNullable<z.ZodString>;
-        applyError: z.ZodNullable<z.ZodString>;
-        removeError: z.ZodNullable<z.ZodString>;
-        appliedResourceId: z.ZodNullable<z.ZodString>;
-        submissionCount: z.ZodNumber;
-        appliedAt: z.ZodNullable<z.ZodISODateTime>;
-        removedAt: z.ZodNullable<z.ZodISODateTime>;
-        createdAt: z.ZodISODateTime;
-        updatedAt: z.ZodISODateTime;
-    }, z.core.$strip>;
-}, z.core.$strip>;
 export declare const ProposalEventSchema: z.ZodObject<{
     action: z.ZodString;
     pluginId: z.ZodString;
@@ -800,84 +753,6 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>>;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    getReviewHistory: import("@orpc/contract").ContractProcedure<z.ZodObject<{
-        pluginId: z.ZodOptional<z.ZodString>;
-        limit: z.ZodOptional<z.ZodNumber>;
-        cursor: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>, z.ZodObject<{
-        data: z.ZodArray<z.ZodObject<{
-            id: z.ZodString;
-            pluginId: z.ZodString;
-            entityId: z.ZodString;
-            actor: z.ZodString;
-            actorLabel: z.ZodNullable<z.ZodString>;
-            details: z.ZodNullable<z.ZodUnknown>;
-            createdAt: z.ZodISODateTime;
-            action: z.ZodEnum<{
-                approved: "approved";
-                rejected: "rejected";
-            }>;
-            proposal: z.ZodObject<{
-                id: z.ZodString;
-                pluginId: z.ZodString;
-                entityId: z.ZodString;
-                operation: z.ZodLiteral<"create">;
-                payload: z.ZodUnknown;
-                schemaVersion: z.ZodString;
-                createdBy: z.ZodString;
-                reviewStatus: z.ZodEnum<{
-                    pending: "pending";
-                    approved: "approved";
-                    rejected: "rejected";
-                    removed: "removed";
-                }>;
-                applyStatus: z.ZodEnum<{
-                    not_started: "not_started";
-                    applied: "applied";
-                    failed: "failed";
-                }>;
-                removeStatus: z.ZodEnum<{
-                    removed: "removed";
-                    not_started: "not_started";
-                    failed: "failed";
-                }>;
-                rejectionReason: z.ZodNullable<z.ZodString>;
-                applyError: z.ZodNullable<z.ZodString>;
-                removeError: z.ZodNullable<z.ZodString>;
-                appliedResourceId: z.ZodNullable<z.ZodString>;
-                submissionCount: z.ZodNumber;
-                appliedAt: z.ZodNullable<z.ZodISODateTime>;
-                removedAt: z.ZodNullable<z.ZodISODateTime>;
-                createdAt: z.ZodISODateTime;
-                updatedAt: z.ZodISODateTime;
-            }, z.core.$strip>;
-        }, z.core.$strip>>;
-        meta: z.ZodObject<{
-            total: z.ZodNumber;
-            hasMore: z.ZodBoolean;
-            nextCursor: z.ZodNullable<z.ZodString>;
-        }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
-        UNAUTHORIZED: {
-            readonly status: 401;
-            readonly data: z.ZodObject<{
-                apiKeyProvided: z.ZodBoolean;
-                provider: z.ZodOptional<z.ZodString>;
-                authType: z.ZodOptional<z.ZodEnum<{
-                    apiKey: "apiKey";
-                    oauth: "oauth";
-                    token: "token";
-                }>>;
-            }, z.core.$strip>;
-        };
-        FORBIDDEN: {
-            readonly status: 403;
-            readonly data: z.ZodObject<{
-                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
-                action: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>;
-        };
-    }>>, Record<never, never>>;
     subscribe: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodOptional<z.ZodString>;
         entityId: z.ZodOptional<z.ZodString>;

@@ -30,8 +30,6 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
   return {
     default: [
       {
-        idx: 0,
-        when: 1780344361156,
         hash: "proposals-private-test",
         tag: "proposals-private-test",
         sql: source.split("--> statement-breakpoint").map((statement) => statement.trim()),
@@ -245,19 +243,6 @@ describe.sequential("Proposals plugin", () => {
     ).rejects.toThrow("This proposal is already approved");
 
     await adminClient().remove({ pluginId: input.pluginId, entityId: input.entityId });
-    const removalAudit = await adminClient().getAuditLog({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-    });
-    expect(removalAudit.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          action: "approval_revoked",
-          actor: "admin",
-          actorLabel: "admin",
-        }),
-      ]),
-    );
     await expect(
       aliceClient().propose({ ...input, idempotencyKey: "removed-revision" }),
     ).rejects.toThrow("Removed proposals cannot be resubmitted");
@@ -274,95 +259,6 @@ describe.sequential("Proposals plugin", () => {
       appliedResourceId: null,
       removedAt: null,
       payload: { roles: ["Maintainer"] },
-    });
-  });
-
-  it("lets admins reopen rejected proposals and records the action", async () => {
-    const input = {
-      pluginId: "events",
-      entityId: "reopened-review",
-      payload: { title: "Reopened Review" },
-      idempotencyKey: "reopened-review",
-    };
-
-    await aliceClient().propose(input);
-    await adminClient().reject({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-      reason: "Needs another review",
-    });
-
-    await expect(
-      aliceClient().reopen({ pluginId: input.pluginId, entityId: input.entityId }),
-    ).rejects.toThrow("Admin access required");
-
-    const reopened = await adminClient().reopen({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-    });
-
-    expect(reopened.data.reviewStatus).toBe("pending");
-    expect(reopened.data.rejectionReason).toBeNull();
-
-    const audit = await adminClient().getAuditLog({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-    });
-    expect(audit.data[0]).toMatchObject({
-      action: "reopened",
-      actor: "admin",
-      actorLabel: "admin",
-    });
-
-    await expect(
-      adminClient().reopen({ pluginId: input.pluginId, entityId: input.entityId }),
-    ).rejects.toThrow("Only rejected proposals can be reopened");
-  });
-
-  it("provides admins with reviewer history", async () => {
-    const input = {
-      pluginId: "builders",
-      entityId: "review-history.near",
-      payload: { name: "Review History" },
-      idempotencyKey: "review-history",
-    };
-
-    await aliceClient().propose(input);
-    await adminClient().approve({ pluginId: input.pluginId, entityId: input.entityId });
-    await adminClient().markApplied({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-      appliedResourceId: input.entityId,
-    });
-
-    const audit = await adminClient().getAuditLog({
-      pluginId: input.pluginId,
-      entityId: input.entityId,
-    });
-    expect(audit.data[0]).toMatchObject({
-      action: "applied",
-      actor: "system",
-      actorLabel: "System",
-    });
-
-    await expect(aliceClient().getReviewHistory({ pluginId: "builders" })).rejects.toThrow(
-      "Admin access required",
-    );
-
-    const history = await adminClient().getReviewHistory({ pluginId: "builders" });
-    const review = history.data.find((entry) => entry.entityId === input.entityId);
-
-    expect(review).toMatchObject({
-      pluginId: "builders",
-      entityId: input.entityId,
-      action: "approved",
-      actor: "admin",
-      actorLabel: "admin",
-      proposal: {
-        createdBy: "alice.near",
-        reviewStatus: "approved",
-        payload: { name: "Review History" },
-      },
     });
   });
 });

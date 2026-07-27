@@ -8,8 +8,6 @@ type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
 type ApplyStatus = "not_started" | "applied" | "failed";
 type RemoveStatus = "not_started" | "removed" | "failed";
 type ResubmissionPolicy = "rejected-only" | "rejected-or-removed";
-const SYSTEM_ACTOR = "system";
-const SYSTEM_ACTOR_LABEL = "System";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -137,12 +135,6 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       actorId: string;
       actor?: { name?: string; email?: string };
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
-    reopen: (input: {
-      pluginId: string;
-      entityId: string;
-      actorId: string;
-      actor?: { name?: string; email?: string };
-    }) => Effect.Effect<any, ORPCError<string, unknown>>;
     remove: (input: {
       pluginId: string;
       entityId: string;
@@ -186,11 +178,6 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       pluginId: string;
       entityId: string;
       limit?: number;
-    }) => Effect.Effect<any, ORPCError<string, unknown>>;
-    getReviewHistory: (input: {
-      pluginId?: string;
-      limit?: number;
-      cursor?: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
   }
 >() {}
@@ -469,60 +456,6 @@ export const ProposalServiceLive = Layer.effect(
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
 
-      reopen: (input) =>
-        Effect.gen(function* () {
-          const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(proposals)
-              .where(
-                and(eq(proposals.pluginId, input.pluginId), eq(proposals.entityId, input.entityId)),
-              )
-              .limit(1),
-          );
-
-          if (!existing) {
-            return yield* Effect.fail(
-              new ORPCError("NOT_FOUND", { message: "Proposal not found" }),
-            );
-          }
-
-          if (existing.reviewStatus !== "rejected") {
-            return yield* Effect.fail(
-              new ORPCError("BAD_REQUEST", {
-                message: "Only rejected proposals can be reopened",
-              }),
-            );
-          }
-
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                reviewStatus: "pending",
-                rejectionReason: null,
-                applyError: null,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
-          );
-
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "reopened",
-              input.actorId,
-              actorLabel(input.actor),
-            ),
-          );
-
-          return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
-        }),
-
       remove: (input) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
@@ -543,7 +476,6 @@ export const ProposalServiceLive = Layer.effect(
 
           if (existing.reviewStatus !== "removed") {
             const now = new Date();
-            const action = existing.reviewStatus === "approved" ? "approval_revoked" : "removed";
             yield* Effect.promise(() =>
               db
                 .update(proposals)
@@ -557,7 +489,7 @@ export const ProposalServiceLive = Layer.effect(
                 existing.id,
                 input.pluginId,
                 input.entityId,
-                action,
+                "removed",
                 input.actorId,
                 actorLabel(input.actor),
               ),
@@ -606,8 +538,8 @@ export const ProposalServiceLive = Layer.effect(
               input.pluginId,
               input.entityId,
               "applied",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
+              existing.createdBy,
+              null,
               { appliedResourceId: input.appliedResourceId ?? existing.appliedResourceId ?? null },
             ),
           );
@@ -652,8 +584,8 @@ export const ProposalServiceLive = Layer.effect(
               input.pluginId,
               input.entityId,
               "apply_failed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
+              existing.createdBy,
+              null,
               { error: input.error },
             ),
           );
@@ -699,8 +631,8 @@ export const ProposalServiceLive = Layer.effect(
               input.pluginId,
               input.entityId,
               "removed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
+              existing.createdBy,
+              null,
             ),
           );
 
@@ -744,8 +676,8 @@ export const ProposalServiceLive = Layer.effect(
               input.pluginId,
               input.entityId,
               "remove_failed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
+              existing.createdBy,
+              null,
               { error: input.error },
             ),
           );
@@ -862,56 +794,6 @@ export const ProposalServiceLive = Layer.effect(
               details: parseJson(row.details),
               createdAt: toIsoString(row.createdAt)!,
             })),
-          };
-        }),
-
-      getReviewHistory: (input) =>
-        Effect.gen(function* () {
-          const pageLimit = Math.min(input.limit ?? 50, 100);
-          const offset = input.cursor ? Number.parseInt(input.cursor, 10) : 0;
-          const conditions = [inArray(proposalAuditLog.action, ["approved", "rejected"])];
-          if (input.pluginId) conditions.push(eq(proposalAuditLog.pluginId, input.pluginId));
-          const whereClause = and(...conditions);
-
-          const [counted, rows] = yield* Effect.promise(() =>
-            Promise.all([
-              db.select({ count: count() }).from(proposalAuditLog).where(whereClause),
-              db
-                .select()
-                .from(proposalAuditLog)
-                .where(whereClause)
-                .orderBy(desc(proposalAuditLog.createdAt))
-                .limit(pageLimit)
-                .offset(offset),
-            ]),
-          );
-          const total = counted[0]?.count ?? 0;
-          const entries = yield* Effect.promise(() =>
-            Promise.all(
-              rows.map(async (row: any) => ({
-                id: row.id,
-                pluginId: row.pluginId,
-                entityId: row.entityId,
-                action: row.action as "approved" | "rejected",
-                actor: row.actor,
-                actorLabel: row.actorLabel ?? null,
-                details: parseJson(row.details),
-                createdAt: toIsoString(row.createdAt)!,
-                proposal: await loadProposal(db, row.pluginId, row.entityId),
-              })),
-            ),
-          );
-          const data = entries.filter((entry: any) => entry.proposal);
-          const nextOffset = offset + pageLimit;
-          const hasMore = nextOffset < total;
-
-          return {
-            data,
-            meta: {
-              total,
-              hasMore,
-              nextCursor: hasMore ? String(nextOffset) : null,
-            },
           };
         }),
     };
