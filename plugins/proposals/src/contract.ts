@@ -39,6 +39,11 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
+export const ProposalReviewHistoryEntrySchema = ProposalAuditEntrySchema.extend({
+  action: z.enum(["approved", "rejected"]),
+  proposal: ProposalSchema,
+});
+
 export const ProposalEventSchema = z.object({
   action: z.string(),
   pluginId: z.string(),
@@ -81,6 +86,12 @@ export const contract = oc.router({
         reason: z.string().max(1000).optional(),
       }),
     )
+    .output(z.object({ data: ProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  reopen: oc
+    .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/reopen" })
+    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
@@ -184,6 +195,27 @@ export const contract = oc.router({
         data: z.array(ProposalAuditEntrySchema),
       }),
     ),
+
+  getReviewHistory: oc
+    .route({ method: "GET", path: "/v1/proposals/review-history" })
+    .input(
+      z.object({
+        pluginId: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(ProposalReviewHistoryEntrySchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   subscribe: oc
     .route({ method: "GET", path: "/v1/proposals/stream" })

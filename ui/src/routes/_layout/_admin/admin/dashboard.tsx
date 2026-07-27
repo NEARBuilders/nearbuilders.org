@@ -1,4 +1,10 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BarChart2,
@@ -12,10 +18,13 @@ import {
   FileText,
   Globe,
   Hammer,
+  History,
   Layers,
   Loader2,
   Lock,
   MapPin,
+  RotateCcw,
+  UserRound,
   X,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
@@ -28,6 +37,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -48,6 +58,7 @@ export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
 
 type ProposalStatus = "pending" | "approved" | "rejected" | "removed";
 type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
+type DashboardView = "pending" | "history";
 
 const PROPOSAL_TABS = [
   ["builders", "Builders"],
@@ -66,9 +77,27 @@ interface ProposalRecord {
   rejectionReason: string | null;
   applyStatus?: "not_started" | "applied" | "failed";
   applyError?: string | null;
+  removeStatus?: "not_started" | "removed" | "failed";
+  removeError?: string | null;
   submissionCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ProposalAuditEntry {
+  id: string;
+  pluginId: string;
+  entityId: string;
+  action: string;
+  actor: string;
+  actorLabel: string | null;
+  details: unknown;
+  createdAt: string;
+}
+
+interface ReviewHistoryEntry extends ProposalAuditEntry {
+  action: "approved" | "rejected";
+  proposal: ProposalRecord;
 }
 
 function readPayload(payload: unknown) {
@@ -87,12 +116,69 @@ function readStringArray(value: unknown): string[] {
     : [];
 }
 
+function isNearAccountId(value: string) {
+  return value.endsWith(".near") || value.endsWith(".testnet");
+}
+
+function isSystemAuditEntry(entry: ProposalAuditEntry) {
+  const lifecycleActions = ["applied", "apply_failed", "removed", "remove_failed"];
+  return entry.actor === "system" || (!entry.actorLabel && lifecycleActions.includes(entry.action));
+}
+
+function readAuditActor(entry: ProposalAuditEntry) {
+  if (isSystemAuditEntry(entry)) {
+    return { label: "System", nearAccount: null };
+  }
+
+  return {
+    label: entry.actorLabel ?? entry.actor,
+    nearAccount:
+      entry.actorLabel && entry.actorLabel !== entry.actor && isNearAccountId(entry.actor)
+        ? entry.actor
+        : null,
+  };
+}
+
+function formatAuditAction(entry: ProposalAuditEntry, pluginId: ProposalPluginId) {
+  if (entry.action === "proposed") return "Submitted";
+  if (entry.action === "approved") return "Approved";
+  if (entry.action === "rejected") return "Rejected";
+  if (entry.action === "reopened") return "Reopened for review";
+  if (entry.action === "applied") {
+    return pluginId === "nearcatalog" ? "Verified" : "Made public";
+  }
+  if (entry.action === "approval_revoked") return "Approval revoked";
+  if (entry.action === "removed") {
+    if (!isSystemAuditEntry(entry)) return "Approval revoked";
+    if (pluginId === "builders") return "Removed from directory";
+    if (pluginId === "nearcatalog") return "Verification removed";
+    return "Made private";
+  }
+  if (entry.action === "apply_failed") return "Publishing failed";
+  if (entry.action === "remove_failed") {
+    return pluginId === "projects" || pluginId === "events"
+      ? "Making private failed"
+      : "Removal failed";
+  }
+  return entry.action.replaceAll("_", " ");
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -112,6 +198,7 @@ function formatTimeRange(startAt: string, endAt: string | null) {
 
 function AdminDashboard() {
   const [pluginTab, setPluginTab] = useState<ProposalPluginId>("builders");
+  const [view, setView] = useState<DashboardView>("pending");
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
@@ -129,7 +216,7 @@ function AdminDashboard() {
     })),
   });
 
-  const { data, isLoading } = useQuery({
+  const proposalsQuery = useQuery({
     queryKey: ["admin-proposals", pluginTab],
     queryFn: async () => {
       const result = await apiClient.getProposals({
@@ -146,14 +233,32 @@ function AdminDashboard() {
       }
       return result;
     },
+    enabled: view === "pending",
   });
 
-  const proposals = ((data?.data ?? []) as ProposalRecord[]).filter(
+  const historyQuery = useInfiniteQuery({
+    queryKey: ["admin-review-history", pluginTab],
+    queryFn: ({ pageParam }) =>
+      apiClient.getReviewHistory({
+        pluginId: pluginTab,
+        limit: 50,
+        cursor: pageParam,
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.meta.nextCursor ?? undefined,
+    enabled: view === "history",
+  });
+
+  const proposals = ((proposalsQuery.data?.data ?? []) as ProposalRecord[]).filter(
     (proposal) =>
       pluginTab !== "nearcatalog" ||
       proposal.reviewStatus === "pending" ||
       proposal.reviewStatus === "approved",
   );
+  const reviewHistory = (historyQuery.data?.pages.flatMap((page) => page.data) ??
+    []) as ReviewHistoryEntry[];
+  const isLoading = view === "pending" ? proposalsQuery.isLoading : historyQuery.isLoading;
+  const isEmpty = view === "pending" ? proposals.length === 0 : reviewHistory.length === 0;
 
   const exportMutation = useMutation({
     mutationFn: () => exportProjectProposals(apiClient),
@@ -190,6 +295,33 @@ function AdminDashboard() {
         </Button>
       </div>
 
+      <div className="mb-6 inline-flex rounded-xl border border-border bg-muted/30 p-1">
+        <button
+          type="button"
+          onClick={() => setView("pending")}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
+            view === "pending"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Clock size={13} />
+          Pending review
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("history")}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors ${
+            view === "history"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <History size={13} />
+          Review history
+        </button>
+      </div>
+
       <div className="mb-6 flex gap-1">
         {PROPOSAL_TABS.map(([value, label], index) => (
           <button
@@ -202,7 +334,8 @@ function AdminDashboard() {
                 : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            {label} ({pendingCountQueries[index]?.data ?? 0})
+            {label}
+            {view === "pending" ? ` (${pendingCountQueries[index]?.data ?? 0})` : ""}
           </button>
         ))}
       </div>
@@ -213,12 +346,18 @@ function AdminDashboard() {
             <ProposalReviewCardSkeleton key={i} />
           ))}
         </div>
-      ) : proposals.length === 0 ? (
+      ) : isEmpty ? (
         <div className="rounded-xl border border-border bg-muted/30 py-16 text-center">
-          <p className="text-sm font-semibold text-foreground">No pending proposals</p>
-          <p className="mt-1 text-xs text-muted-foreground">All caught up for {pluginTab}.</p>
+          <p className="text-sm font-semibold text-foreground">
+            {view === "pending" ? "No pending proposals" : "No review history"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {view === "pending"
+              ? `All caught up for ${pluginTab}.`
+              : `Approved and rejected ${pluginTab} will appear here.`}
+          </p>
         </div>
-      ) : (
+      ) : view === "pending" ? (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
             {proposals.length} proposal{proposals.length !== 1 ? "s" : ""} pending review
@@ -226,6 +365,40 @@ function AdminDashboard() {
           {proposals.map((proposal) => (
             <ProposalReviewCard key={proposal.id} proposal={proposal} />
           ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            {historyQuery.data?.pages[0]?.meta.total ?? reviewHistory.length} review decision
+            {(historyQuery.data?.pages[0]?.meta.total ?? reviewHistory.length) !== 1 ? "s" : ""}
+          </p>
+          {reviewHistory.map((entry, index) => {
+            const isLatestDecision =
+              reviewHistory.findIndex(
+                (candidate) =>
+                  candidate.pluginId === entry.pluginId && candidate.entityId === entry.entityId,
+              ) === index;
+            const canUndo =
+              isLatestDecision &&
+              ((entry.action === "approved" &&
+                (entry.proposal.reviewStatus === "approved" ||
+                  entry.proposal.removeStatus === "failed")) ||
+                (entry.action === "rejected" && entry.proposal.reviewStatus === "rejected"));
+
+            return <ReviewHistoryCard key={entry.id} entry={entry} canUndo={canUndo} />;
+          })}
+          {historyQuery.hasNextPage && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                onClick={() => historyQuery.fetchNextPage()}
+                disabled={historyQuery.isFetchingNextPage}
+              >
+                {historyQuery.isFetchingNextPage && <Loader2 className="size-4 animate-spin" />}
+                Load more
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -516,6 +689,278 @@ function ProposalReviewCard({ proposal }: { proposal: ProposalRecord }) {
         )}
       </div>
     </div>
+  );
+}
+
+function ReviewHistoryCard({ entry, canUndo }: { entry: ReviewHistoryEntry; canUndo: boolean }) {
+  const { proposal } = entry;
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const payload = readPayload(proposal.payload);
+  const title =
+    proposal.pluginId === "builders"
+      ? (readString(payload.name) ?? proposal.entityId)
+      : (readString(payload.title) ??
+        readString(payload.projectSlug) ??
+        readString(payload.name) ??
+        proposal.entityId);
+  const reviewer = entry.actorLabel ?? entry.actor;
+  const reason = readString(readPayload(entry.details).reason);
+  const isApproval = entry.action === "approved";
+  const isRevocationFailed = isApproval && proposal.removeStatus === "failed";
+  const isRevoked =
+    isApproval && proposal.reviewStatus === "removed" && proposal.removeStatus === "removed";
+  const isReopened = !isApproval && proposal.reviewStatus === "pending";
+  const decisionLabel = isRevoked
+    ? "Approval revoked"
+    : isRevocationFailed
+      ? "Revocation failed"
+      : isReopened
+        ? "Rejection reopened"
+        : entry.action;
+  const currentStatusMatchesDecision =
+    (isApproval && proposal.reviewStatus === "approved") ||
+    (!isApproval && proposal.reviewStatus === "rejected");
+
+  const refreshReviewState = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-review-history", proposal.pluginId] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-proposals", proposal.pluginId] }),
+      queryClient.invalidateQueries({
+        queryKey: ["admin-proposal-audit", proposal.pluginId, proposal.entityId],
+      }),
+      queryClient.invalidateQueries({ queryKey: ["catalog-claim-proposals"] }),
+      queryClient.invalidateQueries({ queryKey: ["catalog-claims"] }),
+      queryClient.invalidateQueries({ queryKey: ["activity"] }),
+      queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+      queryClient.invalidateQueries({ queryKey: ["builder-proposals"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["events"] }),
+      queryClient.invalidateQueries({ queryKey: ["project-proposal", proposal.entityId] }),
+    ]);
+
+  const undoMutation = useMutation({
+    mutationFn: () =>
+      isApproval
+        ? apiClient.remove({ pluginId: proposal.pluginId, entityId: proposal.entityId })
+        : apiClient.reopen({ pluginId: proposal.pluginId, entityId: proposal.entityId }),
+    onSuccess: async () => {
+      setConfirmOpen(false);
+      toast.success(isApproval ? `${title} approval revoked` : `${title} reopened for review`);
+      await refreshReviewState();
+    },
+    onError: async (error: Error) => {
+      toast.error(
+        error.message || (isApproval ? "Failed to revoke approval" : "Failed to reopen proposal"),
+      );
+      await refreshReviewState();
+    },
+  });
+
+  return (
+    <article className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted">
+            {isRevoked || isReopened || isRevocationFailed ? (
+              <RotateCcw className="size-5 text-destructive" />
+            ) : entry.action === "approved" ? (
+              <Check className="size-5 text-foreground" />
+            ) : (
+              <X className="size-5 text-destructive" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-bold text-foreground">{title}</h2>
+              <Badge
+                variant={
+                  isApproval && !isRevoked && !isRevocationFailed ? "secondary" : "destructive"
+                }
+                className="capitalize"
+              >
+                {decisionLabel}
+              </Badge>
+              {!currentStatusMatchesDecision && !isRevoked && !isReopened && (
+                <Badge variant="outline" className="capitalize">
+                  Current: {proposal.reviewStatus}
+                </Badge>
+              )}
+              {readString(payload.kind) && (
+                <Badge variant="outline" className="capitalize">
+                  {readString(payload.kind)}
+                </Badge>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              <span className="font-mono">{proposal.entityId}</span> · submitted by{" "}
+              <span className="font-mono">{proposal.createdBy}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ProposalAuditDialog proposal={proposal} title={title} />
+          {canUndo && (
+            <Button
+              size="sm"
+              variant={isApproval ? "destructive" : "outline"}
+              onClick={() => setConfirmOpen(true)}
+            >
+              <RotateCcw className="size-4" />
+              {isApproval
+                ? isRevocationFailed
+                  ? "Retry revocation"
+                  : "Revoke approval"
+                : "Reopen proposal"}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-border/70 bg-background/40 px-3 py-2.5 text-sm">
+        <UserRound className="size-4 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          {isRevoked || isReopened
+            ? `Originally ${entry.action === "approved" ? "approved" : "rejected"} by`
+            : `${entry.action === "approved" ? "Approved" : "Rejected"} by`}
+        </span>
+        <span className="font-semibold text-foreground">{reviewer}</span>
+        <span className="text-muted-foreground">on {formatDateTime(entry.createdAt)}</span>
+      </div>
+
+      {reason && (
+        <p className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">
+          <span className="font-semibold">Reason:</span> {reason}
+        </p>
+      )}
+
+      {isRevocationFailed && (
+        <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground">
+          <span className="font-semibold">Revocation failed:</span>{" "}
+          {proposal.removeError ?? "The applied result could not be reversed. You can retry."}
+        </p>
+      )}
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isApproval
+                ? isRevocationFailed
+                  ? "Retry this revocation?"
+                  : "Revoke this approval?"
+                : "Reopen this proposal?"}
+            </DialogTitle>
+            <DialogDescription>
+              {isApproval
+                ? isRevocationFailed
+                  ? "This retries making the applied result private. The approval remains active until the reversal succeeds."
+                  : "This reverses the applied result while keeping the original approval and revocation in the audit history."
+                : "This returns the proposal to pending review and keeps the original rejection in the audit history."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={undoMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={isApproval ? "destructive" : "default"}
+              onClick={() => undoMutation.mutate()}
+              disabled={undoMutation.isPending}
+            >
+              {undoMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+              {isApproval
+                ? isRevocationFailed
+                  ? "Retry revocation"
+                  : "Revoke approval"
+                : "Reopen proposal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </article>
+  );
+}
+
+function ProposalAuditDialog({ proposal, title }: { proposal: ProposalRecord; title: string }) {
+  const [open, setOpen] = useState(false);
+  const apiClient = useApiClient();
+  const auditQuery = useQuery({
+    queryKey: ["admin-proposal-audit", proposal.pluginId, proposal.entityId],
+    queryFn: () =>
+      apiClient.getAuditLog({
+        pluginId: proposal.pluginId,
+        entityId: proposal.entityId,
+        limit: 100,
+      }),
+    enabled: open,
+  });
+  const entries = (auditQuery.data?.data ?? []) as ProposalAuditEntry[];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <History size={13} />
+          Full history
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Complete submission and review activity for this proposal.
+          </DialogDescription>
+        </DialogHeader>
+
+        {auditQuery.isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No activity has been recorded.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {entries.map((auditEntry) => {
+              const actor = readAuditActor(auditEntry);
+              const details = readPayload(auditEntry.details);
+              const reason = readString(details.reason);
+
+              return (
+                <div key={auditEntry.id} className="rounded-xl border border-border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">
+                        {formatAuditAction(auditEntry, proposal.pluginId)}
+                      </Badge>
+                      <span className="text-sm font-semibold text-foreground">{actor.label}</span>
+                      {actor.nearAccount && (
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {actor.nearAccount}
+                        </span>
+                      )}
+                    </div>
+                    <time className="text-xs text-muted-foreground">
+                      {formatDateTime(auditEntry.createdAt)}
+                    </time>
+                  </div>
+                  {reason && <p className="mt-2 text-sm text-muted-foreground">{reason}</p>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
