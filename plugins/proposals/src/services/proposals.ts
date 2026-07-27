@@ -1,15 +1,16 @@
-import { and, count, desc, eq, inArray, notInArray, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, lte, notInArray, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import { proposalAuditLog, proposalSubmissions, proposals } from "../db/schema";
 
 type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
-type ApplyStatus = "not_started" | "applied" | "failed";
-type RemoveStatus = "not_started" | "removed" | "failed";
+type ApplyStatus = "not_started" | "applying" | "applied" | "failed";
+type RemoveStatus = "not_started" | "removing" | "removed" | "failed";
 type ResubmissionPolicy = "rejected-only" | "rejected-or-removed";
 const SYSTEM_ACTOR = "system";
 const SYSTEM_ACTOR_LABEL = "System";
+const LIFECYCLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -18,6 +19,15 @@ function generateId(prefix: string): string {
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return typeof value === "string" ? value : value.toISOString();
+}
+
+function nextTimestamp(previous?: Date | string | null): Date {
+  const previousTime = previous ? new Date(previous).getTime() : 0;
+  return new Date(Math.max(Date.now(), previousTime + 1));
+}
+
+function lifecycleTimedOut(updatedAt: Date | string): boolean {
+  return Date.now() - new Date(updatedAt).getTime() >= LIFECYCLE_TIMEOUT_MS;
 }
 
 function serialize(value: unknown): string {
@@ -35,6 +45,13 @@ function parseJson(value: string | null | undefined): unknown {
 
 function actorLabel(user?: { name?: string; email?: string }, source?: string): string | null {
   return source ?? user?.name ?? user?.email ?? null;
+}
+
+function staleProposal() {
+  return new ORPCError("BAD_REQUEST", {
+    message: "This proposal changed. Refresh and try again.",
+    data: { reason: "STALE_PROPOSAL" },
+  });
 }
 
 function resubmissionError(reviewStatus: ReviewStatus, removeStatus: RemoveStatus) {
@@ -127,12 +144,14 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     approve: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       actorId: string;
       actor?: { name?: string; email?: string };
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     reject: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       reason?: string;
       actorId: string;
       actor?: { name?: string; email?: string };
@@ -140,38 +159,46 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     reopen: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       actorId: string;
       actor?: { name?: string; email?: string };
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     remove: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       actorId: string;
       actor?: { name?: string; email?: string };
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     markApplied: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       appliedResourceId?: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     markApplyFailed: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       error: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     markRemoved: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     markRemoveFailed: (input: {
       pluginId: string;
       entityId: string;
+      expectedUpdatedAt: string;
       error: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getProposals: (input: {
       pluginId?: string;
       entityId?: string;
       reviewStatus?: ReviewStatus;
+      lifecycleStatus?: "actionable";
+      query?: string;
       limit?: number;
       cursor?: string;
       privatePluginIds?: string[];
@@ -186,6 +213,13 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       pluginId: string;
       entityId: string;
       limit?: number;
+      cursor?: string;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    getSubmissions: (input: {
+      pluginId: string;
+      entityId: string;
+      limit?: number;
+      cursor?: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getReviewHistory: (input: {
       pluginId?: string;
@@ -241,7 +275,6 @@ export const ProposalServiceLive = Layer.effect(
             }
           }
 
-          const now = new Date();
           const [existing] = yield* Effect.promise(() =>
             db
               .select()
@@ -253,6 +286,18 @@ export const ProposalServiceLive = Layer.effect(
           );
 
           const proposalId = existing?.id ?? generateId("prop");
+          const now = nextTimestamp(existing?.updatedAt);
+
+          if (
+            existing &&
+            (existing.applyStatus === "applying" || existing.removeStatus === "removing")
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: "A lifecycle action is already in progress",
+              }),
+            );
+          }
 
           if (
             existing &&
@@ -286,35 +331,17 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          if (!existing) {
-            yield* Effect.promise(() =>
-              db.insert(proposals).values({
-                id: proposalId,
-                pluginId: input.pluginId,
-                entityId: input.entityId,
-                operation: "create",
-                payload: serialize(input.payload),
-                schemaVersion: "1",
-                createdBy: input.actorId,
-                reviewStatus: "pending",
-                applyStatus: "not_started",
-                removeStatus: "not_started",
-                rejectionReason: null,
-                applyError: null,
-                removeError: null,
-                appliedResourceId: null,
-                appliedAt: null,
-                removedAt: null,
-                createdAt: now,
-                updatedAt: now,
-              }),
-            );
-          } else {
-            yield* Effect.promise(() =>
-              db
-                .update(proposals)
-                .set({
+          const saved = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              if (!existing) {
+                await tx.insert(proposals).values({
+                  id: proposalId,
+                  pluginId: input.pluginId,
+                  entityId: input.entityId,
+                  operation: "create",
                   payload: serialize(input.payload),
+                  schemaVersion: "1",
+                  createdBy: input.actorId,
                   reviewStatus: "pending",
                   applyStatus: "not_started",
                   removeStatus: "not_started",
@@ -324,39 +351,60 @@ export const ProposalServiceLive = Layer.effect(
                   appliedResourceId: null,
                   appliedAt: null,
                   removedAt: null,
+                  createdAt: now,
                   updatedAt: now,
-                })
-                .where(eq(proposals.id, existing.id)),
-            );
-          }
+                });
+              } else {
+                const updated = await tx
+                  .update(proposals)
+                  .set({
+                    payload: serialize(input.payload),
+                    reviewStatus: "pending",
+                    applyStatus: "not_started",
+                    removeStatus: "not_started",
+                    rejectionReason: null,
+                    applyError: null,
+                    removeError: null,
+                    appliedResourceId: null,
+                    appliedAt: null,
+                    removedAt: null,
+                    updatedAt: now,
+                  })
+                  .where(
+                    and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                  )
+                  .returning({ id: proposals.id });
+                if (!updated[0]) return false;
+              }
 
-          yield* Effect.promise(() =>
-            db.insert(proposalSubmissions).values({
-              id: generateId("sub"),
-              proposalId,
-              pluginId: input.pluginId,
-              entityId: input.entityId,
-              submittedBy: input.actorId,
-              source: input.source ?? null,
-              idempotencyKey: input.idempotencyKey ?? null,
-              payload: serialize(input.payload),
-              metadata: input.metadata === undefined ? null : serialize(input.metadata),
-              createdAt: now,
+              await tx.insert(proposalSubmissions).values({
+                id: generateId("sub"),
+                proposalId,
+                pluginId: input.pluginId,
+                entityId: input.entityId,
+                submittedBy: input.actorId,
+                source: input.source ?? null,
+                idempotencyKey: input.idempotencyKey ?? null,
+                payload: serialize(input.payload),
+                metadata: input.metadata === undefined ? null : serialize(input.metadata),
+                createdAt: now,
+              });
+
+              await appendAudit(
+                tx,
+                proposalId,
+                input.pluginId,
+                input.entityId,
+                "proposed",
+                input.actorId,
+                actorLabel(input.actor, input.source),
+                { source: input.source ?? null, metadata: input.metadata ?? null },
+              );
+              return true;
             }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              proposalId,
-              input.pluginId,
-              input.entityId,
-              "proposed",
-              input.actorId,
-              actorLabel(input.actor, input.source),
-              { source: input.source ?? null, metadata: input.metadata ?? null },
-            ),
-          );
+          if (!saved) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -379,38 +427,61 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
+          if (toIsoString(existing.updatedAt) !== input.expectedUpdatedAt) {
+            return yield* Effect.fail(staleProposal());
+          }
+
           if (existing.reviewStatus === "removed") {
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", { message: "Removed proposals cannot be approved" }),
             );
           }
 
-          if (existing.reviewStatus !== "approved") {
-            const now = new Date();
-            yield* Effect.promise(() =>
-              db
+          if (existing.applyStatus === "applied") {
+            return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
+          }
+
+          const retrying =
+            existing.reviewStatus === "approved" &&
+            (existing.applyStatus === "failed" ||
+              (existing.applyStatus === "applying" && lifecycleTimedOut(existing.updatedAt)));
+          if (existing.reviewStatus !== "pending" && !retrying) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "Only pending proposals can be approved" }),
+            );
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
                 .update(proposals)
                 .set({
                   reviewStatus: "approved",
+                  applyStatus: "applying",
                   rejectionReason: null,
                   applyError: null,
                   updatedAt: now,
                 })
-                .where(eq(proposals.id, existing.id)),
-            );
-
-            yield* Effect.promise(() =>
-              appendAudit(
-                db,
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
                 existing.id,
                 input.pluginId,
                 input.entityId,
-                "approved",
+                retrying ? "apply_retried" : "approved",
                 input.actorId,
                 actorLabel(input.actor),
-              ),
-            );
-          }
+              );
+              return true;
+            }),
+          );
+
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -433,38 +504,49 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          if (existing.applyStatus === "applied") {
+          if (toIsoString(existing.updatedAt) !== input.expectedUpdatedAt) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          if (existing.reviewStatus !== "pending" || existing.applyStatus === "applying") {
             return yield* Effect.fail(
-              new ORPCError("BAD_REQUEST", { message: "Applied proposals cannot be rejected" }),
+              new ORPCError("BAD_REQUEST", { message: "Only pending proposals can be rejected" }),
             );
           }
 
-          const now = new Date();
+          const now = nextTimestamp(existing.updatedAt);
           const reason = input.reason?.trim() || null;
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                reviewStatus: "rejected",
-                rejectionReason: reason,
-                applyError: null,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  reviewStatus: "rejected",
+                  applyStatus: "not_started",
+                  rejectionReason: reason,
+                  applyError: null,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "rejected",
+                input.actorId,
+                actorLabel(input.actor),
+                { reason },
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "rejected",
-              input.actorId,
-              actorLabel(input.actor),
-              { reason },
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -487,6 +569,10 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
+          if (toIsoString(existing.updatedAt) !== input.expectedUpdatedAt) {
+            return yield* Effect.fail(staleProposal());
+          }
+
           if (existing.reviewStatus !== "rejected") {
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
@@ -495,30 +581,36 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                reviewStatus: "pending",
-                rejectionReason: null,
-                applyError: null,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  reviewStatus: "pending",
+                  rejectionReason: null,
+                  applyError: null,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "reopened",
+                input.actorId,
+                actorLabel(input.actor),
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "reopened",
-              input.actorId,
-              actorLabel(input.actor),
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -541,28 +633,54 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          if (existing.reviewStatus !== "removed") {
-            const now = new Date();
-            const action = existing.reviewStatus === "approved" ? "approval_revoked" : "removed";
-            yield* Effect.promise(() =>
-              db
-                .update(proposals)
-                .set({ reviewStatus: "removed", updatedAt: now })
-                .where(eq(proposals.id, existing.id)),
-            );
+          if (toIsoString(existing.updatedAt) !== input.expectedUpdatedAt) {
+            return yield* Effect.fail(staleProposal());
+          }
 
-            yield* Effect.promise(() =>
-              appendAudit(
-                db,
+          if (existing.reviewStatus === "removed" && existing.removeStatus === "removed") {
+            return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
+          }
+
+          const retrying =
+            existing.removeStatus === "failed" ||
+            (existing.removeStatus === "removing" && lifecycleTimedOut(existing.updatedAt));
+          if (
+            existing.reviewStatus !== "approved" ||
+            existing.applyStatus !== "applied" ||
+            (existing.removeStatus !== "not_started" && !retrying)
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: "Only applied proposals can have approval revoked",
+              }),
+            );
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({ removeStatus: "removing", removeError: null, updatedAt: now })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
                 existing.id,
                 input.pluginId,
                 input.entityId,
-                action,
+                retrying ? "removal_retried" : "approval_revocation_started",
                 input.actorId,
                 actorLabel(input.actor),
-              ),
-            );
-          }
+              );
+              return true;
+            }),
+          );
+
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -585,32 +703,47 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                applyStatus: "applied",
-                applyError: null,
-                appliedResourceId: input.appliedResourceId ?? existing.appliedResourceId,
-                appliedAt: now,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          if (
+            toIsoString(existing.updatedAt) !== input.expectedUpdatedAt ||
+            existing.applyStatus !== "applying"
+          ) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  applyStatus: "applied",
+                  applyError: null,
+                  appliedResourceId: input.appliedResourceId ?? existing.appliedResourceId,
+                  appliedAt: now,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "applied",
+                SYSTEM_ACTOR,
+                SYSTEM_ACTOR_LABEL,
+                {
+                  appliedResourceId: input.appliedResourceId ?? existing.appliedResourceId ?? null,
+                },
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "applied",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
-              { appliedResourceId: input.appliedResourceId ?? existing.appliedResourceId ?? null },
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -633,30 +766,43 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                applyStatus: "failed",
-                applyError: input.error,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          if (
+            toIsoString(existing.updatedAt) !== input.expectedUpdatedAt ||
+            existing.applyStatus !== "applying"
+          ) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  applyStatus: "failed",
+                  applyError: input.error,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "apply_failed",
+                SYSTEM_ACTOR,
+                SYSTEM_ACTOR_LABEL,
+                { error: input.error },
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "apply_failed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
-              { error: input.error },
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -679,30 +825,44 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                removeStatus: "removed",
-                removeError: null,
-                removedAt: now,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          if (
+            toIsoString(existing.updatedAt) !== input.expectedUpdatedAt ||
+            existing.removeStatus !== "removing"
+          ) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  reviewStatus: "removed",
+                  removeStatus: "removed",
+                  removeError: null,
+                  removedAt: now,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "approval_revoked",
+                SYSTEM_ACTOR,
+                SYSTEM_ACTOR_LABEL,
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "removed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -725,30 +885,43 @@ export const ProposalServiceLive = Layer.effect(
             );
           }
 
-          const now = new Date();
-          yield* Effect.promise(() =>
-            db
-              .update(proposals)
-              .set({
-                removeStatus: "failed",
-                removeError: input.error,
-                updatedAt: now,
-              })
-              .where(eq(proposals.id, existing.id)),
+          if (
+            toIsoString(existing.updatedAt) !== input.expectedUpdatedAt ||
+            existing.removeStatus !== "removing"
+          ) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  removeStatus: "failed",
+                  removeError: input.error,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "remove_failed",
+                SYSTEM_ACTOR,
+                SYSTEM_ACTOR_LABEL,
+                { error: input.error },
+              );
+              return true;
+            }),
           );
 
-          yield* Effect.promise(() =>
-            appendAudit(
-              db,
-              existing.id,
-              input.pluginId,
-              input.entityId,
-              "remove_failed",
-              SYSTEM_ACTOR,
-              SYSTEM_ACTOR_LABEL,
-              { error: input.error },
-            ),
-          );
+          if (!updated) return yield* Effect.fail(staleProposal());
 
           return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
         }),
@@ -762,6 +935,34 @@ export const ProposalServiceLive = Layer.effect(
           if (input.pluginId) conditions.push(eq(proposals.pluginId, input.pluginId));
           if (input.entityId) conditions.push(eq(proposals.entityId, input.entityId));
           if (input.reviewStatus) conditions.push(eq(proposals.reviewStatus, input.reviewStatus));
+          if (input.lifecycleStatus === "actionable") {
+            const lifecycleCutoff = new Date(Date.now() - LIFECYCLE_TIMEOUT_MS);
+            conditions.push(
+              or(
+                eq(proposals.reviewStatus, "pending"),
+                eq(proposals.applyStatus, "failed"),
+                eq(proposals.removeStatus, "failed"),
+                and(
+                  eq(proposals.applyStatus, "applying"),
+                  lte(proposals.updatedAt, lifecycleCutoff),
+                ),
+                and(
+                  eq(proposals.removeStatus, "removing"),
+                  lte(proposals.updatedAt, lifecycleCutoff),
+                ),
+              ),
+            );
+          }
+          if (input.query) {
+            const pattern = `%${input.query.trim()}%`;
+            conditions.push(
+              or(
+                ilike(proposals.entityId, pattern),
+                ilike(proposals.createdBy, pattern),
+                ilike(proposals.payload, pattern),
+              ),
+            );
+          }
           const privatePluginIds = input.privatePluginIds ?? [];
           if (!input.isAdmin && privatePluginIds.length > 0) {
             const publicProposal = notInArray(proposals.pluginId, privatePluginIds);
@@ -836,20 +1037,27 @@ export const ProposalServiceLive = Layer.effect(
 
       getAuditLog: (input) =>
         Effect.gen(function* () {
-          const limit = Math.min(input.limit ?? 100, 200);
-          const rows = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(proposalAuditLog)
-              .where(
-                and(
-                  eq(proposalAuditLog.pluginId, input.pluginId),
-                  eq(proposalAuditLog.entityId, input.entityId),
-                ),
-              )
-              .orderBy(desc(proposalAuditLog.createdAt))
-              .limit(limit),
+          const limit = Math.min(input.limit ?? 50, 100);
+          const offset = input.cursor ? Number.parseInt(input.cursor, 10) : 0;
+          const whereClause = and(
+            eq(proposalAuditLog.pluginId, input.pluginId),
+            eq(proposalAuditLog.entityId, input.entityId),
           );
+          const [counted, rows] = yield* Effect.promise(() =>
+            Promise.all([
+              db.select({ count: count() }).from(proposalAuditLog).where(whereClause),
+              db
+                .select()
+                .from(proposalAuditLog)
+                .where(whereClause)
+                .orderBy(desc(proposalAuditLog.createdAt), desc(proposalAuditLog.id))
+                .limit(limit)
+                .offset(offset),
+            ]),
+          );
+          const total = counted[0]?.count ?? 0;
+          const nextOffset = offset + limit;
+          const hasMore = nextOffset < total;
 
           return {
             data: rows.map((row: any) => ({
@@ -862,6 +1070,54 @@ export const ProposalServiceLive = Layer.effect(
               details: parseJson(row.details),
               createdAt: toIsoString(row.createdAt)!,
             })),
+            meta: {
+              total,
+              hasMore,
+              nextCursor: hasMore ? String(nextOffset) : null,
+            },
+          };
+        }),
+
+      getSubmissions: (input) =>
+        Effect.gen(function* () {
+          const limit = Math.min(input.limit ?? 50, 100);
+          const offset = input.cursor ? Number.parseInt(input.cursor, 10) : 0;
+          const whereClause = and(
+            eq(proposalSubmissions.pluginId, input.pluginId),
+            eq(proposalSubmissions.entityId, input.entityId),
+          );
+          const [counted, rows] = yield* Effect.promise(() =>
+            Promise.all([
+              db.select({ count: count() }).from(proposalSubmissions).where(whereClause),
+              db
+                .select()
+                .from(proposalSubmissions)
+                .where(whereClause)
+                .orderBy(desc(proposalSubmissions.createdAt), desc(proposalSubmissions.id))
+                .limit(limit)
+                .offset(offset),
+            ]),
+          );
+          const total = counted[0]?.count ?? 0;
+          const nextOffset = offset + limit;
+          const hasMore = nextOffset < total;
+
+          return {
+            data: rows.map((row: any) => ({
+              id: row.id,
+              pluginId: row.pluginId,
+              entityId: row.entityId,
+              submittedBy: row.submittedBy,
+              source: row.source ?? null,
+              payload: parseJson(row.payload),
+              metadata: parseJson(row.metadata),
+              createdAt: toIsoString(row.createdAt)!,
+            })),
+            meta: {
+              total,
+              hasMore,
+              nextCursor: hasMore ? String(nextOffset) : null,
+            },
           };
         }),
 

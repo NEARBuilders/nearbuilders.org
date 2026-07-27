@@ -230,9 +230,16 @@ export default createPlugin({
 
       getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
         if (!(await canReadProposal(context, input.pluginId, input.entityId))) {
-          return { data: [] };
+          return {
+            data: [],
+            meta: { total: 0, hasMore: false, nextCursor: null },
+          };
         }
         return await runEffect(services.proposal.getAuditLog(input));
+      }),
+
+      getSubmissions: builder.getSubmissions.use(requireAdmin).handler(async ({ input }) => {
+        return await runEffect(services.proposal.getSubmissions(input));
       }),
 
       getReviewHistory: builder.getReviewHistory.use(requireAdmin).handler(async ({ input }) => {

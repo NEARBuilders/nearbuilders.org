@@ -262,10 +262,9 @@ function LoadedProfile({
   const auth = useAuthClient();
   const apiClient = useApiClient();
   const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const isOwner = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
-  const canEdit = session?.user?.role === "admin" || isOwner;
+  const canEdit = isOwner;
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
     queryKey: ["near-profile", account],

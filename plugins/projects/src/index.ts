@@ -45,6 +45,16 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
+    const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
+    });
+
     const getAlternateOwnerId = (context: {
       userId?: string | null;
       near?: { primaryAccountId?: string | null };
@@ -57,7 +67,12 @@ export default createPlugin({
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.listProjects(input, ownerId, getAlternateOwnerId(context)),
+          services.project.listProjects(
+            input,
+            ownerId,
+            getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
+          ),
         );
 
         if (Exit.isFailure(exit)) {
@@ -75,7 +90,12 @@ export default createPlugin({
       getProject: builder.getProject.handler(async ({ input, errors, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.getProject(input.id, ownerId, getAlternateOwnerId(context)),
+          services.project.getProject(
+            input.id,
+            ownerId,
+            getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
+          ),
         );
 
         if (Exit.isFailure(exit)) {
@@ -100,7 +120,12 @@ export default createPlugin({
       getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, errors, context }) => {
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         const exit = await Effect.runPromiseExit(
-          services.project.getProjectBySlug(input.slug, ownerId, getAlternateOwnerId(context)),
+          services.project.getProjectBySlug(
+            input.slug,
+            ownerId,
+            getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
+          ),
         );
 
         if (Exit.isFailure(exit)) {
@@ -165,6 +190,30 @@ export default createPlugin({
               }
               throw squashed;
             }
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return exit.value;
+        }),
+
+      applyReviewedProject: builder.applyReviewedProject
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const existing = await Effect.runPromise(
+            services.project.getProject(input.id, input.ownerId),
+          );
+          if (!existing) {
+            throw new ORPCError("NOT_FOUND", { message: "Project not found" });
+          }
+          const exit = await Effect.runPromiseExit(
+            services.project.updateProject(input.id, input, input.ownerId, "admin"),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
             throw new ORPCError("INTERNAL_SERVER_ERROR", {
               message: squashed instanceof Error ? squashed.message : String(squashed),
             });

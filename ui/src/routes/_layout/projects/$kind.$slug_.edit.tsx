@@ -73,7 +73,7 @@ function EditProjectPage() {
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
     "";
 
-  const canManage = isAdmin || isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
+  const canManage = isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
 
   const updateMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {

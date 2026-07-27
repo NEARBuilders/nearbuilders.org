@@ -29,7 +29,6 @@ function EditBuilderProfilePage() {
   );
   const nearAccountId = auth.near.getAccountId();
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
-  const isAdmin = session?.user?.role === "admin";
 
   const builderQuery = useQuery({
     queryKey: ["builder", account],
@@ -47,8 +46,7 @@ function EditBuilderProfilePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const canEdit =
-    isAdmin || (Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase());
+  const canEdit = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
 
   if (sessionLoading || builderQuery.isLoading || profileQuery.isLoading) {
     return (

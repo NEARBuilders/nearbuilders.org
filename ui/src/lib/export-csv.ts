@@ -1,11 +1,28 @@
 import type { ApiClient } from "@/app";
 
-function escapeCsvField(value: string): string {
-  if (value === "") return "";
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
+type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
+type ProposalReviewStatus = ProposalRecord["reviewStatus"];
+
+export type ProposalExportOptions = {
+  pluginId: ProposalPluginId;
+  reviewStatus?: ProposalReviewStatus;
+  lifecycleStatus?: "actionable";
+  query?: string;
+  filenameLabel: string;
+};
+
+function neutralizeSpreadsheetFormula(value: string): string {
+  return /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
+export function escapeCsvField(value: string): string {
+  const safeValue = neutralizeSpreadsheetFormula(value);
+  if (safeValue === "") return "";
+  if (/[,"\n\r]/.test(safeValue)) {
+    return `"${safeValue.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safeValue;
 }
 
 function toCsvField(value: unknown): string {
@@ -16,12 +33,17 @@ function toCsvField(value: unknown): string {
   return escapeCsvField(JSON.stringify(value));
 }
 
-function downloadCsv(filename: string, headers: string[], rows: string[][]): void {
-  const csv = [
+export function serializeCsv(headers: string[], rows: unknown[][]): string {
+  return [
     headers.map(escapeCsvField).join(","),
     ...rows.map((row) => row.map(toCsvField).join(",")),
   ].join("\r\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+}
+
+function downloadCsv(filename: string, headers: string[], rows: unknown[][]): void {
+  const blob = new Blob([`\uFEFF${serializeCsv(headers, rows)}`], {
+    type: "text/csv;charset=utf-8;",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -32,86 +54,123 @@ function downloadCsv(filename: string, headers: string[], rows: string[][]): voi
   URL.revokeObjectURL(url);
 }
 
-interface ProposalRecord {
-  id: string;
-  pluginId: string;
-  entityId: string;
-  payload: unknown;
-  createdBy: string;
-  reviewStatus: string;
-  rejectionReason: string | null;
-  applyStatus: string;
-  submissionCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 function readPayload(payload: unknown): Record<string, unknown> {
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {};
 }
 
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-const PROJECT_CSV_HEADERS = [
+const COMMON_HEADERS = [
+  "proposalId",
   "entityId",
-  "title",
-  "slug",
-  "kind",
-  "visibility",
-  "description",
-  "repository",
-  "domain",
+  "pluginId",
   "createdBy",
   "reviewStatus",
-  "rejectionReason",
   "applyStatus",
+  "removeStatus",
+  "rejectionReason",
+  "applyError",
+  "removeError",
+  "appliedResourceId",
   "submissionCount",
+  "appliedAt",
+  "removedAt",
   "createdAt",
   "updatedAt",
 ];
 
-export async function exportProjectProposals(apiClient: ApiClient): Promise<number> {
+const TYPE_HEADERS: Record<ProposalPluginId, string[]> = {
+  builders: ["name", "bio", "skills", "location", "links"],
+  projects: [
+    "title",
+    "slug",
+    "kind",
+    "visibility",
+    "description",
+    "content",
+    "repository",
+    "domain",
+    "ownerId",
+  ],
+  events: [
+    "title",
+    "slug",
+    "description",
+    "content",
+    "startAt",
+    "endAt",
+    "location",
+    "visibility",
+    "lumaUrl",
+    "ownerId",
+  ],
+  nearcatalog: ["nearAccount", "projectSlug", "roles"],
+};
+
+function getCommonRow(proposal: ProposalRecord): unknown[] {
+  return [
+    proposal.id,
+    proposal.entityId,
+    proposal.pluginId,
+    proposal.createdBy,
+    proposal.reviewStatus,
+    proposal.applyStatus,
+    proposal.removeStatus,
+    proposal.rejectionReason,
+    proposal.applyError,
+    proposal.removeError,
+    proposal.appliedResourceId,
+    proposal.submissionCount,
+    proposal.appliedAt,
+    proposal.removedAt,
+    proposal.createdAt,
+    proposal.updatedAt,
+  ];
+}
+
+function getTypeRow(proposal: ProposalRecord, pluginId: ProposalPluginId): unknown[] {
+  const payload = readPayload(proposal.payload);
+  return TYPE_HEADERS[pluginId].map((header) => payload[header]);
+}
+
+export function createProposalCsvData(proposals: ProposalRecord[], pluginId: ProposalPluginId) {
+  return {
+    headers: [...COMMON_HEADERS, ...TYPE_HEADERS[pluginId]],
+    rows: proposals.map((proposal) => [
+      ...getCommonRow(proposal),
+      ...getTypeRow(proposal, pluginId),
+    ]),
+  };
+}
+
+export async function exportProposalTable(
+  apiClient: ApiClient,
+  options: ProposalExportOptions,
+): Promise<number> {
   const proposals: ProposalRecord[] = [];
   let cursor: string | undefined;
   let hasMore = true;
 
   while (hasMore) {
     const result = await apiClient.getProposals({
-      pluginId: "projects",
+      pluginId: options.pluginId,
+      reviewStatus: options.reviewStatus,
+      lifecycleStatus: options.lifecycleStatus,
+      query: options.query,
       limit: 100,
       cursor,
     });
-    proposals.push(...(result.data as ProposalRecord[]));
+    proposals.push(...result.data);
     hasMore = result.meta.hasMore;
     cursor = result.meta.nextCursor ?? undefined;
   }
 
-  const rows = proposals.map((proposal) => {
-    const payload = readPayload(proposal.payload);
-    return [
-      proposal.entityId,
-      readString(payload.title),
-      readString(payload.slug),
-      readString(payload.kind),
-      readString(payload.visibility),
-      readString(payload.description),
-      readString(payload.repository),
-      readString(payload.domain),
-      proposal.createdBy,
-      proposal.reviewStatus,
-      proposal.rejectionReason ?? "",
-      proposal.applyStatus,
-      String(proposal.submissionCount),
-      proposal.createdAt,
-      proposal.updatedAt,
-    ];
-  });
-
+  const { headers, rows } = createProposalCsvData(proposals, options.pluginId);
   const date = new Date().toISOString().slice(0, 10);
-  downloadCsv(`project-proposals-${date}.csv`, PROJECT_CSV_HEADERS, rows);
+  const status =
+    options.lifecycleStatus === "actionable"
+      ? "pending"
+      : (options.reviewStatus ?? options.lifecycleStatus ?? "all");
+  downloadCsv(`admin-${options.filenameLabel}-${status}-${date}.csv`, headers, rows);
   return proposals.length;
 }

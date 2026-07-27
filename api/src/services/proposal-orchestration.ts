@@ -112,9 +112,19 @@ const createCallbacks: Record<string, CreateCallback> = {
         : "public";
 
     try {
-      const updated = await projectsClient.updateProject({
+      const updated = await projectsClient.applyReviewedProject({
         id: proposal.entityId,
+        ownerId,
+        kind:
+          payload.kind === "idea" || payload.kind === "scope" || payload.kind === "result"
+            ? payload.kind
+            : "project",
+        title: readString(payload.title) ?? proposal.entityId,
+        description: readString(payload.description),
+        content: readString(payload.content),
         visibility,
+        repository: readString(payload.repository),
+        domain: readString(payload.domain),
       });
       assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;
@@ -148,9 +158,17 @@ const createCallbacks: Record<string, CreateCallback> = {
         : "public";
 
     try {
-      const updated = await eventsClient.updateEvent({
+      const updated = await eventsClient.applyReviewedEvent({
         id: proposal.entityId,
+        ownerId,
+        title: readString(payload.title) ?? proposal.entityId,
+        description: readString(payload.description),
+        content: readString(payload.content),
         visibility,
+        lumaUrl: readString(payload.lumaUrl),
+        startAt: readString(payload.startAt) ?? new Date().toISOString(),
+        endAt: readString(payload.endAt),
+        location: readString(payload.location),
       });
       if (updated.ownerId !== ownerId) {
         throw new ORPCError("FORBIDDEN", { message: "Event proposal owner mismatch" });
@@ -186,9 +204,12 @@ const removeCallbacks: Record<string, RemoveCallback> = {
   },
   projects: async (plugins, proposal, context) => {
     const projectId = proposal.appliedResourceId ?? proposal.entityId;
+    const payload = requireObjectPayload(proposal.payload);
+    const ownerId = resolveProjectProposalOwner(payload, proposal.createdBy);
     try {
-      await plugins.projects(context).updateProject({
+      await plugins.projects(context).applyReviewedProject({
         id: projectId,
+        ownerId,
         visibility: "private",
       });
     } catch (error) {
@@ -197,9 +218,12 @@ const removeCallbacks: Record<string, RemoveCallback> = {
   },
   events: async (plugins, proposal, context) => {
     const eventId = proposal.appliedResourceId ?? proposal.entityId;
+    const payload = requireObjectPayload(proposal.payload);
+    const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
     try {
-      await plugins.events(context).updateEvent({
+      await plugins.events(context).applyReviewedEvent({
         id: eventId,
+        ownerId,
         visibility: "private",
       });
     } catch (error) {

@@ -246,9 +246,8 @@ function ProjectDetailPage() {
     );
   }
 
-  const isAdmin = session?.user?.role === "admin";
   const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
-  const canManage = isAdmin || isOwner;
+  const canManage = isOwner;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
   const voteDirection = userVoteQuery.data ?? null;
 

@@ -15,6 +15,7 @@ export declare const ProposalSchema: z.ZodObject<{
     }>;
     applyStatus: z.ZodEnum<{
         not_started: "not_started";
+        applying: "applying";
         applied: "applied";
         failed: "failed";
     }>;
@@ -22,6 +23,7 @@ export declare const ProposalSchema: z.ZodObject<{
         removed: "removed";
         not_started: "not_started";
         failed: "failed";
+        removing: "removing";
     }>;
     rejectionReason: z.ZodNullable<z.ZodString>;
     applyError: z.ZodNullable<z.ZodString>;
@@ -41,6 +43,16 @@ export declare const ProposalAuditEntrySchema: z.ZodObject<{
     actor: z.ZodString;
     actorLabel: z.ZodNullable<z.ZodString>;
     details: z.ZodNullable<z.ZodUnknown>;
+    createdAt: z.ZodISODateTime;
+}, z.core.$strip>;
+export declare const ProposalSubmissionSchema: z.ZodObject<{
+    id: z.ZodString;
+    pluginId: z.ZodString;
+    entityId: z.ZodString;
+    submittedBy: z.ZodString;
+    source: z.ZodNullable<z.ZodString>;
+    payload: z.ZodNullable<z.ZodUnknown>;
+    metadata: z.ZodNullable<z.ZodUnknown>;
     createdAt: z.ZodISODateTime;
 }, z.core.$strip>;
 export declare const ProposalReviewHistoryEntrySchema: z.ZodObject<{
@@ -71,6 +83,7 @@ export declare const ProposalReviewHistoryEntrySchema: z.ZodObject<{
         }>;
         applyStatus: z.ZodEnum<{
             not_started: "not_started";
+            applying: "applying";
             applied: "applied";
             failed: "failed";
         }>;
@@ -78,6 +91,7 @@ export declare const ProposalReviewHistoryEntrySchema: z.ZodObject<{
             removed: "removed";
             not_started: "not_started";
             failed: "failed";
+            removing: "removing";
         }>;
         rejectionReason: z.ZodNullable<z.ZodString>;
         applyError: z.ZodNullable<z.ZodString>;
@@ -102,6 +116,7 @@ export declare const ProposalEventSchema: z.ZodObject<{
     }>;
     applyStatus: z.ZodEnum<{
         not_started: "not_started";
+        applying: "applying";
         applied: "applied";
         failed: "failed";
     }>;
@@ -109,6 +124,7 @@ export declare const ProposalEventSchema: z.ZodObject<{
         removed: "removed";
         not_started: "not_started";
         failed: "failed";
+        removing: "removing";
     }>;
     submissionCount: z.ZodNumber;
     timestamp: z.ZodISODateTime;
@@ -138,6 +154,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -145,6 +162,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -184,6 +202,7 @@ export declare const contract: {
     approve: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
@@ -201,6 +220,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -208,6 +228,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -261,6 +282,7 @@ export declare const contract: {
     reject: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
         reason: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -279,6 +301,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -286,6 +309,87 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
+            }>;
+            rejectionReason: z.ZodNullable<z.ZodString>;
+            applyError: z.ZodNullable<z.ZodString>;
+            removeError: z.ZodNullable<z.ZodString>;
+            appliedResourceId: z.ZodNullable<z.ZodString>;
+            submissionCount: z.ZodNumber;
+            appliedAt: z.ZodNullable<z.ZodISODateTime>;
+            removedAt: z.ZodNullable<z.ZodISODateTime>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
+    reopen: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        pluginId: z.ZodString;
+        entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodObject<{
+            id: z.ZodString;
+            pluginId: z.ZodString;
+            entityId: z.ZodString;
+            operation: z.ZodLiteral<"create">;
+            payload: z.ZodUnknown;
+            schemaVersion: z.ZodString;
+            createdBy: z.ZodString;
+            reviewStatus: z.ZodEnum<{
+                pending: "pending";
+                approved: "approved";
+                rejected: "rejected";
+                removed: "removed";
+            }>;
+            applyStatus: z.ZodEnum<{
+                not_started: "not_started";
+                applying: "applying";
+                applied: "applied";
+                failed: "failed";
+            }>;
+            removeStatus: z.ZodEnum<{
+                removed: "removed";
+                not_started: "not_started";
+                failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -339,6 +443,7 @@ export declare const contract: {
     remove: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
@@ -356,6 +461,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -363,6 +469,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -416,6 +523,7 @@ export declare const contract: {
     markApplied: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
         appliedResourceId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -434,6 +542,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -441,6 +550,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -494,6 +604,7 @@ export declare const contract: {
     markApplyFailed: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
         error: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -512,6 +623,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -519,6 +631,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -572,6 +685,7 @@ export declare const contract: {
     markRemoved: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
@@ -589,6 +703,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -596,6 +711,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -649,6 +765,7 @@ export declare const contract: {
     markRemoveFailed: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
+        expectedUpdatedAt: z.ZodISODateTime;
         error: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -667,6 +784,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -674,6 +792,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -733,6 +852,8 @@ export declare const contract: {
             rejected: "rejected";
             removed: "removed";
         }>>;
+        lifecycleStatus: z.ZodOptional<z.ZodLiteral<"actionable">>;
+        query: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
@@ -752,6 +873,7 @@ export declare const contract: {
             }>;
             applyStatus: z.ZodEnum<{
                 not_started: "not_started";
+                applying: "applying";
                 applied: "applied";
                 failed: "failed";
             }>;
@@ -759,6 +881,7 @@ export declare const contract: {
                 removed: "removed";
                 not_started: "not_started";
                 failed: "failed";
+                removing: "removing";
             }>;
             rejectionReason: z.ZodNullable<z.ZodString>;
             applyError: z.ZodNullable<z.ZodString>;
@@ -788,6 +911,7 @@ export declare const contract: {
         pluginId: z.ZodString;
         entityId: z.ZodString;
         limit: z.ZodOptional<z.ZodNumber>;
+        cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
@@ -799,7 +923,54 @@ export declare const contract: {
             details: z.ZodNullable<z.ZodUnknown>;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>>;
+        meta: z.ZodObject<{
+            total: z.ZodNumber;
+            hasMore: z.ZodBoolean;
+            nextCursor: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
+    getSubmissions: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        pluginId: z.ZodString;
+        entityId: z.ZodString;
+        limit: z.ZodOptional<z.ZodNumber>;
+        cursor: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            pluginId: z.ZodString;
+            entityId: z.ZodString;
+            submittedBy: z.ZodString;
+            source: z.ZodNullable<z.ZodString>;
+            payload: z.ZodNullable<z.ZodUnknown>;
+            metadata: z.ZodNullable<z.ZodUnknown>;
+            createdAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+        meta: z.ZodObject<{
+            total: z.ZodNumber;
+            hasMore: z.ZodBoolean;
+            nextCursor: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     getReviewHistory: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
@@ -833,6 +1004,7 @@ export declare const contract: {
                 }>;
                 applyStatus: z.ZodEnum<{
                     not_started: "not_started";
+                    applying: "applying";
                     applied: "applied";
                     failed: "failed";
                 }>;
@@ -840,6 +1012,7 @@ export declare const contract: {
                     removed: "removed";
                     not_started: "not_started";
                     failed: "failed";
+                    removing: "removing";
                 }>;
                 rejectionReason: z.ZodNullable<z.ZodString>;
                 applyError: z.ZodNullable<z.ZodString>;
@@ -886,8 +1059,8 @@ export declare const contract: {
         pluginId: string;
         entityId: string;
         reviewStatus: "pending" | "approved" | "rejected" | "removed";
-        applyStatus: "not_started" | "applied" | "failed";
-        removeStatus: "removed" | "not_started" | "failed";
+        applyStatus: "not_started" | "applying" | "applied" | "failed";
+        removeStatus: "removed" | "not_started" | "failed" | "removing";
         submissionCount: number;
         timestamp: string;
     }, unknown, void>, import("@orpc/shared").AsyncIteratorClass<{
@@ -895,8 +1068,8 @@ export declare const contract: {
         pluginId: string;
         entityId: string;
         reviewStatus: "pending" | "approved" | "rejected" | "removed";
-        applyStatus: "not_started" | "applied" | "failed";
-        removeStatus: "removed" | "not_started" | "failed";
+        applyStatus: "not_started" | "applying" | "applied" | "failed";
+        removeStatus: "removed" | "not_started" | "failed" | "removing";
         submissionCount: number;
         timestamp: string;
     }, unknown, void>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;

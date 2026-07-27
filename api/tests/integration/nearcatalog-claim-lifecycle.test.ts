@@ -73,23 +73,33 @@ describe("Catalog claim approval lifecycle", () => {
     createdAt: timestamp,
   }));
   const hideActivityMock = vi.fn(async () => ({ id: "activity-1" }));
+  let version = 0;
+  const advanceVersion = () => {
+    version += 1;
+    record.updatedAt = new Date(Date.parse(timestamp) + version).toISOString();
+  };
   const markApplyFailedMock = vi.fn(async ({ error }: { error: string }) => {
     record.applyStatus = "failed";
     record.applyError = error;
+    advanceVersion();
     return { data: record };
   });
   const removeMock = vi.fn(async () => {
-    record.reviewStatus = "removed";
+    record.removeStatus = "removing";
+    advanceVersion();
     return { data: record };
   });
   const markRemovedMock = vi.fn(async () => {
+    record.reviewStatus = "removed";
     record.removeStatus = "removed";
     record.removeError = null;
+    advanceVersion();
     return { data: record };
   });
   const markRemoveFailedMock = vi.fn(async ({ error }: { error: string }) => {
     record.removeStatus = "failed";
     record.removeError = error;
+    advanceVersion();
     return { data: record };
   });
   let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"api">>>;
@@ -129,11 +139,14 @@ describe("Catalog claim approval lifecycle", () => {
         proposals: () => ({
           approve: async () => {
             record.reviewStatus = "approved";
+            record.applyStatus = "applying";
+            advanceVersion();
             return { data: record };
           },
           reject: async ({ reason }: { reason?: string }) => {
             record.reviewStatus = "rejected";
             record.rejectionReason = reason ?? null;
+            advanceVersion();
             return { data: record };
           },
           getProposals: async () => ({
@@ -143,6 +156,7 @@ describe("Catalog claim approval lifecycle", () => {
           markApplied: async ({ appliedResourceId }: { appliedResourceId: string }) => {
             record.applyStatus = "applied";
             record.appliedResourceId = appliedResourceId;
+            advanceVersion();
             return { data: record };
           },
           markApplyFailed: markApplyFailedMock,
@@ -157,6 +171,7 @@ describe("Catalog claim approval lifecycle", () => {
 
   beforeEach(() => {
     record = pendingProposal();
+    version = 0;
     vi.clearAllMocks();
   });
 
@@ -180,10 +195,14 @@ describe("Catalog claim approval lifecycle", () => {
           near: testNear("member.near"),
           user: testUser("member", "member"),
         })
-        .approve({ pluginId: "nearcatalog", entityId }),
+        .approve({ pluginId: "nearcatalog", entityId, expectedUpdatedAt: record.updatedAt }),
     ).rejects.toThrow("Requires role: admin");
 
-    const approved = await adminClient().approve({ pluginId: "nearcatalog", entityId });
+    const approved = await adminClient().approve({
+      pluginId: "nearcatalog",
+      entityId,
+      expectedUpdatedAt: record.updatedAt,
+    });
 
     expect(approved.data.applyStatus).toBe("applied");
     expect(getBuilderMock).toHaveBeenCalledWith({ nearAccount: "alice.near" });
@@ -212,7 +231,11 @@ describe("Catalog claim approval lifecycle", () => {
       activityEventId: "activity-1",
     });
 
-    await adminClient().remove({ pluginId: "nearcatalog", entityId });
+    await adminClient().remove({
+      pluginId: "nearcatalog",
+      entityId,
+      expectedUpdatedAt: record.updatedAt,
+    });
     expect(revokeClaimMock).toHaveBeenCalledWith({ id: "claim:alice.near:ref-finance" });
     expect(hideActivityMock).toHaveBeenCalledWith({ id: "activity-1" });
     expect(record.removeStatus).toBe("removed");
@@ -222,6 +245,7 @@ describe("Catalog claim approval lifecycle", () => {
     const rejected = await adminClient().reject({
       pluginId: "nearcatalog",
       entityId,
+      expectedUpdatedAt: record.updatedAt,
       reason: "Clarify the selected roles",
     });
 
@@ -236,14 +260,22 @@ describe("Catalog claim approval lifecycle", () => {
   });
 
   it("keeps approval active when revocation fails and permits a retry", async () => {
-    await adminClient().approve({ pluginId: "nearcatalog", entityId });
+    await adminClient().approve({
+      pluginId: "nearcatalog",
+      entityId,
+      expectedUpdatedAt: record.updatedAt,
+    });
     revokeClaimMock.mockRejectedValueOnce(new Error("Could not revoke claim"));
 
-    await expect(adminClient().remove({ pluginId: "nearcatalog", entityId })).rejects.toThrow(
-      "Could not revoke claim",
-    );
+    await expect(
+      adminClient().remove({
+        pluginId: "nearcatalog",
+        entityId,
+        expectedUpdatedAt: record.updatedAt,
+      }),
+    ).rejects.toThrow("Could not revoke claim");
 
-    expect(removeMock).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledTimes(1);
     expect(markRemovedMock).not.toHaveBeenCalled();
     expect(markRemoveFailedMock).toHaveBeenCalledWith(
       expect.objectContaining({ error: "Could not revoke claim" }),
@@ -254,9 +286,13 @@ describe("Catalog claim approval lifecycle", () => {
       removeError: "Could not revoke claim",
     });
 
-    await adminClient().remove({ pluginId: "nearcatalog", entityId });
+    await adminClient().remove({
+      pluginId: "nearcatalog",
+      entityId,
+      expectedUpdatedAt: record.updatedAt,
+    });
 
-    expect(removeMock).toHaveBeenCalledTimes(1);
+    expect(removeMock).toHaveBeenCalledTimes(2);
     expect(markRemovedMock).toHaveBeenCalledTimes(1);
     expect(record).toMatchObject({
       reviewStatus: "removed",
@@ -268,9 +304,13 @@ describe("Catalog claim approval lifecycle", () => {
   it("compensates a failed link and records apply failure", async () => {
     setClaimActivityMock.mockRejectedValueOnce(new Error("Could not link activity"));
 
-    await expect(adminClient().approve({ pluginId: "nearcatalog", entityId })).rejects.toThrow(
-      "Could not link activity",
-    );
+    await expect(
+      adminClient().approve({
+        pluginId: "nearcatalog",
+        entityId,
+        expectedUpdatedAt: record.updatedAt,
+      }),
+    ).rejects.toThrow("Could not link activity");
 
     expect(hideActivityMock).toHaveBeenCalledWith({ id: "activity-1" });
     expect(revokeClaimMock).toHaveBeenCalledWith({ id: "claim:alice.near:ref-finance" });
