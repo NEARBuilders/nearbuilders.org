@@ -118,10 +118,9 @@ function EventDetailPage() {
   );
   const canManage =
     event &&
-    (session?.user?.role === "admin" ||
-      [nearAccountId, sessionWalletAddress, session?.user?.id].some(
-        (candidate) => candidate === event.ownerId,
-      ));
+    [nearAccountId, sessionWalletAddress, session?.user?.id].some(
+      (candidate) => candidate === event.ownerId,
+    );
   const canParticipate = Boolean(
     session?.user && !session.user.isAnonymous && event?.status !== "cancelled",
   );

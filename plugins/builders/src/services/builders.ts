@@ -114,7 +114,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       },
       userId: string,
       walletAddress?: string,
-      userRole?: string,
+      _userRole?: string,
     ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
     deleteBuilder: (
@@ -274,7 +274,7 @@ export const BuilderServiceLive = Layer.effect(
           };
         }),
 
-      updateBuilderProfile: (nearAccount, input, userId, walletAddress, userRole) =>
+      updateBuilderProfile: (nearAccount, input, userId, walletAddress, _userRole) =>
         Effect.gen(function* () {
           const [existing] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
@@ -291,7 +291,7 @@ export const BuilderServiceLive = Layer.effect(
             existing.nearAccount === userId ||
             existing.userId === userId;
 
-          if (userRole !== "admin" && !isOwner) {
+          if (!isOwner) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
                 message: "You do not have permission to edit this profile",

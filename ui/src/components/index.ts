@@ -6,7 +6,6 @@ export {
 } from "./api-key-manager";
 export { CatalogClaimActivity } from "./catalog-claim-activity";
 export { CatalogClaimFlow } from "./catalog-claim-flow";
-export { CatalogClaimReviewCard } from "./catalog-claim-review-card";
 export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";
 export { ContributedProjects } from "./contributed-projects";
 export { InvitationCard, MemberCard } from "./member-card";

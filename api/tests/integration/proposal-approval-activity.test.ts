@@ -42,7 +42,7 @@ describe("proposal approval activity lifecycle", () => {
     schemaVersion: "1",
     createdBy: "alice.near",
     reviewStatus: "pending" as "pending" | "approved",
-    applyStatus: "not_started" as "not_started" | "applied",
+    applyStatus: "not_started" as "not_started" | "applying" | "applied",
     removeStatus: "not_started" as const,
     rejectionReason: null,
     applyError: null,
@@ -53,6 +53,11 @@ describe("proposal approval activity lifecycle", () => {
     removedAt: null,
     createdAt: timestamp,
     updatedAt: timestamp,
+  };
+  let version = 0;
+  const advanceVersion = () => {
+    version += 1;
+    record.updatedAt = new Date(Date.parse(timestamp) + version).toISOString();
   };
   let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"api">>>;
 
@@ -72,7 +77,7 @@ describe("proposal approval activity lifecycle", () => {
           },
         }),
         projects: () => ({
-          updateProject: async () => {
+          applyReviewedProject: async () => {
             operations.push("apply");
             return { id: "project-1", ownerId: "alice.near" };
           },
@@ -81,12 +86,17 @@ describe("proposal approval activity lifecycle", () => {
           approve: async () => {
             operations.push("approve");
             record.reviewStatus = "approved";
+            if (record.applyStatus !== "applied") {
+              record.applyStatus = "applying";
+              advanceVersion();
+            }
             return { data: record };
           },
           markApplied: async ({ appliedResourceId }: { appliedResourceId: string }) => {
             operations.push("markApplied");
             record.applyStatus = "applied";
             record.appliedResourceId = appliedResourceId;
+            advanceVersion();
             return { data: record };
           },
           markApplyFailed: vi.fn(),
@@ -107,7 +117,11 @@ describe("proposal approval activity lifecycle", () => {
       user: testUser("admin", "admin"),
     });
 
-    await client.approve({ pluginId: "projects", entityId: "project-1" });
+    await client.approve({
+      pluginId: "projects",
+      entityId: "project-1",
+      expectedUpdatedAt: record.updatedAt,
+    });
 
     expect(operations).toEqual(["approve", "apply", "activity", "markApplied", "notification"]);
     expect(emitTrustedActivity).toHaveBeenCalledWith({
@@ -125,7 +139,11 @@ describe("proposal approval activity lifecycle", () => {
       },
     });
 
-    await client.approve({ pluginId: "projects", entityId: "project-1" });
+    await client.approve({
+      pluginId: "projects",
+      entityId: "project-1",
+      expectedUpdatedAt: record.updatedAt,
+    });
 
     expect(emitTrustedActivity).toHaveBeenCalledTimes(1);
     expect(operations).toEqual([

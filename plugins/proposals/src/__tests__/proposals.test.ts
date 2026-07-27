@@ -185,15 +185,20 @@ describe.sequential("Proposals plugin", () => {
     await expect(directClient.propose(input)).rejects.toThrow(
       "Use the plugin's dedicated proposal endpoint",
     );
-    await aliceClient().propose(input);
+    const proposed = await aliceClient().propose(input);
 
     await expect(
-      aliceClient().reject({ pluginId: input.pluginId, entityId: input.entityId }),
+      aliceClient().reject({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: proposed.data.updatedAt,
+      }),
     ).rejects.toThrow("Admin access required");
 
     const rejected = await adminClient().reject({
       pluginId: input.pluginId,
       entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
       reason: "Add another role",
     });
 
@@ -224,6 +229,7 @@ describe.sequential("Proposals plugin", () => {
     await adminClient().reject({
       pluginId: "nearcatalog",
       entityId: input.entityId,
+      expectedUpdatedAt: first.data.updatedAt,
       reason: "Clarify the contribution",
     });
 
@@ -239,12 +245,31 @@ describe.sequential("Proposals plugin", () => {
     expect(resubmitted.data.submissionCount).toBe(2);
     expect(resubmitted.data.payload).toEqual({ roles: ["Developer", "Community"] });
 
-    await adminClient().approve({ pluginId: input.pluginId, entityId: input.entityId });
+    const approved = await adminClient().approve({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: resubmitted.data.updatedAt,
+    });
+    const applied = await adminClient().markApplied({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: approved.data.updatedAt,
+      appliedResourceId: input.entityId,
+    });
     await expect(
       aliceClient().propose({ ...input, idempotencyKey: "approved-revision" }),
     ).rejects.toThrow("This proposal is already approved");
 
-    await adminClient().remove({ pluginId: input.pluginId, entityId: input.entityId });
+    const removing = await adminClient().remove({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: applied.data.updatedAt,
+    });
+    await adminClient().markRemoved({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: removing.data.updatedAt,
+    });
     const removalAudit = await adminClient().getAuditLog({
       pluginId: input.pluginId,
       entityId: input.entityId,
@@ -252,7 +277,7 @@ describe.sequential("Proposals plugin", () => {
     expect(removalAudit.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          action: "approval_revoked",
+          action: "approval_revocation_started",
           actor: "admin",
           actorLabel: "admin",
         }),
@@ -285,20 +310,26 @@ describe.sequential("Proposals plugin", () => {
       idempotencyKey: "reopened-review",
     };
 
-    await aliceClient().propose(input);
-    await adminClient().reject({
+    const proposed = await aliceClient().propose(input);
+    const rejected = await adminClient().reject({
       pluginId: input.pluginId,
       entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
       reason: "Needs another review",
     });
 
     await expect(
-      aliceClient().reopen({ pluginId: input.pluginId, entityId: input.entityId }),
+      aliceClient().reopen({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: rejected.data.updatedAt,
+      }),
     ).rejects.toThrow("Admin access required");
 
     const reopened = await adminClient().reopen({
       pluginId: input.pluginId,
       entityId: input.entityId,
+      expectedUpdatedAt: rejected.data.updatedAt,
     });
 
     expect(reopened.data.reviewStatus).toBe("pending");
@@ -315,8 +346,201 @@ describe.sequential("Proposals plugin", () => {
     });
 
     await expect(
-      adminClient().reopen({ pluginId: input.pluginId, entityId: input.entityId }),
+      adminClient().reopen({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: reopened.data.updatedAt,
+      }),
     ).rejects.toThrow("Only rejected proposals can be reopened");
+  });
+
+  it("rejects an admin decision made against a stale proposal version", async () => {
+    const input = {
+      pluginId: "events",
+      entityId: "stale-admin-decision",
+      payload: { title: "Stale decision" },
+      idempotencyKey: "stale-admin-decision",
+    };
+    const proposed = await aliceClient().propose(input);
+
+    await adminClient().approve({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+
+    await expect(
+      adminClient().reject({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: proposed.data.updatedAt,
+      }),
+    ).rejects.toThrow("This proposal changed");
+  });
+
+  it("includes pending and failed lifecycle records in the actionable queue", async () => {
+    const applyInput = {
+      pluginId: "builders",
+      entityId: "failed-application.near",
+      payload: { name: "Failed Application" },
+      idempotencyKey: "failed-application",
+    };
+    const proposedApply = await aliceClient().propose(applyInput);
+    const approvedApply = await adminClient().approve({
+      pluginId: applyInput.pluginId,
+      entityId: applyInput.entityId,
+      expectedUpdatedAt: proposedApply.data.updatedAt,
+    });
+    await adminClient().markApplyFailed({
+      pluginId: applyInput.pluginId,
+      entityId: applyInput.entityId,
+      expectedUpdatedAt: approvedApply.data.updatedAt,
+      error: "Publish failed",
+    });
+
+    const removeInput = {
+      pluginId: "builders",
+      entityId: "failed-removal.near",
+      payload: { name: "Failed Removal" },
+      idempotencyKey: "failed-removal",
+    };
+    const proposedRemove = await aliceClient().propose(removeInput);
+    const approvedRemove = await adminClient().approve({
+      pluginId: removeInput.pluginId,
+      entityId: removeInput.entityId,
+      expectedUpdatedAt: proposedRemove.data.updatedAt,
+    });
+    const appliedRemove = await adminClient().markApplied({
+      pluginId: removeInput.pluginId,
+      entityId: removeInput.entityId,
+      expectedUpdatedAt: approvedRemove.data.updatedAt,
+      appliedResourceId: removeInput.entityId,
+    });
+    const removing = await adminClient().remove({
+      pluginId: removeInput.pluginId,
+      entityId: removeInput.entityId,
+      expectedUpdatedAt: appliedRemove.data.updatedAt,
+    });
+    await adminClient().markRemoveFailed({
+      pluginId: removeInput.pluginId,
+      entityId: removeInput.entityId,
+      expectedUpdatedAt: removing.data.updatedAt,
+      error: "Removal failed",
+    });
+
+    const actionable = await adminClient().getProposals({
+      pluginId: "builders",
+      lifecycleStatus: "actionable",
+      limit: 100,
+    });
+
+    expect(actionable.data.map((proposal) => proposal.entityId)).toEqual(
+      expect.arrayContaining(["public-builder.near", applyInput.entityId, removeInput.entityId]),
+    );
+    expect(
+      actionable.data.every(
+        (proposal) =>
+          proposal.reviewStatus === "pending" ||
+          proposal.applyStatus === "failed" ||
+          proposal.removeStatus === "failed",
+      ),
+    ).toBe(true);
+  });
+
+  it("makes stalled lifecycle operations actionable and retryable", async () => {
+    const startedAt = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(startedAt);
+
+    try {
+      const applyInput = {
+        pluginId: "builders",
+        entityId: "stalled-application.near",
+        payload: { name: "Stalled Application" },
+        idempotencyKey: "stalled-application",
+      };
+      const proposedApply = await aliceClient().propose(applyInput);
+      const applying = await adminClient().approve({
+        pluginId: applyInput.pluginId,
+        entityId: applyInput.entityId,
+        expectedUpdatedAt: proposedApply.data.updatedAt,
+      });
+
+      const removeInput = {
+        pluginId: "builders",
+        entityId: "stalled-removal.near",
+        payload: { name: "Stalled Removal" },
+        idempotencyKey: "stalled-removal",
+      };
+      const proposedRemove = await aliceClient().propose(removeInput);
+      const approvedRemove = await adminClient().approve({
+        pluginId: removeInput.pluginId,
+        entityId: removeInput.entityId,
+        expectedUpdatedAt: proposedRemove.data.updatedAt,
+      });
+      const appliedRemove = await adminClient().markApplied({
+        pluginId: removeInput.pluginId,
+        entityId: removeInput.entityId,
+        expectedUpdatedAt: approvedRemove.data.updatedAt,
+        appliedResourceId: removeInput.entityId,
+      });
+      const removing = await adminClient().remove({
+        pluginId: removeInput.pluginId,
+        entityId: removeInput.entityId,
+        expectedUpdatedAt: appliedRemove.data.updatedAt,
+      });
+
+      const active = await adminClient().getProposals({
+        pluginId: "builders",
+        lifecycleStatus: "actionable",
+        limit: 100,
+      });
+      expect(active.data.map((proposal) => proposal.entityId)).not.toContain(applyInput.entityId);
+      expect(active.data.map((proposal) => proposal.entityId)).not.toContain(removeInput.entityId);
+      await expect(
+        adminClient().approve({
+          pluginId: applyInput.pluginId,
+          entityId: applyInput.entityId,
+          expectedUpdatedAt: applying.data.updatedAt,
+        }),
+      ).rejects.toThrow("Only pending proposals can be approved");
+      await expect(
+        adminClient().remove({
+          pluginId: removeInput.pluginId,
+          entityId: removeInput.entityId,
+          expectedUpdatedAt: removing.data.updatedAt,
+        }),
+      ).rejects.toThrow("Only applied proposals can have approval revoked");
+
+      vi.setSystemTime(startedAt + 5 * 60 * 1000 + 10);
+
+      const stalled = await adminClient().getProposals({
+        pluginId: "builders",
+        lifecycleStatus: "actionable",
+        limit: 100,
+      });
+      expect(stalled.data.map((proposal) => proposal.entityId)).toEqual(
+        expect.arrayContaining([applyInput.entityId, removeInput.entityId]),
+      );
+
+      const retriedApply = await adminClient().approve({
+        pluginId: applyInput.pluginId,
+        entityId: applyInput.entityId,
+        expectedUpdatedAt: applying.data.updatedAt,
+      });
+      const retriedRemoval = await adminClient().remove({
+        pluginId: removeInput.pluginId,
+        entityId: removeInput.entityId,
+        expectedUpdatedAt: removing.data.updatedAt,
+      });
+
+      expect(retriedApply.data.applyStatus).toBe("applying");
+      expect(retriedApply.data.updatedAt).not.toBe(applying.data.updatedAt);
+      expect(retriedRemoval.data.removeStatus).toBe("removing");
+      expect(retriedRemoval.data.updatedAt).not.toBe(removing.data.updatedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("provides admins with reviewer history", async () => {
@@ -327,11 +551,16 @@ describe.sequential("Proposals plugin", () => {
       idempotencyKey: "review-history",
     };
 
-    await aliceClient().propose(input);
-    await adminClient().approve({ pluginId: input.pluginId, entityId: input.entityId });
+    const proposed = await aliceClient().propose(input);
+    const approved = await adminClient().approve({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
     await adminClient().markApplied({
       pluginId: input.pluginId,
       entityId: input.entityId,
+      expectedUpdatedAt: approved.data.updatedAt,
       appliedResourceId: input.entityId,
     });
 

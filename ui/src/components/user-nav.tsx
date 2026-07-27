@@ -86,6 +86,11 @@ export function UserNav() {
         <DropdownMenuItem asChild>
           <Link to="/dashboard">Dashboard</Link>
         </DropdownMenuItem>
+        {user.role === "admin" && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin/dashboard">Admin Dashboard</Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <Link to="/settings">Settings</Link>
         </DropdownMenuItem>

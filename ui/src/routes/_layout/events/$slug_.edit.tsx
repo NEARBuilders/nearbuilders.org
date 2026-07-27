@@ -80,10 +80,9 @@ function EditEventPage() {
   const event = eventQuery.data?.data;
   const canManage =
     event &&
-    (session?.user?.role === "admin" ||
-      [nearAccountId, sessionWalletAddress, session?.user?.id].some(
-        (candidate) => candidate === event.ownerId,
-      ));
+    [nearAccountId, sessionWalletAddress, session?.user?.id].some(
+      (candidate) => candidate === event.ownerId,
+    );
 
   if (eventQuery.isLoading) {
     return (

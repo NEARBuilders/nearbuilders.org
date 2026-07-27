@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -115,6 +115,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       },
       userId?: string,
       alternateUserId?: string,
+      userRole?: string,
     ) => Effect.Effect<
       {
         data: Project[];
@@ -127,12 +128,14 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       id: string,
       userId?: string,
       alternateUserId?: string,
+      userRole?: string,
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     getProjectBySlug: (
       slug: string,
       userId?: string,
       alternateUserId?: string,
+      userRole?: string,
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     createProject: (
@@ -224,8 +227,17 @@ function isProjectOwner(projectOwnerId: string, userId?: string, alternateUserId
   return projectOwnerId === userId || projectOwnerId === alternateUserId;
 }
 
-const canViewProjectRecord = (project: any, userId?: string, alternateUserId?: string) => {
+const canViewProjectRecord = (
+  project: any,
+  userId?: string,
+  alternateUserId?: string,
+  userRole?: string,
+) => {
   if (project.visibility === "public" || project.visibility === "unlisted") {
+    return true;
+  }
+
+  if (userRole === "admin") {
     return true;
   }
 
@@ -240,14 +252,10 @@ const canEditProject = (
   db: any,
   projectId: string,
   userId: string,
-  userRole?: string,
+  _userRole?: string,
   alternateUserId?: string,
 ) =>
   Effect.gen(function* () {
-    if (userRole === "admin") {
-      return true;
-    }
-
     const results = (yield* Effect.promise(() =>
       db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
     )) as any[];
@@ -346,7 +354,7 @@ export const ProjectServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
-      listProjects: (input, userId?: string, alternateUserId?: string) =>
+      listProjects: (input, userId?: string, alternateUserId?: string, userRole?: string) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
@@ -370,6 +378,13 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.visibility) {
             conditions.push(eq(projects.visibility, input.visibility));
+            if (input.visibility === "private" && userRole !== "admin") {
+              const ownerConditions = [
+                userId ? eq(projects.ownerId, userId) : undefined,
+                alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+              ].filter(Boolean);
+              conditions.push(ownerConditions.length > 0 ? or(...ownerConditions) : sql`false`);
+            }
           } else {
             const visibleConditions: any[] = [inArray(projects.visibility, ["public", "unlisted"])];
             if (userId || alternateUserId) {
@@ -417,7 +432,7 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      getProject: (id, userId, alternateUserId) =>
+      getProject: (id, userId, alternateUserId, userRole) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, id)).limit(1),
@@ -427,11 +442,11 @@ export const ProjectServiceLive = Layer.effect(
             return null;
           }
 
-          if (!canViewProjectRecord(project, userId, alternateUserId)) return null;
+          if (!canViewProjectRecord(project, userId, alternateUserId, userRole)) return null;
           return yield* mapProjectDetail(db, project);
         }),
 
-      getProjectBySlug: (slug, userId, alternateUserId) =>
+      getProjectBySlug: (slug, userId, alternateUserId, userRole) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.slug, slug)).limit(1),
@@ -441,7 +456,7 @@ export const ProjectServiceLive = Layer.effect(
             return null;
           }
 
-          if (!canViewProjectRecord(project, userId, alternateUserId)) return null;
+          if (!canViewProjectRecord(project, userId, alternateUserId, userRole)) return null;
           return yield* mapProjectDetail(db, project);
         }),
 

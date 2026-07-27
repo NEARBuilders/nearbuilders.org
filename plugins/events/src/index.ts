@@ -43,6 +43,16 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
+    const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context: { ...context, userId: context.userId!, user: context.user! } });
+    });
+
     const getAlternateOwnerId = (context: {
       userId?: string | null;
       near?: { primaryAccountId?: string | null };
@@ -101,6 +111,7 @@ export default createPlugin({
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
           ),
         );
       }),
@@ -111,6 +122,7 @@ export default createPlugin({
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
           ),
         );
         if (!result) {
@@ -128,6 +140,7 @@ export default createPlugin({
             input.slug,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
           ),
         );
         if (!result) {
@@ -148,6 +161,7 @@ export default createPlugin({
                   input.eventId,
                   context.near?.primaryAccountId ?? context.userId ?? undefined,
                   getAlternateOwnerId(context),
+                  context.user?.role ?? undefined,
                 ),
               ),
             };
@@ -244,6 +258,14 @@ export default createPlugin({
           }
         }),
 
+      applyReviewedEvent: builder.applyReviewedEvent
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await runEffect(
+            services.event.updateEvent(input.id, input, input.ownerId, undefined),
+          );
+        }),
+
       deleteEvent: builder.deleteEvent
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
@@ -252,7 +274,6 @@ export default createPlugin({
               services.event.deleteEvent(
                 input.id,
                 context.near?.primaryAccountId ?? context.userId ?? undefined,
-                context.user.role ?? undefined,
                 getAlternateOwnerId(context),
               ),
             );

@@ -132,6 +132,25 @@ export const contract = oc.router({
     .output(projectSchema)
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
 
+  applyReviewedProject: oc
+    .route({ method: "PATCH", path: "/v1/internal/projects/{id}/reviewed" })
+    .input(
+      z.object({
+        id: z.string(),
+        ownerId: z.string().min(1),
+        kind: kindEnum.optional(),
+        title: z.string().min(1).max(200).optional(),
+        description: z.string().max(1000).optional(),
+        content: z.string().max(50000).optional(),
+        status: z.enum(["active", "paused", "archived"]).optional(),
+        visibility: z.enum(["private", "unlisted", "public"]).optional(),
+        repository: z.string().url().max(500).optional(),
+        domain: z.string().max(255).optional(),
+      }),
+    )
+    .output(projectSchema)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
   deleteProject: oc
     .route({ method: "DELETE", path: "/v1/projects/{id}" })
     .input(z.object({ id: z.string() }))

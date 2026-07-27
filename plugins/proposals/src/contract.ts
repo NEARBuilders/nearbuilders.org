@@ -3,8 +3,13 @@ import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
 const ReviewStatus = z.enum(["pending", "approved", "rejected", "removed"]);
-const ApplyStatus = z.enum(["not_started", "applied", "failed"]);
-const RemoveStatus = z.enum(["not_started", "removed", "failed"]);
+const ApplyStatus = z.enum(["not_started", "applying", "applied", "failed"]);
+const RemoveStatus = z.enum(["not_started", "removing", "removed", "failed"]);
+const ExpectedProposalVersion = z.object({
+  pluginId: z.string(),
+  entityId: z.string(),
+  expectedUpdatedAt: z.iso.datetime(),
+});
 
 export const ProposalSchema = z.object({
   id: z.string(),
@@ -36,6 +41,17 @@ export const ProposalAuditEntrySchema = z.object({
   actor: z.string(),
   actorLabel: z.string().nullable(),
   details: z.unknown().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const ProposalSubmissionSchema = z.object({
+  id: z.string(),
+  pluginId: z.string(),
+  entityId: z.string(),
+  submittedBy: z.string(),
+  source: z.string().nullable(),
+  payload: z.unknown().nullable(),
+  metadata: z.unknown().nullable(),
   createdAt: z.iso.datetime(),
 });
 
@@ -73,7 +89,7 @@ export const contract = oc.router({
 
   approve: oc
     .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/approve" })
-    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .input(ExpectedProposalVersion)
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
@@ -83,6 +99,7 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
         reason: z.string().max(1000).optional(),
       }),
     )
@@ -91,13 +108,13 @@ export const contract = oc.router({
 
   reopen: oc
     .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/reopen" })
-    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .input(ExpectedProposalVersion)
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
   remove: oc
     .route({ method: "DELETE", path: "/v1/proposals/{pluginId}/{entityId}" })
-    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .input(ExpectedProposalVersion)
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
@@ -107,6 +124,7 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
         appliedResourceId: z.string().optional(),
       }),
     )
@@ -119,6 +137,7 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
         error: z.string().max(4000),
       }),
     )
@@ -131,6 +150,7 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
       }),
     )
     .output(z.object({ data: ProposalSchema }))
@@ -142,6 +162,7 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
         error: z.string().max(4000),
       }),
     )
@@ -155,6 +176,8 @@ export const contract = oc.router({
         pluginId: z.string().optional(),
         entityId: z.string().optional(),
         reviewStatus: ReviewStatus.optional(),
+        lifecycleStatus: z.literal("actionable").optional(),
+        query: z.string().trim().min(1).max(200).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -187,14 +210,42 @@ export const contract = oc.router({
       z.object({
         pluginId: z.string(),
         entityId: z.string(),
-        limit: z.number().int().min(1).max(200).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().optional(),
       }),
     )
     .output(
       z.object({
         data: z.array(ProposalAuditEntrySchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
       }),
     ),
+
+  getSubmissions: oc
+    .route({ method: "GET", path: "/v1/proposals/{pluginId}/{entityId}/submissions" })
+    .input(
+      z.object({
+        pluginId: z.string(),
+        entityId: z.string(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(ProposalSubmissionSchema),
+        meta: z.object({
+          total: z.number().int().nonnegative(),
+          hasMore: z.boolean(),
+          nextCursor: z.string().nullable(),
+        }),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   getReviewHistory: oc
     .route({ method: "GET", path: "/v1/proposals/review-history" })

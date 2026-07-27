@@ -350,10 +350,9 @@ function ProjectsList() {
           }
         : selectedSummary;
 
-  const isAdminUser = user?.role === "admin";
   const canManageSelected =
     selectedProject?.source === "local" &&
-    (isAdminUser || isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId));
+    isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId);
 
   const selectedReadmeQuery = useQuery({
     queryKey: ["projectPreviewReadme", selectedProject?.id, selectedProject?.repository],

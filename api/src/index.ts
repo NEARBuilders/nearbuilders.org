@@ -109,9 +109,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return approval;
         }
 
-        let appliedResourceId: string;
+        let applied = approval;
         try {
-          appliedResourceId = await runEffect(
+          const appliedResourceId = await runEffect(
             Effect.tryPromise({
               try: () => orchestration.applyProposal(proposal, context),
               catch: (error) =>
@@ -121,22 +121,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
             }),
           );
           await activity.emitApproval(proposal, context);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          await proposalsClient.markApplyFailed({
+          applied = await proposalsClient.markApplied({
             pluginId: input.pluginId,
             entityId: input.entityId,
-            error: message,
+            expectedUpdatedAt: approval.data.updatedAt,
+            appliedResourceId,
           });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          await proposalsClient
+            .markApplyFailed({
+              pluginId: input.pluginId,
+              entityId: input.entityId,
+              expectedUpdatedAt: approval.data.updatedAt,
+              error: message,
+            })
+            .catch((failure) =>
+              console.error("[Proposals] Could not record apply failure:", failure),
+            );
           throw error;
         }
 
-        const applied = await proposalsClient.markApplied({
-          pluginId: input.pluginId,
-          entityId: input.entityId,
-          appliedResourceId,
-        });
-        await notifyApproval(proposal, context);
+        await notifyApproval(proposal, context).catch((error) =>
+          console.error("[Proposals] Approval notification failed:", error),
+        );
         return applied;
       }),
 
@@ -161,20 +169,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       remove: builder.remove.use(requireAdmin).handler(async ({ input, context }) => {
         const proposalsClient = services.plugins.proposals(context);
-        const listed = await proposalsClient.getProposals({
-          pluginId: input.pluginId,
-          entityId: input.entityId,
-          limit: 1,
-        });
-        const proposalData = listed.data[0];
-
-        if (!proposalData) {
-          throw new ORPCError("NOT_FOUND", { message: "Proposal not found" });
-        }
-
-        const wasApproved =
-          proposalData.reviewStatus === "approved" ||
-          (proposalData.reviewStatus === "removed" && proposalData.removeStatus === "failed");
+        const started = await proposalsClient.remove(input);
+        const proposalData = started.data;
 
         const proposal = {
           pluginId: proposalData.pluginId,
@@ -184,6 +180,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           createdBy: proposalData.createdBy,
         };
 
+        let removed = started;
         try {
           if (proposalData.applyStatus === "applied") {
             await runEffect(
@@ -197,24 +194,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
             );
           }
 
-          await proposalsClient.remove(input);
-          const removed = await proposalsClient.markRemoved({
+          removed = await proposalsClient.markRemoved({
             pluginId: input.pluginId,
             entityId: input.entityId,
+            expectedUpdatedAt: proposalData.updatedAt,
           });
-          if (wasApproved) {
-            await notifyRevocation(proposal, context);
-          }
-          return removed;
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          await proposalsClient.markRemoveFailed({
-            pluginId: input.pluginId,
-            entityId: input.entityId,
-            error: message,
-          });
+          await proposalsClient
+            .markRemoveFailed({
+              pluginId: input.pluginId,
+              entityId: input.entityId,
+              expectedUpdatedAt: proposalData.updatedAt,
+              error: message,
+            })
+            .catch((failure) =>
+              console.error("[Proposals] Could not record removal failure:", failure),
+            );
           throw error;
         }
+
+        await notifyRevocation(proposal, context).catch((error) =>
+          console.error("[Proposals] Revocation notification failed:", error),
+        );
+        return removed;
       }),
 
       getProposals: builder.getProposals.handler(async ({ input, context }) => {
@@ -228,6 +231,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).getAuditLog(input);
       }),
+
+      getProposalSubmissions: builder.getProposalSubmissions
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.proposals(context).getSubmissions(input);
+        }),
 
       getReviewHistory: builder.getReviewHistory
         .use(requireAdmin)

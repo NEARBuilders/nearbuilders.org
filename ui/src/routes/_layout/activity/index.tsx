@@ -98,11 +98,21 @@ function ActivityPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Source</span>
-          <SegmentedFilter options={SOURCE_OPTIONS} value={source} onChange={setSource} />
+          <SegmentedFilter
+            options={SOURCE_OPTIONS}
+            value={source}
+            onChange={setSource}
+            ariaLabel="Activity source"
+          />
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Type</span>
-          <SegmentedFilter options={TYPE_OPTIONS} value={type} onChange={setType} />
+          <SegmentedFilter
+            options={TYPE_OPTIONS}
+            value={type}
+            onChange={setType}
+            ariaLabel="Activity type"
+          />
         </div>
         <Select value={sort} onValueChange={(v) => setSort(v as ActivitySort)}>
           <SelectTrigger

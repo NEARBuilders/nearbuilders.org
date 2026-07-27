@@ -216,6 +216,26 @@ export const contract = oc.router({
     .output(EventOutput)
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
 
+  applyReviewedEvent: oc
+    .route({ method: "PATCH", path: "/v1/internal/events/{id}/reviewed" })
+    .input(
+      z.object({
+        id: z.string(),
+        ownerId: z.string().min(1),
+        title: z.string().min(1).max(200).optional(),
+        description: z.string().max(1000).optional(),
+        content: z.string().max(50000).optional(),
+        visibility: z.enum(["private", "unlisted", "public"]).optional(),
+        status: z.enum(["active", "cancelled"]).optional(),
+        lumaUrl: z.string().url().max(500).optional(),
+        startAt: z.iso.datetime().optional(),
+        endAt: z.iso.datetime().optional(),
+        location: z.string().max(200).optional(),
+      }),
+    )
+    .output(EventOutput)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
   deleteEvent: oc
     .route({ method: "DELETE", path: "/v1/events/{id}" })
     .input(z.object({ id: z.string() }))

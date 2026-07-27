@@ -80,7 +80,12 @@ function LeaderboardPage() {
 
       <div className="mb-6 flex items-center gap-1.5">
         <span className="text-xs font-medium text-muted-foreground">Period</span>
-        <SegmentedFilter options={PERIOD_OPTIONS} value={period} onChange={changePeriod} />
+        <SegmentedFilter
+          options={PERIOD_OPTIONS}
+          value={period}
+          onChange={changePeriod}
+          ariaLabel="Leaderboard period"
+        />
       </div>
 
       {isLoading ? (
