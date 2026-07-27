@@ -5,8 +5,8 @@ export const ProjectApprovalActivityPayloadSchema = z.object({
   projectKind: z.enum(["project", "idea", "scope", "result"]),
   projectSlug: z.string(),
   projectTitle: z.string(),
-  projectDescription: z.string().nullable().default(null),
-  repositoryUrl: z.string().nullable().default(null),
+  projectDescription: z.string().nullable(),
+  repositoryUrl: z.string().nullable(),
 });
 
 export type ProjectApprovalActivityPayload = z.infer<typeof ProjectApprovalActivityPayloadSchema>;

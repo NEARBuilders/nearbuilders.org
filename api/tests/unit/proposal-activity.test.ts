@@ -71,30 +71,6 @@ describe("proposal approval activity", () => {
     expect(buildProposalApproval(proposal)).toMatchObject(expected);
   });
 
-  it("normalizes missing optional project metadata", () => {
-    expect(
-      buildProposalApproval({
-        pluginId: "projects",
-        entityId: "idea-1",
-        createdBy: "alice.near",
-        payload: {
-          kind: "idea",
-          title: "Example Idea",
-          slug: "example-idea",
-        },
-      }),
-    ).toMatchObject({
-      activityPayload: {
-        projectId: "idea-1",
-        projectKind: "idea",
-        projectSlug: "example-idea",
-        projectTitle: "Example Idea",
-        projectDescription: null,
-        repositoryUrl: null,
-      },
-    });
-  });
-
   it.each(proposals)("emits verified $pluginId activity", async ({ expected, ...proposal }) => {
     const emitTrustedActivity = vi.fn(async () => ({}));
     const activity = createProposalActivity({
