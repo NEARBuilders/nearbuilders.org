@@ -23,7 +23,7 @@ import {
 } from "@/lib/queries/builders";
 import { claimedCatalogProjectsQueryOptions } from "@/lib/queries/catalog";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
-import { linkLabel } from "@/lib/social-links";
+import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
@@ -300,15 +300,7 @@ function LoadedProfile({
       ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
       : null);
 
-  const allLinks: Record<string, string> = {};
-  if (profile?.linktree) {
-    for (const [k, v] of Object.entries(profile.linktree)) {
-      if (typeof v === "string" && v.trim()) allLinks[k] = v;
-    }
-  }
-  for (const [k, v] of Object.entries(builder.links ?? {})) {
-    if (typeof v === "string" && v.trim()) allLinks[k] = v;
-  }
+  const allLinks = mergeSocialLinks(profile?.linktree, builder.links);
 
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">

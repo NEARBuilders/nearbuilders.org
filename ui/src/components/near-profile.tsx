@@ -4,6 +4,7 @@ import { useAuthClient } from "@/app";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { nearProfileOptions } from "@/lib/queries/builders";
+import { mergeSocialLinks } from "@/lib/social-links";
 
 interface NearProfileProps {
   accountId?: string;
@@ -38,6 +39,7 @@ export function NearProfile({
     (profile?.backgroundImage?.ipfs_cid
       ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
       : null);
+  const socialLinks = mergeSocialLinks(profile?.linktree);
 
   if (isLoading) {
     if (variant === "card") {
@@ -155,9 +157,9 @@ export function NearProfile({
             </div>
           )}
 
-          {profile?.linktree && Object.keys(profile.linktree).length > 0 && (
+          {Object.keys(socialLinks).length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {Object.entries(profile.linktree).map(([platform, url]) => (
+              {Object.entries(socialLinks).map(([platform, url]) => (
                 <a
                   key={platform}
                   href={url}

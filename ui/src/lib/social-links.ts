@@ -40,6 +40,27 @@ export function urlToHandle(key: string, raw?: string): string {
   return stripped.replace(/^@/, "");
 }
 
+export function socialLinkToUrl(key: string, raw?: string): string {
+  const value = raw?.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return handleToUrl(key, urlToHandle(key, value));
+}
+
+export function mergeSocialLinks(
+  ...sources: Array<Record<string, unknown> | null | undefined>
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source ?? {})) {
+      if (typeof value !== "string") continue;
+      const url = socialLinkToUrl(key, value);
+      if (url) result[key] = url;
+    }
+  }
+  return result;
+}
+
 export function initialFormLinks(
   links?: Record<string, string> | null,
   social?: Record<string, unknown> | null,
