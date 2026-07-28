@@ -5,6 +5,7 @@ import {
   ArrowDownUp,
   ArrowUpRight,
   Check,
+  CheckCircle2,
   ChevronDown,
   FileText,
   Globe,
@@ -64,10 +65,11 @@ export const Route = createFileRoute("/_layout/projects/")({
     kind: search.kind,
     personal: search.personal,
     private: search.private,
+    verified: search.verified,
   }),
   loader: ({ context, deps }) => {
     const { queryClient, apiClient } = context;
-    const { kind, personal } = deps;
+    const { kind, personal, verified } = deps;
     const activeKind =
       kind === "project" ||
       kind === "idea" ||
@@ -79,16 +81,18 @@ export const Route = createFileRoute("/_layout/projects/")({
 
     if (personal) return;
 
-    void queryClient.prefetchInfiniteQuery({
-      queryKey: ["projects", activeKind, null, false],
-      queryFn: ({ pageParam }) =>
-        apiClient.listProjects({
-          limit: PAGE_SIZE,
-          cursor: pageParam as string | undefined,
-          kind: activeKind === "all" ? undefined : activeKind,
-        }),
-      initialPageParam: undefined,
-    });
+    if (!verified) {
+      void queryClient.prefetchInfiniteQuery({
+        queryKey: ["projects", activeKind, null, false],
+        queryFn: ({ pageParam }) =>
+          apiClient.listProjects({
+            limit: PAGE_SIZE,
+            cursor: pageParam as string | undefined,
+            kind: activeKind === "all" ? undefined : activeKind,
+          }),
+        initialPageParam: undefined,
+      });
+    }
     if (activeKind === "all" || activeKind === "project") {
       void queryClient.prefetchInfiniteQuery({
         queryKey: ["catalog-projects", null],
@@ -133,7 +137,8 @@ function ProjectsList() {
       ? search.kind
       : "all";
   const isPersonalOnly = search.personal === true;
-  const isPrivateOnly = isPersonalOnly && search.private === true;
+  const isVerifiedOnly = search.verified === true;
+  const isPrivateOnly = isPersonalOnly && !isVerifiedOnly && search.private === true;
   const activeSort: ProjectSort = search.sort ?? "votes";
 
   const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
@@ -189,7 +194,7 @@ function ProjectsList() {
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
-    enabled: !isPersonalOnly || Boolean(ownerFilterId),
+    enabled: !isVerifiedOnly && (!isPersonalOnly || Boolean(ownerFilterId)),
   });
 
   const catalogEnabled = shouldLoadCatalogProjects({
@@ -212,14 +217,16 @@ function ProjectsList() {
   });
   const localProjects = useMemo(
     () =>
-      (pages?.pages.flatMap((page) => page.data) ?? []).map((project) => ({
-        ...project,
-        source: "local" as const,
-        catalogUrl: null,
-        imageUrl: null,
-        contributors: [],
-      })),
-    [pages],
+      isVerifiedOnly
+        ? []
+        : (pages?.pages.flatMap((page) => page.data) ?? []).map((project) => ({
+            ...project,
+            source: "local" as const,
+            catalogUrl: null,
+            imageUrl: null,
+            contributors: [],
+          })),
+    [isVerifiedOnly, pages],
   );
   const catalogProjects = useMemo(
     () =>
@@ -233,16 +240,19 @@ function ProjectsList() {
     () => [...localProjects, ...catalogProjects],
     [catalogProjects, localProjects],
   );
-  const isProjectsLoading = isLoading || (catalogEnabled && catalogQuery.isLoading);
-  const hasMoreProjects = hasNextPage || (catalogEnabled && catalogQuery.hasNextPage);
+  const isProjectsLoading =
+    (!isVerifiedOnly && isLoading) || (catalogEnabled && catalogQuery.isLoading);
+  const hasMoreProjects =
+    (!isVerifiedOnly && hasNextPage) || (catalogEnabled && catalogQuery.hasNextPage);
   const isFetchingMoreProjects =
-    isFetchingNextPage || (catalogEnabled && catalogQuery.isFetchingNextPage);
+    (!isVerifiedOnly && isFetchingNextPage) ||
+    (catalogEnabled && catalogQuery.isFetchingNextPage);
   const fetchMoreProjects = useCallback(async () => {
     await Promise.all([
-      hasNextPage ? fetchNextPage() : Promise.resolve(),
+      !isVerifiedOnly && hasNextPage ? fetchNextPage() : Promise.resolve(),
       catalogEnabled && catalogQuery.hasNextPage ? catalogQuery.fetchNextPage() : Promise.resolve(),
     ]);
-  }, [catalogEnabled, catalogQuery, fetchNextPage, hasNextPage]);
+  }, [catalogEnabled, catalogQuery, fetchNextPage, hasNextPage, isVerifiedOnly]);
   const projectIdList = useMemo(() => projects.map((p) => p.id), [projects]);
 
   const upvoteCounts = useQuery({
@@ -417,6 +427,7 @@ function ProjectsList() {
         kind: search.kind,
         personal: search.personal,
         private: search.private,
+        verified: search.verified,
       },
     });
   };
@@ -430,18 +441,22 @@ function ProjectsList() {
         kind: search.kind,
         personal: search.personal,
         private: search.private,
+        verified: search.verified,
       }),
     });
   };
 
   const handleKindChange = (kind: ProjectKindFilter) => {
+    const nextVerified =
+      search.verified && (kind === "all" || kind === "project") ? true : undefined;
     void navigate({
       to: "/projects",
       search: () => ({
         kind,
         preview: undefined,
         personal: search.personal,
-        private: search.private,
+        private: nextVerified ? undefined : search.private,
+        verified: nextVerified,
         sort: search.sort,
       }),
     });
@@ -462,14 +477,15 @@ function ProjectsList() {
         kind: search.kind,
         preview: undefined,
         personal: nextPersonal || undefined,
-        private: nextPersonal ? search.private : undefined,
+        private: nextPersonal && !isVerifiedOnly ? search.private : undefined,
+        verified: search.verified,
         sort: search.sort,
       }),
     });
   };
 
   const handlePrivateToggle = () => {
-    if (!isPersonalOnly) return;
+    if (!isPersonalOnly || isVerifiedOnly) return;
     void navigate({
       to: "/projects",
       search: () => ({
@@ -477,6 +493,24 @@ function ProjectsList() {
         preview: undefined,
         personal: true,
         private: isPrivateOnly ? undefined : true,
+        verified: undefined,
+        sort: search.sort,
+      }),
+    });
+  };
+
+  const handleVerifiedToggle = () => {
+    const nextVerified = !isVerifiedOnly;
+    const nextKind =
+      nextVerified && activeKind !== "all" && activeKind !== "project" ? "all" : search.kind;
+    void navigate({
+      to: "/projects",
+      search: () => ({
+        kind: nextKind,
+        preview: undefined,
+        personal: search.personal,
+        private: nextVerified ? undefined : search.private,
+        verified: nextVerified || undefined,
         sort: search.sort,
       }),
     });
@@ -543,7 +577,7 @@ function ProjectsList() {
         Personal
       </button>
 
-      {isPersonalOnly && (
+      {isPersonalOnly && !isVerifiedOnly && (
         <button
           type="button"
           onClick={handlePrivateToggle}
@@ -558,6 +592,20 @@ function ProjectsList() {
           Private
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={handleVerifiedToggle}
+        className={cn(
+          toggleChip,
+          isVerifiedOnly
+            ? "border-brand-accent bg-brand-accent-light text-foreground"
+            : "border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+        )}
+      >
+        <CheckCircle2 size={13} />
+        Verified
+      </button>
 
       <Select value={activeSort} onValueChange={(v) => handleSortChange(v as ProjectSort)}>
         <SelectTrigger
@@ -588,6 +636,7 @@ function ProjectsList() {
           kind: search.kind,
           personal: search.personal,
           private: search.private,
+          verified: search.verified,
         }}
       >
         <Plus size={14} />
@@ -626,14 +675,18 @@ function ProjectsList() {
             <FileText size={22} />
           </div>
           <div className="space-y-1">
-            <p className="text-base font-semibold text-foreground">No entries yet</p>
+            <p className="text-base font-semibold text-foreground">
+              {isVerifiedOnly ? "No verified projects yet" : "No entries yet"}
+            </p>
             <p className="mx-auto max-w-[260px] text-sm text-muted-foreground">
-              {canParticipate
-                ? "Share a project or idea and let the community rank it."
-                : "Projects and ideas show up here once they're published."}
+              {isVerifiedOnly
+                ? "Claimed NEAR Catalog projects show up here once they're verified."
+                : canParticipate
+                  ? "Share a project or idea and let the community rank it."
+                  : "Projects and ideas show up here once they're published."}
             </p>
           </div>
-          {canParticipate && (
+          {canParticipate && !isVerifiedOnly && (
             <Button asChild size="sm" className="mt-1">
               <Link
                 to="/projects/new/$kind"
@@ -643,6 +696,7 @@ function ProjectsList() {
                   kind: search.kind,
                   personal: search.personal,
                   private: search.private,
+                  verified: search.verified,
                 }}
               >
                 <Plus size={14} />
@@ -862,6 +916,7 @@ function ProjectsList() {
                             kind: search.kind,
                             personal: search.personal,
                             private: search.private,
+                            verified: search.verified,
                           }}
                         >
                           Open
@@ -880,6 +935,7 @@ function ProjectsList() {
                             kind: search.kind,
                             personal: search.personal,
                             private: search.private,
+                            verified: search.verified,
                           }}
                         >
                           <Pencil size={13} />

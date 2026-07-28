@@ -132,6 +132,7 @@ function EditProjectPage() {
           kind: search.kind,
           personal: search.personal,
           private: search.private,
+          verified: search.verified,
         },
       });
     },
@@ -150,6 +151,7 @@ function EditProjectPage() {
           kind: search.kind,
           personal: search.personal,
           private: search.private,
+          verified: search.verified,
         },
       });
     },
@@ -180,6 +182,7 @@ function EditProjectPage() {
             kind: search.kind,
             personal: search.personal,
             private: search.private,
+            verified: search.verified,
           }}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
@@ -202,6 +205,7 @@ function EditProjectPage() {
             kind: search.kind,
             personal: search.personal,
             private: search.private,
+            verified: search.verified,
           }}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
@@ -274,6 +278,7 @@ function EditFormInner({
                 kind: search.kind,
                 personal: search.personal,
                 private: search.private,
+                verified: search.verified,
               }}
             >
               <ArrowLeft size={15} />
@@ -318,6 +323,7 @@ function EditFormInner({
                 kind: search.kind,
                 personal: search.personal,
                 private: search.private,
+                verified: search.verified,
               }}
             >
               <X size={13} />

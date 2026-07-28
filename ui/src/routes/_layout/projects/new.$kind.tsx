@@ -163,6 +163,7 @@ function NewProjectPage() {
         search: {
           personal: search.personal,
           private: search.private,
+          verified: search.verified,
         },
       });
     },
@@ -201,6 +202,7 @@ function NewProjectPage() {
                 kind: search.kind,
                 personal: search.personal,
                 private: search.private,
+                verified: search.verified,
               }}
             >
               <ArrowLeft size={15} />
