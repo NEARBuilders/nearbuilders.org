@@ -124,6 +124,28 @@ export function userVotesOptions(
   };
 }
 
+export function builderDetailOptions(apiClient: ApiClient, nearAccount: string) {
+  return {
+    queryKey: ["builder", nearAccount] as const,
+    queryFn: async () => {
+      try {
+        return await apiClient.getBuilder({ nearAccount });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "status" in error &&
+          (error as { status: number }).status === 404
+        ) {
+          return { data: null };
+        }
+        throw error;
+      }
+    },
+    staleTime: 30_000,
+  };
+}
+
 export function builderProposalsOptions(apiClient: ApiClient, entityId: string) {
   return {
     queryKey: ["proposals", "builders", entityId] as const,

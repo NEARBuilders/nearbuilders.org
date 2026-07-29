@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,6 +17,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
+  builderDetailOptions,
   builderProposalsOptions,
   nearProfileOptions,
   upvoteCountsOptions,
@@ -33,15 +34,8 @@ export const Route = createFileRoute("/_layout/builders/$account")({
     const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
     const builderResult = await queryClient
-      .fetchQuery({
-        queryKey: ["builder", params.account],
-        queryFn: () => apiClient.getBuilder({ nearAccount: params.account }),
-        retry: false,
-      })
-      .catch(() => {
-        queryClient.resetQueries({ queryKey: ["builder", params.account] });
-        return null;
-      });
+      .fetchQuery(builderDetailOptions(apiClient, params.account))
+      .catch(() => null);
 
     const proposalsResult = await queryClient
       .fetchQuery(builderProposalsOptions(apiClient, params.account))
@@ -53,12 +47,17 @@ export const Route = createFileRoute("/_layout/builders/$account")({
     const proposalsData = proposalsResult as { data?: { id: string }[] } | null;
     const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
 
+    await queryClient
+      .fetchQuery(nearProfileOptions(context.authClient, params.account))
+      .catch(() => {
+        queryClient.resetQueries({ queryKey: ["near-profile", params.account] });
+      });
+
     await Promise.allSettled([
       queryClient.prefetchInfiniteQuery(
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
       queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
-      queryClient.prefetchQuery(nearProfileOptions(context.authClient, params.account)),
     ]);
 
     if (proposalIds.length > 0) {
@@ -121,11 +120,9 @@ function BuilderProfilePage() {
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const navigate = useNavigate();
 
-  const { data: builderResult, isLoading: builderLoading } = useQuery({
-    queryKey: ["builder", account],
-    queryFn: () => apiClient.getBuilder({ nearAccount: account }),
-    staleTime: 30_000,
-  });
+  const { data: builderResult, isLoading: builderLoading } = useQuery(
+    builderDetailOptions(apiClient, account),
+  );
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>(
     nearProfileOptions(auth, account),
@@ -287,7 +284,6 @@ function LoadedProfile({
 }) {
   const apiClient = useApiClient();
   const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
-  const canEdit = isOwner;
 
   const { data: projectsResult, isLoading: projectsLoading } = useQuery({
     queryKey: ["builder-projects", account],
@@ -348,29 +344,29 @@ function LoadedProfile({
               }}
             />
           )}
-          {canEdit && (
-            <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-              {isOwner && (
+          <ClientOnly>
+            {isOwner && (
+              <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
                 <Button asChild size="sm" className="gap-1.5 rounded-full">
                   <Link to="/profile/activity" search={{ mode: "claim" }}>
                     <Plus size={13} />
                     Add contribution
                   </Link>
                 </Button>
-              )}
-              <Button
-                asChild
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
-              >
-                <Link to="/builders/$account/edit" params={{ account }}>
-                  <Pencil size={13} />
-                  Edit profile
-                </Link>
-              </Button>
-            </div>
-          )}
+                <Button
+                  asChild
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
+                >
+                  <Link to="/builders/$account/edit" params={{ account }}>
+                    <Pencil size={13} />
+                    Edit profile
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </ClientOnly>
           <div className="absolute -bottom-10 left-6 sm:left-8">
             <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">
               {profileLoading ? (

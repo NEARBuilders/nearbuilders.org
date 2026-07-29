@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
+  ensureNearProfiles,
   getBuilderCategoryCounts,
+  nearProfileOptions,
   pendingProposalsOptions,
   upvoteCountsOptions,
   userVotesOptions,
@@ -39,15 +41,19 @@ function getCardId(card: BuilderCardData): string {
 
 export const Route = createFileRoute("/_layout/builders/")({
   loader: async ({ context }) => {
-    const { queryClient, apiClient, session } = context;
+    const { queryClient, apiClient, session, authClient } = context;
     const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
     await queryClient.prefetchInfiniteQuery(buildersInfiniteOptions(apiClient, ""));
-    await queryClient.prefetchQuery(pendingProposalsOptions(apiClient));
 
-    const proposalsData = queryClient.getQueryData(["proposals", "builders", "pending"]) as
-      | { data?: { id: string }[] }
-      | undefined;
+    const proposalsResult = await queryClient
+      .fetchQuery(pendingProposalsOptions(apiClient))
+      .catch(() => {
+        queryClient.resetQueries({ queryKey: ["proposals", "builders", "pending"] });
+        return null;
+      });
+
+    const proposalsData = proposalsResult as { data?: { id: string; entityId: string }[] } | null;
     const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
 
     if (proposalIds.length > 0) {
@@ -59,6 +65,14 @@ export const Route = createFileRoute("/_layout/builders/")({
         ].filter(Boolean),
       );
     }
+
+    const buildersData = queryClient.getQueryData(["builders", ""]) as
+      | { pages: { data: { nearAccount: string }[] }[] }
+      | undefined;
+    const builderAccounts =
+      buildersData?.pages?.flatMap((p) => p.data.map((b) => b.nearAccount)) ?? [];
+    const proposalAccounts = proposalsData?.data?.map((p) => p.entityId) ?? [];
+    await ensureNearProfiles(queryClient, authClient, [...builderAccounts, ...proposalAccounts]);
   },
   head: () => ({
     meta: [
@@ -530,15 +544,9 @@ function BuilderCard({
   auth: ReturnType<typeof useAuthClient>;
   isNominated: boolean;
 }) {
-  const { data: profile, isLoading } = useQuery<Profile | null>({
-    queryKey: ["near-profile", nearAccount],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(nearAccount);
-      return res.data || null;
-    },
-    enabled: !!nearAccount,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: profile, isLoading } = useQuery<Profile | null>(
+    nearProfileOptions(auth, nearAccount),
+  );
 
   const resolvedName = displayNameOverride
     ? displayNameOverride === nearAccount && profile?.name
