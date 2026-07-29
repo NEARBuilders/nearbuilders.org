@@ -245,8 +245,7 @@ function ProjectsList() {
   const hasMoreProjects =
     (!isVerifiedOnly && hasNextPage) || (catalogEnabled && catalogQuery.hasNextPage);
   const isFetchingMoreProjects =
-    (!isVerifiedOnly && isFetchingNextPage) ||
-    (catalogEnabled && catalogQuery.isFetchingNextPage);
+    (!isVerifiedOnly && isFetchingNextPage) || (catalogEnabled && catalogQuery.isFetchingNextPage);
   const fetchMoreProjects = useCallback(async () => {
     await Promise.all([
       !isVerifiedOnly && hasNextPage ? fetchNextPage() : Promise.resolve(),

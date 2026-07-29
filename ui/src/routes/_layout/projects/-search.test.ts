@@ -9,12 +9,12 @@ describe("parseProjectListSearch", () => {
   });
 
   it("clears private when verified is on", () => {
-    expect(
-      parseProjectListSearch({ personal: true, private: true, verified: true }),
-    ).toMatchObject({
-      personal: true,
-      verified: true,
-      private: undefined,
-    });
+    expect(parseProjectListSearch({ personal: true, private: true, verified: true })).toMatchObject(
+      {
+        personal: true,
+        verified: true,
+        private: undefined,
+      },
+    );
   });
 });
