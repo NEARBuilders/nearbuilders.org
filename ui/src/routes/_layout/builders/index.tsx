@@ -72,7 +72,11 @@ export const Route = createFileRoute("/_layout/builders/")({
     const builderAccounts =
       buildersData?.pages?.flatMap((p) => p.data.map((b) => b.nearAccount)) ?? [];
     const proposalAccounts = proposalsData?.data?.map((p) => p.entityId) ?? [];
-    await ensureNearProfiles(queryClient, authClient, [...builderAccounts, ...proposalAccounts]);
+    ensureNearProfiles(queryClient, authClient, [...builderAccounts, ...proposalAccounts]).catch(
+      (err) => {
+        console.warn("[builders] failed to prefetch NEAR profiles:", err);
+      },
+    );
   },
   head: () => ({
     meta: [
