@@ -18,6 +18,7 @@ import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderProposalsOptions,
+  nearProfileOptions,
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
@@ -31,17 +32,21 @@ export const Route = createFileRoute("/_layout/builders/$account")({
     const { queryClient, apiClient, session } = context;
     const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
-    await Promise.allSettled([
-      queryClient.prefetchQuery({
+    const builderResult = await queryClient
+      .fetchQuery({
         queryKey: ["builder", params.account],
         queryFn: () => apiClient.getBuilder({ nearAccount: params.account }),
         retry: false,
-      }),
+      })
+      .catch(() => null);
+
+    await Promise.allSettled([
       queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)),
       queryClient.prefetchInfiniteQuery(
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
       queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
+      queryClient.prefetchQuery(nearProfileOptions(context.authClient, params.account)),
     ]);
 
     const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
@@ -59,12 +64,8 @@ export const Route = createFileRoute("/_layout/builders/$account")({
       );
     }
 
-    const builder = queryClient.getQueryData(["builder", params.account]) as
-      | { data?: { name: string | null; bio: string | null } }
-      | undefined;
-
     return {
-      builder: builder?.data ?? null,
+      builder: builderResult?.data ?? null,
       siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders",
       siteUrl: getSiteUrl(context.runtimeConfig, `/builders/${params.account}`),
       imageUrl: getAssetUrl(context.runtimeConfig, "/metadata.png"),
@@ -116,7 +117,6 @@ function BuilderProfilePage() {
   const { data: builderResult, isLoading: builderLoading } = useQuery({
     queryKey: ["builder", account],
     queryFn: () => apiClient.getBuilder({ nearAccount: account }),
-    retry: false,
   });
 
   const { data: proposalsData } = useQuery(builderProposalsOptions(apiClient, account));

@@ -147,7 +147,6 @@ export function nearProfileOptions(authClient: AuthClient, accountId: string) {
     },
     enabled: !!accountId,
     staleTime: 5 * 60 * 1000,
-    retry: false,
   };
 }
 
