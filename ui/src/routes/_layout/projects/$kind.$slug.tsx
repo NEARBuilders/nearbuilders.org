@@ -161,6 +161,7 @@ function ProjectDetailPage() {
           kind: search.kind,
           personal: search.personal,
           private: search.private,
+          verified: search.verified,
         },
       });
     },
@@ -237,6 +238,7 @@ function ProjectDetailPage() {
             kind: search.kind,
             personal: search.personal,
             private: search.private,
+            verified: search.verified,
           }}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
@@ -290,6 +292,7 @@ function ProjectDetailPage() {
                   kind: search.kind,
                   personal: search.personal,
                   private: search.private,
+                  verified: search.verified,
                 }}
               >
                 <ArrowLeft size={15} />
@@ -394,6 +397,7 @@ function ProjectDetailPage() {
                       kind: search.kind,
                       personal: search.personal,
                       private: search.private,
+                      verified: search.verified,
                     }}
                   >
                     <Pencil size={13} />
