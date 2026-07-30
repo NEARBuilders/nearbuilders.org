@@ -71,27 +71,8 @@ Required runtime vars (in addition to inherited ones):
 - `API_DATABASE_URL` — API database connection string
 - `PROJECTS_DATABASE_URL` — Projects plugin database
 - `BUILDERS_DATABASE_URL` — Builders plugin database
-- `NOMINATION_TOKEN_SECRET` — Persistent random nomination HMAC secret, at least 32 characters
+- `NOMINATION_TOKEN_SECRET` — Nomination token signing secret, at least 32 characters
 - `BETTER_AUTH_SECRET` — Session encryption key
-
-## Telegram Builder Nominations
-
-The Telegram bot creates stable builder nomination links through:
-
-```text
-POST /api/builders/nominations
-x-api-key: <valid API key>
-idempotency-key: telegram-nomination:<sourceNominationId>
-```
-
-Every valid API key may nominate; no admin role or `builders:create` permission is required. The
-creating key is stored for attribution. Links remain valid until successfully submitted and contain
-an opaque bearer token whose SHA-256 hash is stored in the Builders database.
-
-`NOMINATION_TOKEN_SECRET` must be a persistent random value of at least 32 characters. Do not rotate
-it while outstanding nominations must remain reproducible for bot retries. Deploy the Builders
-plugin and its migration before the API and UI, then deploy the bot after the website flow is
-verified.
 
 ## Lint Setup
 

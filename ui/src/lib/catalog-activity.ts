@@ -8,10 +8,7 @@ export const CatalogClaimActivityPayloadSchema = z.object({
   projectTagline: z.string().nullable(),
   projectImageUrl: z.string().nullable(),
   repositoryUrl: z.string().nullable(),
-  roles: z.preprocess(
-    (value) => (Array.isArray(value) ? value.filter((role) => typeof role === "string") : value),
-    z.array(z.string()),
-  ),
+  roles: z.array(z.string()),
 });
 
 export type CatalogClaimActivityPayload = z.infer<typeof CatalogClaimActivityPayloadSchema>;

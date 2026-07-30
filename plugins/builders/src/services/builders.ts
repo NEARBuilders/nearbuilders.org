@@ -443,45 +443,6 @@ export const BuilderServiceLive = Layer.effect(
 
       createTelegramNomination: (input) =>
         Effect.gen(function* () {
-          const now = new Date();
-          const [knownNomination] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builderNominations)
-              .where(
-                and(
-                  eq(builderNominations.source, input.nomination.source),
-                  eq(builderNominations.sourceNominationId, input.nomination.sourceNominationId),
-                ),
-              )
-              .limit(1),
-          );
-
-          if (knownNomination) {
-            assertMatchingNomination(knownNomination, input.nomination);
-            if (knownNomination.nomineeUsername !== input.nomination.nomineeUsername) {
-              yield* Effect.promise(() =>
-                db
-                  .update(builderNominations)
-                  .set({ nomineeUsername: input.nomination.nomineeUsername })
-                  .where(eq(builderNominations.id, knownNomination.id)),
-              );
-            }
-            const stableToken = createNominationToken(input.tokenSecret, knownNomination.id);
-            if (!hasMatchingTokenHash(stableToken, knownNomination.tokenHash)) {
-              return yield* Effect.fail(
-                new ORPCError("INTERNAL_SERVER_ERROR", {
-                  message: "Nomination token secret does not match the stored invitation",
-                }),
-              );
-            }
-            return {
-              nominationId: knownNomination.id,
-              joinUrl: buildJoinUrl(input.joinBaseUrl, stableToken),
-              created: false,
-            };
-          }
-
           const nominationId = randomId("nom");
           const token = createNominationToken(input.tokenSecret, nominationId);
           const tokenHash = hashNominationToken(token);
@@ -500,7 +461,6 @@ export const BuilderServiceLive = Layer.effect(
                   telegramGroupId: input.nomination.telegramGroupId,
                   createdByApiKeyId: input.apiKeyId,
                   tokenHash,
-                  createdAt: now,
                 })
                 .onConflictDoNothing({
                   target: [builderNominations.source, builderNominations.sourceNominationId],
