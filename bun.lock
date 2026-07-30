@@ -53,6 +53,8 @@
       "devDependencies": {
         "@effect/language-service": "^0.85.1",
         "@module-federation/node": "catalog:",
+        "@orpc/openapi": "catalog:",
+        "@orpc/zod": "catalog:",
         "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4",
         "@rspack/cli": "catalog:",
         "@rspack/core": "catalog:",

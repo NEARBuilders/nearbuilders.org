@@ -49,8 +49,12 @@
     },
     "builders": {
       "development": "local:plugins/builders",
+      "variables": {
+        "nominationJoinBaseUrl": "https://nearbuilders.org"
+      },
       "secrets": [
-        "BUILDERS_DATABASE_URL"
+        "BUILDERS_DATABASE_URL",
+        "NOMINATION_TOKEN_SECRET"
       ],
       "production": "https://elliot-braem-6812-everything-dev-builders-plugin--ca9f27a54-ze.zephyrcloud.app",
       "integrity": "sha384-v1BMPA8bdfeSwjfx+EMQxBISQteLkQZ8vIcR/zTnSLozfgyCaL6MsEE8k/yEcBa0"

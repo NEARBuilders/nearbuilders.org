@@ -7,9 +7,13 @@ export default {
   pluginId: packageJson.name,
   port: Number(process.env.PORT) || 3011,
   config: {
-    variables: {},
+    variables: {
+      nominationJoinBaseUrl: "https://nearbuilders.org",
+    },
     secrets: {
       BUILDERS_DATABASE_URL: process.env.BUILDERS_DATABASE_URL || "pglite:.bos/builders/:memory:",
+      NOMINATION_TOKEN_SECRET:
+        process.env.NOMINATION_TOKEN_SECRET || "development-only-nomination-token-secret",
     },
   } satisfies PluginConfigInput<typeof Plugin>,
 };

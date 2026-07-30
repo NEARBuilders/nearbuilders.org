@@ -21,6 +21,39 @@ function notificationContext(context: Context) {
   };
 }
 
+const LOCAL_NOMINATION_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+
+function localNominationOrigin(headers: Headers | undefined): string | null {
+  const host = headers?.get("host");
+  if (!host) return null;
+
+  try {
+    const origin = new URL(`http://${host}`);
+    return LOCAL_NOMINATION_HOSTNAMES.has(origin.hostname) ? origin.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function useLocalNominationOrigin<
+  T extends {
+    body: { nominationId: string; joinUrl: string };
+  },
+>(response: T, headers: Headers | undefined): T {
+  const origin = localNominationOrigin(headers);
+  if (!origin) return response;
+
+  const joinUrl = new URL(response.body.joinUrl);
+  const localJoinUrl = new URL(`${joinUrl.pathname}${joinUrl.search}`, origin);
+  return {
+    ...response,
+    body: {
+      ...response.body,
+      joinUrl: localJoinUrl.toString(),
+    },
+  };
+}
+
 type VisibilityValue = "private" | "unlisted" | "public";
 
 function enforceContentCreationVisibility(
@@ -81,6 +114,78 @@ export default createPlugin.withPlugins<PluginsClient>()({
         emailConfigured: !!process.env.EMAIL_PROVIDER,
         smsConfigured: !!process.env.SMS_PROVIDER,
       })),
+
+      createTelegramNomination: builder.createTelegramNomination.handler(
+        async ({ input, context }) => {
+          const response = await services.plugins.builders(context).createTelegramNomination(input);
+          return useLocalNominationOrigin(response, context.reqHeaders);
+        },
+      ),
+
+      submitBuilderProfile: builder.submitBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccount = context.near?.primaryAccountId;
+          if (!nearAccount) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "A linked NEAR account is required to submit a builder profile",
+            });
+          }
+
+          assertValidBuilderProposalAccount({
+            pluginId: "builders",
+            entityId: nearAccount,
+          });
+
+          const buildersClient = services.plugins.builders(context);
+          const existingProfile = await buildersClient.getMyBuilderProfile({});
+          if (existingProfile.data) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "A builder profile already exists for this NEAR account",
+            });
+          }
+
+          const nominationResolution = input.nominationToken
+            ? await buildersClient.resolveTelegramNomination({
+                token: input.nominationToken,
+              })
+            : null;
+          const nomination = nominationResolution?.status === "ready" ? nominationResolution : null;
+          const proposalInput = {
+            pluginId: "builders",
+            entityId: nearAccount.toLowerCase(),
+            payload: {
+              userId: context.userId,
+              name: input.name,
+              bio: input.bio,
+              skills: input.skills,
+              location: input.location || undefined,
+              links: input.links,
+            },
+            source: nomination ? "telegram" : "web",
+            ...(nomination
+              ? {
+                  idempotencyKey: `telegram-builder-profile:${nomination.nominationId}`,
+                  metadata: {
+                    nominationId: nomination.nominationId,
+                    source: nomination.source,
+                  },
+                }
+              : {}),
+          };
+          const proposal = await services.plugins.proposals(context).propose(proposalInput);
+          if (nomination && input.nominationToken) {
+            await buildersClient.finalizeTelegramNomination({
+              token: input.nominationToken,
+              proposalId: proposal.data.id,
+            });
+          }
+
+          return {
+            ...proposal,
+            nominationId: nomination?.nominationId ?? null,
+          };
+        }),
 
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
         if (input.pluginId === "nearcatalog") {

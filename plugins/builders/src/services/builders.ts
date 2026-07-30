@@ -1,8 +1,9 @@
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { builders } from "../db/schema";
+import { builderNominations, builders } from "../db/schema";
 
 function toIsoString(value: Date | string | null | undefined): string {
   if (!value) return new Date().toISOString();
@@ -70,6 +71,93 @@ function generateId(): string {
   return `bld_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+function randomId(prefix: string): string {
+  return `${prefix}_${randomBytes(16).toString("base64url")}`;
+}
+
+export function hashNominationToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+export function createNominationToken(tokenSecret: string, nominationId: string): string {
+  return createHmac("sha256", tokenSecret)
+    .update(`telegram-nomination:v1:${nominationId}`, "utf8")
+    .digest("base64url");
+}
+
+export interface TelegramNominationInput {
+  source: "telegram";
+  sourceNominationId: string;
+  nomineeTelegramId: number;
+  nomineeUsername: string | null;
+  nominatedByTelegramId: number;
+  telegramGroupId: number;
+}
+
+export interface TelegramNominationMetadata {
+  nominationId: string;
+  source: "telegram";
+}
+
+interface CreateTelegramNominationInput {
+  nomination: TelegramNominationInput;
+  apiKeyId: string;
+  joinBaseUrl: string;
+  tokenSecret: string;
+}
+
+interface CreatedTelegramNomination {
+  nominationId: string;
+  joinUrl: string;
+  created: boolean;
+}
+
+type ResolvedTelegramNomination =
+  | ({ status: "ready" | "submitted" } & TelegramNominationMetadata)
+  | { status: "invalid" };
+
+function nominationMetadata(
+  row: typeof builderNominations.$inferSelect,
+): TelegramNominationMetadata {
+  return {
+    nominationId: row.id,
+    source: "telegram",
+  };
+}
+
+function hasMatchingTokenHash(token: string, storedHash: string): boolean {
+  const expected = Buffer.from(hashNominationToken(token), "hex");
+  const actual = Buffer.from(storedHash, "hex");
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function assertMatchingNomination(
+  existing: typeof builderNominations.$inferSelect,
+  input: TelegramNominationInput,
+) {
+  const matches =
+    existing.nomineeTelegramId === input.nomineeTelegramId &&
+    existing.nominatedByTelegramId === input.nominatedByTelegramId &&
+    existing.telegramGroupId === input.telegramGroupId;
+
+  if (!matches) {
+    throw new ORPCError("IDEMPOTENCY_CONFLICT", {
+      message: "The nomination identifier was already used with different data",
+    });
+  }
+}
+
+function buildJoinUrl(joinBaseUrl: string, token: string): string {
+  const url = new URL("/join", joinBaseUrl);
+  if (url.protocol !== "https:") {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Nomination join URL must use HTTPS",
+    });
+  }
+  url.searchParams.set("nomination", token);
+  return url.toString();
+}
+
 export class BuilderService extends Context.Tag("builders/BuilderService")<
   BuilderService,
   {
@@ -120,6 +208,21 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
     deleteBuilder: (
       nearAccount: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
+
+    createTelegramNomination: (
+      input: CreateTelegramNominationInput,
+    ) => Effect.Effect<CreatedTelegramNomination, ORPCError<string, unknown>>;
+
+    resolveTelegramNomination: (
+      token: string,
+    ) => Effect.Effect<ResolvedTelegramNomination, ORPCError<string, unknown>>;
+
+    finalizeTelegramNomination: (
+      token: string,
+      proposalId: string,
+      nearAccount: string,
+      userId: string,
+    ) => Effect.Effect<TelegramNominationMetadata, ORPCError<string, unknown>>;
   }
 >() {}
 
@@ -336,6 +439,210 @@ export const BuilderServiceLive = Layer.effect(
           );
 
           return { deleted: true };
+        }),
+
+      createTelegramNomination: (input) =>
+        Effect.gen(function* () {
+          const now = new Date();
+          const [knownNomination] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(builderNominations)
+              .where(
+                and(
+                  eq(builderNominations.source, input.nomination.source),
+                  eq(builderNominations.sourceNominationId, input.nomination.sourceNominationId),
+                ),
+              )
+              .limit(1),
+          );
+
+          if (knownNomination) {
+            assertMatchingNomination(knownNomination, input.nomination);
+            if (knownNomination.nomineeUsername !== input.nomination.nomineeUsername) {
+              yield* Effect.promise(() =>
+                db
+                  .update(builderNominations)
+                  .set({ nomineeUsername: input.nomination.nomineeUsername })
+                  .where(eq(builderNominations.id, knownNomination.id)),
+              );
+            }
+            const stableToken = createNominationToken(input.tokenSecret, knownNomination.id);
+            if (!hasMatchingTokenHash(stableToken, knownNomination.tokenHash)) {
+              return yield* Effect.fail(
+                new ORPCError("INTERNAL_SERVER_ERROR", {
+                  message: "Nomination token secret does not match the stored invitation",
+                }),
+              );
+            }
+            return {
+              nominationId: knownNomination.id,
+              joinUrl: buildJoinUrl(input.joinBaseUrl, stableToken),
+              created: false,
+            };
+          }
+
+          const nominationId = randomId("nom");
+          const token = createNominationToken(input.tokenSecret, nominationId);
+          const tokenHash = hashNominationToken(token);
+
+          const result = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const [inserted] = await tx
+                .insert(builderNominations)
+                .values({
+                  id: nominationId,
+                  source: input.nomination.source,
+                  sourceNominationId: input.nomination.sourceNominationId,
+                  nomineeTelegramId: input.nomination.nomineeTelegramId,
+                  nomineeUsername: input.nomination.nomineeUsername,
+                  nominatedByTelegramId: input.nomination.nominatedByTelegramId,
+                  telegramGroupId: input.nomination.telegramGroupId,
+                  createdByApiKeyId: input.apiKeyId,
+                  tokenHash,
+                  createdAt: now,
+                })
+                .onConflictDoNothing({
+                  target: [builderNominations.source, builderNominations.sourceNominationId],
+                })
+                .returning();
+
+              if (inserted) {
+                return {
+                  nominationId: inserted.id,
+                  tokenHash: inserted.tokenHash,
+                  created: true,
+                };
+              }
+
+              const [existing] = await tx
+                .select()
+                .from(builderNominations)
+                .where(
+                  and(
+                    eq(builderNominations.source, input.nomination.source),
+                    eq(builderNominations.sourceNominationId, input.nomination.sourceNominationId),
+                  ),
+                )
+                .for("update")
+                .limit(1);
+
+              if (!existing) {
+                throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                  message: "Could not resolve the existing nomination",
+                });
+              }
+
+              assertMatchingNomination(existing, input.nomination);
+              if (existing.nomineeUsername !== input.nomination.nomineeUsername) {
+                await tx
+                  .update(builderNominations)
+                  .set({ nomineeUsername: input.nomination.nomineeUsername })
+                  .where(eq(builderNominations.id, existing.id));
+              }
+
+              return {
+                nominationId: existing.id,
+                tokenHash: existing.tokenHash,
+                created: false,
+              };
+            }),
+          );
+
+          const stableToken = createNominationToken(input.tokenSecret, result.nominationId);
+          if (!hasMatchingTokenHash(stableToken, result.tokenHash)) {
+            return yield* Effect.fail(
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Nomination token secret does not match the stored invitation",
+              }),
+            );
+          }
+
+          return {
+            nominationId: result.nominationId,
+            joinUrl: buildJoinUrl(input.joinBaseUrl, stableToken),
+            created: result.created,
+          };
+        }),
+
+      resolveTelegramNomination: (token) =>
+        Effect.gen(function* () {
+          const tokenHash = hashNominationToken(token);
+          const [nomination] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(builderNominations)
+              .where(eq(builderNominations.tokenHash, tokenHash))
+              .limit(1),
+          );
+
+          if (!nomination) return { status: "invalid" as const };
+          return {
+            ...nominationMetadata(nomination),
+            status: nomination.submittedAt ? ("submitted" as const) : ("ready" as const),
+          };
+        }),
+
+      finalizeTelegramNomination: (token, proposalId, nearAccount, userId) =>
+        Effect.gen(function* () {
+          const now = new Date();
+          const tokenHash = hashNominationToken(token);
+
+          const result = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const [nomination] = await tx
+                .select()
+                .from(builderNominations)
+                .where(eq(builderNominations.tokenHash, tokenHash))
+                .for("update")
+                .limit(1);
+
+              if (!nomination) {
+                throw new ORPCError("INVALID_NOMINATION", {
+                  message: "Nomination link is invalid",
+                });
+              }
+
+              if (nomination.submittedAt) {
+                if (
+                  nomination.proposalId === proposalId &&
+                  nomination.submittedNearAccount === nearAccount &&
+                  nomination.submittedUserId === userId
+                ) {
+                  return nomination;
+                }
+                throw new ORPCError("NOMINATION_CONFLICT", {
+                  message: "Nomination was submitted by another builder",
+                });
+              }
+
+              const [submitted] = await tx
+                .update(builderNominations)
+                .set({
+                  proposalId,
+                  submittedAt: now,
+                  submittedNearAccount: nearAccount,
+                  submittedUserId: userId,
+                })
+                .where(
+                  and(
+                    eq(builderNominations.id, nomination.id),
+                    eq(builderNominations.tokenHash, tokenHash),
+                  ),
+                )
+                .returning();
+
+              if (!submitted) {
+                throw new ORPCError("NOMINATION_CONFLICT", {
+                  message: "Nomination could not be finalized",
+                });
+              }
+
+              return submitted;
+            }),
+          );
+
+          return nominationMetadata(result);
         }),
     };
   }),

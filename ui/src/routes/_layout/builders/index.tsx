@@ -467,15 +467,13 @@ function BuildersPage() {
         <div className="rounded-xl bg-foreground p-8">
           <h2 className="text-xl font-black text-background mb-1">Are you building on NEAR?</h2>
           <p className="text-sm text-background/60 mb-4">
-            {isAuthenticated
-              ? "Claim your builder profile and get discovered by the community."
-              : "Connect your NEAR wallet and register as a builder."}
+            Create your builder profile and get discovered by the community.
           </p>
           <Link
-            to={isAuthenticated ? "/dashboard" : "/login"}
+            to="/join"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-cyan text-black text-sm font-bold hover:opacity-90 transition-opacity"
           >
-            {isAuthenticated ? "Open your dashboard" : "Connect your wallet"}
+            Join as a builder
           </Link>
         </div>
         <div className="rounded-xl bg-foreground p-8">

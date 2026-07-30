@@ -11,6 +11,86 @@ import {
 import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
+const NOMINATION_CONFLICT = {
+  status: 409,
+  message: "Nomination was submitted by another builder",
+} as const;
+
+const INVALID_NOMINATION = {
+  status: 404,
+  message: "Nomination link is invalid",
+} as const;
+
+const IDEMPOTENCY_CONFLICT = {
+  status: 409,
+  message: "Idempotency key conflicts with an existing nomination",
+} as const;
+
+const TelegramNominationInput = z.object({
+  source: z.literal("telegram"),
+  sourceNominationId: z
+    .string()
+    .trim()
+    .regex(/^[1-9]\d*$/)
+    .max(128),
+  nomineeTelegramId: z.number().int().positive().safe(),
+  nomineeUsername: z
+    .string()
+    .trim()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9_]+$/)
+    .nullable(),
+  nominatedByTelegramId: z.number().int().positive().safe(),
+  telegramGroupId: z.number().int().negative().safe(),
+});
+
+const HttpUrl = z
+  .string()
+  .trim()
+  .url()
+  .refine((value) => {
+    try {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Profile links must use HTTP or HTTPS");
+
+const BuilderProfileSubmissionInput = z.object({
+  nominationToken: z.string().min(1).max(256).optional(),
+  name: z.string().trim().min(1).max(100),
+  bio: z.string().trim().min(1).max(1000),
+  skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
+  location: z.string().trim().max(100).optional(),
+  links: z.record(z.string(), HttpUrl).optional(),
+});
+
+const LOCAL_NOMINATION_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+
+const NominationJoinUrl = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" ||
+        (url.protocol === "http:" && LOCAL_NOMINATION_HOSTNAMES.has(url.hostname))
+      );
+    } catch {
+      return false;
+    }
+  }, "Nomination links must use HTTPS or loopback HTTP");
+
+const TelegramNominationResponse = z.object({
+  nominationId: z.string(),
+  joinUrl: NominationJoinUrl,
+});
+
+const TelegramNominationHeaders = z.record(z.string(), z.string());
+
 const ReviewStatus = z.enum(["pending", "approved", "rejected", "removed"]);
 const ApplyStatus = z.enum(["not_started", "applying", "applied", "failed"]);
 const RemoveStatus = z.enum(["not_started", "removing", "removed", "failed"]);
@@ -363,6 +443,59 @@ export const contract = oc.router({
     )
     .errors({ UNAUTHORIZED }),
 
+  createTelegramNomination: oc
+    .route({
+      method: "POST",
+      path: "/builders/nominations",
+      inputStructure: "detailed",
+      outputStructure: "detailed",
+      successStatus: 201,
+    })
+    .input(
+      z.object({
+        headers: z.object({
+          "idempotency-key": z.string().trim().min(1).max(255),
+        }),
+        body: TelegramNominationInput,
+      }),
+    )
+    .output(
+      z.union([
+        z.object({
+          status: z.literal(200),
+          headers: TelegramNominationHeaders,
+          body: TelegramNominationResponse,
+        }),
+        z.object({
+          status: z.literal(201),
+          headers: TelegramNominationHeaders,
+          body: TelegramNominationResponse,
+        }),
+      ]),
+    )
+    .errors({
+      UNAUTHORIZED,
+      BAD_REQUEST,
+      IDEMPOTENCY_CONFLICT,
+    }),
+
+  submitBuilderProfile: oc
+    .route({ method: "POST", path: "/builders/profile" })
+    .input(BuilderProfileSubmissionInput)
+    .output(
+      z.object({
+        data: ProposalSchema,
+        nominationId: z.string().nullable(),
+      }),
+    )
+    .errors({
+      UNAUTHORIZED,
+      FORBIDDEN,
+      BAD_REQUEST,
+      INVALID_NOMINATION,
+      NOMINATION_CONFLICT,
+    }),
+
   propose: oc
     .route({ method: "POST", path: "/proposals" })
     .input(
@@ -376,7 +509,7 @@ export const contract = oc.router({
       }),
     )
     .output(z.object({ data: ProposalSchema }))
-    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   approve: oc
     .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/approve" })

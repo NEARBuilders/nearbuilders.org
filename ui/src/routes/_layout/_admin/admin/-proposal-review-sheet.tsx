@@ -533,6 +533,12 @@ function changedPayloadFields(current: unknown, previous: unknown): string[] {
   ).filter((key) => JSON.stringify(currentPayload[key]) !== JSON.stringify(previousPayload[key]));
 }
 
+function submissionSourceLabel(source: string | null) {
+  if (source === "telegram") return "Telegram nomination";
+  if (source === "web") return "Website";
+  return source;
+}
+
 function SubmissionHistory({ proposal }: { proposal: ProposalRecord }) {
   const apiClient = useApiClient();
   const submissionsQuery = useInfiniteQuery({
@@ -592,13 +598,20 @@ function SubmissionHistory({ proposal }: { proposal: ProposalRecord }) {
                     {submission.submittedBy} · {formatDateTime(submission.createdAt)}
                   </p>
                 </div>
-                <Badge variant="secondary" className="shrink-0 rounded-full">
-                  {previous
-                    ? `${changedFields.length} field${changedFields.length === 1 ? "" : "s"} changed`
-                    : hasUnloadedPrevious
-                      ? "Older revision"
-                      : "Initial"}
-                </Badge>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {submissionSourceLabel(submission.source) && (
+                    <Badge variant="outline" className="rounded-full">
+                      {submissionSourceLabel(submission.source)}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="rounded-full">
+                    {previous
+                      ? `${changedFields.length} field${changedFields.length === 1 ? "" : "s"} changed`
+                      : hasUnloadedPrevious
+                        ? "Older revision"
+                        : "Initial"}
+                  </Badge>
+                </div>
               </div>
               {changedFields.length > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">{changedFields.join(", ")}</p>

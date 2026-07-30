@@ -8,10 +8,13 @@ import { ContextSchema } from "./lib/context";
 import { BuilderService, BuilderServiceLive } from "./services/builders";
 
 export default createPlugin({
-  variables: z.object({}),
+  variables: z.object({
+    nominationJoinBaseUrl: z.string().url().default("https://nearbuilders.org"),
+  }),
 
   secrets: z.object({
     BUILDERS_DATABASE_URL: z.string().default("pglite:.bos/builders/:memory:"),
+    NOMINATION_TOKEN_SECRET: z.string().min(32),
   }),
 
   context: ContextSchema,
@@ -25,7 +28,11 @@ export default createPlugin({
       const builder = yield* tools.buildService(BuilderService, BuilderServices);
 
       console.log("[Builders] Services Initialized");
-      return { builder };
+      return {
+        builder,
+        nominationJoinBaseUrl: config.variables.nominationJoinBaseUrl,
+        nominationTokenSecret: config.secrets.NOMINATION_TOKEN_SECRET,
+      };
     }),
 
   shutdown: () => Effect.log("[Builders] Shutdown"),
@@ -50,6 +57,15 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
+    const requireApiKey = builder.middleware(async ({ context, next }) => {
+      if (!context.apiKey) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "API key required",
+        });
+      }
+      return next({ context: { ...context, apiKey: context.apiKey } });
+    });
+
     const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
       const exit = await Effect.runPromiseExit(effect);
       if (Exit.isFailure(exit)) {
@@ -63,6 +79,61 @@ export default createPlugin({
     };
 
     return {
+      createTelegramNomination: builder.createTelegramNomination
+        .use(requireApiKey)
+        .handler(async ({ input, context, errors }) => {
+          const expectedIdempotencyKey = `telegram-nomination:${input.body.sourceNominationId}`;
+          if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
+            throw errors.BAD_REQUEST({
+              message: "Invalid idempotency-key header",
+              data: { invalidFields: ["idempotency-key"] },
+            });
+          }
+
+          const result = await runEffect(
+            services.builder.createTelegramNomination({
+              nomination: input.body,
+              apiKeyId: context.apiKey.id,
+              joinBaseUrl: services.nominationJoinBaseUrl,
+              tokenSecret: services.nominationTokenSecret,
+            }),
+          );
+
+          return {
+            status: result.created ? (201 as const) : (200 as const),
+            headers: {
+              "cache-control": "no-store",
+            },
+            body: {
+              nominationId: result.nominationId,
+              joinUrl: result.joinUrl,
+            },
+          };
+        }),
+
+      resolveTelegramNomination: builder.resolveTelegramNomination.handler(async ({ input }) => {
+        return await runEffect(services.builder.resolveTelegramNomination(input.token));
+      }),
+
+      finalizeTelegramNomination: builder.finalizeTelegramNomination
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccount = context.near?.primaryAccountId;
+          if (!nearAccount) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "A linked NEAR account is required",
+            });
+          }
+          return await runEffect(
+            services.builder.finalizeTelegramNomination(
+              input.token,
+              input.proposalId,
+              nearAccount,
+              context.userId,
+            ),
+          );
+        }),
+
       listBuilders: builder.listBuilders.handler(async ({ input }) => {
         return await runEffect(services.builder.listBuilders(input));
       }),

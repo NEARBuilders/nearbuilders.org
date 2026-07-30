@@ -8,6 +8,13 @@
       "when": 1780344361148,
       "tag": "0000_large_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785404753601,
+      "tag": "0001_grey_prodigy",
+      "breakpoints": true
     }
   ]
 }
