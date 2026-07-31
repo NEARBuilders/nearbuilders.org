@@ -15,6 +15,13 @@
       "when": 1785404753601,
       "tag": "0001_grey_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785495285854,
+      "tag": "0002_chunky_roxanne_simpson",
+      "breakpoints": true
     }
   ]
 }

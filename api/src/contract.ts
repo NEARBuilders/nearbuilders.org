@@ -26,23 +26,40 @@ const IDEMPOTENCY_CONFLICT = {
   message: "Idempotency key conflicts with an existing nomination",
 } as const;
 
-const TelegramNominationInput = z.object({
-  source: z.literal("telegram"),
-  sourceNominationId: z
-    .string()
-    .trim()
-    .regex(/^[1-9]\d*$/)
-    .max(128),
+const NOMINATION_NOT_FOUND = {
+  status: 404,
+  message: "Nomination not found",
+} as const;
+
+const TelegramUsername = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32)
+  .regex(/^[A-Za-z0-9_]+$/);
+
+const TelegramNominationInput = z
+  .object({
+    source: z.literal("telegram"),
+    sourceNominationId: z
+      .string()
+      .trim()
+      .regex(/^[1-9]\d*$/)
+      .max(128),
+    nomineeTelegramId: z.number().int().positive().safe().nullable(),
+    nomineeUsername: TelegramUsername.nullable(),
+    nominatedByTelegramId: z.number().int().positive().safe(),
+    telegramGroupId: z.number().int().negative().safe(),
+  })
+  .refine((input) => input.nomineeTelegramId !== null || input.nomineeUsername !== null, {
+    message: "A Telegram ID or username is required",
+    path: ["nomineeUsername"],
+  });
+
+const TelegramNominationClaimInput = z.object({
+  nominationId: z.string().trim().min(1).max(64).optional(),
   nomineeTelegramId: z.number().int().positive().safe(),
-  nomineeUsername: z
-    .string()
-    .trim()
-    .min(1)
-    .max(32)
-    .regex(/^[A-Za-z0-9_]+$/)
-    .nullable(),
-  nominatedByTelegramId: z.number().int().positive().safe(),
-  telegramGroupId: z.number().int().negative().safe(),
+  nomineeUsername: TelegramUsername.nullable(),
 });
 
 const HttpUrl = z
@@ -67,27 +84,23 @@ const BuilderProfileSubmissionInput = z.object({
   links: z.record(z.string(), HttpUrl).optional(),
 });
 
-const LOCAL_NOMINATION_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+const NominationJoinUrl = z.string().url().startsWith("https://");
 
-const NominationJoinUrl = z
-  .string()
-  .url()
-  .refine((value) => {
-    try {
-      const url = new URL(value);
-      return (
-        url.protocol === "https:" ||
-        (url.protocol === "http:" && LOCAL_NOMINATION_HOSTNAMES.has(url.hostname))
-      );
-    } catch {
-      return false;
-    }
-  }, "Nomination links must use HTTPS or loopback HTTP");
+const TelegramNominationMetadata = z.object({ nominationId: z.string() });
 
-const TelegramNominationResponse = z.object({
-  nominationId: z.string(),
-  joinUrl: NominationJoinUrl,
-});
+const TelegramNominationResponse = z.discriminatedUnion("status", [
+  TelegramNominationMetadata.extend({ status: z.literal("awaiting_claim") }),
+  TelegramNominationMetadata.extend({
+    status: z.literal("awaiting_profile"),
+    joinUrl: NominationJoinUrl,
+  }),
+  TelegramNominationMetadata.extend({ status: z.literal("under_review") }),
+  TelegramNominationMetadata.extend({ status: z.literal("processing") }),
+  TelegramNominationMetadata.extend({ status: z.literal("accepted") }),
+  TelegramNominationMetadata.extend({ status: z.literal("rejected") }),
+  TelegramNominationMetadata.extend({ status: z.literal("removed") }),
+  TelegramNominationMetadata.extend({ status: z.literal("processing_failed") }),
+]);
 
 const TelegramNominationHeaders = z.record(z.string(), z.string());
 
@@ -475,9 +488,16 @@ export const contract = oc.router({
     )
     .errors({
       UNAUTHORIZED,
+      FORBIDDEN,
       BAD_REQUEST,
       IDEMPOTENCY_CONFLICT,
     }),
+
+  claimTelegramNomination: oc
+    .route({ method: "POST", path: "/builders/nominations/claim" })
+    .input(TelegramNominationClaimInput)
+    .output(TelegramNominationResponse)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOMINATION_NOT_FOUND }),
 
   submitBuilderProfile: oc
     .route({ method: "POST", path: "/builders/profile" })

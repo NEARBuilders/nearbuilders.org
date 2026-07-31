@@ -7,7 +7,7 @@ export declare const contract: {
         body: z.ZodObject<{
             source: z.ZodLiteral<"telegram">;
             sourceNominationId: z.ZodString;
-            nomineeTelegramId: z.ZodNumber;
+            nomineeTelegramId: z.ZodNullable<z.ZodNumber>;
             nomineeUsername: z.ZodNullable<z.ZodString>;
             nominatedByTelegramId: z.ZodNumber;
             telegramGroupId: z.ZodNumber;
@@ -17,14 +17,28 @@ export declare const contract: {
         headers: z.ZodRecord<z.ZodString, z.ZodString>;
         body: z.ZodObject<{
             nominationId: z.ZodString;
-            joinUrl: z.ZodString;
+            status: z.ZodEnum<{
+                submitted: "submitted";
+                awaiting_claim: "awaiting_claim";
+                awaiting_profile: "awaiting_profile";
+            }>;
+            joinUrl: z.ZodOptional<z.ZodString>;
+            proposalId: z.ZodNullable<z.ZodString>;
+            proposalEntityId: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
     }, z.core.$strip>, z.ZodObject<{
         status: z.ZodLiteral<201>;
         headers: z.ZodRecord<z.ZodString, z.ZodString>;
         body: z.ZodObject<{
             nominationId: z.ZodString;
-            joinUrl: z.ZodString;
+            status: z.ZodEnum<{
+                submitted: "submitted";
+                awaiting_claim: "awaiting_claim";
+                awaiting_profile: "awaiting_profile";
+            }>;
+            joinUrl: z.ZodOptional<z.ZodString>;
+            proposalId: z.ZodNullable<z.ZodString>;
+            proposalEntityId: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
     }, z.core.$strip>]>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
         UNAUTHORIZED: {
@@ -37,6 +51,13 @@ export declare const contract: {
                     oauth: "oauth";
                     token: "token";
                 }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
         BAD_REQUEST: {
@@ -53,6 +74,45 @@ export declare const contract: {
         IDEMPOTENCY_CONFLICT: {
             readonly status: 409;
             readonly message: "Idempotency key conflicts with an existing nomination";
+        };
+    }>>, Record<never, never>>;
+    claimTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        nominationId: z.ZodOptional<z.ZodString>;
+        nomineeTelegramId: z.ZodNumber;
+        nomineeUsername: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        nominationId: z.ZodString;
+        status: z.ZodEnum<{
+            submitted: "submitted";
+            awaiting_claim: "awaiting_claim";
+            awaiting_profile: "awaiting_profile";
+        }>;
+        joinUrl: z.ZodOptional<z.ZodString>;
+        proposalId: z.ZodNullable<z.ZodString>;
+        proposalEntityId: z.ZodNullable<z.ZodString>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOMINATION_NOT_FOUND: {
+            readonly status: 404;
+            readonly message: "Nomination not found";
         };
     }>>, Record<never, never>>;
     resolveTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{

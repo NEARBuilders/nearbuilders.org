@@ -54,7 +54,8 @@
       },
       "secrets": [
         "BUILDERS_DATABASE_URL",
-        "NOMINATION_TOKEN_SECRET"
+        "NOMINATION_TOKEN_SECRET",
+        "TELEGRAM_BOT_API_KEY_ID"
       ],
       "production": "https://elliot-braem-6908-everything-dev-builders-plugin--7fd2a0e8d-ze.zephyrcloud.app",
       "integrity": "sha384-v1BMPA8bdfeSwjfx+EMQxBISQteLkQZ8vIcR/zTnSLozfgyCaL6MsEE8k/yEcBa0"

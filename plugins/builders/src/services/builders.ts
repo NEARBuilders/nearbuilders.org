@@ -88,10 +88,16 @@ export function createNominationToken(tokenSecret: string, nominationId: string)
 export interface TelegramNominationInput {
   source: "telegram";
   sourceNominationId: string;
-  nomineeTelegramId: number;
+  nomineeTelegramId: number | null;
   nomineeUsername: string | null;
   nominatedByTelegramId: number;
   telegramGroupId: number;
+}
+
+export interface TelegramNominationClaimInput {
+  nominationId?: string;
+  nomineeTelegramId: number;
+  nomineeUsername: string | null;
 }
 
 export interface TelegramNominationMetadata {
@@ -108,9 +114,14 @@ interface CreateTelegramNominationInput {
 
 interface CreatedTelegramNomination {
   nominationId: string;
-  joinUrl: string;
+  status: "awaiting_claim" | "awaiting_profile" | "submitted";
+  joinUrl?: string;
+  proposalId: string | null;
+  proposalEntityId: string | null;
   created: boolean;
 }
+
+type TelegramNominationResult = Omit<CreatedTelegramNomination, "created">;
 
 type ResolvedTelegramNomination =
   | ({ status: "ready" | "submitted" } & TelegramNominationMetadata)
@@ -125,6 +136,10 @@ function nominationMetadata(
   };
 }
 
+function normalizeTelegramUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
 function hasMatchingTokenHash(token: string, storedHash: string): boolean {
   const expected = Buffer.from(hashNominationToken(token), "hex");
   const actual = Buffer.from(storedHash, "hex");
@@ -135,8 +150,13 @@ function assertMatchingNomination(
   existing: typeof builderNominations.$inferSelect,
   input: TelegramNominationInput,
 ) {
+  const inputUsername = input.nomineeUsername
+    ? normalizeTelegramUsername(input.nomineeUsername)
+    : null;
   const matches =
-    existing.nomineeTelegramId === input.nomineeTelegramId &&
+    existing.sourceNomineeTelegramId === input.nomineeTelegramId &&
+    (input.nomineeTelegramId !== null ||
+      existing.sourceNomineeUsernameNormalized === inputUsername) &&
     existing.nominatedByTelegramId === input.nominatedByTelegramId &&
     existing.telegramGroupId === input.telegramGroupId;
 
@@ -156,6 +176,62 @@ function buildJoinUrl(joinBaseUrl: string, token: string): string {
   }
   url.searchParams.set("nomination", token);
   return url.toString();
+}
+
+function nominationResult(
+  nomination: typeof builderNominations.$inferSelect,
+  joinBaseUrl: string,
+  tokenSecret: string,
+): TelegramNominationResult {
+  if (nomination.canonicalNominationId) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Nomination claim handle was not resolved to its canonical nomination",
+    });
+  }
+
+  if (nomination.submittedAt || nomination.proposalId || nomination.submittedNearAccount) {
+    if (!nomination.submittedAt || !nomination.proposalId || !nomination.submittedNearAccount) {
+      throw new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: "Submitted nomination is missing its linked proposal",
+      });
+    }
+    return {
+      nominationId: nomination.id,
+      status: "submitted",
+      proposalId: nomination.proposalId,
+      proposalEntityId: nomination.submittedNearAccount.toLowerCase(),
+    };
+  }
+
+  if (nomination.nomineeTelegramId === null) {
+    return {
+      nominationId: nomination.id,
+      status: "awaiting_claim",
+      proposalId: null,
+      proposalEntityId: null,
+    };
+  }
+
+  if (!nomination.tokenHash) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Verified nomination is missing its onboarding token",
+    });
+  }
+
+  const token = createNominationToken(tokenSecret, nomination.id);
+  if (!hasMatchingTokenHash(token, nomination.tokenHash)) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Nomination token secret does not match the stored invitation",
+    });
+  }
+
+  return {
+    nominationId: nomination.id,
+    status: "awaiting_profile",
+    joinUrl: buildJoinUrl(joinBaseUrl, token),
+    proposalId: null,
+    proposalEntityId: null,
+  };
 }
 
 export class BuilderService extends Context.Tag("builders/BuilderService")<
@@ -212,6 +288,10 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
     createTelegramNomination: (
       input: CreateTelegramNominationInput,
     ) => Effect.Effect<CreatedTelegramNomination, ORPCError<string, unknown>>;
+
+    claimTelegramNomination: (
+      input: TelegramNominationClaimInput & { joinBaseUrl: string; tokenSecret: string },
+    ) => Effect.Effect<TelegramNominationResult, ORPCError<string, unknown>>;
 
     resolveTelegramNomination: (
       token: string,
@@ -444,38 +524,45 @@ export const BuilderServiceLive = Layer.effect(
       createTelegramNomination: (input) =>
         Effect.gen(function* () {
           const nominationId = randomId("nom");
-          const token = createNominationToken(input.tokenSecret, nominationId);
-          const tokenHash = hashNominationToken(token);
+          const normalizedUsername = input.nomination.nomineeUsername
+            ? normalizeTelegramUsername(input.nomination.nomineeUsername)
+            : null;
+          const tokenHash =
+            input.nomination.nomineeTelegramId === null
+              ? null
+              : hashNominationToken(createNominationToken(input.tokenSecret, nominationId));
 
           const result = yield* Effect.promise(() =>
             db.transaction(async (tx) => {
-              const [inserted] = await tx
-                .insert(builderNominations)
-                .values({
-                  id: nominationId,
-                  source: input.nomination.source,
-                  sourceNominationId: input.nomination.sourceNominationId,
-                  nomineeTelegramId: input.nomination.nomineeTelegramId,
-                  nomineeUsername: input.nomination.nomineeUsername,
-                  nominatedByTelegramId: input.nomination.nominatedByTelegramId,
-                  telegramGroupId: input.nomination.telegramGroupId,
-                  createdByApiKeyId: input.apiKeyId,
-                  tokenHash,
-                })
-                .onConflictDoNothing({
-                  target: [builderNominations.source, builderNominations.sourceNominationId],
-                })
-                .returning();
+              const resolveCanonical = async (
+                initial: typeof builderNominations.$inferSelect,
+              ): Promise<typeof builderNominations.$inferSelect> => {
+                let current = initial;
+                const visited = new Set<string>();
+                while (current.canonicalNominationId) {
+                  if (visited.has(current.id)) {
+                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                      message: "Nomination claim handles contain a cycle",
+                    });
+                  }
+                  visited.add(current.id);
+                  const [canonical] = await tx
+                    .select()
+                    .from(builderNominations)
+                    .where(eq(builderNominations.id, current.canonicalNominationId))
+                    .for("update")
+                    .limit(1);
+                  if (!canonical) {
+                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                      message: "Nomination claim handle has no canonical nomination",
+                    });
+                  }
+                  current = canonical;
+                }
+                return current;
+              };
 
-              if (inserted) {
-                return {
-                  nominationId: inserted.id,
-                  tokenHash: inserted.tokenHash,
-                  created: true,
-                };
-              }
-
-              const [existing] = await tx
+              const [sourceMatch] = await tx
                 .select()
                 .from(builderNominations)
                 .where(
@@ -487,54 +574,441 @@ export const BuilderServiceLive = Layer.effect(
                 .for("update")
                 .limit(1);
 
-              if (!existing) {
+              if (sourceMatch) {
+                assertMatchingNomination(sourceMatch, input.nomination);
+                const canonical = await resolveCanonical(sourceMatch);
+                if (
+                  input.nomination.nomineeTelegramId !== null &&
+                  canonical.nomineeUsername !== input.nomination.nomineeUsername
+                ) {
+                  const [updated] = await tx
+                    .update(builderNominations)
+                    .set({ nomineeUsername: input.nomination.nomineeUsername })
+                    .where(eq(builderNominations.id, canonical.id))
+                    .returning();
+                  if (updated) return { nomination: updated, created: false };
+                }
+                return { nomination: canonical, created: false };
+              }
+
+              const [canonicalMatch] =
+                input.nomination.nomineeTelegramId !== null
+                  ? await tx
+                      .select()
+                      .from(builderNominations)
+                      .where(
+                        eq(
+                          builderNominations.nomineeTelegramId,
+                          input.nomination.nomineeTelegramId,
+                        ),
+                      )
+                      .for("update")
+                      .limit(1)
+                  : await tx
+                      .select()
+                      .from(builderNominations)
+                      .where(
+                        eq(builderNominations.unresolvedUsernameNormalized, normalizedUsername!),
+                      )
+                      .for("update")
+                      .limit(1);
+
+              if (canonicalMatch) {
+                const handleId = randomId("nom");
+                const [insertedHandle] = await tx
+                  .insert(builderNominations)
+                  .values({
+                    id: handleId,
+                    source: input.nomination.source,
+                    sourceNominationId: input.nomination.sourceNominationId,
+                    sourceNomineeTelegramId: input.nomination.nomineeTelegramId,
+                    sourceNomineeUsernameNormalized: normalizedUsername,
+                    nomineeTelegramId: null,
+                    nomineeUsername: input.nomination.nomineeUsername,
+                    unresolvedUsernameNormalized: null,
+                    nominatedByTelegramId: input.nomination.nominatedByTelegramId,
+                    telegramGroupId: input.nomination.telegramGroupId,
+                    createdByApiKeyId: input.apiKeyId,
+                    tokenHash: null,
+                    canonicalNominationId: canonicalMatch.id,
+                  })
+                  .onConflictDoNothing()
+                  .returning();
+
+                if (!insertedHandle) {
+                  const [concurrentSource] = await tx
+                    .select()
+                    .from(builderNominations)
+                    .where(
+                      and(
+                        eq(builderNominations.source, input.nomination.source),
+                        eq(
+                          builderNominations.sourceNominationId,
+                          input.nomination.sourceNominationId,
+                        ),
+                      ),
+                    )
+                    .for("update")
+                    .limit(1);
+                  if (!concurrentSource) {
+                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                      message: "Could not record the nomination source",
+                    });
+                  }
+                  assertMatchingNomination(concurrentSource, input.nomination);
+                  return {
+                    nomination: await resolveCanonical(concurrentSource),
+                    created: false,
+                  };
+                }
+
+                if (
+                  input.nomination.nomineeTelegramId !== null &&
+                  canonicalMatch.nomineeUsername !== input.nomination.nomineeUsername
+                ) {
+                  const [updated] = await tx
+                    .update(builderNominations)
+                    .set({ nomineeUsername: input.nomination.nomineeUsername })
+                    .where(eq(builderNominations.id, canonicalMatch.id))
+                    .returning();
+                  if (updated) return { nomination: updated, created: false };
+                }
+                return { nomination: canonicalMatch, created: false };
+              }
+
+              const [inserted] = await tx
+                .insert(builderNominations)
+                .values({
+                  id: nominationId,
+                  source: input.nomination.source,
+                  sourceNominationId: input.nomination.sourceNominationId,
+                  sourceNomineeTelegramId: input.nomination.nomineeTelegramId,
+                  sourceNomineeUsernameNormalized: normalizedUsername,
+                  nomineeTelegramId: input.nomination.nomineeTelegramId,
+                  nomineeUsername: input.nomination.nomineeUsername,
+                  unresolvedUsernameNormalized:
+                    input.nomination.nomineeTelegramId === null ? normalizedUsername : null,
+                  nominatedByTelegramId: input.nomination.nominatedByTelegramId,
+                  telegramGroupId: input.nomination.telegramGroupId,
+                  createdByApiKeyId: input.apiKeyId,
+                  tokenHash,
+                })
+                .onConflictDoNothing()
+                .returning();
+
+              if (inserted) {
+                return { nomination: inserted, created: true };
+              }
+
+              const [existingSource] = await tx
+                .select()
+                .from(builderNominations)
+                .where(
+                  and(
+                    eq(builderNominations.source, input.nomination.source),
+                    eq(builderNominations.sourceNominationId, input.nomination.sourceNominationId),
+                  ),
+                )
+                .for("update")
+                .limit(1);
+
+              if (existingSource) {
+                assertMatchingNomination(existingSource, input.nomination);
+                return {
+                  nomination: await resolveCanonical(existingSource),
+                  created: false,
+                };
+              }
+
+              const [concurrentCanonical] =
+                input.nomination.nomineeTelegramId !== null
+                  ? await tx
+                      .select()
+                      .from(builderNominations)
+                      .where(
+                        eq(
+                          builderNominations.nomineeTelegramId,
+                          input.nomination.nomineeTelegramId,
+                        ),
+                      )
+                      .for("update")
+                      .limit(1)
+                  : await tx
+                      .select()
+                      .from(builderNominations)
+                      .where(
+                        eq(builderNominations.unresolvedUsernameNormalized, normalizedUsername!),
+                      )
+                      .for("update")
+                      .limit(1);
+
+              if (!concurrentCanonical) {
                 throw new ORPCError("INTERNAL_SERVER_ERROR", {
                   message: "Could not resolve the existing nomination",
                 });
               }
 
-              assertMatchingNomination(existing, input.nomination);
-              if (existing.nomineeUsername !== input.nomination.nomineeUsername) {
-                await tx
-                  .update(builderNominations)
-                  .set({ nomineeUsername: input.nomination.nomineeUsername })
-                  .where(eq(builderNominations.id, existing.id));
+              const handleId = randomId("nom");
+              const [insertedHandle] = await tx
+                .insert(builderNominations)
+                .values({
+                  id: handleId,
+                  source: input.nomination.source,
+                  sourceNominationId: input.nomination.sourceNominationId,
+                  sourceNomineeTelegramId: input.nomination.nomineeTelegramId,
+                  sourceNomineeUsernameNormalized: normalizedUsername,
+                  nomineeTelegramId: null,
+                  nomineeUsername: input.nomination.nomineeUsername,
+                  unresolvedUsernameNormalized: null,
+                  nominatedByTelegramId: input.nomination.nominatedByTelegramId,
+                  telegramGroupId: input.nomination.telegramGroupId,
+                  createdByApiKeyId: input.apiKeyId,
+                  tokenHash: null,
+                  canonicalNominationId: concurrentCanonical.id,
+                })
+                .onConflictDoNothing()
+                .returning();
+              if (!insertedHandle) {
+                const [concurrentSource] = await tx
+                  .select()
+                  .from(builderNominations)
+                  .where(
+                    and(
+                      eq(builderNominations.source, input.nomination.source),
+                      eq(
+                        builderNominations.sourceNominationId,
+                        input.nomination.sourceNominationId,
+                      ),
+                    ),
+                  )
+                  .for("update")
+                  .limit(1);
+                if (!concurrentSource) {
+                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                    message: "Could not record the nomination source",
+                  });
+                }
+                assertMatchingNomination(concurrentSource, input.nomination);
+                return {
+                  nomination: await resolveCanonical(concurrentSource),
+                  created: false,
+                };
               }
-
-              return {
-                nominationId: existing.id,
-                tokenHash: existing.tokenHash,
-                created: false,
-              };
+              return { nomination: concurrentCanonical, created: false };
             }),
           );
 
-          const stableToken = createNominationToken(input.tokenSecret, result.nominationId);
-          if (!hasMatchingTokenHash(stableToken, result.tokenHash)) {
-            return yield* Effect.fail(
-              new ORPCError("INTERNAL_SERVER_ERROR", {
-                message: "Nomination token secret does not match the stored invitation",
-              }),
-            );
-          }
-
           return {
-            nominationId: result.nominationId,
-            joinUrl: buildJoinUrl(input.joinBaseUrl, stableToken),
+            ...nominationResult(result.nomination, input.joinBaseUrl, input.tokenSecret),
             created: result.created,
           };
+        }),
+
+      claimTelegramNomination: (input) =>
+        Effect.gen(function* () {
+          const result = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const resolveCanonical = async (
+                initial: typeof builderNominations.$inferSelect,
+              ): Promise<typeof builderNominations.$inferSelect> => {
+                let current = initial;
+                const visited = new Set<string>();
+                while (current.canonicalNominationId) {
+                  if (visited.has(current.id)) {
+                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                      message: "Nomination claim handles contain a cycle",
+                    });
+                  }
+                  visited.add(current.id);
+                  const [canonical] = await tx
+                    .select()
+                    .from(builderNominations)
+                    .where(eq(builderNominations.id, current.canonicalNominationId))
+                    .for("update")
+                    .limit(1);
+                  if (!canonical) {
+                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                      message: "Nomination claim handle has no canonical nomination",
+                    });
+                  }
+                  current = canonical;
+                }
+                return current;
+              };
+
+              const updateVerifiedUsername = async (
+                nomination: typeof builderNominations.$inferSelect,
+              ) => {
+                if (nomination.nomineeUsername === input.nomineeUsername) return nomination;
+                const [updated] = await tx
+                  .update(builderNominations)
+                  .set({ nomineeUsername: input.nomineeUsername })
+                  .where(eq(builderNominations.id, nomination.id))
+                  .returning();
+                return updated ?? nomination;
+              };
+
+              const linkClaimHandle = async (
+                nomination: typeof builderNominations.$inferSelect,
+                canonicalNominationId: string,
+              ) => {
+                await tx
+                  .update(builderNominations)
+                  .set({
+                    nomineeUsername: input.nomineeUsername,
+                    unresolvedUsernameNormalized: null,
+                    canonicalNominationId,
+                    tokenHash: null,
+                  })
+                  .where(eq(builderNominations.id, nomination.id));
+              };
+
+              const claimUnresolved = async (
+                nomination: typeof builderNominations.$inferSelect,
+              ) => {
+                const normalizedUsername = input.nomineeUsername
+                  ? normalizeTelegramUsername(input.nomineeUsername)
+                  : null;
+                if (
+                  !normalizedUsername ||
+                  nomination.unresolvedUsernameNormalized !== normalizedUsername
+                ) {
+                  throw new ORPCError("FORBIDDEN", {
+                    message: "Nomination does not belong to this Telegram user",
+                  });
+                }
+
+                const [existingCanonical] = await tx
+                  .select()
+                  .from(builderNominations)
+                  .where(eq(builderNominations.nomineeTelegramId, input.nomineeTelegramId))
+                  .for("update")
+                  .limit(1);
+
+                if (existingCanonical && existingCanonical.id !== nomination.id) {
+                  await linkClaimHandle(nomination, existingCanonical.id);
+                  return await updateVerifiedUsername(existingCanonical);
+                }
+
+                const token = createNominationToken(input.tokenSecret, nomination.id);
+                const [claimed] = await tx
+                  .update(builderNominations)
+                  .set({
+                    nomineeTelegramId: input.nomineeTelegramId,
+                    nomineeUsername: input.nomineeUsername,
+                    unresolvedUsernameNormalized: null,
+                    tokenHash: hashNominationToken(token),
+                  })
+                  .where(eq(builderNominations.id, nomination.id))
+                  .returning();
+                if (!claimed) {
+                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                    message: "Could not claim the nomination",
+                  });
+                }
+                return claimed;
+              };
+
+              if (input.nominationId) {
+                const [named] = await tx
+                  .select()
+                  .from(builderNominations)
+                  .where(eq(builderNominations.id, input.nominationId))
+                  .for("update")
+                  .limit(1);
+                if (!named) {
+                  throw new ORPCError("NOMINATION_NOT_FOUND", {
+                    message: "Nomination not found",
+                  });
+                }
+                const canonical = await resolveCanonical(named);
+                if (canonical.nomineeTelegramId !== null) {
+                  if (canonical.nomineeTelegramId !== input.nomineeTelegramId) {
+                    throw new ORPCError("FORBIDDEN", {
+                      message: "Nomination does not belong to this Telegram user",
+                    });
+                  }
+                  return await updateVerifiedUsername(canonical);
+                }
+                return await claimUnresolved(canonical);
+              }
+
+              const [existingCanonical] = await tx
+                .select()
+                .from(builderNominations)
+                .where(eq(builderNominations.nomineeTelegramId, input.nomineeTelegramId))
+                .limit(1);
+              if (existingCanonical) {
+                if (input.nomineeUsername) {
+                  const normalizedUsername = normalizeTelegramUsername(input.nomineeUsername);
+                  const [unresolved] = await tx
+                    .select()
+                    .from(builderNominations)
+                    .where(eq(builderNominations.unresolvedUsernameNormalized, normalizedUsername))
+                    .for("update")
+                    .limit(1);
+                  if (unresolved) await linkClaimHandle(unresolved, existingCanonical.id);
+                }
+                return await updateVerifiedUsername(existingCanonical);
+              }
+
+              if (!input.nomineeUsername) {
+                throw new ORPCError("NOMINATION_NOT_FOUND", {
+                  message: "Nomination not found",
+                });
+              }
+              const normalizedUsername = normalizeTelegramUsername(input.nomineeUsername);
+              const [unresolved] = await tx
+                .select()
+                .from(builderNominations)
+                .where(eq(builderNominations.unresolvedUsernameNormalized, normalizedUsername))
+                .for("update")
+                .limit(1);
+              if (!unresolved) {
+                throw new ORPCError("NOMINATION_NOT_FOUND", {
+                  message: "Nomination not found",
+                });
+              }
+              return await claimUnresolved(unresolved);
+            }),
+          );
+
+          return nominationResult(result, input.joinBaseUrl, input.tokenSecret);
         }),
 
       resolveTelegramNomination: (token) =>
         Effect.gen(function* () {
           const tokenHash = hashNominationToken(token);
-          const [nomination] = yield* Effect.promise(() =>
-            db
+          const nomination = yield* Effect.promise(async () => {
+            const [matched] = await db
               .select()
               .from(builderNominations)
               .where(eq(builderNominations.tokenHash, tokenHash))
-              .limit(1),
-          );
+              .limit(1);
+            if (!matched) return null;
+            let current = matched;
+            const visited = new Set<string>();
+            while (current.canonicalNominationId) {
+              if (visited.has(current.id)) {
+                throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                  message: "Nomination claim handles contain a cycle",
+                });
+              }
+              visited.add(current.id);
+              const [canonical] = await db
+                .select()
+                .from(builderNominations)
+                .where(eq(builderNominations.id, current.canonicalNominationId))
+                .limit(1);
+              if (!canonical) {
+                throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                  message: "Nomination claim handle has no canonical nomination",
+                });
+              }
+              current = canonical;
+            }
+            return current;
+          });
 
           if (!nomination) return { status: "invalid" as const };
           return {
@@ -550,17 +1024,40 @@ export const BuilderServiceLive = Layer.effect(
 
           const result = yield* Effect.promise(() =>
             db.transaction(async (tx) => {
-              const [nomination] = await tx
+              const [matched] = await tx
                 .select()
                 .from(builderNominations)
                 .where(eq(builderNominations.tokenHash, tokenHash))
                 .for("update")
                 .limit(1);
 
-              if (!nomination) {
+              if (!matched) {
                 throw new ORPCError("INVALID_NOMINATION", {
                   message: "Nomination link is invalid",
                 });
+              }
+
+              let nomination = matched;
+              const visited = new Set<string>();
+              while (nomination.canonicalNominationId) {
+                if (visited.has(nomination.id)) {
+                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                    message: "Nomination claim handles contain a cycle",
+                  });
+                }
+                visited.add(nomination.id);
+                const [canonical] = await tx
+                  .select()
+                  .from(builderNominations)
+                  .where(eq(builderNominations.id, nomination.canonicalNominationId))
+                  .for("update")
+                  .limit(1);
+                if (!canonical) {
+                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
+                    message: "Nomination claim handle has no canonical nomination",
+                  });
+                }
+                nomination = canonical;
               }
 
               if (nomination.submittedAt) {
@@ -584,12 +1081,7 @@ export const BuilderServiceLive = Layer.effect(
                   submittedNearAccount: nearAccount,
                   submittedUserId: userId,
                 })
-                .where(
-                  and(
-                    eq(builderNominations.id, nomination.id),
-                    eq(builderNominations.tokenHash, tokenHash),
-                  ),
-                )
+                .where(eq(builderNominations.id, nomination.id))
                 .returning();
 
               if (!submitted) {

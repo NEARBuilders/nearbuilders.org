@@ -3,7 +3,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createPluginRuntime } from "every-plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ApiPlugin from "../../src/index";
+import ApiPlugin, { deriveTelegramNominationStatus } from "../../src/index";
 
 function proposalResult(input: Record<string, unknown>) {
   const now = new Date().toISOString();
@@ -259,18 +259,29 @@ describe("Builder profile submission", () => {
     expect(finalizeTelegramNomination).not.toHaveBeenCalled();
   });
 
-  it("forwards the bot nomination response without an expiry field", async () => {
-    const response = {
+  it("returns the public bot nomination response without internal proposal fields", async () => {
+    const buildersResponse = {
       status: 201 as const,
       headers: {
         "cache-control": "no-store",
       },
       body: {
         nominationId: "nom_test_handoff",
+        status: "awaiting_profile" as const,
+        joinUrl: "https://nearbuilders.org/join?nomination=opaque-token-placeholder",
+        proposalId: null,
+        proposalEntityId: null,
+      },
+    };
+    const response = {
+      ...buildersResponse,
+      body: {
+        nominationId: "nom_test_handoff",
+        status: "awaiting_profile" as const,
         joinUrl: "https://nearbuilders.org/join?nomination=opaque-token-placeholder",
       },
     };
-    const createTelegramNomination = vi.fn(async () => response);
+    const createTelegramNomination = vi.fn(async () => buildersResponse);
     const loaded = await loadApi({ createTelegramNomination }, {});
     const client = loaded.createClient({
       apiKey: {
@@ -332,22 +343,28 @@ describe("Builder profile submission", () => {
         "/builders/nominations": {
           post: expect.any(Object),
         },
+        "/builders/nominations/claim": {
+          post: expect.any(Object),
+        },
       },
     });
   });
 
-  it("returns a loopback join URL when the development API is called locally", async () => {
-    const response = {
+  it("preserves the configured join domain when the development API is called locally", async () => {
+    const buildersResponse = {
       status: 201 as const,
       headers: {
         "cache-control": "no-store",
       },
       body: {
         nominationId: "nom_local_handoff",
+        status: "awaiting_profile" as const,
         joinUrl: "https://nearbuilders.org/join?nomination=local-opaque-token",
+        proposalId: null,
+        proposalEntityId: null,
       },
     };
-    const createTelegramNomination = vi.fn(async () => response);
+    const createTelegramNomination = vi.fn(async () => buildersResponse);
     const loaded = await loadApi({ createTelegramNomination }, {});
     const handler = new OpenAPIHandler(loaded.router);
     const body = {
@@ -383,7 +400,146 @@ describe("Builder profile submission", () => {
     expect(handled.response?.status).toBe(201);
     await expect(handled.response?.json()).resolves.toEqual({
       nominationId: "nom_local_handoff",
-      joinUrl: "http://localhost:3002/join?nomination=local-opaque-token",
+      status: "awaiting_profile",
+      joinUrl: "https://nearbuilders.org/join?nomination=local-opaque-token",
     });
+  });
+
+  it("preserves the configured join domain when a development claim completes verification", async () => {
+    const claimTelegramNomination = vi.fn(async () => ({
+      nominationId: "nom_local_claim",
+      status: "awaiting_profile" as const,
+      joinUrl: "https://nearbuilders.org/join?nomination=claimed-local-token",
+      proposalId: null,
+      proposalEntityId: null,
+    }));
+    const loaded = await loadApi({ claimTelegramNomination }, {});
+    const handler = new OpenAPIHandler(loaded.router);
+    const body = {
+      nominationId: "nom_local_claim",
+      nomineeTelegramId: 123,
+      nomineeUsername: "alice",
+    };
+    const request = new Request("http://localhost:3002/api/builders/nominations/claim", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        host: "localhost:3002",
+        "x-api-key": "test-api-key-placeholder",
+      },
+      body: JSON.stringify(body),
+    });
+    const handled = await handler.handle(request, {
+      prefix: "/api",
+      context: {
+        apiKey: {
+          id: "telegram-bot-key",
+          name: "Telegram bot",
+          permissions: {},
+        },
+        reqHeaders: request.headers,
+      },
+    });
+
+    expect(handled.response?.status).toBe(200);
+    await expect(handled.response?.json()).resolves.toEqual({
+      nominationId: "nom_local_claim",
+      status: "awaiting_profile",
+      joinUrl: "https://nearbuilders.org/join?nomination=claimed-local-token",
+    });
+  });
+
+  it.each([
+    [
+      { reviewStatus: "pending", applyStatus: "not_started", removeStatus: "not_started" },
+      "under_review",
+    ],
+    [
+      { reviewStatus: "approved", applyStatus: "applying", removeStatus: "not_started" },
+      "processing",
+    ],
+    [{ reviewStatus: "approved", applyStatus: "applied", removeStatus: "removing" }, "processing"],
+    [{ reviewStatus: "approved", applyStatus: "applied", removeStatus: "not_started" }, "accepted"],
+    [
+      { reviewStatus: "rejected", applyStatus: "not_started", removeStatus: "not_started" },
+      "rejected",
+    ],
+    [{ reviewStatus: "removed", applyStatus: "applied", removeStatus: "removed" }, "removed"],
+    [
+      { reviewStatus: "approved", applyStatus: "failed", removeStatus: "not_started" },
+      "processing_failed",
+    ],
+    [
+      { reviewStatus: "approved", applyStatus: "applied", removeStatus: "failed" },
+      "processing_failed",
+    ],
+  ] as const)("maps proposal lifecycle %# to %s", (proposal, expected) => {
+    expect(deriveTelegramNominationStatus(proposal)).toBe(expected);
+  });
+
+  it("claims a nomination and derives its current status from the linked proposal", async () => {
+    const claimTelegramNomination = vi.fn(async () => ({
+      nominationId: "nom_claimed",
+      status: "submitted" as const,
+      proposalId: "prp_telegram_builder",
+      proposalEntityId: "alice.near",
+    }));
+    const proposal = proposalResult({ pluginId: "builders", entityId: "alice.near" });
+    const acceptedProposal = {
+      ...proposal.data,
+      reviewStatus: "approved" as const,
+      applyStatus: "applied" as const,
+    };
+    const getProposals = vi.fn(async () => ({
+      data: [acceptedProposal],
+      meta: { total: 1, hasMore: false, nextCursor: null },
+    }));
+    const loaded = await loadApi({ claimTelegramNomination }, { getProposals });
+    const client = loaded.createClient({
+      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+    } as never);
+
+    await expect(
+      client.claimTelegramNomination({
+        nominationId: "nom_claimed",
+        nomineeTelegramId: 123,
+        nomineeUsername: "alice",
+      }),
+    ).resolves.toEqual({ nominationId: "nom_claimed", status: "accepted" });
+    expect(getProposals).toHaveBeenCalledWith({
+      pluginId: "builders",
+      entityId: "alice.near",
+      limit: 2,
+    });
+  });
+
+  it("treats a missing linked proposal as an invariant failure", async () => {
+    const loaded = await loadApi(
+      {
+        claimTelegramNomination: async () => ({
+          nominationId: "nom_broken",
+          status: "submitted" as const,
+          proposalId: "prp_missing",
+          proposalEntityId: "missing.near",
+        }),
+      },
+      {
+        getProposals: async () => ({
+          data: [],
+          meta: { total: 0, hasMore: false, nextCursor: null },
+        }),
+      },
+    );
+    const client = loaded.createClient({
+      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+    } as never);
+
+    await expect(
+      client.claimTelegramNomination({
+        nominationId: "nom_broken",
+        nomineeTelegramId: 123,
+        nomineeUsername: "alice",
+      }),
+    ).rejects.toThrow("Linked builder proposal was not found");
   });
 });

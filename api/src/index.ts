@@ -21,37 +21,28 @@ function notificationContext(context: Context) {
   };
 }
 
-const LOCAL_NOMINATION_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+type ProposalLifecycle = {
+  reviewStatus: "pending" | "approved" | "rejected" | "removed";
+  applyStatus: "not_started" | "applying" | "applied" | "failed";
+  removeStatus: "not_started" | "removing" | "removed" | "failed";
+};
 
-function localNominationOrigin(headers: Headers | undefined): string | null {
-  const host = headers?.get("host");
-  if (!host) return null;
-
-  try {
-    const origin = new URL(`http://${host}`);
-    return LOCAL_NOMINATION_HOSTNAMES.has(origin.hostname) ? origin.origin : null;
-  } catch {
-    return null;
+export function deriveTelegramNominationStatus(
+  proposal: ProposalLifecycle,
+): "under_review" | "processing" | "accepted" | "rejected" | "removed" | "processing_failed" {
+  if (proposal.reviewStatus === "removed" || proposal.removeStatus === "removed") return "removed";
+  if (proposal.applyStatus === "failed" || proposal.removeStatus === "failed") {
+    return "processing_failed";
   }
-}
-
-function useLocalNominationOrigin<
-  T extends {
-    body: { nominationId: string; joinUrl: string };
-  },
->(response: T, headers: Headers | undefined): T {
-  const origin = localNominationOrigin(headers);
-  if (!origin) return response;
-
-  const joinUrl = new URL(response.body.joinUrl);
-  const localJoinUrl = new URL(`${joinUrl.pathname}${joinUrl.search}`, origin);
-  return {
-    ...response,
-    body: {
-      ...response.body,
-      joinUrl: localJoinUrl.toString(),
-    },
-  };
+  if (proposal.reviewStatus === "rejected") return "rejected";
+  if (proposal.reviewStatus === "pending") return "under_review";
+  if (proposal.applyStatus === "applying" || proposal.removeStatus === "removing") {
+    return "processing";
+  }
+  if (proposal.reviewStatus === "approved" && proposal.applyStatus === "applied") {
+    return "accepted";
+  }
+  return "processing";
 }
 
 type VisibilityValue = "private" | "unlisted" | "public";
@@ -102,6 +93,53 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const resolveNominationResponse = async (
+      nomination: {
+        nominationId: string;
+        status: "awaiting_claim" | "awaiting_profile" | "submitted";
+        joinUrl?: string;
+        proposalId: string | null;
+        proposalEntityId: string | null;
+      },
+      context: Context,
+    ) => {
+      if (nomination.status === "awaiting_claim") {
+        return { nominationId: nomination.nominationId, status: nomination.status } as const;
+      }
+      if (nomination.status === "awaiting_profile") {
+        if (!nomination.joinUrl) {
+          throw new ORPCError("INTERNAL_SERVER_ERROR", {
+            message: "Verified nomination is missing its onboarding URL",
+          });
+        }
+        return {
+          nominationId: nomination.nominationId,
+          status: nomination.status,
+          joinUrl: nomination.joinUrl,
+        } as const;
+      }
+      if (!nomination.proposalId || !nomination.proposalEntityId) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Submitted nomination is missing its linked proposal",
+        });
+      }
+
+      const proposals = await services.plugins.proposals(context).getProposals({
+        pluginId: "builders",
+        entityId: nomination.proposalEntityId,
+        limit: 2,
+      });
+      const proposal = proposals.data.find((candidate) => candidate.id === nomination.proposalId);
+      if (!proposal) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Linked builder proposal was not found",
+        });
+      }
+      return {
+        nominationId: nomination.nominationId,
+        status: deriveTelegramNominationStatus(proposal),
+      } as const;
+    };
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -118,7 +156,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
       createTelegramNomination: builder.createTelegramNomination.handler(
         async ({ input, context }) => {
           const response = await services.plugins.builders(context).createTelegramNomination(input);
-          return useLocalNominationOrigin(response, context.reqHeaders);
+          const body = await resolveNominationResponse(response.body, context);
+          return { ...response, body };
+        },
+      ),
+
+      claimTelegramNomination: builder.claimTelegramNomination.handler(
+        async ({ input, context }) => {
+          const nomination = await services.plugins
+            .builders(context)
+            .claimTelegramNomination(input);
+          return await resolveNominationResponse(nomination, context);
         },
       ),
 

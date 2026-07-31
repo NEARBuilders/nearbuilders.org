@@ -14,6 +14,7 @@ export default {
       BUILDERS_DATABASE_URL: process.env.BUILDERS_DATABASE_URL || "pglite:.bos/builders/:memory:",
       NOMINATION_TOKEN_SECRET:
         process.env.NOMINATION_TOKEN_SECRET || "development-only-nomination-token-secret",
+      TELEGRAM_BOT_API_KEY_ID: process.env.TELEGRAM_BOT_API_KEY_ID || "telegram-bot-key",
     },
   } satisfies PluginConfigInput<typeof Plugin>,
 };

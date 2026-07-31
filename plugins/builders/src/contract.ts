@@ -17,6 +17,11 @@ const IDEMPOTENCY_CONFLICT = {
   message: "Idempotency key conflicts with an existing nomination",
 } as const;
 
+const NOMINATION_NOT_FOUND = {
+  status: 404,
+  message: "Nomination not found",
+} as const;
+
 const BuilderOutput = z.object({
   id: z.string(),
   nearAccount: z.string(),
@@ -30,23 +35,35 @@ const BuilderOutput = z.object({
   updatedAt: z.iso.datetime(),
 });
 
-const TelegramNominationInput = z.object({
-  source: z.literal("telegram"),
-  sourceNominationId: z
-    .string()
-    .trim()
-    .regex(/^[1-9]\d*$/)
-    .max(128),
+const TelegramUsername = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32)
+  .regex(/^[A-Za-z0-9_]+$/);
+
+const TelegramNominationInput = z
+  .object({
+    source: z.literal("telegram"),
+    sourceNominationId: z
+      .string()
+      .trim()
+      .regex(/^[1-9]\d*$/)
+      .max(128),
+    nomineeTelegramId: z.number().int().positive().safe().nullable(),
+    nomineeUsername: TelegramUsername.nullable(),
+    nominatedByTelegramId: z.number().int().positive().safe(),
+    telegramGroupId: z.number().int().negative().safe(),
+  })
+  .refine((input) => input.nomineeTelegramId !== null || input.nomineeUsername !== null, {
+    message: "A Telegram ID or username is required",
+    path: ["nomineeUsername"],
+  });
+
+const TelegramNominationClaimInput = z.object({
+  nominationId: z.string().trim().min(1).max(64).optional(),
   nomineeTelegramId: z.number().int().positive().safe(),
-  nomineeUsername: z
-    .string()
-    .trim()
-    .min(1)
-    .max(32)
-    .regex(/^[A-Za-z0-9_]+$/)
-    .nullable(),
-  nominatedByTelegramId: z.number().int().positive().safe(),
-  telegramGroupId: z.number().int().negative().safe(),
+  nomineeUsername: TelegramUsername.nullable(),
 });
 
 const TelegramNominationMetadata = z.object({
@@ -62,7 +79,10 @@ const TelegramNominationResolution = z.discriminatedUnion("status", [
 
 const TelegramNominationResponse = z.object({
   nominationId: z.string(),
-  joinUrl: z.string().url().startsWith("https://"),
+  status: z.enum(["awaiting_claim", "awaiting_profile", "submitted"]),
+  joinUrl: z.string().url().startsWith("https://").optional(),
+  proposalId: z.string().nullable(),
+  proposalEntityId: z.string().nullable(),
 });
 
 const TelegramNominationHeaders = z.record(z.string(), z.string());
@@ -98,7 +118,13 @@ export const contract = oc.router({
         }),
       ]),
     )
-    .errors({ UNAUTHORIZED, BAD_REQUEST, IDEMPOTENCY_CONFLICT }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, IDEMPOTENCY_CONFLICT }),
+
+  claimTelegramNomination: oc
+    .route({ method: "POST", path: "/builders/nominations/claim" })
+    .input(TelegramNominationClaimInput)
+    .output(TelegramNominationResponse)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOMINATION_NOT_FOUND }),
 
   resolveTelegramNomination: oc
     .route({ method: "POST", path: "/builders/nominations/resolve" })
