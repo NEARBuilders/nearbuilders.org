@@ -154,9 +154,11 @@ function Dashboard() {
       <DashboardHeader nearAccountId={nearAccountId} />
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
-        <NearProfile accountId={nearAccountId} variant="card" className="h-full" />
+        <div className="min-w-0">
+          <NearProfile accountId={nearAccountId} variant="card" className="h-full" />
+        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-1">
           <BuilderStatusSummaryCard
             label={builderStatus.label}
             description={builderStatus.description}
@@ -171,7 +173,7 @@ function Dashboard() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
@@ -238,7 +240,7 @@ function Dashboard() {
           )}
         </div>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <ProjectsSummaryCard
             projectCount={projectCount}
             totalProjectVotes={totalProjectVotes}
