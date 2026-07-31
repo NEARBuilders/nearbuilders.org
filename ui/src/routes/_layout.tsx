@@ -58,7 +58,7 @@ function Layout() {
   }, [mobileOpen]);
 
   return (
-    <div className="min-h-dvh flex flex-col bg-background text-foreground">
+    <div className="min-h-dvh flex flex-col overflow-x-clip bg-background text-foreground">
       <ClientOnly>
         {isNavigating && (
           <div className="fixed top-0 left-0 right-0 h-0.5 z-50 overflow-hidden">

@@ -817,7 +817,7 @@ function BuilderProfileCard({
               <div className="text-sm font-semibold text-foreground">
                 {proposalPayload.name || nearAccountId}
               </div>
-              <div className="font-mono text-xs text-brand-cyan">{nearAccountId}</div>
+              <div className="break-all font-mono text-xs text-brand-cyan">{nearAccountId}</div>
               {proposalPayload.location && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin size={10} />
@@ -893,7 +893,7 @@ function BuilderProfileCard({
           <div className="font-semibold text-foreground text-sm">
             {approvedBuilder.name || nearAccountId}
           </div>
-          <div className="text-xs font-mono text-brand-cyan">{nearAccountId}</div>
+          <div className="break-all text-xs font-mono text-brand-cyan">{nearAccountId}</div>
           {approvedBuilder.location && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin size={10} />
