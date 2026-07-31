@@ -334,3 +334,7 @@ node_modules/.federation
 !**/README.md
 !**/CHANGELOG.md
 !.changeset/**/*.md
+
+# temp
+!NOSTR.md
+!ACTIVITY.md

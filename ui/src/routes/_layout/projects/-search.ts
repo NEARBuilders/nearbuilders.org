@@ -7,6 +7,7 @@ export type ProjectListSearch = {
   kind?: ProjectKindFilter;
   personal?: boolean;
   private?: boolean;
+  verified?: boolean;
   sort?: ProjectSort;
 };
 
@@ -34,13 +35,15 @@ function hasSearchFlag(value: unknown) {
 
 export function parseProjectListSearch(search: Record<string, unknown>): ProjectListSearch {
   const personal = hasSearchFlag(search.personal);
-  const privateOnly = personal && hasSearchFlag(search.private);
+  const verified = hasSearchFlag(search.verified);
+  const privateOnly = personal && !verified && hasSearchFlag(search.private);
 
   return {
     preview: typeof search.preview === "string" ? search.preview : undefined,
     kind: isProjectKindFilter(search.kind) ? search.kind : undefined,
     personal: personal || undefined,
     private: privateOnly || undefined,
+    verified: verified || undefined,
     sort: isProjectSort(search.sort) && search.sort !== "votes" ? search.sort : undefined,
   };
 }

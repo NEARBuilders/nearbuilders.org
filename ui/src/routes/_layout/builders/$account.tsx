@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,7 +17,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
+  builderDetailOptions,
   builderProposalsOptions,
+  nearProfileOptions,
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
@@ -31,23 +33,32 @@ export const Route = createFileRoute("/_layout/builders/$account")({
     const { queryClient, apiClient, session } = context;
     const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
+    const builderResult = await queryClient
+      .fetchQuery(builderDetailOptions(apiClient, params.account))
+      .catch(() => null);
+
+    const proposalsResult = await queryClient
+      .fetchQuery(builderProposalsOptions(apiClient, params.account))
+      .catch(() => {
+        queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
+        return null;
+      });
+
+    const proposalsData = proposalsResult as { data?: { id: string }[] } | null;
+    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
+
+    await queryClient
+      .fetchQuery(nearProfileOptions(context.authClient, params.account))
+      .catch(() => {
+        queryClient.resetQueries({ queryKey: ["near-profile", params.account] });
+      });
+
     await Promise.allSettled([
-      queryClient.prefetchQuery({
-        queryKey: ["builder", params.account],
-        queryFn: () => apiClient.getBuilder({ nearAccount: params.account }),
-        retry: false,
-      }),
-      queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)),
       queryClient.prefetchInfiniteQuery(
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
       queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
     ]);
-
-    const proposalsData = queryClient.getQueryData(["proposals", "builders", params.account]) as
-      | { data?: { id: string }[] }
-      | undefined;
-    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
 
     if (proposalIds.length > 0) {
       await Promise.allSettled(
@@ -59,12 +70,8 @@ export const Route = createFileRoute("/_layout/builders/$account")({
       );
     }
 
-    const builder = queryClient.getQueryData(["builder", params.account]) as
-      | { data?: { name: string | null; bio: string | null } }
-      | undefined;
-
     return {
-      builder: builder?.data ?? null,
+      builder: builderResult?.data ?? null,
       siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders",
       siteUrl: getSiteUrl(context.runtimeConfig, `/builders/${params.account}`),
       imageUrl: getAssetUrl(context.runtimeConfig, "/metadata.png"),
@@ -113,11 +120,16 @@ function BuilderProfilePage() {
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const navigate = useNavigate();
 
-  const { data: builderResult, isLoading: builderLoading } = useQuery({
-    queryKey: ["builder", account],
-    queryFn: () => apiClient.getBuilder({ nearAccount: account }),
-    retry: false,
-  });
+  const { data: builderResult, isLoading: builderLoading } = useQuery(
+    builderDetailOptions(apiClient, account),
+  );
+
+  const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>(
+    nearProfileOptions(auth, account),
+  );
+
+  const nearAccountId = auth.near.getAccountId();
+  const isOwner = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
 
   const { data: proposalsData } = useQuery(builderProposalsOptions(apiClient, account));
   const proposals = proposalsData?.data ?? [];
@@ -193,6 +205,9 @@ function BuilderProfilePage() {
       <LoadedProfile
         account={account}
         builder={builderResult.data}
+        profile={profile}
+        profileLoading={profileLoading}
+        isOwner={isOwner}
         activeProposal={activeProposal}
         nominationCount={
           activeProposal
@@ -215,6 +230,8 @@ function BuilderProfilePage() {
     return (
       <NominatedFallback
         account={account}
+        profile={profile}
+        profileLoading={profileLoading}
         proposal={activeProposal ?? proposals[0]}
         nominationCount={
           activeProposal
@@ -245,6 +262,9 @@ function BuilderProfilePage() {
 function LoadedProfile({
   account,
   builder,
+  profile,
+  profileLoading,
+  isOwner,
   activeProposal,
   nominationCount,
   hasNominated,
@@ -253,27 +273,17 @@ function LoadedProfile({
 }: {
   account: string;
   builder: BuilderData;
+  profile: Profile | null | undefined;
+  profileLoading: boolean;
+  isOwner: boolean;
   activeProposal: { id: string; submissionCount: number } | null;
   nominationCount: number | null;
   hasNominated: boolean;
   isVoting: boolean;
   onVote: (() => void) | undefined;
 }) {
-  const auth = useAuthClient();
   const apiClient = useApiClient();
   const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
-  const nearAccountId = auth.near.getAccountId();
-  const isOwner = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
-  const canEdit = isOwner;
-
-  const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
-    queryKey: ["near-profile", account],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(account);
-      return res.data || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
 
   const { data: projectsResult, isLoading: projectsLoading } = useQuery({
     queryKey: ["builder-projects", account],
@@ -334,29 +344,29 @@ function LoadedProfile({
               }}
             />
           )}
-          {canEdit && (
-            <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-              {isOwner && (
+          <ClientOnly>
+            {isOwner && (
+              <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
                 <Button asChild size="sm" className="gap-1.5 rounded-full">
                   <Link to="/profile/activity" search={{ mode: "claim" }}>
                     <Plus size={13} />
                     Add contribution
                   </Link>
                 </Button>
-              )}
-              <Button
-                asChild
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
-              >
-                <Link to="/builders/$account/edit" params={{ account }}>
-                  <Pencil size={13} />
-                  Edit profile
-                </Link>
-              </Button>
-            </div>
-          )}
+                <Button
+                  asChild
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5 rounded-full border border-border bg-card/80 backdrop-blur-sm hover:bg-card"
+                >
+                  <Link to="/builders/$account/edit" params={{ account }}>
+                    <Pencil size={13} />
+                    Edit profile
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </ClientOnly>
           <div className="absolute -bottom-10 left-6 sm:left-8">
             <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">
               {profileLoading ? (
@@ -599,6 +609,8 @@ function ProjectsTabContent({
 
 function NominatedFallback({
   account,
+  profile,
+  profileLoading,
   proposal,
   nominationCount,
   hasNominated,
@@ -608,6 +620,8 @@ function NominatedFallback({
   counts,
 }: {
   account: string;
+  profile: Profile | null | undefined;
+  profileLoading: boolean;
   proposal: {
     id: string;
     entityId: string;
@@ -629,17 +643,6 @@ function NominatedFallback({
   }[];
   counts: Record<string, { entityId: string; totalCount: number }>;
 }) {
-  const auth = useAuthClient();
-
-  const { data: profile, isLoading: profileLoading } = useQuery<Profile | null>({
-    queryKey: ["near-profile", account],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(account);
-      return res.data || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
   const raw = proposal.payload;
   const payload: ProposalPayload =
     typeof raw === "object" && raw !== null ? (raw as ProposalPayload) : {};
@@ -889,6 +892,14 @@ function ProfileSkeleton({ account }: { account: string }) {
 }
 
 function BuilderNotFound() {
+  const queryClient = useQueryClient();
+  const { account } = Route.useParams();
+
+  const handleRetry = () => {
+    queryClient.resetQueries({ queryKey: ["builder", account] });
+    queryClient.refetchQueries({ queryKey: ["builder", account] });
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -897,9 +908,14 @@ function BuilderNotFound() {
         <p className="text-sm text-muted-foreground mb-8 max-w-sm leading-relaxed">
           This builder profile doesn't exist or hasn't been approved yet.
         </p>
-        <Button asChild className="rounded-full px-6">
-          <Link to="/builders">Browse builders</Link>
-        </Button>
+        <div className="flex gap-3">
+          <Button asChild variant="outline" className="rounded-full px-6">
+            <Link to="/builders">Browse builders</Link>
+          </Button>
+          <Button onClick={handleRetry} className="rounded-full px-6">
+            Retry
+          </Button>
+        </div>
       </div>
     </div>
   );
