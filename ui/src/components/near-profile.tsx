@@ -141,7 +141,9 @@ export function NearProfile({
           <div className="flex flex-col gap-1">
             <h3 className="text-xl font-bold tracking-tight text-foreground">{displayName}</h3>
             {accountLabel && (
-              <p className="break-all font-mono text-sm font-semibold text-brand-cyan">{accountLabel}</p>
+              <p className="break-all font-mono text-sm font-semibold text-brand-cyan">
+                {accountLabel}
+              </p>
             )}
           </div>
 
