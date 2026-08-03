@@ -72,7 +72,6 @@ describe.sequential("Telegram builder nominations", () => {
       secrets: {
         BUILDERS_DATABASE_URL: `pglite:${dataDir}`,
         NOMINATION_TOKEN_SECRET: "test-only-nomination-token-secret-value",
-        TELEGRAM_BOT_API_KEY_ID: "telegram-bot-key",
       },
     });
   }, 30_000);
@@ -365,7 +364,6 @@ describe.sequential("Telegram builder nominations", () => {
       secrets: {
         BUILDERS_DATABASE_URL: `pglite:${isolatedDir}`,
         NOMINATION_TOKEN_SECRET: "test-only-nomination-token-secret-value",
-        TELEGRAM_BOT_API_KEY_ID: "telegram-bot-key",
       },
     });
     const client = isolated.createClient({
@@ -492,7 +490,6 @@ describe.sequential("Telegram builder nominations", () => {
       secrets: {
         BUILDERS_DATABASE_URL: databaseUrl,
         NOMINATION_TOKEN_SECRET: tokenSecret,
-        TELEGRAM_BOT_API_KEY_ID: "telegram-bot-key",
       },
     });
     const client = migrated.createClient({
@@ -548,7 +545,7 @@ describe.sequential("Telegram builder nominations", () => {
     await rm(migrationDir, { recursive: true, force: true });
   }, 30_000);
 
-  it("allowlists the configured bot key and validates idempotency headers", async () => {
+  it("requires an API key and validates idempotency headers", async () => {
     await expect(
       loaded
         .createClient({})
@@ -556,19 +553,12 @@ describe.sequential("Telegram builder nominations", () => {
           createInput({ ...baseNomination, sourceNominationId: "180", nomineeTelegramId: 1800 }),
         ),
     ).rejects.toThrow("API key required");
+    const created = await botClient("other-key").createTelegramNomination(
+      createInput({ ...baseNomination, sourceNominationId: "181", nomineeTelegramId: 1801 }),
+    );
+    expect(created.status).toBe(201);
     await expect(
-      botClient("other-key").createTelegramNomination(
-        createInput({ ...baseNomination, sourceNominationId: "181", nomineeTelegramId: 1801 }),
-      ),
-    ).rejects.toThrow("cannot manage Telegram nominations");
-    await expect(
-      botClient("other-key").claimTelegramNomination({
-        nomineeTelegramId: 1801,
-        nomineeUsername: null,
-      }),
-    ).rejects.toThrow("cannot manage Telegram nominations");
-    await expect(
-      botClient().claimTelegramNomination({ nomineeTelegramId: 1801, nomineeUsername: null }),
+      botClient().claimTelegramNomination({ nomineeTelegramId: 1803, nomineeUsername: null }),
     ).rejects.toThrow("Nomination not found");
     await expect(
       botClient().createTelegramNomination({

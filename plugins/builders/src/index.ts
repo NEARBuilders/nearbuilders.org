@@ -15,7 +15,6 @@ export default createPlugin({
   secrets: z.object({
     BUILDERS_DATABASE_URL: z.string().default("pglite:.bos/builders/:memory:"),
     NOMINATION_TOKEN_SECRET: z.string().min(32),
-    TELEGRAM_BOT_API_KEY_ID: z.string().min(1),
   }),
 
   context: ContextSchema,
@@ -33,7 +32,6 @@ export default createPlugin({
         builder,
         nominationJoinBaseUrl: config.variables.nominationJoinBaseUrl,
         nominationTokenSecret: config.secrets.NOMINATION_TOKEN_SECRET,
-        telegramBotApiKeyId: config.secrets.TELEGRAM_BOT_API_KEY_ID,
       };
     }),
 
@@ -59,15 +57,10 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const requireTelegramBot = builder.middleware(async ({ context, next }) => {
+    const requireApiKey = builder.middleware(async ({ context, next }) => {
       if (!context.apiKey) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "API key required",
-        });
-      }
-      if (context.apiKey.id !== services.telegramBotApiKeyId) {
-        throw new ORPCError("FORBIDDEN", {
-          message: "This API key cannot manage Telegram nominations",
         });
       }
       return next({ context: { ...context, apiKey: context.apiKey } });
@@ -87,7 +80,7 @@ export default createPlugin({
 
     return {
       createTelegramNomination: builder.createTelegramNomination
-        .use(requireTelegramBot)
+        .use(requireApiKey)
         .handler(async ({ input, context, errors }) => {
           const expectedIdempotencyKey = `telegram-nomination:${input.body.sourceNominationId}`;
           if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
@@ -122,7 +115,7 @@ export default createPlugin({
         }),
 
       claimTelegramNomination: builder.claimTelegramNomination
-        .use(requireTelegramBot)
+        .use(requireApiKey)
         .handler(async ({ input }) => {
           return await runEffect(
             services.builder.claimTelegramNomination({
