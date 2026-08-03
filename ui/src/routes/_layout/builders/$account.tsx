@@ -39,26 +39,45 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
   loader: async ({ params, context }) => {
-    const { queryClient, apiClient } = context;
+    const { queryClient, apiClient, session } = context;
+    const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
     const builderResult = await queryClient
       .fetchQuery(builderDetailOptions(apiClient, params.account))
       .catch(() => null);
 
-    void queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)).catch(() => {
-      queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
-    });
+    const proposalsResult = await queryClient
+      .fetchQuery(builderProposalsOptions(apiClient, params.account))
+      .catch(() => {
+        queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
+        return null;
+      });
 
-    void queryClient
-      .prefetchQuery(nearProfileOptions(context.authClient, params.account))
+    const proposalsData = proposalsResult as { data?: { id: string }[] } | null;
+    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
+
+    await queryClient
+      .fetchQuery(nearProfileOptions(context.authClient, params.account))
       .catch(() => {
         queryClient.resetQueries({ queryKey: ["near-profile", params.account] });
       });
 
-    void queryClient.prefetchInfiniteQuery(
-      activityFeedQueryOptions(apiClient, { actor: params.account }),
-    );
-    void queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account));
+    await Promise.allSettled([
+      queryClient.prefetchInfiniteQuery(
+        activityFeedQueryOptions(apiClient, { actor: params.account }),
+      ),
+      queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
+    ]);
+
+    if (proposalIds.length > 0) {
+      await Promise.allSettled(
+        [
+          queryClient.prefetchQuery(upvoteCountsOptions(apiClient, proposalIds)),
+          isAuthenticated &&
+            queryClient.prefetchQuery(userVotesOptions(apiClient, proposalIds, true)),
+        ].filter(Boolean),
+      );
+    }
 
     return {
       builder: builderResult?.data ?? null,
