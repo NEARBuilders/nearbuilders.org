@@ -3,6 +3,7 @@ import type { Profile } from "better-near-auth";
 import type { ApiClient, AuthClient } from "@/app";
 
 export const PAGE_SIZE = 24;
+const NEAR_PROFILE_TIMEOUT_MS = 4_000;
 
 export interface Builder {
   id: string;
@@ -164,10 +165,23 @@ export function nearProfileOptions(authClient: AuthClient, accountId: string) {
   return {
     queryKey: ["near-profile", accountId] as const,
     queryFn: async (): Promise<Profile | null> => {
-      const res = await authClient.near.getProfile(accountId);
-      return res.data || null;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+      try {
+        return await Promise.race([
+          authClient.near.getProfile(accountId).then((response) => response.data ?? null),
+          new Promise<null>((resolve) => {
+            timeoutId = setTimeout(() => resolve(null), NEAR_PROFILE_TIMEOUT_MS);
+          }),
+        ]);
+      } catch {
+        return null;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
     },
     enabled: !!accountId,
+    retry: false,
     staleTime: 5 * 60 * 1000,
   };
 }

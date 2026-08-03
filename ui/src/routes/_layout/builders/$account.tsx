@@ -3,7 +3,16 @@ import { ClientOnly, createFileRoute, Link, useNavigate } from "@tanstack/react-
 import type { Profile } from "better-near-auth";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, MapPin, Pencil, Plus, ThumbsUp } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleAlert,
+  MapPin,
+  Pencil,
+  Plus,
+  Sparkles,
+  ThumbsUp,
+} from "lucide-react";
 import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
@@ -30,45 +39,26 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
   loader: async ({ params, context }) => {
-    const { queryClient, apiClient, session } = context;
-    const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+    const { queryClient, apiClient } = context;
 
     const builderResult = await queryClient
       .fetchQuery(builderDetailOptions(apiClient, params.account))
       .catch(() => null);
 
-    const proposalsResult = await queryClient
-      .fetchQuery(builderProposalsOptions(apiClient, params.account))
-      .catch(() => {
-        queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
-        return null;
-      });
+    void queryClient.prefetchQuery(builderProposalsOptions(apiClient, params.account)).catch(() => {
+      queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
+    });
 
-    const proposalsData = proposalsResult as { data?: { id: string }[] } | null;
-    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
-
-    await queryClient
-      .fetchQuery(nearProfileOptions(context.authClient, params.account))
+    void queryClient
+      .prefetchQuery(nearProfileOptions(context.authClient, params.account))
       .catch(() => {
         queryClient.resetQueries({ queryKey: ["near-profile", params.account] });
       });
 
-    await Promise.allSettled([
-      queryClient.prefetchInfiniteQuery(
-        activityFeedQueryOptions(apiClient, { actor: params.account }),
-      ),
-      queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
-    ]);
-
-    if (proposalIds.length > 0) {
-      await Promise.allSettled(
-        [
-          queryClient.prefetchQuery(upvoteCountsOptions(apiClient, proposalIds)),
-          isAuthenticated &&
-            queryClient.prefetchQuery(userVotesOptions(apiClient, proposalIds, true)),
-        ].filter(Boolean),
-      );
-    }
+    void queryClient.prefetchInfiniteQuery(
+      activityFeedQueryOptions(apiClient, { actor: params.account }),
+    );
+    void queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account));
 
     return {
       builder: builderResult?.data ?? null,
@@ -313,8 +303,8 @@ function LoadedProfile({
   const allLinks = mergeSocialLinks(profile?.linktree, builder.links);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-6">
         <Link
           to="/builders"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -324,16 +314,9 @@ function LoadedProfile({
         </Link>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden mb-8">
-        <div className="relative h-40 sm:h-48">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: backgroundUrl
-                ? undefined
-                : "radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-green) 25%, transparent), color-mix(in srgb, var(--brand-cyan) 15%, transparent))",
-            }}
-          />
+      <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="relative h-32 sm:h-40">
+          <div className="absolute inset-0 bg-brand-accent-light" />
           {backgroundUrl && (
             <img
               src={backgroundUrl}
@@ -368,7 +351,7 @@ function LoadedProfile({
             )}
           </ClientOnly>
           <div className="absolute -bottom-10 left-6 sm:left-8">
-            <div className="size-20 rounded-full overflow-hidden bg-muted border-4 border-card flex items-center justify-center shadow-lg">
+            <div className="flex size-20 items-center justify-center overflow-hidden rounded-full border-4 border-card bg-muted shadow-lg">
               {profileLoading ? (
                 <Skeleton className="size-20 rounded-full" />
               ) : avatarUrl ? (
@@ -398,16 +381,21 @@ function LoadedProfile({
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-3xl font-black text-foreground leading-tight">
                     {displayName}
                   </h1>
+                  <Badge variant="success" className="gap-1.5 rounded-full">
+                    <CheckCircle2 className="size-3" />
+                    Approved
+                  </Badge>
                   {activeProposal && (
                     <Badge
                       variant="secondary"
-                      className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-brand-accent-light text-brand-accent border-brand-accent/20"
+                      className="gap-1.5 rounded-full border-brand-accent-border bg-brand-accent-light text-brand-accent"
                     >
-                      Nominated
+                      <Sparkles className="size-3" />
+                      Active nomination
                     </Badge>
                   )}
                 </div>
@@ -491,53 +479,76 @@ function LoadedProfile({
               </div>
             </div>
           )}
-
-          {bio && (
-            <p className="mt-5 text-sm text-muted-foreground leading-relaxed max-w-2xl">{bio}</p>
-          )}
-
-          {builder.skills.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-5">
-              {builder.skills.map((skill) => (
-                <Badge
-                  key={skill}
-                  variant="secondary"
-                  className="text-xs px-3 py-1 rounded-full font-medium"
-                >
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as BuilderProfileTab)}
-        className="w-full"
-      >
-        <TabsList>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-        <TabsContent value="projects">
-          <ProjectsTabContent
-            projectsLoading={projectsLoading}
-            projects={projects}
-            hasMore={projectsResult?.meta.hasMore ?? false}
-          />
-          <ContributedProjects nearAccount={account} />
-        </TabsContent>
-        <TabsContent value="activity">
-          <TooltipProvider>
-            <ActivityFeed
-              filters={{ actor: account }}
-              emptyHint={`${displayName} has no activity yet.`}
-            />
-          </TooltipProvider>
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <main>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as BuilderProfileTab)}
+            className="w-full"
+          >
+            <TabsList>
+              <TabsTrigger value="projects">Projects</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
+            </TabsList>
+            <TabsContent value="projects" className="mt-5">
+              <ProjectsTabContent
+                projectsLoading={projectsLoading}
+                projects={projects}
+                hasMore={projectsResult?.meta.hasMore ?? false}
+              />
+              <ContributedProjects nearAccount={account} />
+            </TabsContent>
+            <TabsContent value="activity" className="mt-5">
+              <TooltipProvider>
+                <ActivityFeed
+                  filters={{ actor: account }}
+                  emptyHint={`${displayName} has no activity yet.`}
+                />
+              </TooltipProvider>
+            </TabsContent>
+          </Tabs>
+        </main>
+
+        <aside className="space-y-4">
+          <section className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-foreground">About</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {bio || "This builder has not added a bio yet."}
+            </p>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-foreground">Skills</h2>
+            {builder.skills.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {builder.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary" className="rounded-full">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">No skills added yet.</p>
+            )}
+          </section>
+
+          {activeProposal && nominationCount !== null && (
+            <section className="rounded-xl border border-brand-accent-border bg-brand-accent-light p-5">
+              <div className="flex items-center gap-2 text-brand-accent">
+                <Sparkles className="size-4" />
+                <h2 className="text-sm font-bold uppercase tracking-wide">Active nomination</h2>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                This approved builder also has an active community nomination with {nominationCount}{" "}
+                support{nominationCount !== 1 ? "s" : ""}.
+              </p>
+            </section>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
@@ -673,16 +684,9 @@ function NominatedFallback({
         </Link>
       </div>
 
-      <div className="bg-card border border-border border-dashed rounded-2xl overflow-hidden mb-8">
+      <div className="mb-8 overflow-hidden rounded-2xl border border-dashed border-border bg-card">
         <div className="relative h-40 sm:h-48">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: backgroundUrl
-                ? undefined
-                : "radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-accent) 20%, transparent), color-mix(in srgb, var(--brand-cyan) 15%, transparent))",
-            }}
-          />
+          <div className="absolute inset-0 bg-brand-accent-light" />
           {backgroundUrl && (
             <img
               src={backgroundUrl}
@@ -844,14 +848,17 @@ function NominatedFallback({
                     {p.submissionCount + (counts[p.id]?.totalCount ?? 0) !== 1 ? "s" : ""}
                   </span>
                   <Badge
-                    variant={p.reviewStatus === "pending" ? "default" : "secondary"}
+                    variant={
+                      p.reviewStatus === "approved"
+                        ? "success"
+                        : p.reviewStatus === "rejected"
+                          ? "destructive"
+                          : "secondary"
+                    }
                     className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full font-medium",
+                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
                       p.reviewStatus === "pending" &&
-                        "bg-brand-accent-light text-brand-accent border-brand-accent/20",
-                      p.reviewStatus === "approved" &&
-                        "bg-green-100 text-green-800 border-green-200",
-                      p.reviewStatus === "rejected" && "bg-red-100 text-red-800 border-red-200",
+                        "border-brand-accent-border bg-brand-accent-light text-brand-accent",
                     )}
                   >
                     {p.reviewStatus}
@@ -903,7 +910,9 @@ function BuilderNotFound() {
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center justify-center py-32 text-center">
-        <div className="text-5xl mb-6">🔍</div>
+        <div className="mb-6 flex size-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
+          <CircleAlert className="size-6" />
+        </div>
         <h1 className="text-2xl font-black text-foreground mb-2">Builder not found</h1>
         <p className="text-sm text-muted-foreground mb-8 max-w-sm leading-relaxed">
           This builder profile doesn't exist or hasn't been approved yet.
