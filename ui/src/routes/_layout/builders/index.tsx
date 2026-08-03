@@ -932,7 +932,8 @@ function BuilderCard({
         <div
           className={cn(
             "mt-auto flex items-center justify-between gap-3 border-t border-border pt-4",
-            layout === "list" && "sm:mt-0 sm:shrink-0 sm:border-t-0 sm:pt-0",
+            layout === "list" &&
+              "sm:mt-0 sm:w-36 sm:shrink-0 sm:self-stretch sm:flex-col sm:items-end sm:justify-end sm:border-t-0 sm:pt-10",
           )}
         >
           <div className="flex items-center gap-2">
@@ -941,7 +942,10 @@ function BuilderCard({
               initial={{ scale: 1.15 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="text-sm font-bold text-muted-foreground tabular-nums"
+              className={cn(
+                "text-sm font-bold text-muted-foreground tabular-nums",
+                layout === "list" && "sm:hidden",
+              )}
             >
               {nominationCount}
             </motion.span>
@@ -959,7 +963,9 @@ function BuilderCard({
                 }}
                 disabled={isVoting}
                 className={cn(
-                  "gap-1.5 rounded-full text-xs h-8 px-3",
+                  "h-8 gap-1.5 rounded-full px-3 text-xs",
+                  layout === "list" &&
+                    "sm:min-w-28 sm:border-brand-accent-border sm:bg-brand-accent-light sm:hover:border-brand-accent",
                   hasNominated && "border-brand-accent bg-brand-accent-light text-foreground",
                 )}
               >
@@ -979,15 +985,25 @@ function BuilderCard({
                         hasNominated && "fill-current text-brand-accent",
                       )}
                     />
-                    <span className="hidden sm:inline">
+                    <span className={cn(layout === "grid" && "hidden sm:inline")}>
                       {hasNominated ? "Nominated" : "Nominate"}
                     </span>
+                    {layout === "list" && (
+                      <span className="hidden border-l border-brand-accent-border pl-1.5 font-bold tabular-nums text-muted-foreground sm:inline">
+                        {nominationCount}
+                      </span>
+                    )}
                   </motion.span>
                 </AnimatePresence>
               </Button>
             </motion.div>
           </div>
-          <ArrowRight className="ml-auto size-4 text-brand-cyan transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight
+            className={cn(
+              "ml-auto size-4 text-brand-cyan transition-transform group-hover:translate-x-0.5",
+              layout === "list" && "sm:hidden",
+            )}
+          />
         </div>
       )}
     </Link>
