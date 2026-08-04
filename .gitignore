@@ -330,10 +330,12 @@ node_modules/.federation
 *.md
 !**/skills/**/*.md
 !AGENTS.md
+!.changeset/*.md
 !CONTRIBUTING.md
 !**/README.md
 !**/CHANGELOG.md
 !.changeset/**/*.md
+.bos/sync-backup/
 
 # temp
 !NOSTR.md
