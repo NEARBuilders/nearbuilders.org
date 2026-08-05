@@ -47,6 +47,7 @@ import {
   userVotesOptions,
 } from "@/lib/queries/builders";
 import { cn } from "@/lib/utils";
+import { getBuilderCardClassName, type BuilderLayout } from "./-builder-card-styles";
 
 interface BuilderLike {
   id: string;
@@ -58,7 +59,6 @@ interface BuilderLike {
 }
 
 type BuilderCategory = "all" | "approved" | "nominated";
-type BuilderLayout = "grid" | "list";
 
 const BUILDER_LAYOUT_STORAGE_KEY = "near-builders-directory-layout";
 
@@ -819,11 +819,7 @@ function BuilderCard({
     <Link
       to="/builders/$account"
       params={{ account: nearAccount }}
-      className={cn(
-        "group relative flex min-h-72 flex-col rounded-xl border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-accent-border hover:shadow-md",
-        layout === "list" && "sm:min-h-0 sm:flex-row sm:items-center sm:gap-4 sm:p-4",
-        isNominated ? "border border-dashed border-border" : "border border-border",
-      )}
+      className={getBuilderCardClassName(layout, isNominated)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="size-14 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
