@@ -12,8 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { nearProfileOptions } from "@/lib/queries/builders";
+import { cn } from "@/lib/utils";
 
-export function UserNav() {
+export function UserNav({ className }: { className?: string }) {
   const auth = useAuthClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export function UserNav() {
 
   if (!user) {
     return (
-      <Button asChild size="sm" className="rounded-full">
+      <Button asChild size="sm" className={cn("rounded-full", className)}>
         <Link to="/login">Connect</Link>
       </Button>
     );
@@ -58,10 +59,13 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="size-8 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={cn(
+            "flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            className,
+          )}
           aria-label="Account menu"
         >
-          <Avatar className="size-8">
+          <Avatar className="size-full">
             {avatarUrl && (
               <AvatarImage
                 src={avatarUrl}
