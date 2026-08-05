@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
+import { GitFork, Menu, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import builtOn from "@/assets/built_on.png";
@@ -31,6 +31,23 @@ const navLinks = [
   { label: "Activity", to: "/activity" },
 ] as const;
 
+const ecosystemLinks = [
+  { href: "https://ironclaw.com", label: "Ironclaw" },
+  { href: "https://near.ai", label: "NEAR AI" },
+  { href: "https://near.org", label: "NEAR Protocol" },
+  { href: "https://near.dev", label: "NEAR Dev" },
+  { href: "https://nearcatalog.xyz", label: "NEAR Catalog" },
+  { href: "https://nearlegion.com", label: "NEAR Legion" },
+] as const;
+
+const resourceLinks = [
+  { href: "https://docs.near.org", label: "NEAR Docs" },
+  { href: "https://docs.near.ai", label: "NEAR AI Docs" },
+  { href: "https://docs.near-intents.org/", label: "NEAR Intents" },
+  { href: "https://docs.ironclaw.com/", label: "IronClaw Docs" },
+  { href: "https://docs.near.org/getting-started/hackathons", label: "Builder Starter Guide" },
+] as const;
+
 function Layout() {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
   const appName = "Near Builders";
@@ -39,7 +56,6 @@ function Layout() {
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const user = session?.user;
 
-  // While the mobile menu is open: close on Escape and lock body scroll.
   useEffect(() => {
     if (!mobileOpen) return;
 
@@ -67,30 +83,30 @@ function Layout() {
         )}
       </ClientOnly>
 
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative flex h-16 items-center justify-between">
             <Link
               to="/"
-              className="flex items-center gap-2 font-black text-lg tracking-tight text-foreground hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2.5 text-lg font-black tracking-tight text-foreground transition-opacity hover:opacity-75"
             >
-              <img src="/logo.png" alt={appName} className="h-8 w-auto" />
+              <img src="/logo.png" alt={appName} className="h-9 w-auto" />
               {appName}
             </Link>
 
-            <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center gap-6">
+            <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border bg-card p-1 md:flex">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors pb-[2px] border-b-2 border-transparent [&.active]:text-foreground [&.active]:font-semibold [&.active]:border-brand-cyan"
+                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-foreground [&.active]:text-background"
                 >
                   {link.label}
                 </Link>
               ))}
             </nav>
 
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden items-center gap-1 rounded-full border border-border bg-card p-1 md:flex">
               <ThemeToggle />
               {user && <NotificationBell />}
               <UserNav />
@@ -102,7 +118,7 @@ function Layout() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-9 rounded-md"
+                className="size-10 rounded-full bg-foreground text-background hover:bg-foreground/90 hover:text-background"
                 onClick={() => setMobileOpen((v) => !v)}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileOpen}
@@ -117,35 +133,44 @@ function Layout() {
 
       {mobileOpen && (
         <div className="md:hidden">
-          {/* Backdrop — rendered outside <header> so the header's backdrop-blur
-              doesn't trap this fixed element inside its box. */}
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label="Close menu"
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-x-0 bottom-0 top-16 z-40 bg-foreground/20 backdrop-blur-[2px] animate-fade-in"
-          />
           <div
             id="mobile-menu"
-            className="fixed inset-x-0 top-16 z-50 border-b border-border bg-background shadow-xl animate-fade-in-up"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto bg-foreground text-background animate-fade-in-up"
           >
-            <nav className="mx-auto max-w-7xl px-4 py-4 flex flex-col gap-1">
-              {navLinks.map((link) => (
+            <div className="mx-auto flex min-h-full max-w-7xl flex-col px-4 py-8 sm:px-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+                Explore the network
+              </p>
+              <nav className="mt-5 border-y border-background/20">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setMobileOpen(false)}
+                    className="block border-b border-background/20 py-5 text-3xl font-black tracking-tight text-background transition-colors last:border-b-0 hover:text-brand-accent [&.active]:text-brand-accent"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+
+              <div className="mt-auto pt-8">
                 <Link
-                  key={link.to}
-                  to={link.to}
+                  to="/builders/add"
                   onClick={() => setMobileOpen(false)}
-                  className="px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors [&.active]:text-foreground [&.active]:bg-accent"
+                  className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-mint-foreground"
                 >
-                  {link.label}
+                  Join the builder network
                 </Link>
-              ))}
-              <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                <ThemeToggle />
-                <UserNav />
+                <div className="mt-4 flex items-center justify-between rounded-2xl bg-background p-3 text-foreground">
+                  <ThemeToggle />
+                  <UserNav />
+                </div>
               </div>
-            </nav>
+            </div>
           </div>
         </div>
       )}
@@ -154,213 +179,133 @@ function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="flex flex-col gap-8">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-8 sm:gap-12">
-              <div className="flex flex-col gap-4">
-                <Link to="/" className="inline-block hover:opacity-80 transition-opacity">
-                  <img src="/logo.png" alt={appName} className="h-12 w-auto" />
-                </Link>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Open platform for builders on NEAR
-                </p>
-              </div>
+      <footer className="border-t border-background/20 bg-foreground text-background">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-20">
+            <div>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-3 text-lg font-black tracking-tight text-background transition-opacity hover:opacity-75"
+              >
+                <img src="/logo.png" alt={appName} className="h-12 w-auto" />
+                {appName}
+              </Link>
+              <h2 className="mt-8 max-w-xl text-3xl font-black leading-tight tracking-tight text-background sm:text-4xl">
+                The open network for people building what's next.
+              </h2>
+              <p className="mt-4 max-w-lg text-sm leading-relaxed text-background/60 sm:text-base">
+                Find collaborators, make your work visible, and keep shipping with the NEAR
+                ecosystem behind you.
+              </p>
+            </div>
 
+            <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
               <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground mb-3">
-                  Ecosystem
+                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+                  Explore
                 </h3>
-                <nav className="flex flex-col gap-2">
-                  <a
-                    href="https://ironclaw.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Ironclaw
-                  </a>
-                  <a
-                    href="https://near.ai"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR AI
-                  </a>
-                  <a
-                    href="https://near.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Protocol
-                  </a>
-                  <a
-                    href="https://near.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Dev
-                  </a>
-                  <a
-                    href="https://nearcatalog.xyz"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Catalog
-                  </a>
-                  <a
-                    href="https://nearlegion.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Legion
-                  </a>
+                <nav className="mt-5 flex flex-col gap-3">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
                 </nav>
               </div>
 
               <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground mb-3">
-                  Docs
+                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+                  Ecosystem
                 </h3>
-                <nav className="flex flex-col gap-2">
-                  <a
-                    href="https://docs.ironclaw.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    IronClaw Docs
-                  </a>
-                  <a
-                    href="https://docs.near.ai"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR AI Docs
-                  </a>
-                  <a
-                    href="https://docs.near.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Docs
-                  </a>
-                  <a
-                    href="https://docs.near-intents.org/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    NEAR Intents Docs
-                  </a>
-                  <a
-                    href="https://docs.near.org/getting-started/hackathons"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Builder Starter Guide
-                  </a>
+                <nav className="mt-5 flex flex-col gap-3">
+                  {ecosystemLinks.map((link) => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </nav>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+                  Resources
+                </h3>
+                <nav className="mt-5 flex flex-col gap-3">
+                  {resourceLinks.map((link) => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
                 </nav>
               </div>
             </div>
+          </div>
 
-            <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-4">
-                <p className="text-xs text-muted-foreground">
-                  &copy; {new Date().getFullYear()} {appName}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href="https://github.com/nearbuilders"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="GitHub"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <title>GitHub</title>
-                    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.26-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.28-.5-4.72-.5-7 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.5-.8 1.48-1 3.5.28.28 2 1 3.5 1s3.22-.72 3.5-1" />
-                    <path d="M9 18c-4.51 2-5-2-7-2" />
-                  </svg>
-                </a>
-                <a
-                  href="https://x.com/NearBuilders"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="X (Twitter)"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <title>X (Twitter)</title>
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                </a>
-                <a
-                  href="https://t.me/nearbuilderschat"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Telegram"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <title>Telegram</title>
-                    <path d="m22 2-7 20-4-9-9-4z" />
-                    <path d="m22 2-11 11" />
-                  </svg>
-                </a>
-                <a
-                  href="https://near.dev"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative h-5 w-[84px] shrink-0 ml-2"
-                >
-                  <img
-                    src={builtOn}
-                    alt="Built on NEAR"
-                    className="absolute inset-0 h-full w-full object-contain dark:hidden"
-                  />
-                  <img
-                    src={builtOnRev}
-                    alt="Built on NEAR"
-                    className="absolute inset-0 hidden h-full w-full object-contain dark:block"
-                  />
-                </a>
-              </div>
+          <div className="mt-14 flex flex-col gap-6 border-t border-background/20 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-background/50">
+              &copy; {new Date().getFullYear()} {appName}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="https://github.com/nearbuilders"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                aria-label="GitHub"
+              >
+                <GitFork className="size-4" />
+              </a>
+              <a
+                href="https://x.com/NearBuilders"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                aria-label="X (Twitter)"
+              >
+                <span className="text-xs font-black">X</span>
+              </a>
+              <a
+                href="https://t.me/nearbuilderschat"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                aria-label="Telegram"
+              >
+                <Send className="size-4" />
+              </a>
+              <a
+                href="https://near.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative ml-2 h-5 w-[84px] shrink-0"
+              >
+                <img
+                  src={builtOnRev}
+                  alt="Built on NEAR"
+                  className="absolute inset-0 h-full w-full object-contain dark:hidden"
+                />
+                <img
+                  src={builtOn}
+                  alt="Built on NEAR"
+                  className="absolute inset-0 hidden h-full w-full object-contain dark:block"
+                />
+              </a>
             </div>
           </div>
         </div>

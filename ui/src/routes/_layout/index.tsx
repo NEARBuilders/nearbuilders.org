@@ -1,103 +1,58 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ExternalLink } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  ExternalLink,
+  Network,
+  PanelsTopLeft,
+  Rocket,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
+import { type ApiClient, useApiClient } from "@/app";
 import multiagencyLogo from "@/assets/multiagency-logo.svg";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/")({
+  loader: async ({ context }) => {
+    await Promise.allSettled([
+      context.queryClient.prefetchQuery(landingBuildersOptions(context.apiClient)),
+      context.queryClient.prefetchQuery(networkStatsOptions(context.apiClient)),
+    ]);
+  },
   head: () => ({
     meta: [
-      { title: "NEAR Builders — The builder's fastest path to market" },
+      { title: "NEAR Builders — Build what's next, together" },
       {
         name: "description",
         content:
-          "An open platform for builders on NEAR. Find collaborators, share projects, and build the open web together.",
+          "Find collaborators, discover open projects, and ship community-owned products with builders on NEAR.",
       },
     ],
   }),
   component: HomePage,
 });
 
-function HomePage() {
-  return (
-    <div className="flex flex-col">
-      <HeroSection />
-      <HighlightSection />
-    </div>
-  );
-}
-
-function HeroSection() {
-  return (
-    <section className="relative overflow-hidden bg-background">
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-[0.07] dark:opacity-[0.12]"
-          style={{
-            background: "radial-gradient(circle, var(--brand-cyan) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-[0.05] dark:opacity-[0.08]"
-          style={{
-            background: "radial-gradient(circle, var(--brand-green) 0%, transparent 70%)",
-          }}
-        />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 pb-20 sm:pt-32 sm:pb-28">
-        <div className="max-w-4xl">
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-none tracking-tight text-foreground mb-6">
-            The builder's
-            <br />
-            <span className="text-brand-green">fastest path</span>
-            <br />
-            to market.
-          </h1>
-
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mb-10 leading-relaxed font-medium">
-            An open-source platform for builders on NEAR. Find collaborators, discover projects, and
-            ship community-owned apps — without asking anyone's permission.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full text-base font-bold px-8 h-14 bg-brand-green hover:bg-brand-green/90 text-black shadow-lg shadow-brand-green/20 transition-all hover:scale-105 hover:shadow-xl hover:shadow-brand-green/30"
-            >
-              <Link to="/builders" search={{ highlight: undefined }}>
-                Find Builders
-                <ArrowRight size={18} />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="rounded-full text-base font-bold px-8 h-14 border-border hover:border-foreground transition-all"
-            >
-              <Link to="/projects">Browse Projects</Link>
-            </Button>
-          </div>
-
-          <EcosystemStrip />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 interface EcosystemLink {
   href: string;
   label: string;
   tagline: string;
   domain: string;
-  mascot?: true;
-  legion?: true;
-  multiagency?: true;
-  logoSrc?: string;
+  logoSrc: string;
+}
+
+interface LandingBuilder {
+  nearAccount: string;
+  name: string;
+}
+
+interface NearSocialProfile {
+  image?: {
+    url?: string;
+    ipfs_cid?: string;
+  };
 }
 
 const ecosystemLinks: EcosystemLink[] = [
@@ -106,7 +61,7 @@ const ecosystemLinks: EcosystemLink[] = [
     label: "IronClaw",
     tagline: "Secure AI agent OS",
     domain: "ironclaw.com",
-    mascot: true,
+    logoSrc: "https://ironclaw.com/images/iron_claw_guy1.png",
   },
   {
     href: "https://nearcatalog.xyz",
@@ -118,10 +73,9 @@ const ecosystemLinks: EcosystemLink[] = [
   {
     href: "https://multiagency.ai",
     label: "MultiAgency",
-    tagline: "Hire Near Builders",
+    tagline: "Hire NEAR builders",
     domain: "multiagency.ai",
     logoSrc: multiagencyLogo,
-    multiagency: true,
   },
   {
     href: "https://nearlegion.com",
@@ -129,198 +83,423 @@ const ecosystemLinks: EcosystemLink[] = [
     tagline: "Prepare for NEARvana",
     domain: "nearlegion.com",
     logoSrc: "https://nearlegion.com/assets/brand/logo.webp",
-    legion: true,
   },
 ];
 
-function EcosystemLogo({
-  src,
-  alt,
-  fallbackText,
-  fallbackBg,
-  fallbackTextClass,
-}: {
-  src?: string;
-  alt: string;
-  fallbackText: string;
-  fallbackBg: string;
-  fallbackTextClass: string;
-}) {
+function landingBuildersOptions(apiClient: ApiClient) {
+  return {
+    queryKey: ["builders", "landing"] as const,
+    queryFn: async (): Promise<LandingBuilder[]> => {
+      const response = await apiClient.listBuilders({ limit: 3 });
+      return response.data.map((builder) => ({
+        nearAccount: builder.nearAccount,
+        name: builder.name || builder.nearAccount,
+      }));
+    },
+    staleTime: 60_000,
+  };
+}
+
+function nearSocialProfileOptions(accountId: string) {
+  return {
+    queryKey: ["near-social-profile", accountId] as const,
+    queryFn: async (): Promise<NearSocialProfile | null> => {
+      const url = new URL("https://api.near.social/get");
+      url.searchParams.set("keys", `${accountId}/profile/**`);
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const data = (await response.json()) as Record<
+        string,
+        { profile?: NearSocialProfile } | undefined
+      >;
+      return data[accountId]?.profile ?? null;
+    },
+    enabled: Boolean(accountId),
+    staleTime: 5 * 60 * 1000,
+  };
+}
+
+function networkStatsOptions(apiClient: ApiClient) {
+  return {
+    queryKey: ["network-stats"] as const,
+    queryFn: async () => {
+      const [builders, projects] = await Promise.all([
+        apiClient.listBuilders({ limit: 1 }),
+        apiClient.listProjects({ limit: 1 }),
+      ]);
+
+      return {
+        builders: builders.meta.total,
+        projects: projects.meta.total,
+      };
+    },
+    staleTime: 60_000,
+  };
+}
+
+function HomePage() {
+  return (
+    <div className="flex flex-col bg-background">
+      <HeroSection />
+      <PeopleBuildingSection />
+      <ParticipationSection />
+    </div>
+  );
+}
+
+function HeroSection() {
+  const apiClient = useApiClient();
+  const { data: featuredBuilders = [] } = useQuery(landingBuildersOptions(apiClient));
+  const { data: networkStats } = useQuery(networkStatsOptions(apiClient));
+
+  return (
+    <section className="overflow-hidden border-b border-border bg-muted/20">
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-center lg:gap-14 lg:px-8 lg:py-24">
+        <div className="relative z-10 max-w-xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-accent-border bg-brand-accent-light px-3 py-1.5 text-xs font-bold text-foreground">
+            <Network className="size-3.5 text-brand-accent" />
+            Open network for builders
+          </div>
+          <h1 className="text-5xl font-black leading-none tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+            Build what's
+            <span className="block">next,</span>
+            <span className="block text-brand-accent">together.</span>
+          </h1>
+          <p className="mt-7 max-w-lg text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl">
+            Find collaborators, discover open projects, and ship community-owned products with
+            builders across NEAR.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-brand-accent px-7 text-brand-mint-foreground shadow-lg shadow-brand-accent-border hover:opacity-90"
+            >
+              <Link to="/builders" search={{ highlight: undefined }}>
+                Explore builders
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="rounded-full px-7">
+              <Link to="/builders/add">Share your work</Link>
+            </Button>
+          </div>
+          {featuredBuilders.length > 0 && (
+            <div className="mt-9 flex items-center gap-4">
+              <div className="flex -space-x-2">
+                {featuredBuilders.map((builder) => (
+                  <BuilderAvatar
+                    key={builder.nearAccount}
+                    builder={builder}
+                    className="size-9 border-2 border-background"
+                  />
+                ))}
+              </div>
+              <p className="max-w-52 text-sm leading-snug text-muted-foreground">
+                Join builders sharing their work in public on NEAR.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="relative overflow-hidden rounded-3xl border border-brand-accent-border bg-card p-5 shadow-xl shadow-brand-accent-border sm:p-7">
+          <img
+            src="/landing/network-paths.webp"
+            alt=""
+            className="pointer-events-none absolute inset-0 hidden size-full object-cover opacity-70 mix-blend-multiply sm:block"
+          />
+          <div className="relative">
+            <div className="flex flex-nowrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 whitespace-nowrap text-xs font-bold uppercase tracking-widest text-foreground">
+                <Network className="size-4 text-brand-accent" />
+                Builder network
+              </div>
+              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-mint-foreground">
+                Community curated
+              </span>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Link
+                to="/builders"
+                search={{ highlight: undefined }}
+                className="group rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent hover:shadow-md sm:p-5"
+              >
+                <div className="flex items-center">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
+                    <Users className="size-4" />
+                  </span>
+                </div>
+                <div className="mt-6">
+                  <p className="text-3xl font-black tabular-nums tracking-tight text-foreground sm:text-4xl">
+                    {networkStats?.builders ?? "—"}
+                  </p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground">
+                    Builders
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Across the network</p>
+                </div>
+              </Link>
+              <Link
+                to="/projects"
+                className="group rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent hover:shadow-md sm:p-5"
+              >
+                <div className="flex items-center">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
+                    <PanelsTopLeft className="size-4" />
+                  </span>
+                </div>
+                <div className="mt-6">
+                  <p className="text-3xl font-black tabular-nums tracking-tight text-foreground sm:text-4xl">
+                    {networkStats?.projects ?? "—"}
+                  </p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground">
+                    Projects
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Open work to explore</p>
+                </div>
+              </Link>
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Connected across NEAR
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {ecosystemLinks.map((item) => (
+                <EcosystemNetworkCard key={item.href} item={item} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BuilderAvatar({ builder, className }: { builder: LandingBuilder; className?: string }) {
+  const { data: profile } = useQuery(nearSocialProfileOptions(builder.nearAccount));
+  const [errored, setErrored] = useState(false);
+  const imageUrl =
+    profile?.image?.url ??
+    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const initials = builder.name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div
+      className={cn(
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-accent-light text-xs font-bold text-brand-accent",
+        className,
+      )}
+      role="img"
+      aria-label={`${builder.name} profile`}
+    >
+      {initials}
+      {imageUrl && !errored && (
+        <img
+          src={imageUrl}
+          alt=""
+          onError={() => setErrored(true)}
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
+    </div>
+  );
+}
+
+function EcosystemNetworkCard({ item, className }: { item: EcosystemLink; className?: string }) {
+  return (
+    <a
+      href={item.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "group flex h-20 w-full min-w-0 items-center gap-3 self-center rounded-xl border border-border bg-card p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent-border hover:shadow-md",
+        className,
+      )}
+    >
+      <LogoImage item={item} className="size-8 sm:size-10" />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold text-foreground">{item.label}</p>
+        <p className="truncate text-[10px] text-muted-foreground">{item.tagline}</p>
+      </div>
+      <ExternalLink className="ml-auto hidden size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-brand-accent sm:block" />
+    </a>
+  );
+}
+
+function LogoImage({ item, className }: { item: EcosystemLink; className?: string }) {
   const [errored, setErrored] = useState(false);
 
-  if (!src || errored) {
+  if (errored) {
     return (
       <div
-        className={cn("size-10 rounded-md flex items-center justify-center mb-3", fallbackBg)}
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-lg bg-brand-accent-light font-bold text-brand-accent",
+          className,
+        )}
         aria-hidden="true"
       >
-        <span className={cn("font-bold text-sm", fallbackTextClass)}>{fallbackText}</span>
+        {item.label.slice(0, 1)}
       </div>
     );
   }
 
   return (
     <img
-      src={src}
-      alt={alt}
+      src={item.logoSrc}
+      alt=""
       onError={() => setErrored(true)}
-      className="size-10 object-contain mb-3 group-hover:-translate-y-0.5 transition-transform duration-200"
+      className={cn("shrink-0 object-contain", className)}
     />
   );
 }
 
-function EcosystemStrip() {
+function PeopleBuildingSection() {
   return (
-    <div className="mt-12">
-      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-        Explore the ecosystem
-      </p>
-      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {ecosystemLinks.map((item) => {
-          if (item.mascot) {
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative flex-none w-[152px] snap-start rounded-lg border border-slate-700 bg-slate-900 p-4 pt-3 flex flex-col items-center text-center hover:border-slate-500 hover:shadow-lg transition-all duration-200 overflow-hidden"
-              >
-                <ExternalLink
-                  size={10}
-                  className="absolute top-2.5 right-2.5 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                />
-                <EcosystemLogo
-                  src="https://ironclaw.com/images/iron_claw_guy1.png"
-                  alt="IronClaw mascot"
-                  fallbackText={item.label[0]}
-                  fallbackBg="bg-slate-800"
-                  fallbackTextClass="text-white"
-                />
-                <span className="text-sm font-bold text-white leading-tight">{item.label}</span>
-                <span className="text-[11px] text-slate-400 mt-0.5 leading-tight">
-                  {item.tagline}
-                </span>
-                <span className="text-[10px] text-slate-600 mt-auto pt-1.5">{item.domain}</span>
-              </a>
-            );
-          }
+    <section className="border-y border-border bg-foreground py-16 text-background sm:py-20 lg:py-24">
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-20 lg:px-8">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+            Your path through the network
+          </p>
+          <h2 className="mt-4 max-w-md text-4xl font-black leading-tight tracking-tight text-background sm:text-5xl">
+            Start with an idea. Leave with momentum.
+          </h2>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-background/65 sm:text-lg">
+            NEAR Builders helps the right people find each other, make their work visible, and keep
+            shipping in public.
+          </p>
+          <Button
+            asChild
+            variant="outline"
+            className="mt-8 rounded-full border-background/20 bg-background/10 text-background hover:bg-background hover:text-foreground"
+          >
+            <Link to="/builders" search={{ highlight: undefined }}>
+              Enter the network
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
 
-          if (item.legion) {
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative flex-none w-[152px] snap-start rounded-lg border border-brand-green/40 bg-brand-green/5 p-4 flex flex-col items-center text-center hover:border-brand-green hover:bg-brand-green/10 hover:shadow-lg hover:shadow-brand-green/10 transition-all duration-200"
-              >
-                <ExternalLink
-                  size={10}
-                  className="absolute top-2.5 right-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                />
-                <EcosystemLogo
-                  src={item.logoSrc}
-                  alt={item.label}
-                  fallbackText={item.label[0]}
-                  fallbackBg="bg-brand-green/15"
-                  fallbackTextClass="text-brand-green"
-                />
-                <span className="text-sm font-bold text-foreground leading-tight">
-                  {item.label}
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                  {item.tagline}
-                </span>
-                <span className="text-[10px] text-brand-green/60 mt-auto pt-1.5">
-                  {item.domain}
-                </span>
-              </a>
-            );
-          }
-
-          if (item.multiagency) {
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative flex-none w-[152px] snap-start rounded-lg border border-yellow-400/40 bg-yellow-400/5 p-4 flex flex-col items-center text-center hover:border-yellow-400 hover:bg-yellow-400/10 hover:shadow-lg hover:shadow-yellow-400/10 transition-all duration-200"
-              >
-                <ExternalLink
-                  size={10}
-                  className="absolute top-2.5 right-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                />
-                <EcosystemLogo
-                  src={item.logoSrc}
-                  alt={item.label}
-                  fallbackText={item.label[0]}
-                  fallbackBg="bg-yellow-400/15"
-                  fallbackTextClass="text-yellow-400"
-                />
-                <span className="text-sm font-bold text-foreground leading-tight">
-                  {item.label}
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                  {item.tagline}
-                </span>
-                <span className="text-[10px] text-yellow-400/60 mt-auto pt-1.5">{item.domain}</span>
-              </a>
-            );
-          }
-
-          return (
-            <a
-              key={item.href}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative flex-none w-[152px] snap-start rounded-lg border border-border bg-card p-4 flex flex-col items-center text-center hover:border-brand-cyan/40 hover:shadow-md transition-all duration-200"
-            >
-              <ExternalLink
-                size={10}
-                className="absolute top-2.5 right-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-              <EcosystemLogo
-                src={item.logoSrc}
-                alt={item.label}
-                fallbackText={item.label[0]}
-                fallbackBg="bg-secondary"
-                fallbackTextClass="text-muted-foreground group-hover:text-brand-cyan transition-colors"
-              />
-              <span className="text-sm font-bold text-foreground leading-tight">{item.label}</span>
-              <span className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                {item.tagline}
+        <div className="border-y border-background/20">
+          <Link
+            to="/builders"
+            search={{ highlight: undefined }}
+            className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-b border-background/20 py-8 sm:items-center sm:gap-6"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <span className="font-mono text-xs font-bold text-brand-accent">01</span>
+              <span className="flex size-11 items-center justify-center rounded-full bg-background/10 text-brand-accent sm:size-12">
+                <Users className="size-5" />
               </span>
-              <span className="text-[10px] text-muted-foreground/50 mt-auto pt-1.5">
-                {item.domain}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black tracking-tight text-background">
+                Find your people
+              </h3>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-background/60 sm:text-base">
+                Discover approved builders by skill and location, then open the profiles that match
+                what you want to make.
+              </p>
+            </div>
+            <ArrowUpRight className="size-5 text-background/50 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-brand-accent" />
+          </Link>
+
+          <Link
+            to="/projects"
+            className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-b border-background/20 py-8 sm:items-center sm:gap-6"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <span className="font-mono text-xs font-bold text-brand-accent">02</span>
+              <span className="flex size-11 items-center justify-center rounded-full bg-background/10 text-brand-accent sm:size-12">
+                <PanelsTopLeft className="size-5" />
               </span>
-            </a>
-          );
-        })}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black tracking-tight text-background">
+                Make the work visible
+              </h3>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-background/60 sm:text-base">
+                Put an idea or active project in front of the network so collaborators can find a
+                clear way in.
+              </p>
+            </div>
+            <ArrowUpRight className="size-5 text-background/50 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-brand-accent" />
+          </Link>
+
+          <Link
+            to="/activity"
+            className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 py-8 sm:items-center sm:gap-6"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <span className="font-mono text-xs font-bold text-brand-accent">03</span>
+              <span className="flex size-11 items-center justify-center rounded-full bg-background/10 text-brand-accent sm:size-12">
+                <Rocket className="size-5" />
+              </span>
+            </div>
+            <div>
+              <h3 className="text-2xl font-black tracking-tight text-background">Ship in public</h3>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-background/60 sm:text-base">
+                Turn progress into a public signal, earn community support, and help the next
+                collaboration start faster.
+              </p>
+            </div>
+            <ArrowUpRight className="size-5 text-background/50 transition-all group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-brand-accent" />
+          </Link>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-function HighlightSection() {
+function ParticipationSection() {
   return (
-    <section className="bg-secondary border-y border-border">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-        <div className="max-w-3xl">
-          <p className="text-2xl sm:text-3xl font-bold text-foreground leading-snug">
-            The open web is possible when builders work together. This is where that happens — find
-            your collaborators, ship your ideas.
+    <section className="border-b border-brand-accent-border bg-brand-accent py-16 sm:py-20 lg:py-24">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:items-end lg:gap-20 lg:px-8">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-mint-foreground/65">
+            Your move
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4">
-            <Button asChild size="lg" className="rounded-full px-8 h-12">
-              <Link to="/builders" search={{ highlight: undefined }}>
-                Meet the builders
+          <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight text-brand-mint-foreground sm:text-5xl lg:text-6xl">
+            Bring what you're building into the open.
+          </h2>
+        </div>
+
+        <div>
+          <p className="max-w-xl text-base leading-relaxed text-brand-mint-foreground/75 sm:text-lg">
+            Create a profile so collaborators can find you, or start a project and give the network
+            a clear way to join.
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-foreground px-6 text-background hover:bg-foreground/90"
+            >
+              <Link to="/builders/add">
+                <Users className="size-4" />
+                Create builder profile
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-full px-8 h-12">
-              <Link to="/projects">See what's being built</Link>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="rounded-full border-brand-mint-foreground/25 bg-transparent px-6 text-brand-mint-foreground hover:bg-brand-mint-foreground/10 hover:text-brand-mint-foreground"
+            >
+              <Link to="/projects/new">
+                Start a project
+                <ArrowRight className="size-4" />
+              </Link>
             </Button>
           </div>
         </div>
