@@ -78,10 +78,7 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
             where
               ? db.select({ count: count() }).from(issueClaims).where(where)
               : db.select({ count: count() }).from(issueClaims),
-            (where
-              ? db.select().from(issueClaims).where(where)
-              : db.select().from(issueClaims)
-            )
+            (where ? db.select().from(issueClaims).where(where) : db.select().from(issueClaims))
               .orderBy(desc(issueClaims.claimedAt), desc(issueClaims.id))
               .limit(limit)
               .offset(offset),
@@ -206,10 +203,7 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
             );
           }
           yield* Effect.promise(() =>
-            db
-              .update(issueClaims)
-              .set({ releasedAt: now })
-              .where(eq(issueClaims.id, existing.id)),
+            db.update(issueClaims).set({ releasedAt: now }).where(eq(issueClaims.id, existing.id)),
           );
         }
 
@@ -244,9 +238,7 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
           db.select().from(issueClaims).where(eq(issueClaims.id, id)).limit(1),
         );
         if (!existing) {
-          return yield* Effect.fail(
-            new ORPCError("NOT_FOUND", { message: "Claim not found" }),
-          );
+          return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Claim not found" }));
         }
         if (!isAdmin && existing.nearAccount !== nearAccount.trim().toLowerCase()) {
           return yield* Effect.fail(
@@ -258,11 +250,7 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
         if (existing.releasedAt) return rowToClaim(existing);
         const now = new Date();
         const [updated] = yield* Effect.promise(() =>
-          db
-            .update(issueClaims)
-            .set({ releasedAt: now })
-            .where(eq(issueClaims.id, id))
-            .returning(),
+          db.update(issueClaims).set({ releasedAt: now }).where(eq(issueClaims.id, id)).returning(),
         );
         if (!updated) return rowToClaim(existing);
         return rowToClaim(updated, now);
@@ -280,9 +268,7 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
           db.select().from(issueClaims).where(eq(issueClaims.id, id)).limit(1),
         );
         if (!existing) {
-          return yield* Effect.fail(
-            new ORPCError("NOT_FOUND", { message: "Claim not found" }),
-          );
+          return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Claim not found" }));
         }
         if (!isAdmin && existing.nearAccount !== nearAccount.trim().toLowerCase()) {
           return yield* Effect.fail(
@@ -324,7 +310,10 @@ export function createClaimMethods(db: Database, config: ClaimMethodsConfig = {}
 
 type ClaimMethods = ReturnType<typeof createClaimMethods>;
 
-export class ClaimService extends Context.Tag("issues/ClaimService")<ClaimService, ClaimMethods>() {}
+export class ClaimService extends Context.Tag("issues/ClaimService")<
+  ClaimService,
+  ClaimMethods
+>() {}
 
 export const ClaimServiceLive = (config: ClaimMethodsConfig = {}) =>
   Layer.effect(

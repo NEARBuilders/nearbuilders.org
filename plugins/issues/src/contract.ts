@@ -19,12 +19,7 @@ const CursorSchema = z.string().regex(/^\d+$/);
 const NearAccountSchema = z.string().trim().min(1).max(100);
 const ClaimIdSchema = z.string().min(1).max(255);
 
-export const IssueDifficultySchema = z.enum([
-  "beginner",
-  "intermediate",
-  "advanced",
-  "unknown",
-]);
+export const IssueDifficultySchema = z.enum(["beginner", "intermediate", "advanced", "unknown"]);
 
 export const IssueLabelSchema = z.object({
   name: z.string(),

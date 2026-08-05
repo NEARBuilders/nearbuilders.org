@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Check, ExternalLink, GitPullRequest } from "lucide-react";
 import { useApiClient } from "@/app";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,7 +24,7 @@ export function BuilderIssueClaims({ nearAccount }: { nearAccount: string }) {
   const query = useQuery({
     queryKey: ["issue-claims", nearAccount],
     queryFn: async () => {
-      const result = (await apiClient.listIssueClaims({
+      const result = (await apiClient.issues.listIssueClaims({
         nearAccount,
         limit: 50,
       })) as { data: IssueClaim[] };
@@ -40,10 +39,8 @@ export function BuilderIssueClaims({ nearAccount }: { nearAccount: string }) {
 
   if (query.isLoading) {
     return (
-      <section className="mt-6">
-        <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-          Issue claims
-        </h3>
+      <section className="mt-8">
+        <h3 className="mb-3 text-sm font-bold text-foreground">Issue claims</h3>
         <Skeleton className="h-16 w-full rounded-xl" />
       </section>
     );
@@ -52,33 +49,35 @@ export function BuilderIssueClaims({ nearAccount }: { nearAccount: string }) {
   if (claims.length === 0) return null;
 
   return (
-    <section className="mt-6 space-y-4">
+    <section className="mt-8 space-y-6">
       {active.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Active claims ({active.length})
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+            Active claims
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              {active.length}
+            </span>
           </h3>
-          <ul className="space-y-2">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-border">
             {active.map((claim) => (
-              <li key={claim.id}>
-                <ClaimRow claim={claim} tone="active" />
-              </li>
+              <ClaimRow key={claim.id} claim={claim} tone="active" />
             ))}
-          </ul>
+          </div>
         </div>
       )}
       {merged.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Merged contributions ({merged.length})
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+            Merged contributions
+            <span className="rounded-full bg-brand-accent-light px-2 py-0.5 text-[11px] font-semibold text-brand-accent">
+              {merged.length}
+            </span>
           </h3>
-          <ul className="space-y-2">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-border">
             {merged.map((claim) => (
-              <li key={claim.id}>
-                <ClaimRow claim={claim} tone="merged" />
-              </li>
+              <ClaimRow key={claim.id} claim={claim} tone="merged" />
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </section>
@@ -86,41 +85,49 @@ export function BuilderIssueClaims({ nearAccount }: { nearAccount: string }) {
 }
 
 function ClaimRow({ claim, tone }: { claim: IssueClaim; tone: "active" | "merged" }) {
-  const icon =
-    tone === "merged" ? (
-      <Check className="h-3 w-3 text-brand-green" />
-    ) : claim.status === "submitted" ? (
-      <GitPullRequest className="h-3 w-3 text-brand-cyan" />
-    ) : null;
+  const StatusIcon =
+    tone === "merged" ? Check : claim.status === "submitted" ? GitPullRequest : null;
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
+    <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          {icon}
+          {StatusIcon && (
+            <span
+              className={cn(
+                "inline-flex size-4 items-center justify-center rounded-full",
+                tone === "merged"
+                  ? "bg-brand-accent-light text-brand-accent"
+                  : "bg-brand-accent-light text-brand-accent",
+              )}
+            >
+              <StatusIcon className="size-2.5" />
+            </span>
+          )}
           <span className="font-mono">
             {claim.repoOwner}/{claim.repoName}#{claim.issueNumber}
           </span>
         </div>
-        <Link
-          to="/issues"
-          className={cn(
-            "mt-0.5 line-clamp-1 text-sm font-medium hover:underline",
-            tone === "merged" ? "text-foreground" : "text-foreground",
-          )}
+        <a
+          href={claim.issueUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-0.5 line-clamp-1 block text-sm font-semibold text-foreground hover:text-brand-accent hover:underline"
         >
           {claim.issueTitle}
-        </Link>
+        </a>
       </div>
-      <a
-        href={claim.prUrl ?? claim.issueUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-[11px] text-brand-cyan hover:underline"
-      >
-        {claim.prUrl ? "PR" : "Issue"}
-        <ExternalLink className="h-3 w-3" />
-      </a>
+      {claim.prUrl && (
+        <a
+          href={claim.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-brand-accent hover:text-brand-accent"
+        >
+          PR
+          <ExternalLink className="size-3" />
+        </a>
+      )}
     </div>
   );
 }

@@ -56,9 +56,7 @@ async function mapWithConcurrency<T, R>(
 
 export default createPlugin({
   variables: z.object({
-    repos: z
-      .union([z.string(), z.array(z.string())])
-      .default("NEARBuilders/nearbuilders.org"),
+    repos: z.union([z.string(), z.array(z.string())]).default("NEARBuilders/nearbuilders.org"),
     claimTtlDays: z.number().int().min(1).max(60).default(7),
   }),
 
@@ -232,53 +230,59 @@ export default createPlugin({
         };
       }),
 
-      listIssueClaims: builder.listIssueClaims.handler(async ({ input }) =>
-        await runEffect(services.claims.listClaims(input)),
+      listIssueClaims: builder.listIssueClaims.handler(
+        async ({ input }) => await runEffect(services.claims.listClaims(input)),
       ),
 
-      claimIssue: builder.claimIssue.use(requireAuth).handler(async ({ input, context, errors }) => {
-        const account = input.nearAccount?.trim().toLowerCase() ?? authorNearAccount(context);
-        if (!account) {
-          throw errors.FORBIDDEN({
-            message: "A linked NEAR account is required to claim issues",
-          });
-        }
-        const isConfigured = services.repos.some(
-          (r) =>
-            r.owner.toLowerCase() === input.repoOwner.toLowerCase() &&
-            r.name.toLowerCase() === input.repoName.toLowerCase(),
-        );
-        if (!isConfigured) {
-          throw errors.NOT_FOUND({
-            message: "Repository is not enabled for claiming",
-            data: { resource: "github-repo" },
-          });
-        }
-        const issue = await runEffect(
-          services.github.getIssue(
-            { owner: input.repoOwner, name: input.repoName },
-            input.issueNumber,
-          ),
-        );
-        const claim = await runEffect(
-          services.claims.claimIssue({
-            repoOwner: input.repoOwner,
-            repoName: input.repoName,
-            issueNumber: input.issueNumber,
-            issueTitle: issue.title,
-            issueUrl: issue.htmlUrl,
-            nearAccount: account,
-          }),
-        );
-        return { data: claim };
-      }),
+      claimIssue: builder.claimIssue
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = input.nearAccount?.trim().toLowerCase() ?? authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "A linked NEAR account is required to claim issues",
+              data: { action: "claimIssue" },
+            });
+          }
+          const isConfigured = services.repos.some(
+            (r) =>
+              r.owner.toLowerCase() === input.repoOwner.toLowerCase() &&
+              r.name.toLowerCase() === input.repoName.toLowerCase(),
+          );
+          if (!isConfigured) {
+            throw errors.NOT_FOUND({
+              message: "Repository is not enabled for claiming",
+              data: { resource: "github-repo" },
+            });
+          }
+          const issue = await runEffect(
+            services.github.getIssue(
+              { owner: input.repoOwner, name: input.repoName },
+              input.issueNumber,
+            ),
+          );
+          const claim = await runEffect(
+            services.claims.claimIssue({
+              repoOwner: input.repoOwner,
+              repoName: input.repoName,
+              issueNumber: input.issueNumber,
+              issueTitle: issue.title,
+              issueUrl: issue.htmlUrl,
+              nearAccount: account,
+            }),
+          );
+          return { data: claim };
+        }),
 
       releaseIssueClaim: builder.releaseIssueClaim
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
           const account = authorNearAccount(context);
           if (!account) {
-            throw errors.FORBIDDEN({ message: "A linked NEAR account is required" });
+            throw errors.FORBIDDEN({
+              message: "A linked NEAR account is required",
+              data: { action: "releaseIssueClaim" },
+            });
           }
           const claim = await runEffect(
             services.claims.releaseClaim(input.id, account, context.user?.role === "admin"),
@@ -291,7 +295,10 @@ export default createPlugin({
         .handler(async ({ input, context, errors }) => {
           const account = authorNearAccount(context);
           if (!account) {
-            throw errors.FORBIDDEN({ message: "A linked NEAR account is required" });
+            throw errors.FORBIDDEN({
+              message: "A linked NEAR account is required",
+              data: { action: "attachPrToClaim" },
+            });
           }
           const claim = await runEffect(
             services.claims.attachPr(
