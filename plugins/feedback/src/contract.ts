@@ -18,6 +18,12 @@ const RepoSlug = z
   .trim()
   .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, "Use owner/repo format");
 
+export const ApplicationCountsSchema = z.object({
+  pending: z.number().int().nonnegative(),
+  selected: z.number().int().nonnegative(),
+});
+export type ApplicationCounts = z.infer<typeof ApplicationCountsSchema>;
+
 export const FeedbackRequestSchema = z.object({
   id: z.string(),
   ownerNearAccount: z.string(),
@@ -35,6 +41,7 @@ export const FeedbackRequestSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   expiresAt: z.string(),
+  applicationCounts: ApplicationCountsSchema,
 });
 export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 
@@ -144,6 +151,18 @@ export const contract = {
 
   withdrawFeedbackApplication: oc
     .route({ method: "DELETE", path: "/v1/feedback/applications/{id}" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  selectFeedbackApplicant: oc
+    .route({ method: "POST", path: "/v1/feedback/applications/{id}/select" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  rejectFeedbackApplicant: oc
+    .route({ method: "POST", path: "/v1/feedback/applications/{id}/reject" })
     .input(z.object({ id: z.string() }))
     .output(z.object({ data: FeedbackApplicationSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),

@@ -93,9 +93,13 @@ export const RequestServiceLive = Layer.effect(
 
           const hasMore = rows.length > limit;
           const page = hasMore ? rows.slice(0, limit) : rows;
+          const withCounts = page.map((r) => ({
+            ...r,
+            applicationCounts: { pending: 0, selected: 0 },
+          }));
 
           return {
-            data: page as FeedbackRequest[],
+            data: withCounts as FeedbackRequest[],
             meta: {
               total: page.length,
               hasMore,
@@ -124,7 +128,12 @@ export const RequestServiceLive = Layer.effect(
               }),
             );
           }
-          return { data: found as FeedbackRequest };
+          return {
+            data: {
+              ...found,
+              applicationCounts: { pending: 0, selected: 0 },
+            } as FeedbackRequest,
+          };
         }),
 
       createRequest: (input) =>
@@ -159,7 +168,12 @@ export const RequestServiceLive = Layer.effect(
               }),
           });
 
-          return { data: row as FeedbackRequest };
+          return {
+            data: {
+              ...row,
+              applicationCounts: { pending: 0, selected: 0 },
+            } as FeedbackRequest,
+          };
         }),
     };
   }),

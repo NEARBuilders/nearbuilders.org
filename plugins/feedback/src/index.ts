@@ -59,13 +59,27 @@ export default createPlugin({
     });
 
     return {
-      listFeedbackRequests: builder.listFeedbackRequests.handler(
-        async ({ input }) => await runEffect(services.requests.listRequests(input)),
-      ),
+      listFeedbackRequests: builder.listFeedbackRequests.handler(async ({ input }) => {
+        const result = await runEffect(services.requests.listRequests(input));
+        const counts = await runEffect(
+          services.applications.countsForRequests(result.data.map((r) => r.id)),
+        );
+        return {
+          ...result,
+          data: result.data.map((r) => ({
+            ...r,
+            applicationCounts: counts.get(r.id) ?? { pending: 0, selected: 0 },
+          })),
+        };
+      }),
 
-      getFeedbackRequest: builder.getFeedbackRequest.handler(
-        async ({ input }) => await runEffect(services.requests.getRequest(input.id)),
-      ),
+      getFeedbackRequest: builder.getFeedbackRequest.handler(async ({ input }) => {
+        const result = await runEffect(services.requests.getRequest(input.id));
+        const counts = await runEffect(
+          services.applications.countApplicationsForRequest(result.data.id),
+        );
+        return { data: { ...result.data, applicationCounts: counts } };
+      }),
 
       createFeedbackRequest: builder.createFeedbackRequest
         .use(requireAuth)
@@ -119,6 +133,32 @@ export default createPlugin({
             });
           }
           return await runEffect(services.applications.withdrawApplication(input.id, account));
+        }),
+
+      selectFeedbackApplicant: builder.selectFeedbackApplicant
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to select applicants",
+              data: { action: "selectFeedbackApplicant" },
+            });
+          }
+          return await runEffect(services.applications.selectApplicant(input.id, account));
+        }),
+
+      rejectFeedbackApplicant: builder.rejectFeedbackApplicant
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to reject applicants",
+              data: { action: "rejectFeedbackApplicant" },
+            });
+          }
+          return await runEffect(services.applications.rejectApplicant(input.id, account));
         }),
     };
   },

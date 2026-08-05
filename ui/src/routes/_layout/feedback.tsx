@@ -1,15 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  Calendar,
-  Check,
-  ExternalLink,
-  MessageSquare,
-  Plus,
-  Search,
-  Undo2,
-  Users,
-} from "lucide-react";
+import { Calendar, Check, ExternalLink, MessageSquare, Plus, Search, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -54,6 +45,7 @@ interface FeedbackRequest {
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
+  applicationCounts: { pending: number; selected: number };
 }
 
 interface RequestsResponse {
@@ -386,11 +378,8 @@ function RequestCard({
         {request.title}
       </h3>
       <p className="line-clamp-2 text-xs text-muted-foreground">{request.body}</p>
+      <TesterProgress request={request} />
       <div className="mt-auto flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-semibold">
-          <Users className="size-3" />
-          {request.testersWanted} testers
-        </span>
         <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-semibold">
           <Calendar className="size-3" />
           {daysUntil(request.expiresAt)}
@@ -400,6 +389,32 @@ function RequestCard({
         </span>
       </div>
     </button>
+  );
+}
+
+function TesterProgress({ request }: { request: FeedbackRequest }) {
+  const { selected, pending } = request.applicationCounts;
+  const total = request.testersWanted;
+  const filled = Math.min(selected, total);
+  const percent = total > 0 ? (filled / total) * 100 : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full border border-border bg-muted">
+        <div
+          className={cn(
+            "h-full rounded-full",
+            request.status === "testing" || request.status === "complete"
+              ? "bg-amber-500"
+              : "bg-brand-accent",
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="whitespace-nowrap text-[10px] font-bold tabular-nums text-muted-foreground">
+        {filled}/{total} testers
+        {pending > 0 && request.status === "filling" && ` · ${pending} pending`}
+      </span>
+    </div>
   );
 }
 
@@ -650,13 +665,7 @@ function RequestDetail({
       )}
 
       {isOwner ? (
-        <div className="mt-6 rounded-lg border border-border bg-card p-3 text-xs">
-          <p className="font-semibold text-foreground">You posted this request</p>
-          <p className="mt-1 text-muted-foreground">
-            Application management arrives in the next slice — you'll be able to review applicants
-            and pick your testers from here.
-          </p>
-        </div>
+        <OwnerApplicationsPanel request={request} />
       ) : application ? (
         <div className="mt-6 rounded-lg border border-brand-accent-border bg-brand-accent-light/40 p-3">
           <div className="flex items-center gap-2">
@@ -770,6 +779,189 @@ function EmptyState({
         >
           Connect a wallet to post
         </Link>
+      )}
+    </div>
+  );
+}
+
+function OwnerApplicationsPanel({ request }: { request: FeedbackRequest }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+
+  const applicationsQuery = useQuery({
+    queryKey: ["feedback", "request-applications", request.id],
+    queryFn: async () =>
+      (await apiClient.feedback.listFeedbackApplications({
+        requestId: request.id,
+        limit: 50,
+      })) as ApplicationsResponse,
+    staleTime: 15_000,
+  });
+
+  const invalidateAfter = () => {
+    queryClient.invalidateQueries({ queryKey: ["feedback"] });
+  };
+
+  const selectMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.feedback.selectFeedbackApplicant({ id }),
+    onSuccess: () => {
+      toast.success("Applicant selected");
+      invalidateAfter();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not select"),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.feedback.rejectFeedbackApplicant({ id }),
+    onSuccess: () => {
+      toast.success("Applicant declined");
+      invalidateAfter();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not decline"),
+  });
+
+  const applications = applicationsQuery.data?.data ?? [];
+  const selected = applications.filter((a) => a.status === "selected");
+  const pending = applications.filter((a) => a.status === "pending");
+  const rejected = applications.filter((a) => a.status === "rejected");
+  const withdrawn = applications.filter((a) => a.status === "withdrawn");
+
+  const quotaMet = selected.length >= request.testersWanted;
+  const canDecide = request.status === "filling";
+
+  return (
+    <div className="mt-6 space-y-4 rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-foreground">Applications</p>
+        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+          {selected.length}/{request.testersWanted} selected
+        </span>
+      </div>
+      <TesterProgress request={request} />
+
+      {applicationsQuery.isLoading ? (
+        <Skeleton className="h-16 w-full" />
+      ) : applications.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">
+          No applications yet. Once builders apply, you can pick them here.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {pending.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Pending ({pending.length})
+              </p>
+              {pending.map((a) => (
+                <ApplicantRow
+                  key={a.id}
+                  application={a}
+                  canDecide={canDecide && !quotaMet}
+                  onSelect={() => selectMutation.mutate(a.id)}
+                  onReject={() => rejectMutation.mutate(a.id)}
+                  busySelect={selectMutation.isPending && selectMutation.variables === a.id}
+                  busyReject={rejectMutation.isPending && rejectMutation.variables === a.id}
+                />
+              ))}
+            </div>
+          )}
+          {selected.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-accent">
+                Selected ({selected.length})
+              </p>
+              {selected.map((a) => (
+                <ApplicantRow key={a.id} application={a} canDecide={false} />
+              ))}
+            </div>
+          )}
+          {(rejected.length > 0 || withdrawn.length > 0) && (
+            <details className="text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer font-semibold hover:text-foreground">
+                Closed ({rejected.length + withdrawn.length})
+              </summary>
+              <div className="mt-2 space-y-1.5">
+                {[...rejected, ...withdrawn].map((a) => (
+                  <ApplicantRow key={a.id} application={a} canDecide={false} muted />
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {!canDecide && (
+        <p className="rounded-md border border-dashed border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
+          {request.status === "testing"
+            ? "Quota met — the round is now testing."
+            : `Selection window is closed (request is ${STATUS_LABEL[request.status].toLowerCase()}).`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ApplicantRow({
+  application,
+  canDecide,
+  onSelect,
+  onReject,
+  busySelect,
+  busyReject,
+  muted,
+}: {
+  application: FeedbackApplication;
+  canDecide: boolean;
+  onSelect?: () => void;
+  onReject?: () => void;
+  busySelect?: boolean;
+  busyReject?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border border-border bg-background/40 p-2.5",
+        muted && "opacity-60",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-[12px] font-semibold text-foreground">
+            {application.applicantNearAccount}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            applied {relative(application.appliedAt)}
+          </p>
+        </div>
+        {application.status !== "pending" && <ApplicationChip status={application.status} />}
+      </div>
+      {application.note && (
+        <p className="mt-1.5 rounded border border-border bg-muted/40 px-2 py-1 text-[11px] italic text-muted-foreground">
+          "{application.note}"
+        </p>
+      )}
+      {canDecide && (
+        <div className="mt-2 flex items-center justify-end gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[11px]"
+            disabled={busyReject || busySelect}
+            onClick={onReject}
+          >
+            {busyReject ? "…" : "Decline"}
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 text-[11px]"
+            disabled={busySelect || busyReject}
+            onClick={onSelect}
+          >
+            <Check className="mr-1 size-3" />
+            {busySelect ? "…" : "Select"}
+          </Button>
+        </div>
       )}
     </div>
   );
