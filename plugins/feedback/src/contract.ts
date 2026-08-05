@@ -38,6 +38,29 @@ export const FeedbackRequestSchema = z.object({
 });
 export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 
+export const FeedbackApplicationStatusSchema = z.enum([
+  "pending",
+  "selected",
+  "rejected",
+  "withdrawn",
+]);
+export type FeedbackApplicationStatus = z.infer<typeof FeedbackApplicationStatusSchema>;
+
+export const FeedbackApplicationSchema = z.object({
+  id: z.string(),
+  requestId: z.string(),
+  applicantNearAccount: z.string(),
+  note: z.string().nullable(),
+  status: FeedbackApplicationStatusSchema,
+  requestTitle: z.string(),
+  requestProjectTitle: z.string(),
+  requestTargetRepo: z.string(),
+  appliedAt: z.string(),
+  decidedAt: z.string().nullable(),
+  decidedBy: z.string().nullable(),
+});
+export type FeedbackApplication = z.infer<typeof FeedbackApplicationSchema>;
+
 const ListMetaSchema = z.object({
   total: z.number().int().nonnegative(),
   hasMore: z.boolean(),
@@ -88,6 +111,42 @@ export const contract = {
     )
     .output(z.object({ data: FeedbackRequestSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  listFeedbackApplications: oc
+    .route({ method: "GET", path: "/v1/feedback/applications" })
+    .input(
+      z.object({
+        requestId: z.string().optional(),
+        applicantNearAccount: z.string().optional(),
+        status: FeedbackApplicationStatusSchema.optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+        cursor: z.string().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(FeedbackApplicationSchema),
+        meta: ListMetaSchema,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  applyToFeedbackRequest: oc
+    .route({ method: "POST", path: "/v1/feedback/requests/{requestId}/applications" })
+    .input(
+      z.object({
+        requestId: z.string(),
+        note: z.string().trim().max(600).optional(),
+      }),
+    )
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  withdrawFeedbackApplication: oc
+    .route({ method: "DELETE", path: "/v1/feedback/applications/{id}" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 };
 
 export type ContractType = typeof contract;

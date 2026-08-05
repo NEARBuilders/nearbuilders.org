@@ -8,6 +8,13 @@
       "when": 1754400000000,
       "tag": "0000_initial_feedback_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1754400500000,
+      "tag": "0001_feedback_applications",
+      "breakpoints": true
     }
   ]
 }

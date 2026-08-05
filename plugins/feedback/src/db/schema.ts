@@ -1,4 +1,4 @@
-import { integer, pgTable, text } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const feedbackRequests = pgTable("feedback_requests", {
   id: text("id").primaryKey(),
@@ -22,3 +22,30 @@ export const feedbackRequests = pgTable("feedback_requests", {
   updatedAt: text("updated_at").notNull(),
   expiresAt: text("expires_at").notNull(),
 });
+
+export const feedbackApplications = pgTable(
+  "feedback_applications",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id").notNull(),
+    applicantNearAccount: text("applicant_near_account").notNull(),
+    note: text("note"),
+    status: text("status", {
+      enum: ["pending", "selected", "rejected", "withdrawn"],
+    })
+      .notNull()
+      .default("pending"),
+    requestTitle: text("request_title").notNull(),
+    requestProjectTitle: text("request_project_title").notNull(),
+    requestTargetRepo: text("request_target_repo").notNull(),
+    appliedAt: text("applied_at").notNull(),
+    decidedAt: text("decided_at"),
+    decidedBy: text("decided_by"),
+  },
+  (table) => [
+    uniqueIndex("feedback_applications_request_applicant_unique").on(
+      table.requestId,
+      table.applicantNearAccount,
+    ),
+  ],
+);

@@ -5,6 +5,7 @@ import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
+import { ApplicationService, ApplicationServiceLive } from "./services/applications";
 import { RequestService, RequestServiceLive } from "./services/requests";
 
 async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
@@ -41,15 +42,17 @@ export default createPlugin({
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.FEEDBACK_DATABASE_URL);
       const Requests = RequestServiceLive.pipe(Layer.provide(Database));
+      const Applications = ApplicationServiceLive.pipe(Layer.provide(Database));
       const requests = yield* tools.buildService(RequestService, Requests);
-      return { requests };
+      const applications = yield* tools.buildService(ApplicationService, Applications);
+      return { requests, applications };
     }),
 
   createRouter: (services, builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
-          message: "Sign in with your NEAR wallet to post feedback requests",
+          message: "Sign in with your NEAR wallet",
         });
       }
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
@@ -80,6 +83,42 @@ export default createPlugin({
               ownerNearAccount: account,
             }),
           );
+        }),
+
+      listFeedbackApplications: builder.listFeedbackApplications.handler(
+        async ({ input }) => await runEffect(services.applications.listApplications(input)),
+      ),
+
+      applyToFeedbackRequest: builder.applyToFeedbackRequest
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to apply",
+              data: { action: "applyToFeedbackRequest" },
+            });
+          }
+          return await runEffect(
+            services.applications.applyToRequest({
+              requestId: input.requestId,
+              applicantNearAccount: account,
+              note: input.note,
+            }),
+          );
+        }),
+
+      withdrawFeedbackApplication: builder.withdrawFeedbackApplication
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to withdraw",
+              data: { action: "withdrawFeedbackApplication" },
+            });
+          }
+          return await runEffect(services.applications.withdrawApplication(input.id, account));
         }),
     };
   },

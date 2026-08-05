@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Calendar, ExternalLink, MessageSquare, Plus, Search, Users } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  ExternalLink,
+  MessageSquare,
+  Plus,
+  Search,
+  Undo2,
+  Users,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -25,7 +34,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 type FeedbackStatus = "open" | "filling" | "testing" | "complete" | "closed";
-type ScopeFilter = "all" | "mine";
+type ApplicationStatus = "pending" | "selected" | "rejected" | "withdrawn";
+type ScopeFilter = "all" | "posted" | "applied";
 
 interface FeedbackRequest {
   id: string;
@@ -48,6 +58,25 @@ interface FeedbackRequest {
 
 interface RequestsResponse {
   data: FeedbackRequest[];
+  meta: { total: number; hasMore: boolean; nextCursor: string | null };
+}
+
+interface FeedbackApplication {
+  id: string;
+  requestId: string;
+  applicantNearAccount: string;
+  note: string | null;
+  status: ApplicationStatus;
+  requestTitle: string;
+  requestProjectTitle: string;
+  requestTargetRepo: string;
+  appliedAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+}
+
+interface ApplicationsResponse {
+  data: FeedbackApplication[];
   meta: { total: number; hasMore: boolean; nextCursor: string | null };
 }
 
@@ -107,16 +136,34 @@ function FeedbackPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const listQuery = useQuery({
-    queryKey: ["feedback", { scope, status, nearAccountId }],
+    queryKey: ["feedback", "requests", { scope, status, nearAccountId }],
     queryFn: async () => {
       const params: Record<string, unknown> = { limit: 50 };
       if (status !== "all") params.status = status;
-      if (scope === "mine" && nearAccountId) params.ownerNearAccount = nearAccountId;
+      if (scope === "posted" && nearAccountId) params.ownerNearAccount = nearAccountId;
       return (await apiClient.feedback.listFeedbackRequests(params)) as RequestsResponse;
     },
-    enabled: scope !== "mine" || Boolean(nearAccountId),
+    enabled: scope !== "posted" || Boolean(nearAccountId),
     staleTime: 30_000,
   });
+
+  const myApplicationsQuery = useQuery({
+    queryKey: ["feedback", "my-applications", nearAccountId],
+    queryFn: async () =>
+      (await apiClient.feedback.listFeedbackApplications({
+        applicantNearAccount: nearAccountId!,
+        limit: 50,
+      })) as ApplicationsResponse,
+    enabled: Boolean(nearAccountId),
+    staleTime: 30_000,
+  });
+
+  const myApplications = myApplicationsQuery.data?.data ?? [];
+  const applicationByRequestId = useMemo(() => {
+    const m = new Map<string, FeedbackApplication>();
+    for (const a of myApplications) m.set(a.requestId, a);
+    return m;
+  }, [myApplications]);
 
   const requests = listQuery.data?.data ?? [];
   const filtered = useMemo(() => {
@@ -130,7 +177,20 @@ function FeedbackPage() {
     );
   }, [requests, search]);
 
-  const selected = filtered.find((r) => r.id === selectedId) ?? null;
+  const inListSelected = requests.find((r) => r.id === selectedId) ?? null;
+
+  const selectedFetchQuery = useQuery({
+    queryKey: ["feedback", "request", selectedId],
+    queryFn: async () =>
+      (await apiClient.feedback.getFeedbackRequest({ id: selectedId! })) as {
+        data: FeedbackRequest;
+      },
+    enabled: Boolean(selectedId) && !inListSelected,
+    staleTime: 30_000,
+  });
+
+  const selected = inListSelected ?? selectedFetchQuery.data?.data ?? null;
+  const selectedApplication = selected ? (applicationByRequestId.get(selected.id) ?? null) : null;
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -169,14 +229,15 @@ function FeedbackPage() {
           {(
             [
               { v: "all", label: "All" },
-              { v: "mine", label: "Yours" },
+              { v: "posted", label: "Posted" },
+              { v: "applied", label: "Applied" },
             ] as const
           ).map((opt) => (
             <button
               key={opt.v}
               type="button"
               onClick={() => setScope(opt.v)}
-              disabled={opt.v === "mine" && !nearAccountId}
+              disabled={opt.v !== "all" && !nearAccountId}
               className={cn(
                 "h-7 px-3 rounded-md text-sm font-semibold cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
                 scope === opt.v
@@ -185,6 +246,11 @@ function FeedbackPage() {
               )}
             >
               {opt.label}
+              {opt.v === "applied" && myApplications.length > 0 && (
+                <span className="ml-1.5 inline-block min-w-[18px] rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">
+                  {myApplications.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -207,7 +273,14 @@ function FeedbackPage() {
         </Select>
       </div>
 
-      {listQuery.isLoading ? (
+      {scope === "applied" ? (
+        <AppliedList
+          applications={myApplications}
+          loading={myApplicationsQuery.isLoading}
+          onOpenApplication={(app) => setSelectedId(app.requestId)}
+          apiClient={apiClient}
+        />
+      ) : listQuery.isLoading ? (
         <div className="grid grid-cols-1 gap-3 pb-16 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
@@ -231,6 +304,7 @@ function FeedbackPage() {
             <RequestCard
               key={request.id}
               request={request}
+              application={applicationByRequestId.get(request.id) ?? null}
               onOpen={() => setSelectedId(request.id)}
             />
           ))}
@@ -250,16 +324,38 @@ function FeedbackPage() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+      <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-          {selected && <RequestDetail request={selected} />}
+          {selected ? (
+            <RequestDetail
+              request={selected}
+              application={selectedApplication}
+              currentNearAccount={nearAccountId ?? null}
+              isAuthenticated={isAuthenticated}
+            />
+          ) : selectedFetchQuery.isLoading ? (
+            <div className="space-y-3 pt-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          ) : null}
         </SheetContent>
       </Sheet>
     </div>
   );
 }
 
-function RequestCard({ request, onOpen }: { request: FeedbackRequest; onOpen: () => void }) {
+function RequestCard({
+  request,
+  application,
+  onOpen,
+}: {
+  request: FeedbackRequest;
+  application: FeedbackApplication | null;
+  onOpen: () => void;
+}) {
   return (
     <button
       type="button"
@@ -273,15 +369,18 @@ function RequestCard({ request, onOpen }: { request: FeedbackRequest; onOpen: ()
             by <span className="font-mono">{request.ownerNearAccount}</span>
           </p>
         </div>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
-            STATUS_PILL[request.status],
-          )}
-        >
-          <span className="size-1.5 rounded-full bg-current opacity-70" />
-          {STATUS_LABEL[request.status]}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {application && <ApplicationChip status={application.status} />}
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+              STATUS_PILL[request.status],
+            )}
+          >
+            <span className="size-1.5 rounded-full bg-current opacity-70" />
+            {STATUS_LABEL[request.status]}
+          </span>
+        </div>
       </div>
       <h3 className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
         {request.title}
@@ -304,7 +403,187 @@ function RequestCard({ request, onOpen }: { request: FeedbackRequest; onOpen: ()
   );
 }
 
-function RequestDetail({ request }: { request: FeedbackRequest }) {
+function ApplicationChip({ status }: { status: ApplicationStatus }) {
+  const label =
+    status === "pending"
+      ? "Applied"
+      : status === "selected"
+        ? "Selected"
+        : status === "rejected"
+          ? "Not selected"
+          : "Withdrawn";
+  const tone =
+    status === "selected"
+      ? "border-brand-accent-border bg-brand-accent-light text-brand-accent"
+      : status === "pending"
+        ? "border-brand-accent-border bg-brand-accent-light text-brand-accent"
+        : "border-border bg-muted text-muted-foreground";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+        tone,
+      )}
+    >
+      {status === "selected" && <Check className="size-2.5" />}
+      {label}
+    </span>
+  );
+}
+
+function AppliedList({
+  applications,
+  loading,
+  onOpenApplication,
+  apiClient,
+}: {
+  applications: FeedbackApplication[];
+  loading: boolean;
+  onOpenApplication: (application: FeedbackApplication) => void;
+  apiClient: ReturnType<typeof useApiClient>;
+}) {
+  const queryClient = useQueryClient();
+  const withdrawMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.feedback.withdrawFeedbackApplication({ id }),
+    onSuccess: () => {
+      toast.success("Application withdrawn");
+      queryClient.invalidateQueries({ queryKey: ["feedback"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not withdraw"),
+  });
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-3 pb-16 sm:grid-cols-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-3 w-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (applications.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
+          <MessageSquare className="size-5" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            You haven't applied to any feedback requests
+          </p>
+          <p className="mt-1 max-w-md text-xs text-muted-foreground">
+            Browse open requests and apply to one that fits.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 pb-16 sm:grid-cols-2">
+      {applications.map((application) => (
+        <div
+          key={application.id}
+          className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">
+                {application.requestProjectTitle}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                applied {relative(application.appliedAt)}
+              </p>
+            </div>
+            <ApplicationChip status={application.status} />
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenApplication(application)}
+            className="line-clamp-2 text-left text-sm font-bold leading-snug text-foreground hover:text-brand-accent"
+          >
+            {application.requestTitle}
+          </button>
+          {application.note && (
+            <p className="line-clamp-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] italic text-muted-foreground">
+              "{application.note}"
+            </p>
+          )}
+          <div className="mt-auto flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">
+              {application.requestTargetRepo}
+            </span>
+            {application.status === "pending" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-7 text-xs"
+                disabled={withdrawMutation.isPending}
+                onClick={() => withdrawMutation.mutate(application.id)}
+              >
+                <Undo2 className="size-3" />
+                Withdraw
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RequestDetail({
+  request,
+  application,
+  currentNearAccount,
+  isAuthenticated,
+}: {
+  request: FeedbackRequest;
+  application: FeedbackApplication | null;
+  currentNearAccount: string | null;
+  isAuthenticated: boolean;
+}) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [note, setNote] = useState("");
+
+  const isOwner =
+    !!currentNearAccount &&
+    currentNearAccount.toLowerCase() === request.ownerNearAccount.toLowerCase();
+  const isOpenForApplications = request.status === "open" || request.status === "filling";
+  const isExpired = new Date(request.expiresAt).getTime() <= Date.now();
+
+  const applyMutation = useMutation({
+    mutationFn: async () =>
+      apiClient.feedback.applyToFeedbackRequest({
+        requestId: request.id,
+        note: note.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Application submitted");
+      queryClient.invalidateQueries({ queryKey: ["feedback"] });
+      setNote("");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not apply"),
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: async () => {
+      if (!application) throw new Error("No application to withdraw");
+      return apiClient.feedback.withdrawFeedbackApplication({ id: application.id });
+    },
+    onSuccess: () => {
+      toast.success("Application withdrawn");
+      queryClient.invalidateQueries({ queryKey: ["feedback"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not withdraw"),
+  });
+
   return (
     <>
       <SheetHeader>
@@ -370,9 +649,76 @@ function RequestDetail({ request }: { request: FeedbackRequest }) {
         </section>
       )}
 
-      <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        Applications open in a follow-up. For now this preview shows the request as posted.
-      </div>
+      {isOwner ? (
+        <div className="mt-6 rounded-lg border border-border bg-card p-3 text-xs">
+          <p className="font-semibold text-foreground">You posted this request</p>
+          <p className="mt-1 text-muted-foreground">
+            Application management arrives in the next slice — you'll be able to review applicants
+            and pick your testers from here.
+          </p>
+        </div>
+      ) : application ? (
+        <div className="mt-6 rounded-lg border border-brand-accent-border bg-brand-accent-light/40 p-3">
+          <div className="flex items-center gap-2">
+            <ApplicationChip status={application.status} />
+            <span className="text-[11px] text-muted-foreground">
+              submitted {relative(application.appliedAt)}
+            </span>
+          </div>
+          {application.note && (
+            <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs italic text-muted-foreground">
+              "{application.note}"
+            </p>
+          )}
+          {application.status === "pending" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-3 h-8"
+              disabled={withdrawMutation.isPending}
+              onClick={() => withdrawMutation.mutate()}
+            >
+              <Undo2 className="mr-1 size-3" />
+              {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw application"}
+            </Button>
+          )}
+        </div>
+      ) : isAuthenticated && currentNearAccount && isOpenForApplications && !isExpired ? (
+        <div className="mt-6 rounded-lg border border-border bg-card p-3">
+          <p className="text-xs font-semibold text-foreground">Apply to test</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Add a short note about why you're a fit. The project owner picks their testers.
+          </p>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional. E.g. 'I've built two similar wallet flows and can test on both Ledger and mobile.'"
+            className="mt-3 min-h-[80px] text-xs"
+            maxLength={600}
+          />
+          <Button
+            size="sm"
+            className="mt-3"
+            disabled={applyMutation.isPending}
+            onClick={() => applyMutation.mutate()}
+          >
+            {applyMutation.isPending ? "Applying…" : "Apply to test"}
+          </Button>
+        </div>
+      ) : !isOpenForApplications ? (
+        <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          This request is {STATUS_LABEL[request.status].toLowerCase()} and no longer accepting new
+          testers.
+        </div>
+      ) : isExpired ? (
+        <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          This request has expired.
+        </div>
+      ) : (
+        <div className="mt-6 rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          Connect your NEAR wallet to apply.
+        </div>
+      )}
 
       <Button asChild size="sm" variant="outline" className="mt-4 w-full justify-center">
         <a
@@ -404,7 +750,7 @@ function EmptyState({
       </div>
       <div>
         <p className="text-sm font-semibold text-foreground">
-          {scope === "mine" ? "You haven't posted any feedback requests" : "No open requests yet"}
+          {scope === "posted" ? "You haven't posted any feedback requests" : "No open requests yet"}
         </p>
         <p className="mt-1 max-w-md text-xs text-muted-foreground">
           When a project posts a feedback request, it shows up here. Testers apply, the project
@@ -664,4 +1010,24 @@ function daysUntil(iso: string): string {
   if (diffMs <= 0) return "expired";
   const days = Math.max(1, Math.round(diffMs / (24 * 60 * 60 * 1000)));
   return `${days}d left`;
+}
+
+function relative(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return iso;
+  const diffMs = Date.now() - then;
+  const abs = Math.abs(diffMs);
+  const past = diffMs >= 0;
+  const suffix = past ? "ago" : "from now";
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  const month = 30 * day;
+  if (abs < minute) return "just now";
+  if (abs < hour) return `${Math.round(abs / minute)}m ${suffix}`;
+  if (abs < day) return `${Math.round(abs / hour)}h ${suffix}`;
+  if (abs < week) return `${Math.round(abs / day)}d ${suffix}`;
+  if (abs < month) return `${Math.round(abs / week)}w ${suffix}`;
+  return `${Math.round(abs / month)}mo ${suffix}`;
 }
