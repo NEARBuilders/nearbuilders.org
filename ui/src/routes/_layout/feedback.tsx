@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Calendar, Check, ExternalLink, MessageSquare, Plus, Search, Undo2 } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ExternalLink,
+  MessageSquare,
+  Plus,
+  Search,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -53,6 +63,12 @@ interface RequestsResponse {
   meta: { total: number; hasMore: boolean; nextCursor: string | null };
 }
 
+interface FiledIssue {
+  url: string;
+  title: string | null;
+  filedAt: string;
+}
+
 interface FeedbackApplication {
   id: string;
   requestId: string;
@@ -65,6 +81,8 @@ interface FeedbackApplication {
   appliedAt: string;
   decidedAt: string | null;
   decidedBy: string | null;
+  filedIssues: FiledIssue[];
+  submittedAt: string | null;
 }
 
 interface ApplicationsResponse {
@@ -667,31 +685,34 @@ function RequestDetail({
       {isOwner ? (
         <OwnerApplicationsPanel request={request} />
       ) : application ? (
-        <div className="mt-6 rounded-lg border border-brand-accent-border bg-brand-accent-light/40 p-3">
-          <div className="flex items-center gap-2">
-            <ApplicationChip status={application.status} />
-            <span className="text-[11px] text-muted-foreground">
-              submitted {relative(application.appliedAt)}
-            </span>
+        <>
+          <div className="mt-6 rounded-lg border border-brand-accent-border bg-brand-accent-light/40 p-3">
+            <div className="flex items-center gap-2">
+              <ApplicationChip status={application.status} />
+              <span className="text-[11px] text-muted-foreground">
+                submitted {relative(application.appliedAt)}
+              </span>
+            </div>
+            {application.note && (
+              <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs italic text-muted-foreground">
+                "{application.note}"
+              </p>
+            )}
+            {application.status === "pending" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-3 h-8"
+                disabled={withdrawMutation.isPending}
+                onClick={() => withdrawMutation.mutate()}
+              >
+                <Undo2 className="mr-1 size-3" />
+                {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw application"}
+              </Button>
+            )}
           </div>
-          {application.note && (
-            <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs italic text-muted-foreground">
-              "{application.note}"
-            </p>
-          )}
-          {application.status === "pending" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="mt-3 h-8"
-              disabled={withdrawMutation.isPending}
-              onClick={() => withdrawMutation.mutate()}
-            >
-              <Undo2 className="mr-1 size-3" />
-              {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw application"}
-            </Button>
-          )}
-        </div>
+          {application.status === "selected" && <FiledIssuesPanel application={application} />}
+        </>
       ) : isAuthenticated && currentNearAccount && isOpenForApplications && !isExpired ? (
         <div className="mt-6 rounded-lg border border-border bg-card p-3">
           <p className="text-xs font-semibold text-foreground">Apply to test</p>
@@ -784,6 +805,114 @@ function EmptyState({
   );
 }
 
+function FiledIssuesPanel({ application }: { application: FeedbackApplication }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+
+  const invalidateAfter = () => queryClient.invalidateQueries({ queryKey: ["feedback"] });
+
+  const attachMutation = useMutation({
+    mutationFn: async () =>
+      apiClient.feedback.attachFiledIssue({
+        id: application.id,
+        url: url.trim(),
+        title: title.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Issue attached");
+      setUrl("");
+      setTitle("");
+      invalidateAfter();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not attach"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (removeUrl: string) =>
+      apiClient.feedback.removeFiledIssue({ id: application.id, url: removeUrl }),
+    onSuccess: () => {
+      toast.success("Issue removed");
+      invalidateAfter();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not remove"),
+  });
+
+  const urlValid = /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+/.test(url.trim());
+
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-foreground">Filed issues</p>
+        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
+          {application.filedIssues.length} filed
+        </span>
+      </div>
+
+      {application.filedIssues.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {application.filedIssues.map((issue) => (
+            <div
+              key={issue.url}
+              className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5"
+            >
+              <a
+                href={issue.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 truncate text-[11px] font-semibold text-foreground hover:text-brand-accent hover:underline"
+              >
+                {issue.title || issue.url.replace(/^https:\/\/github\.com\//, "")}
+              </a>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 shrink-0 px-1.5"
+                disabled={removeMutation.isPending}
+                onClick={() => removeMutation.mutate(issue.url)}
+                aria-label="Remove issue"
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 space-y-2">
+        <Input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://github.com/owner/repo/issues/123"
+          className="h-8 font-mono text-[11px]"
+        />
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Short title (optional)"
+          className="h-8 text-xs"
+          maxLength={240}
+        />
+        <Button
+          size="sm"
+          className="h-8"
+          disabled={!urlValid || attachMutation.isPending}
+          onClick={() => attachMutation.mutate()}
+        >
+          <Plus className="mr-1 size-3" />
+          {attachMutation.isPending ? "Attaching…" : "Attach issue"}
+        </Button>
+        {url && !urlValid && (
+          <p className="text-[10px] text-destructive">
+            Must be a github.com issue link (e.g. github.com/owner/repo/issues/123).
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OwnerApplicationsPanel({ request }: { request: FeedbackRequest }) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
@@ -818,6 +947,15 @@ function OwnerApplicationsPanel({ request }: { request: FeedbackRequest }) {
       invalidateAfter();
     },
     onError: (error: Error) => toast.error(error.message || "Could not decline"),
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async () => apiClient.feedback.markFeedbackRequestComplete({ id: request.id }),
+    onSuccess: () => {
+      toast.success("Round marked complete");
+      invalidateAfter();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not mark complete"),
   });
 
   const applications = applicationsQuery.data?.data ?? [];
@@ -890,11 +1028,58 @@ function OwnerApplicationsPanel({ request }: { request: FeedbackRequest }) {
         </div>
       )}
 
-      {!canDecide && (
+      {selected.length > 0 && (request.status === "testing" || request.status === "filling") && (
+        <div className="border-t border-border pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Filed issues so far
+          </p>
+          <div className="mt-2 space-y-2">
+            {selected.map((a) =>
+              a.filedIssues.length === 0 ? (
+                <p key={a.id} className="text-[11px] text-muted-foreground">
+                  <span className="font-mono">{a.applicantNearAccount}</span> — no issues yet
+                </p>
+              ) : (
+                <div key={a.id}>
+                  <p className="text-[11px] font-mono font-semibold text-foreground">
+                    {a.applicantNearAccount} · {a.filedIssues.length}
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {a.filedIssues.map((issue) => (
+                      <li key={issue.url} className="truncate text-[11px] text-muted-foreground">
+                        <a
+                          href={issue.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-brand-accent hover:underline"
+                        >
+                          {issue.title || issue.url.replace(/^https:\/\/github\.com\//, "")}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      )}
+
+      {(request.status === "testing" || request.status === "filling") && selected.length > 0 && (
+        <Button
+          size="sm"
+          className="w-full"
+          disabled={completeMutation.isPending}
+          onClick={() => completeMutation.mutate()}
+        >
+          <CheckCircle2 className="mr-1 size-3.5" />
+          {completeMutation.isPending ? "Marking…" : "Mark round complete"}
+        </Button>
+      )}
+
+      {!canDecide && request.status !== "testing" && (
         <p className="rounded-md border border-dashed border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
-          {request.status === "testing"
-            ? "Quota met — the round is now testing."
-            : `Selection window is closed (request is ${STATUS_LABEL[request.status].toLowerCase()}).`}
+          Selection window is closed (request is {STATUS_LABEL[request.status].toLowerCase()}).
         </p>
       )}
     </div>

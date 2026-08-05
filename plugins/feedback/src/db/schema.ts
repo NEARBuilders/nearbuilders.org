@@ -41,6 +41,8 @@ export const feedbackApplications = pgTable(
     appliedAt: text("applied_at").notNull(),
     decidedAt: text("decided_at"),
     decidedBy: text("decided_by"),
+    filedIssues: text("filed_issues"),
+    submittedAt: text("submitted_at"),
   },
   (table) => [
     uniqueIndex("feedback_applications_request_applicant_unique").on(

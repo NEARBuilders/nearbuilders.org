@@ -13,6 +13,54 @@ export interface ApplicationCounts {
   selected: number;
 }
 
+interface FiledIssue {
+  url: string;
+  title: string | null;
+  filedAt: string;
+}
+
+function parseFiledIssues(raw: string | null | undefined): FiledIssue[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is FiledIssue =>
+          !!item && typeof item.url === "string" && typeof item.filedAt === "string",
+      )
+      .map((item) => ({
+        url: item.url,
+        title: typeof item.title === "string" ? item.title : null,
+        filedAt: item.filedAt,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function hydrateApplication(row: {
+  id: string;
+  requestId: string;
+  applicantNearAccount: string;
+  note: string | null;
+  status: string;
+  requestTitle: string;
+  requestProjectTitle: string;
+  requestTargetRepo: string;
+  appliedAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  filedIssues: string | null;
+  submittedAt: string | null;
+}): FeedbackApplication {
+  return {
+    ...row,
+    status: row.status as FeedbackApplication["status"],
+    filedIssues: parseFiledIssues(row.filedIssues),
+  };
+}
+
 export interface ListApplicationsFilters {
   requestId?: string;
   applicantNearAccount?: string;
@@ -61,6 +109,17 @@ export interface ApplicationServiceMethods {
   rejectApplicant: (
     id: string,
     ownerNearAccount: string,
+  ) => Effect.Effect<{ data: FeedbackApplication }, ORPCError<string, unknown>>;
+  attachFiledIssue: (
+    id: string,
+    applicantNearAccount: string,
+    url: string,
+    title?: string,
+  ) => Effect.Effect<{ data: FeedbackApplication }, ORPCError<string, unknown>>;
+  removeFiledIssue: (
+    id: string,
+    applicantNearAccount: string,
+    url: string,
   ) => Effect.Effect<{ data: FeedbackApplication }, ORPCError<string, unknown>>;
 }
 
@@ -120,7 +179,7 @@ export const ApplicationServiceLive = Layer.effect(
           const page = hasMore ? rows.slice(0, limit) : rows;
 
           return {
-            data: page as FeedbackApplication[],
+            data: page.map(hydrateApplication),
             meta: {
               total: page.length,
               hasMore,
@@ -179,6 +238,8 @@ export const ApplicationServiceLive = Layer.effect(
             appliedAt: now,
             decidedAt: null,
             decidedBy: null,
+            filedIssues: null,
+            submittedAt: null,
           };
 
           yield* Effect.tryPromise({
@@ -216,7 +277,7 @@ export const ApplicationServiceLive = Layer.effect(
             });
           }
 
-          return { data: row as FeedbackApplication };
+          return { data: hydrateApplication(row) };
         }),
 
       withdrawApplication: (id, applicantNearAccount) =>
@@ -281,12 +342,12 @@ export const ApplicationServiceLive = Layer.effect(
           });
 
           return {
-            data: {
+            data: hydrateApplication({
               ...application,
-              status: "withdrawn" as const,
+              status: "withdrawn",
               decidedAt: now,
               decidedBy: applicantNearAccount.trim().toLowerCase(),
-            } as FeedbackApplication,
+            }),
           };
         }),
 
@@ -490,12 +551,12 @@ export const ApplicationServiceLive = Layer.effect(
           }
 
           return {
-            data: {
+            data: hydrateApplication({
               ...application,
-              status: "selected" as const,
+              status: "selected",
               decidedAt: now,
               decidedBy: owner,
-            } as FeedbackApplication,
+            }),
           };
         }),
 
@@ -567,12 +628,153 @@ export const ApplicationServiceLive = Layer.effect(
           });
 
           return {
-            data: {
+            data: hydrateApplication({
               ...application,
-              status: "rejected" as const,
+              status: "rejected",
               decidedAt: now,
               decidedBy: owner,
-            } as FeedbackApplication,
+            }),
+          };
+        }),
+
+      attachFiledIssue: (id, applicantNearAccount, url, title) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select()
+                .from(feedbackApplications)
+                .where(eq(feedbackApplications.id, id))
+                .limit(1),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to load application",
+                data: { cause: String(cause) },
+              }),
+          });
+          const application = rows[0];
+          if (!application) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", {
+                message: "Application not found",
+                data: { resource: "feedback-application" },
+              }),
+            );
+          }
+          if (
+            application.applicantNearAccount.toLowerCase() !== applicantNearAccount.toLowerCase()
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the applicant can file issues on their application",
+                data: { action: "attachFiledIssue" },
+              }),
+            );
+          }
+          if (application.status !== "selected") {
+            return yield* Effect.fail(
+              new ORPCError("CONFLICT", {
+                message: "Only selected testers can file issues",
+                data: { currentStatus: application.status },
+              }),
+            );
+          }
+
+          const existing = parseFiledIssues(application.filedIssues);
+          if (existing.some((it) => it.url === url)) {
+            return yield* Effect.fail(
+              new ORPCError("CONFLICT", {
+                message: "That issue is already attached",
+                data: { url },
+              }),
+            );
+          }
+
+          const now = new Date().toISOString();
+          const next = [...existing, { url, title: title?.trim() || null, filedAt: now }];
+          yield* Effect.tryPromise({
+            try: () =>
+              db
+                .update(feedbackApplications)
+                .set({ filedIssues: JSON.stringify(next) })
+                .where(eq(feedbackApplications.id, id)),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to attach filed issue",
+                data: { cause: String(cause) },
+              }),
+          });
+
+          return {
+            data: hydrateApplication({
+              ...application,
+              filedIssues: JSON.stringify(next),
+            }),
+          };
+        }),
+
+      removeFiledIssue: (id, applicantNearAccount, url) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select()
+                .from(feedbackApplications)
+                .where(eq(feedbackApplications.id, id))
+                .limit(1),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to load application",
+                data: { cause: String(cause) },
+              }),
+          });
+          const application = rows[0];
+          if (!application) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", {
+                message: "Application not found",
+                data: { resource: "feedback-application" },
+              }),
+            );
+          }
+          if (
+            application.applicantNearAccount.toLowerCase() !== applicantNearAccount.toLowerCase()
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the applicant can remove filed issues",
+                data: { action: "removeFiledIssue" },
+              }),
+            );
+          }
+          if (application.status !== "selected") {
+            return yield* Effect.fail(
+              new ORPCError("CONFLICT", {
+                message: "Filed issues can only be edited while selected",
+                data: { currentStatus: application.status },
+              }),
+            );
+          }
+          const existing = parseFiledIssues(application.filedIssues);
+          const next = existing.filter((it) => it.url !== url);
+          yield* Effect.tryPromise({
+            try: () =>
+              db
+                .update(feedbackApplications)
+                .set({ filedIssues: next.length === 0 ? null : JSON.stringify(next) })
+                .where(eq(feedbackApplications.id, id)),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to remove filed issue",
+                data: { cause: String(cause) },
+              }),
+          });
+
+          return {
+            data: hydrateApplication({
+              ...application,
+              filedIssues: next.length === 0 ? null : JSON.stringify(next),
+            }),
           };
         }),
     };

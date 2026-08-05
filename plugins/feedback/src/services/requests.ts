@@ -48,6 +48,10 @@ export interface RequestServiceMethods {
   createRequest: (
     input: CreateInput,
   ) => Effect.Effect<{ data: FeedbackRequest }, ORPCError<string, unknown>>;
+  markComplete: (
+    id: string,
+    ownerNearAccount: string,
+  ) => Effect.Effect<{ data: FeedbackRequest }, ORPCError<string, unknown>>;
 }
 
 export class RequestService extends Context.Tag("feedback/RequestService")<
@@ -171,6 +175,67 @@ export const RequestServiceLive = Layer.effect(
           return {
             data: {
               ...row,
+              applicationCounts: { pending: 0, selected: 0 },
+            } as FeedbackRequest,
+          };
+        }),
+
+      markComplete: (id, ownerNearAccount) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db.select().from(feedbackRequests).where(eq(feedbackRequests.id, id)).limit(1),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to load feedback request",
+                data: { cause: String(cause) },
+              }),
+          });
+          const request = rows[0];
+          if (!request) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", {
+                message: "Feedback request not found",
+                data: { resource: "feedback-request" },
+              }),
+            );
+          }
+          if (request.ownerNearAccount.toLowerCase() !== ownerNearAccount.toLowerCase()) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the request owner can mark the round complete",
+                data: { action: "markComplete" },
+              }),
+            );
+          }
+          if (request.status !== "testing" && request.status !== "filling") {
+            return yield* Effect.fail(
+              new ORPCError("CONFLICT", {
+                message: `Request is ${request.status}; cannot mark complete`,
+                data: { currentStatus: request.status },
+              }),
+            );
+          }
+
+          const now = new Date().toISOString();
+          yield* Effect.tryPromise({
+            try: () =>
+              db
+                .update(feedbackRequests)
+                .set({ status: "complete", updatedAt: now })
+                .where(eq(feedbackRequests.id, id)),
+            catch: (cause) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Failed to mark request complete",
+                data: { cause: String(cause) },
+              }),
+          });
+
+          return {
+            data: {
+              ...request,
+              status: "complete" as const,
+              updatedAt: now,
               applicationCounts: { pending: 0, selected: 0 },
             } as FeedbackRequest,
           };

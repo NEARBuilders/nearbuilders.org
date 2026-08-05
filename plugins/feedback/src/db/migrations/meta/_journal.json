@@ -15,6 +15,13 @@
       "when": 1754400500000,
       "tag": "0001_feedback_applications",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1754401000000,
+      "tag": "0002_filed_issues",
+      "breakpoints": true
     }
   ]
 }

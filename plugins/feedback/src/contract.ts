@@ -53,6 +53,13 @@ export const FeedbackApplicationStatusSchema = z.enum([
 ]);
 export type FeedbackApplicationStatus = z.infer<typeof FeedbackApplicationStatusSchema>;
 
+export const FiledIssueSchema = z.object({
+  url: z.string().url(),
+  title: z.string().nullable().default(null),
+  filedAt: z.string(),
+});
+export type FiledIssue = z.infer<typeof FiledIssueSchema>;
+
 export const FeedbackApplicationSchema = z.object({
   id: z.string(),
   requestId: z.string(),
@@ -65,8 +72,19 @@ export const FeedbackApplicationSchema = z.object({
   appliedAt: z.string(),
   decidedAt: z.string().nullable(),
   decidedBy: z.string().nullable(),
+  filedIssues: z.array(FiledIssueSchema),
+  submittedAt: z.string().nullable(),
 });
 export type FeedbackApplication = z.infer<typeof FeedbackApplicationSchema>;
+
+const GithubIssueUrl = z
+  .string()
+  .trim()
+  .url()
+  .refine(
+    (u) => /^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+/.test(u),
+    "URL must be a github.com issue link, e.g. https://github.com/owner/repo/issues/123",
+  );
 
 const ListMetaSchema = z.object({
   total: z.number().int().nonnegative(),
@@ -165,6 +183,30 @@ export const contract = {
     .route({ method: "POST", path: "/v1/feedback/applications/{id}/reject" })
     .input(z.object({ id: z.string() }))
     .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  attachFiledIssue: oc
+    .route({ method: "POST", path: "/v1/feedback/applications/{id}/filed-issues" })
+    .input(
+      z.object({
+        id: z.string(),
+        url: GithubIssueUrl,
+        title: z.string().trim().max(240).optional(),
+      }),
+    )
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  removeFiledIssue: oc
+    .route({ method: "DELETE", path: "/v1/feedback/applications/{id}/filed-issues" })
+    .input(z.object({ id: z.string(), url: z.string() }))
+    .output(z.object({ data: FeedbackApplicationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  markFeedbackRequestComplete: oc
+    .route({ method: "POST", path: "/v1/feedback/requests/{id}/complete" })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ data: FeedbackRequestSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 };
 

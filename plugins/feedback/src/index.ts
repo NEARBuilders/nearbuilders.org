@@ -160,6 +160,53 @@ export default createPlugin({
           }
           return await runEffect(services.applications.rejectApplicant(input.id, account));
         }),
+
+      attachFiledIssue: builder.attachFiledIssue
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to file issues",
+              data: { action: "attachFiledIssue" },
+            });
+          }
+          return await runEffect(
+            services.applications.attachFiledIssue(input.id, account, input.url, input.title),
+          );
+        }),
+
+      removeFiledIssue: builder.removeFiledIssue
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to remove filed issues",
+              data: { action: "removeFiledIssue" },
+            });
+          }
+          return await runEffect(
+            services.applications.removeFiledIssue(input.id, account, input.url),
+          );
+        }),
+
+      markFeedbackRequestComplete: builder.markFeedbackRequestComplete
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const account = authorNearAccount(context);
+          if (!account) {
+            throw errors.FORBIDDEN({
+              message: "Link a NEAR wallet to mark complete",
+              data: { action: "markFeedbackRequestComplete" },
+            });
+          }
+          const result = await runEffect(services.requests.markComplete(input.id, account));
+          const counts = await runEffect(
+            services.applications.countApplicationsForRequest(result.data.id),
+          );
+          return { data: { ...result.data, applicationCounts: counts } };
+        }),
     };
   },
 });
