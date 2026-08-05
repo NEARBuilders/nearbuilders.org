@@ -71,6 +71,7 @@ Required runtime vars (in addition to inherited ones):
 - `API_DATABASE_URL` — API database connection string
 - `PROJECTS_DATABASE_URL` — Projects plugin database
 - `BUILDERS_DATABASE_URL` — Builders plugin database
+- `NOMINATION_TOKEN_SECRET` — Nomination token signing secret, at least 32 characters
 - `BETTER_AUTH_SECRET` — Session encryption key
 
 ## Lint Setup

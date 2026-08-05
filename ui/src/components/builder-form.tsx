@@ -23,14 +23,15 @@ export function parseSkills(raw: string): string[] {
     .filter(Boolean);
 }
 
-export const validateSkills = (value?: string) => {
+export const validateSkills = (value?: string, required = false) => {
   const skills = parseSkills(value ?? "");
+  if (required && skills.length === 0) return "Add at least one skill";
   if (skills.length > 20) return "Max 20 skills";
   if (skills.some((s) => s.length > 50)) return "Each skill must be 50 characters or fewer";
   return undefined;
 };
 
-export function BuilderFormFields({ form }: { form: any }) {
+export function BuilderFormFields({ form, required = false }: { form: any; required?: boolean }) {
   const skillsRaw = useStore(form.store, (s: any) => s.values.skills ?? "");
   const skills = parseSkills(skillsRaw);
 
@@ -41,16 +42,23 @@ export function BuilderFormFields({ form }: { form: any }) {
           name="name"
           validators={{
             onChange: ({ value }: any) =>
-              validateOptionalMaxLength(value, 100, "Max 100 characters"),
+              required && !value?.trim()
+                ? "Display name is required"
+                : validateOptionalMaxLength(value, 100, "Max 100 characters"),
             onSubmit: ({ value }: any) =>
-              validateOptionalMaxLength(value, 100, "Max 100 characters"),
+              required && !value?.trim()
+                ? "Display name is required"
+                : validateOptionalMaxLength(value, 100, "Max 100 characters"),
           }}
         >
           {(field: any) => {
             const err = fieldError(field.state.meta.errors[0]);
             return (
               <div className="space-y-1.5">
-                <Label htmlFor="name">Display name</Label>
+                <Label htmlFor="name">
+                  Display name
+                  {required && <span className="text-destructive"> *</span>}
+                </Label>
                 <Input
                   id="name"
                   value={field.state.value ?? ""}
@@ -96,16 +104,23 @@ export function BuilderFormFields({ form }: { form: any }) {
         name="bio"
         validators={{
           onChange: ({ value }: any) =>
-            validateOptionalMaxLength(value, 1000, "Max 1000 characters"),
+            required && !value?.trim()
+              ? "Bio is required"
+              : validateOptionalMaxLength(value, 1000, "Max 1000 characters"),
           onSubmit: ({ value }: any) =>
-            validateOptionalMaxLength(value, 1000, "Max 1000 characters"),
+            required && !value?.trim()
+              ? "Bio is required"
+              : validateOptionalMaxLength(value, 1000, "Max 1000 characters"),
         }}
       >
         {(field: any) => {
           const err = fieldError(field.state.meta.errors[0]);
           return (
             <div className="space-y-1.5">
-              <Label htmlFor="bio">Bio</Label>
+              <Label htmlFor="bio">
+                Bio
+                {required && <span className="text-destructive"> *</span>}
+              </Label>
               <Textarea
                 id="bio"
                 value={field.state.value ?? ""}
@@ -126,8 +141,8 @@ export function BuilderFormFields({ form }: { form: any }) {
       <form.Field
         name="skills"
         validators={{
-          onChange: ({ value }: any) => validateSkills(value),
-          onSubmit: ({ value }: any) => validateSkills(value),
+          onChange: ({ value }: any) => validateSkills(value, required),
+          onSubmit: ({ value }: any) => validateSkills(value, required),
         }}
       >
         {(field: any) => {
@@ -135,7 +150,9 @@ export function BuilderFormFields({ form }: { form: any }) {
           return (
             <div className="space-y-1.5">
               <Label htmlFor="skills">
-                Skills <span className="font-normal text-muted-foreground">(comma-separated)</span>
+                Skills
+                {required && <span className="text-destructive"> *</span>}{" "}
+                <span className="font-normal text-muted-foreground">(comma-separated)</span>
               </Label>
               <Input
                 id="skills"
