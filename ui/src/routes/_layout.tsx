@@ -27,6 +27,7 @@ export const Route = createFileRoute("/_layout")({
 const navLinks = [
   { label: "Builders", to: "/builders" },
   { label: "Projects", to: "/projects" },
+  { label: "Feedback", to: "/feedback" },
   { label: "Events", to: "/events" },
   { label: "Activity", to: "/activity" },
 ] as const;
