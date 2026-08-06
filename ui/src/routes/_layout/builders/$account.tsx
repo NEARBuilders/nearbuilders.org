@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
+import { BuilderFeedbackContributions } from "@/components/builder-feedback-contributions";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -519,6 +520,7 @@ function LoadedProfile({
                 hasMore={projectsResult?.meta.hasMore ?? false}
               />
               <ContributedProjects nearAccount={account} />
+              <BuilderFeedbackContributions nearAccount={account} />
             </TabsContent>
             <TabsContent value="activity" className="mt-5">
               <TooltipProvider>

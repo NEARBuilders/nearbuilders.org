@@ -114,6 +114,16 @@
       ],
       "production": "https://elliot-braem-7055-everything-dev-nearcatalog-plug-702bc141c-ze.zephyrcloud.app",
       "integrity": "sha384-Xy+HmJrzlF9DzKQ9oDPArCLwY0bQFVv06Ezf7xKhoYWnYi2IYfrQqCnDRuSWQO6J"
+    },
+    "feedback": {
+      "development": "local:plugins/feedback",
+      "secrets": [
+        "FEEDBACK_DATABASE_URL"
+      ],
+      "routes": [
+        "ui/src/routes/_layout/feedback.tsx",
+        "ui/src/routes/_layout/feedback/**"
+      ]
     }
   }
 }
