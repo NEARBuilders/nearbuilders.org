@@ -143,9 +143,8 @@ function LoginPage() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-8 leading-relaxed">
-          Anonymous sessions let you explore the platform without a wallet. You’ll
-          get temporary access to your workspace.
-          Connect a wallet to vote, create, and save your progress.
+          Anonymous sessions let you explore the platform without a wallet. You’ll get temporary
+          access to your workspace. Connect a wallet to vote, create, and save your progress.
         </p>
       </div>
     </div>
