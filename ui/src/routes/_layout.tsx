@@ -179,21 +179,21 @@ function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-background/20 bg-foreground text-background">
+      <footer className="border-t border-border bg-background text-foreground">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-20">
             <div>
               <Link
                 to="/"
-                className="inline-flex items-center gap-3 text-lg font-black tracking-tight text-background transition-opacity hover:opacity-75"
+                className="inline-flex items-center gap-3 text-lg font-black tracking-tight text-foreground transition-opacity hover:opacity-75"
               >
                 <img src="/logo.png" alt={appName} className="h-12 w-auto" />
                 {appName}
               </Link>
-              <h2 className="mt-8 max-w-xl text-3xl font-black leading-tight tracking-tight text-background sm:text-4xl">
+              <h2 className="mt-8 max-w-xl text-3xl font-black leading-tight tracking-tight text-foreground sm:text-4xl">
                 The open network for people building what's next.
               </h2>
-              <p className="mt-4 max-w-lg text-sm leading-relaxed text-background/60 sm:text-base">
+              <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
                 Find collaborators, make your work visible, and keep shipping with the NEAR
                 ecosystem behind you.
               </p>
@@ -209,7 +209,7 @@ function Layout() {
                     <Link
                       key={link.to}
                       to={link.to}
-                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                      className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </Link>
@@ -228,7 +228,7 @@ function Layout() {
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                      className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </a>
@@ -247,7 +247,7 @@ function Layout() {
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-background/60 transition-colors hover:text-background"
+                      className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
                     </a>
@@ -257,8 +257,8 @@ function Layout() {
             </div>
           </div>
 
-          <div className="mt-14 flex flex-col gap-6 border-t border-background/20 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-background/50">
+          <div className="mt-14 flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
               &copy; {new Date().getFullYear()} {appName}
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +266,7 @@ function Layout() {
                 href="https://github.com/nearbuilders"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="GitHub"
               >
                 <GitFork className="size-4" />
@@ -275,7 +275,7 @@ function Layout() {
                 href="https://x.com/NearBuilders"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="X (Twitter)"
               >
                 <span className="text-xs font-black">X</span>
@@ -284,7 +284,7 @@ function Layout() {
                 href="https://t.me/nearbuilderschat"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex size-9 items-center justify-center rounded-full bg-background/10 text-background/70 transition-colors hover:bg-background hover:text-foreground"
+                className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Telegram"
               >
                 <Send className="size-4" />
@@ -296,12 +296,12 @@ function Layout() {
                 className="relative ml-2 h-5 w-[84px] shrink-0"
               >
                 <img
-                  src={builtOnRev}
+                  src={builtOn}
                   alt="Built on NEAR"
                   className="absolute inset-0 h-full w-full object-contain dark:hidden"
                 />
                 <img
-                  src={builtOn}
+                  src={builtOnRev}
                   alt="Built on NEAR"
                   className="absolute inset-0 hidden h-full w-full object-contain dark:block"
                 />
