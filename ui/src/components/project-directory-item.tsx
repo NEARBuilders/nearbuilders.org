@@ -27,6 +27,9 @@ export interface ProjectDirectoryItem {
   source: "local" | "nearcatalog";
   catalogUrl: string | null;
   imageUrl: string | null;
+  catalogTags: string[];
+  catalogPhase: string | null;
+  catalogStatus: string | null;
   contributors: { nearAccount: string; roles: string[] }[];
 }
 
@@ -185,6 +188,8 @@ export function PrivateIndicator({ size = 12 }: { size?: number }) {
   return (
     <span
       title="Private"
+      role="img"
+      aria-label="Private"
       className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary p-1 text-muted-foreground"
     >
       <Lock size={size} />
@@ -196,10 +201,12 @@ export function KindBadge({
   kind,
   compact,
   size,
+  className,
 }: {
   kind: ProjectKind;
   compact?: boolean;
   size?: "default" | "sidebar";
+  className?: string;
 }) {
   const isCompact = compact ?? size === "sidebar";
   const KindIcon =
@@ -215,6 +222,7 @@ export function KindBadge({
           : isCompact
             ? "gap-0.5 px-1.5 py-0 text-[10px] [&>svg]:size-[9px]"
             : "gap-1 px-2 py-0.5 text-[11px] [&>svg]:size-2.5",
+        className,
       )}
     >
       {KindIcon ? <KindIcon /> : null}
@@ -223,7 +231,13 @@ export function KindBadge({
   );
 }
 
-export function StatusBadge({ status }: { status: "active" | "paused" | "archived" }) {
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: "active" | "paused" | "archived";
+  className?: string;
+}) {
   const statusClasses = {
     active: "border-brand-accent bg-brand-accent-light text-foreground",
     paused: "border-border bg-secondary text-foreground",
@@ -232,7 +246,7 @@ export function StatusBadge({ status }: { status: "active" | "paused" | "archive
   return (
     <Badge
       variant="outline"
-      className={cn("rounded-[4px] px-2 py-0.5 text-[11px]", statusClasses[status])}
+      className={cn("rounded-[4px] px-2 py-0.5 text-[11px]", statusClasses[status], className)}
     >
       {status}
     </Badge>

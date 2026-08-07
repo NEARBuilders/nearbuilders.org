@@ -83,7 +83,7 @@ function Layout() {
         )}
       </ClientOnly>
 
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background text-foreground backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative flex h-16 items-center justify-between">
             <Link
@@ -118,7 +118,7 @@ function Layout() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-10 rounded-full bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                className="size-10 rounded-full border border-border bg-card text-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => setMobileOpen((v) => !v)}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileOpen}
@@ -138,19 +138,19 @@ function Layout() {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto bg-foreground text-background animate-fade-in-up"
+            className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto bg-background text-foreground animate-fade-in-up"
           >
             <div className="mx-auto flex min-h-full max-w-7xl flex-col px-4 py-8 sm:px-6">
               <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
                 Explore the network
               </p>
-              <nav className="mt-5 border-y border-background/20">
+              <nav className="mt-5 border-y border-border">
                 {navLinks.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}
                     onClick={() => setMobileOpen(false)}
-                    className="block border-b border-background/20 py-5 text-3xl font-black tracking-tight text-background transition-colors last:border-b-0 hover:text-brand-accent [&.active]:text-brand-accent"
+                    className="block border-b border-border py-5 text-3xl font-black tracking-tight text-foreground transition-colors last:border-b-0 hover:text-brand-accent [&.active]:text-brand-accent"
                   >
                     {link.label}
                   </Link>
@@ -165,7 +165,7 @@ function Layout() {
                 >
                   Join the builder network
                 </Link>
-                <div className="mt-4 flex items-center justify-between rounded-2xl bg-background p-3 text-foreground">
+                <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-card p-3 text-foreground">
                   <ThemeToggle />
                   <UserNav />
                 </div>

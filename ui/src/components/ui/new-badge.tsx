@@ -25,7 +25,7 @@ export function NewBadge({
       variant="success"
       title="Added in the last 7 days"
       className={cn(
-        "uppercase tracking-wide",
+        "rounded-full uppercase tracking-wide",
         compact ? "gap-0.5 px-1.5 py-0 text-[10px]" : "gap-1 px-2 py-0.5 text-[11px]",
         className,
       )}

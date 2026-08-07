@@ -266,70 +266,80 @@ function EditFormInner({
     },
   });
 
+  const kindLabel = project.kind.charAt(0).toUpperCase() + project.kind.slice(1);
+
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to project">
-            <Link
-              to="/projects/$kind/$slug"
-              params={{ kind: project.kind, slug: project.slug }}
-              search={{
-                kind: search.kind,
-                personal: search.personal,
-                private: search.private,
-                verified: search.verified,
-              }}
-            >
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm font-semibold text-foreground">Edit</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
-            {({ isSubmitting }) => (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => form.handleSubmit()}
-                disabled={isSubmitting || updateMutation.isPending}
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="shrink-0 border-b border-border bg-background">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button asChild variant="outline" size="icon-sm" aria-label="Back to project">
+              <Link
+                to="/projects/$kind/$slug"
+                params={{ kind: project.kind, slug: project.slug }}
+                search={{
+                  kind: search.kind,
+                  personal: search.personal,
+                  private: search.private,
+                  verified: search.verified,
+                }}
               >
-                {updateMutation.isPending ? "Saving\u2026" : "Save"}
-              </Button>
-            )}
-          </form.Subscribe>
+                <ArrowLeft size={15} />
+              </Link>
+            </Button>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Projects / Edit
+              </p>
+              <h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">
+                Edit {kindLabel.toLowerCase()}
+              </h1>
+            </div>
+          </div>
 
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-            }}
-            disabled={deleteMutation.isPending}
-          >
-            <Trash2 size={13} />
-            Delete
-          </Button>
+          <div className="flex items-center gap-2">
+            <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
+              {({ isSubmitting }) => (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => form.handleSubmit()}
+                  disabled={isSubmitting || updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving\u2026" : "Save changes"}
+                </Button>
+              )}
+            </form.Subscribe>
 
-          <Button asChild size="sm" variant="outline">
-            <Link
-              to="/projects/$kind/$slug"
-              params={{ kind: project.kind, slug: project.slug }}
-              search={{
-                kind: search.kind,
-                personal: search.personal,
-                private: search.private,
-                verified: search.verified,
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                if (confirm("Delete this project permanently?")) deleteMutation.mutate();
               }}
+              disabled={deleteMutation.isPending}
             >
-              <X size={13} />
-              Cancel
-            </Link>
-          </Button>
+              <Trash2 size={13} />
+              <span className="hidden sm:inline">Delete</span>
+            </Button>
+
+            <Button asChild size="sm" variant="outline">
+              <Link
+                to="/projects/$kind/$slug"
+                params={{ kind: project.kind, slug: project.slug }}
+                search={{
+                  kind: search.kind,
+                  personal: search.personal,
+                  private: search.private,
+                  verified: search.verified,
+                }}
+              >
+                <X size={13} />
+                <span className="hidden sm:inline">Cancel</span>
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -339,7 +349,7 @@ function EditFormInner({
           e.stopPropagation();
           form.handleSubmit();
         }}
-        className="flex flex-1 overflow-y-auto lg:min-h-0 lg:overflow-hidden"
+        className="flex flex-1 flex-col"
       >
         <ProjectFormLayout
           form={form}

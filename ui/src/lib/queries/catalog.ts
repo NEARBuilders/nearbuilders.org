@@ -58,10 +58,14 @@ export function catalogClaimProposalsQueryOptions(
   };
 }
 
-export function claimedCatalogProjectsQueryOptions(apiClient: ApiClient, nearAccount?: string) {
+export function claimedCatalogProjectsQueryOptions(
+  apiClient: ApiClient,
+  nearAccount?: string,
+  query?: string,
+) {
   return {
-    queryKey: catalogKeys.claimedProjects(nearAccount),
-    queryFn: () => apiClient.listClaimedCatalogProjects({ nearAccount, limit: 100 }),
+    queryKey: [...catalogKeys.claimedProjects(nearAccount), query ?? null] as const,
+    queryFn: () => apiClient.listClaimedCatalogProjects({ nearAccount, query, limit: 100 }),
     staleTime: 60_000,
   };
 }

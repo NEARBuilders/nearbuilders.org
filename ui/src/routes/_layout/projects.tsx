@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_layout/projects")({
 
 function ProjectsLayout() {
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
+    <div className="flex flex-col">
       <Outlet />
     </div>
   );

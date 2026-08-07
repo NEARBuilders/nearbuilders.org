@@ -19,6 +19,11 @@ export declare const contract: {
             paused: "paused";
             archived: "archived";
         }>>;
+        query: z.ZodOptional<z.ZodString>;
+        sort: z.ZodOptional<z.ZodEnum<{
+            newest: "newest";
+            oldest: "oldest";
+        }>>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
