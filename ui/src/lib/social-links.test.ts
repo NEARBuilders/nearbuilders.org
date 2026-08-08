@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSocialLinks, socialLinkToUrl } from "./social-links";
+import { isSocialLinkClickable, mergeSocialLinks, socialLinkToUrl } from "./social-links";
 
 describe("socialLinkToUrl", () => {
   it("turns social handles into absolute external URLs", () => {
@@ -15,6 +15,24 @@ describe("socialLinkToUrl", () => {
     expect(socialLinkToUrl("github", "github.com/nearbuilders")).toBe(
       "https://github.com/nearbuilders",
     );
+  });
+});
+
+describe("Discord handles", () => {
+  it("keeps discord handles as plain text instead of a broken link", () => {
+    expect(socialLinkToUrl("discord", "@nearbuilders")).toBe("nearbuilders");
+    expect(socialLinkToUrl("discord", "nearbuilders#1234")).toBe("nearbuilders#1234");
+  });
+});
+
+describe("isSocialLinkClickable", () => {
+  it("treats absolute http(s) URLs as clickable", () => {
+    expect(isSocialLinkClickable("https://github.com/nearbuilders")).toBe(true);
+    expect(isSocialLinkClickable("http://nearbuilders.org")).toBe(true);
+  });
+
+  it("treats a bare discord handle as not clickable", () => {
+    expect(isSocialLinkClickable("nearbuilders#1234")).toBe(false);
   });
 });
 
