@@ -212,7 +212,7 @@ html.theme-transition *::after {
     fill,
     stroke,
     box-shadow !important;
-  transition-duration: 180ms !important;
+  transition-duration: 100ms !important;
   transition-timing-function: ease-out !important;
 }
 

@@ -15,16 +15,13 @@ export function ThemeToggle() {
     }
 
     root.classList.add("theme-transition");
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    root.getBoundingClientRect();
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
 
-        transitionTimeoutRef.current = window.setTimeout(() => {
-          root.classList.remove("theme-transition");
-          transitionTimeoutRef.current = null;
-        }, 180);
-      });
-    });
+    transitionTimeoutRef.current = window.setTimeout(() => {
+      root.classList.remove("theme-transition");
+      transitionTimeoutRef.current = null;
+    }, 100);
   };
 
   return (
