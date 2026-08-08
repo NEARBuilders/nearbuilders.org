@@ -99,7 +99,7 @@ function Layout() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-foreground [&.active]:text-background"
+                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-brand-accent-light [&.active]:text-brand-accent"
                 >
                   {link.label}
                 </Link>
