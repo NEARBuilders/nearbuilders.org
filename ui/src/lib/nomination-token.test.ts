@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { initializeNominationToken, shouldClearNominationToken } from "./telegram-nomination";
+import { initializeNominationToken, shouldClearNominationToken } from "./nomination-token";
 
-describe("Telegram nomination browser state", () => {
+describe("Nomination browser state", () => {
   it("prefers and captures a URL token", () => {
     expect(initializeNominationToken(" new-token ", "stored-token")).toEqual({
       token: "new-token",

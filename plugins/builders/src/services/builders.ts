@@ -1,9 +1,49 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import { builderNominations, builders } from "../db/schema";
+import {
+  createNominationToken,
+  createXNominationRecord,
+  finalizeNomination as finalizeNominationRecord,
+  nominationMetadata as genericNominationMetadata,
+  hashNominationToken,
+  hasMatchingTokenHash,
+  type NominationMetadata,
+  resolveCanonicalNomination,
+  resolveNomination as resolveNominationRecord,
+  syncBuilderXIdentity,
+  syncSubmittedXIdentity,
+  type XNominationInput,
+} from "./nominations";
+import {
+  getXNominationMetrics,
+  listXNominationQueue,
+  updateXNomination,
+  type XNominationAdminAction,
+  type XNominationEngagementStatusValue,
+  type XNominationMetrics,
+  type XNominationQueueRecord,
+} from "./x-nomination-admin";
+
+export type {
+  NominationMetadata,
+  XNominationInput,
+  XReferralContext,
+} from "./nominations";
+export {
+  createNominationToken,
+  hashNominationToken,
+} from "./nominations";
+export type {
+  XNominationAdminAction,
+  XNominationEngagementStatusValue,
+  XNominationMetrics,
+  XNominationQueueRecord,
+} from "./x-nomination-admin";
+export { XNominationEngagementStatus } from "./x-nomination-admin";
 
 function toIsoString(value: Date | string | null | undefined): string {
   if (!value) return new Date().toISOString();
@@ -75,16 +115,6 @@ function randomId(prefix: string): string {
   return `${prefix}_${randomBytes(16).toString("base64url")}`;
 }
 
-export function hashNominationToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
-}
-
-export function createNominationToken(tokenSecret: string, nominationId: string): string {
-  return createHmac("sha256", tokenSecret)
-    .update(`telegram-nomination:v1:${nominationId}`, "utf8")
-    .digest("base64url");
-}
-
 export interface TelegramNominationInput {
   source: "telegram";
   sourceNominationId: string;
@@ -104,6 +134,21 @@ export interface TelegramNominationMetadata {
   nominationId: string;
   source: "telegram";
 }
+
+interface CreateXNominationInput {
+  nomination: XNominationInput;
+  apiKeyId: string;
+  tokenSecret: string;
+}
+
+interface CreatedXNomination {
+  nominationId: string;
+  created: boolean;
+}
+
+type ResolvedNomination =
+  | ({ status: "ready" | "submitted" } & NominationMetadata)
+  | { status: "invalid" };
 
 interface CreateTelegramNominationInput {
   nomination: TelegramNominationInput;
@@ -127,7 +172,7 @@ type ResolvedTelegramNomination =
   | ({ status: "ready" | "submitted" } & TelegramNominationMetadata)
   | { status: "invalid" };
 
-function nominationMetadata(
+function telegramNominationMetadata(
   row: typeof builderNominations.$inferSelect,
 ): TelegramNominationMetadata {
   return {
@@ -138,12 +183,6 @@ function nominationMetadata(
 
 function normalizeTelegramUsername(username: string): string {
   return username.trim().toLowerCase();
-}
-
-function hasMatchingTokenHash(token: string, storedHash: string): boolean {
-  const expected = Buffer.from(hashNominationToken(token), "hex");
-  const actual = Buffer.from(storedHash, "hex");
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 function assertMatchingNomination(
@@ -285,6 +324,49 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       nearAccount: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
+    createXNomination: (
+      input: CreateXNominationInput,
+    ) => Effect.Effect<CreatedXNomination, ORPCError<string, unknown>>;
+
+    resolveNomination: (
+      token: string,
+      recordOpen?: boolean,
+    ) => Effect.Effect<ResolvedNomination, ORPCError<string, unknown>>;
+
+    finalizeNomination: (
+      token: string,
+      proposalId: string,
+      nearAccount: string,
+      userId: string,
+    ) => Effect.Effect<NominationMetadata, ORPCError<string, unknown>>;
+
+    listXNominationQueue: (input: {
+      status?: XNominationEngagementStatusValue;
+      search?: string;
+      limit?: number;
+      cursor?: string;
+      joinBaseUrl: string;
+      tokenSecret: string;
+    }) => Effect.Effect<
+      {
+        data: XNominationQueueRecord[];
+        meta: { total: number; hasMore: boolean; nextCursor: string | null };
+      },
+      ORPCError<string, unknown>
+    >;
+
+    updateXNomination: (input: {
+      nominationId: string;
+      expectedEngagementUpdatedAt: string;
+      action: XNominationAdminAction;
+      replyUrl?: string;
+      actorUserId: string;
+      joinBaseUrl: string;
+      tokenSecret: string;
+    }) => Effect.Effect<XNominationQueueRecord, ORPCError<string, unknown>>;
+
+    getXNominationMetrics: () => Effect.Effect<XNominationMetrics, ORPCError<string, unknown>>;
+
     createTelegramNomination: (
       input: CreateTelegramNominationInput,
     ) => Effect.Effect<CreatedTelegramNomination, ORPCError<string, unknown>>;
@@ -422,6 +504,19 @@ export const BuilderServiceLive = Layer.effect(
                 .limit(1),
             );
 
+            if (!updated) {
+              return yield* Effect.fail(
+                new ORPCError("INTERNAL_SERVER_ERROR", {
+                  message: "Builder profile disappeared after update",
+                }),
+              );
+            }
+            yield* Effect.promise(() =>
+              syncBuilderXIdentity(db, updated.id, parseLinks(updated.links)),
+            );
+            yield* Effect.promise(() =>
+              syncSubmittedXIdentity(db, updated.id, updated.nearAccount),
+            );
             return rowToBuilder(updated);
           }
 
@@ -442,6 +537,8 @@ export const BuilderServiceLive = Layer.effect(
               updatedAt: now,
             }),
           );
+          yield* Effect.promise(() => syncBuilderXIdentity(db, id, input.links ?? null));
+          yield* Effect.promise(() => syncSubmittedXIdentity(db, id, input.nearAccount));
 
           return {
             id,
@@ -498,7 +595,17 @@ export const BuilderServiceLive = Layer.effect(
           const [updated] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
-
+          if (!updated) {
+            return yield* Effect.fail(
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Builder profile disappeared after update",
+              }),
+            );
+          }
+          yield* Effect.promise(() =>
+            syncBuilderXIdentity(db, updated.id, parseLinks(updated.links)),
+          );
+          yield* Effect.promise(() => syncSubmittedXIdentity(db, updated.id, updated.nearAccount));
           return rowToBuilder(updated);
         }),
 
@@ -521,6 +628,29 @@ export const BuilderServiceLive = Layer.effect(
           return { deleted: true };
         }),
 
+      createXNomination: (input) => Effect.promise(() => createXNominationRecord(db, input)),
+
+      resolveNomination: (token, recordOpen = true) =>
+        Effect.gen(function* () {
+          const result = yield* Effect.promise(() =>
+            resolveNominationRecord(db, token, recordOpen),
+          );
+          if (!result) return { status: "invalid" as const };
+          return {
+            ...genericNominationMetadata(result.canonical, result.referral),
+            status: result.canonical.submittedAt ? ("submitted" as const) : ("ready" as const),
+          };
+        }),
+
+      finalizeNomination: (token, proposalId, nearAccount, userId) =>
+        Effect.promise(() => finalizeNominationRecord(db, token, proposalId, nearAccount, userId)),
+
+      listXNominationQueue: (input) => Effect.promise(() => listXNominationQueue(db, input)),
+
+      updateXNomination: (input) => Effect.promise(() => updateXNomination(db, input)),
+
+      getXNominationMetrics: () => Effect.promise(() => getXNominationMetrics(db)),
+
       createTelegramNomination: (input) =>
         Effect.gen(function* () {
           const nominationId = randomId("nom");
@@ -534,33 +664,8 @@ export const BuilderServiceLive = Layer.effect(
 
           const result = yield* Effect.promise(() =>
             db.transaction(async (tx) => {
-              const resolveCanonical = async (
-                initial: typeof builderNominations.$inferSelect,
-              ): Promise<typeof builderNominations.$inferSelect> => {
-                let current = initial;
-                const visited = new Set<string>();
-                while (current.canonicalNominationId) {
-                  if (visited.has(current.id)) {
-                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                      message: "Nomination claim handles contain a cycle",
-                    });
-                  }
-                  visited.add(current.id);
-                  const [canonical] = await tx
-                    .select()
-                    .from(builderNominations)
-                    .where(eq(builderNominations.id, current.canonicalNominationId))
-                    .for("update")
-                    .limit(1);
-                  if (!canonical) {
-                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                      message: "Nomination claim handle has no canonical nomination",
-                    });
-                  }
-                  current = canonical;
-                }
-                return current;
-              };
+              const resolveCanonical = (initial: typeof builderNominations.$inferSelect) =>
+                resolveCanonicalNomination(tx, initial, true);
 
               const [sourceMatch] = await tx
                 .select()
@@ -808,33 +913,8 @@ export const BuilderServiceLive = Layer.effect(
         Effect.gen(function* () {
           const result = yield* Effect.promise(() =>
             db.transaction(async (tx) => {
-              const resolveCanonical = async (
-                initial: typeof builderNominations.$inferSelect,
-              ): Promise<typeof builderNominations.$inferSelect> => {
-                let current = initial;
-                const visited = new Set<string>();
-                while (current.canonicalNominationId) {
-                  if (visited.has(current.id)) {
-                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                      message: "Nomination claim handles contain a cycle",
-                    });
-                  }
-                  visited.add(current.id);
-                  const [canonical] = await tx
-                    .select()
-                    .from(builderNominations)
-                    .where(eq(builderNominations.id, current.canonicalNominationId))
-                    .for("update")
-                    .limit(1);
-                  if (!canonical) {
-                    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                      message: "Nomination claim handle has no canonical nomination",
-                    });
-                  }
-                  current = canonical;
-                }
-                return current;
-              };
+              const resolveCanonical = (initial: typeof builderNominations.$inferSelect) =>
+                resolveCanonicalNomination(tx, initial, true);
 
               const updateVerifiedUsername = async (
                 nomination: typeof builderNominations.$inferSelect,
@@ -978,123 +1058,32 @@ export const BuilderServiceLive = Layer.effect(
 
       resolveTelegramNomination: (token) =>
         Effect.gen(function* () {
-          const tokenHash = hashNominationToken(token);
-          const nomination = yield* Effect.promise(async () => {
-            const [matched] = await db
-              .select()
-              .from(builderNominations)
-              .where(eq(builderNominations.tokenHash, tokenHash))
-              .limit(1);
-            if (!matched) return null;
-            let current = matched;
-            const visited = new Set<string>();
-            while (current.canonicalNominationId) {
-              if (visited.has(current.id)) {
-                throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                  message: "Nomination claim handles contain a cycle",
-                });
-              }
-              visited.add(current.id);
-              const [canonical] = await db
-                .select()
-                .from(builderNominations)
-                .where(eq(builderNominations.id, current.canonicalNominationId))
-                .limit(1);
-              if (!canonical) {
-                throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                  message: "Nomination claim handle has no canonical nomination",
-                });
-              }
-              current = canonical;
-            }
-            return current;
-          });
-
-          if (!nomination) return { status: "invalid" as const };
+          const result = yield* Effect.promise(() => resolveNominationRecord(db, token, false));
+          if (!result || result.canonical.source !== "telegram") {
+            return { status: "invalid" as const };
+          }
           return {
-            ...nominationMetadata(nomination),
-            status: nomination.submittedAt ? ("submitted" as const) : ("ready" as const),
+            ...telegramNominationMetadata(result.canonical),
+            status: result.canonical.submittedAt ? ("submitted" as const) : ("ready" as const),
           };
         }),
 
       finalizeTelegramNomination: (token, proposalId, nearAccount, userId) =>
         Effect.gen(function* () {
-          const now = new Date();
-          const tokenHash = hashNominationToken(token);
-
           const result = yield* Effect.promise(() =>
-            db.transaction(async (tx) => {
-              const [matched] = await tx
-                .select()
-                .from(builderNominations)
-                .where(eq(builderNominations.tokenHash, tokenHash))
-                .for("update")
-                .limit(1);
-
-              if (!matched) {
-                throw new ORPCError("INVALID_NOMINATION", {
-                  message: "Nomination link is invalid",
-                });
-              }
-
-              let nomination = matched;
-              const visited = new Set<string>();
-              while (nomination.canonicalNominationId) {
-                if (visited.has(nomination.id)) {
-                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                    message: "Nomination claim handles contain a cycle",
-                  });
-                }
-                visited.add(nomination.id);
-                const [canonical] = await tx
-                  .select()
-                  .from(builderNominations)
-                  .where(eq(builderNominations.id, nomination.canonicalNominationId))
-                  .for("update")
-                  .limit(1);
-                if (!canonical) {
-                  throw new ORPCError("INTERNAL_SERVER_ERROR", {
-                    message: "Nomination claim handle has no canonical nomination",
-                  });
-                }
-                nomination = canonical;
-              }
-
-              if (nomination.submittedAt) {
-                if (
-                  nomination.proposalId === proposalId &&
-                  nomination.submittedNearAccount === nearAccount &&
-                  nomination.submittedUserId === userId
-                ) {
-                  return nomination;
-                }
-                throw new ORPCError("NOMINATION_CONFLICT", {
-                  message: "Nomination was submitted by another builder",
-                });
-              }
-
-              const [submitted] = await tx
-                .update(builderNominations)
-                .set({
-                  proposalId,
-                  submittedAt: now,
-                  submittedNearAccount: nearAccount,
-                  submittedUserId: userId,
-                })
-                .where(eq(builderNominations.id, nomination.id))
-                .returning();
-
-              if (!submitted) {
-                throw new ORPCError("NOMINATION_CONFLICT", {
-                  message: "Nomination could not be finalized",
-                });
-              }
-
-              return submitted;
-            }),
+            finalizeNominationRecord(db, token, proposalId, nearAccount, userId),
           );
-
-          return nominationMetadata(result);
+          if (result.source !== "telegram") {
+            return yield* Effect.fail(
+              new ORPCError("INVALID_NOMINATION", {
+                message: "Nomination link is not a Telegram nomination",
+              }),
+            );
+          }
+          return {
+            nominationId: result.nominationId,
+            source: "telegram" as const,
+          };
         }),
     };
   }),
