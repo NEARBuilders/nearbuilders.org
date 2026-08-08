@@ -42,7 +42,11 @@ export function UserNav() {
 
   if (!user) {
     return (
-      <Button asChild size="sm" className="rounded-full">
+      <Button
+        asChild
+        size="sm"
+        className="rounded-full bg-brand-accent text-brand-mint-foreground hover:opacity-90"
+      >
         <Link to="/login">Connect</Link>
       </Button>
     );
