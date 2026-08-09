@@ -216,6 +216,37 @@ const CatalogCursorSchema = z.string().regex(/^\d+$/);
 const CatalogClaimRolesSchema = z.array(z.string().trim().min(1).max(50)).min(1).max(16);
 const CatalogClaimProposalStatusSchema = z.enum(["pending", "rejected", "approved", "revoked"]);
 
+// ── Nostr Comments ──
+
+const NostrCommentOutput = z.object({
+  id: z.string(),
+  pubkey: z.string(),
+  content: z.string(),
+  target: z.string(),
+  targetType: z.string(),
+  nearAccountId: z.string().optional().nullable(),
+  parentEventId: z.string().optional().nullable(),
+  createdAt: z.number().int(),
+  tags: z.array(z.array(z.string())).optional(),
+  source: z.enum(["standard", "buzz"]),
+});
+
+const RelayStatusOutput = z.object({
+  relay: z.string(),
+  success: z.boolean(),
+});
+
+const NostrPublishResultOutput = z.object({
+  eventId: z.string(),
+  statuses: z.array(RelayStatusOutput),
+});
+
+const BuzzChannelOutput = z.object({
+  id: z.string(),
+  name: z.string().optional().nullable(),
+  members: z.number().int().optional().nullable(),
+});
+
 const CatalogProjectSchema = z.object({
   slug: CatalogProjectSlugSchema,
   projectRef: z.string().regex(/^nearcatalog:(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/),
@@ -1340,6 +1371,176 @@ export const contract = oc.router({
       }),
     )
     .output(z.object({ data: preparedRegistryMetadataWriteSchema }))
+    .errors({ BAD_REQUEST }),
+
+  // ── Nostr Comments ──
+
+  listNostrComments: oc
+    .route({ method: "GET", path: "/v1/comments" })
+    .input(
+      z.object({
+        target: z.string().min(1),
+        targetType: z.string().default("project"),
+        adapterType: z.enum(["standard", "buzz"]).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+        since: z.number().int().optional(),
+        enrich: z.boolean().optional(),
+        requireBound: z.boolean().optional(),
+        requireVerified: z.boolean().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(NostrCommentOutput),
+        meta: z.object({ count: z.number().int() }),
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  createNostrComment: oc
+    .route({ method: "POST", path: "/v1/comments" })
+    .input(
+      z.object({
+        event: z.object({
+          id: z.string(),
+          pubkey: z.string(),
+          content: z.string(),
+          tags: z.array(z.array(z.string())),
+          created_at: z.number().int(),
+          sig: z.string(),
+        }),
+        target: z.string().min(1),
+        targetType: z.string().default("project"),
+        adapterType: z.enum(["standard", "buzz"]).optional(),
+      }),
+    )
+    .output(NostrPublishResultOutput)
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  listBuzzChannels: oc
+    .route({ method: "GET", path: "/v1/buzz/channels" })
+    .output(
+      z.object({
+        data: z.array(BuzzChannelOutput),
+      }),
+    ),
+
+  // ── Nostr Binding ──
+
+  getBindingChallenge: oc
+    .route({ method: "POST", path: "/v1/nostr/binding/challenge" })
+    .input(z.object({}))
+    .output(
+      z.object({
+        challenge: z.string(),
+        expiresAt: z.number().int(),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
+
+  verifyBindingChallenge: oc
+    .route({ method: "POST", path: "/v1/nostr/binding/verify" })
+    .input(
+      z.object({
+        event: z.object({
+          id: z.string(),
+          pubkey: z.string(),
+          content: z.string(),
+          tags: z.array(z.array(z.string())),
+          created_at: z.number().int(),
+          sig: z.string(),
+        }),
+      }),
+    )
+    .output(
+      z.object({
+        valid: z.boolean(),
+        nearAccountId: z.string(),
+        nostrPubkey: z.string(),
+        proof: z.string(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  getNostrBinding: oc
+    .route({ method: "GET", path: "/v1/nostr/binding/{nearAccountId}" })
+    .input(z.object({ nearAccountId: z.string().min(1) }))
+    .output(
+      z.object({
+        nostrPubkey: z.string().optional().nullable(),
+        relay: z.string().optional().nullable(),
+        boundAt: z.number().int().optional().nullable(),
+      }).nullable(),
+    )
+    .errors({ BAD_REQUEST }),
+
+  // ── nostr-core: low-level relay access for agents/custom clients ──
+
+  queryNostrEvents: oc
+    .route({ method: "POST", path: "/v1/nostr/query" })
+    .input(
+      z.object({
+        filter: z.object({
+          kinds: z.array(z.number().int()).optional(),
+          authors: z.array(z.string()).optional(),
+          ids: z.array(z.string()).optional(),
+          since: z.number().int().optional(),
+          until: z.number().int().optional(),
+          limit: z.number().int().min(1).max(500).optional(),
+          tags: z.array(z.object({ tag: z.string(), values: z.array(z.string()) })).optional(),
+        }),
+        relays: z.array(z.string()).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        events: z.array(
+          z.object({
+            id: z.string(),
+            pubkey: z.string(),
+            created_at: z.number().int(),
+            kind: z.number().int(),
+            tags: z.array(z.array(z.string())),
+            content: z.string(),
+            sig: z.string(),
+          }),
+        ),
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  publishNostrEvent: oc
+    .route({ method: "POST", path: "/v1/nostr/publish" })
+    .input(
+      z.object({
+        event: z.object({
+          id: z.string(),
+          pubkey: z.string(),
+          created_at: z.number().int(),
+          kind: z.number().int(),
+          tags: z.array(z.array(z.string())),
+          content: z.string(),
+          sig: z.string(),
+        }),
+        relays: z.array(z.string()).optional(),
+      }),
+    )
+    .output(NostrPublishResultOutput)
+    .errors({ BAD_REQUEST }),
+
+  getNostrProfile: oc
+    .route({ method: "GET", path: "/v1/nostr/profile/{pubkey}" })
+    .input(z.object({ pubkey: z.string().min(1) }))
+    .output(
+      z.object({
+        pubkey: z.string(),
+        name: z.string().optional().nullable(),
+        picture: z.string().optional().nullable(),
+        about: z.string().optional().nullable(),
+        nip05: z.string().optional().nullable(),
+        website: z.string().optional().nullable(),
+      }).nullable(),
+    )
     .errors({ BAD_REQUEST }),
 });
 

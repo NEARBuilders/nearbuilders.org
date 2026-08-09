@@ -660,6 +660,54 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.plugins.apps().prepareRegistryMetadataWrite(input);
         },
       ),
+
+      // ── Nostr Comments ──
+
+      listNostrComments: builder.listNostrComments.handler(async ({ input, context }) => {
+        return await services.plugins["nostr-comments"](context).listComments(input);
+      }),
+
+      createNostrComment: builder.createNostrComment
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins["nostr-comments"](context).createComment(input);
+        }),
+
+      listBuzzChannels: builder.listBuzzChannels.handler(async ({ input, context }) => {
+        return await services.plugins["nostr-comments"](context).listChannels(input);
+      }),
+
+      // ── Nostr Binding ──
+
+      getBindingChallenge: builder.getBindingChallenge
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins["nostr-comments"](context).getBindingChallenge(input);
+        }),
+
+      verifyBindingChallenge: builder.verifyBindingChallenge
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins["nostr-comments"](context).verifyBindingChallenge(input);
+        }),
+
+      getNostrBinding: builder.getNostrBinding.handler(async ({ input }) => {
+        return await services.plugins["nostr-comments"]().getBinding(input);
+      }),
+
+      // ── nostr-core: low-level relay access ──
+
+      queryNostrEvents: builder.queryNostrEvents.handler(async ({ input }) => {
+        return await services.plugins["nostr-comments"]().queryEvents(input);
+      }),
+
+      publishNostrEvent: builder.publishNostrEvent.handler(async ({ input }) => {
+        return await services.plugins["nostr-comments"]().publishEvent(input);
+      }),
+
+      getNostrProfile: builder.getNostrProfile.handler(async ({ input }) => {
+        return await services.plugins["nostr-comments"]().getProfile(input);
+      }),
     };
   },
 });

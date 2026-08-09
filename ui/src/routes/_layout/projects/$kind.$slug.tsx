@@ -30,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { VoteButton } from "@/components/ui/vote-button";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
+import { NostrFeed } from "@/components/nostr-feed";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 export const Route = createFileRoute("/_layout/projects/$kind/$slug")({
@@ -479,6 +480,13 @@ function ProjectDetailPage() {
                         : "This idea has no content yet."}
                 </div>
               )}
+
+              {/* Nostr comments */}
+              <NostrFeed
+                target={project.slug}
+                targetType={project.kind}
+                requireBound
+              />
 
               {(project.kind === "scope" || project.kind === "result") && (
                 <MentionsSection projectId={project.id} />

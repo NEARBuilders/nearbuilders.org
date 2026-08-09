@@ -1,0 +1,43 @@
+{
+  "name": "@nearbuilders/nostr-bindings-plugin",
+  "version": "0.1.0",
+  "description": "NEAR ↔ Nostr identity bindings via FastNear KV — challenge, verify, lookup, resolve",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./contract": {
+      "types": "./src/contract.ts",
+      "default": "./src/contract.ts"
+    }
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@orpc/contract": "catalog:",
+    "@orpc/server": "catalog:",
+    "near-kit": "catalog:"
+  },
+  "devDependencies": {
+    "@module-federation/node": "catalog:",
+    "@rspack/cli": "catalog:",
+    "@rspack/core": "catalog:",
+    "@types/node": "catalog:",
+    "everything-dev": "catalog:",
+    "every-plugin": "catalog:",
+    "zephyr-rspack-plugin": "catalog:",
+    "vitest": "catalog:"
+  },
+  "scripts": {
+    "build": "bun run build:types && rspack build",
+    "build:types": "tsc -p tsconfig.contract.json",
+    "deploy": "bun run build:types && DEPLOY=true rspack build",
+    "dev": "bun run build:types && rspack serve",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}

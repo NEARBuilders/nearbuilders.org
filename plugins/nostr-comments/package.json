@@ -1,0 +1,45 @@
+{
+  "name": "@everything-dev/nostr-comments-plugin",
+  "version": "0.1.0",
+  "description": "Nostr comments plugin for NEAR Builders — powered by near-nostr-sdk",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./contract": {
+      "types": "./src/contract.ts",
+      "default": "./src/contract.ts"
+    }
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@orpc/contract": "catalog:",
+    "@orpc/server": "catalog:",
+    "near-nostr-sdk": "file:../../../near-nostr-sdk"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@module-federation/node": "catalog:",
+    "@rspack/cli": "catalog:",
+    "@rspack/core": "catalog:",
+    "@types/node": "catalog:",
+    "everything-dev": "catalog:",
+    "every-plugin": "catalog:",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "catalog:",
+    "zephyr-rspack-plugin": "catalog:"
+  },
+  "scripts": {
+    "build": "bun run build:types && rspack build",
+    "build:types": "tsc -p tsconfig.contract.json",
+    "deploy": "bun run build:types && DEPLOY=true rspack build",
+    "dev": "bun run build:types && rspack serve",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}
