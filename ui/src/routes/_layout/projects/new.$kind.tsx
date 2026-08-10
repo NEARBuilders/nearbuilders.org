@@ -201,10 +201,16 @@ function NewProjectPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <div className="shrink-0 border-b border-border bg-background">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button asChild variant="outline" size="icon-sm" aria-label="Back to projects">
+      <div className="shrink-0 border-b border-border bg-background sm:sticky sm:top-16 sm:z-30 sm:bg-background/95 sm:backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <Button
+              asChild
+              variant="outline"
+              size="icon-sm"
+              className="size-10 sm:size-8"
+              aria-label="Back to projects"
+            >
               <Link
                 to="/projects"
                 search={{
@@ -219,16 +225,16 @@ function NewProjectPage() {
               </Link>
             </Button>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:text-xs">
                 Projects / New
               </p>
-              <h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">
+              <h1 className="truncate text-base font-semibold text-foreground sm:text-xl">
                 Create a {kindLabel.toLowerCase()}
               </h1>
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+          <div className="hidden w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:justify-end">
             {!canCreate && (
               <span className="hidden text-xs text-muted-foreground sm:inline">
                 Link a NEAR account to continue
@@ -241,6 +247,7 @@ function NewProjectPage() {
                   onClick={submitForm}
                   disabled={!canCreate || isSubmitting || createMutation.isPending}
                   size="sm"
+                  className="h-10 flex-1 sm:h-8 sm:flex-none"
                 >
                   {createMutation.isPending ? "Creating\u2026" : actionLabel}
                 </Button>
@@ -268,6 +275,23 @@ function NewProjectPage() {
           currentKind={routeKind}
         />
       </form>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
+        <div className="mx-auto max-w-7xl pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
+            {({ isSubmitting }) => (
+              <Button
+                type="button"
+                onClick={submitForm}
+                disabled={!canCreate || isSubmitting || createMutation.isPending}
+                className="h-11 w-full"
+              >
+                {createMutation.isPending ? "Creating…" : actionLabel}
+              </Button>
+            )}
+          </form.Subscribe>
+        </div>
+      </div>
     </div>
   );
 }

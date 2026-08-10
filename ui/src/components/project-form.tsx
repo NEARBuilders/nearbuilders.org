@@ -189,25 +189,21 @@ export function ProjectFormLayout({
     {
       value: "project" as const,
       label: "Project",
-      description: "A shipped product or tool",
       icon: <FileCode2 size={15} />,
     },
     {
       value: "idea" as const,
       label: "Idea",
-      description: "A concept worth exploring",
       icon: <FileText size={15} />,
     },
     {
       value: "scope" as const,
       label: "Scope",
-      description: "A defined piece of work",
       icon: <Layers size={15} />,
     },
     {
       value: "result" as const,
       label: "Result",
-      description: "A shipped outcome or learning",
       icon: <BarChart2 size={15} />,
     },
   ];
@@ -217,11 +213,11 @@ export function ProjectFormLayout({
   const identityReady = Boolean(defaultOwnerId || isAdmin);
 
   return (
-    <div className="flex-1 bg-muted/40">
-      <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-5 sm:px-6 sm:py-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7 lg:px-8">
+    <div className={cn("flex-1 bg-muted/40", mode === "create" && "pb-24 sm:pb-0")}>
+      <div className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7 lg:px-8">
         <div className="min-w-0 space-y-5">
-          <section className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-5 py-5 sm:px-7">
+          <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+            <div className="border-b border-border px-4 py-4 sm:px-7 sm:py-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
@@ -238,11 +234,11 @@ export function ProjectFormLayout({
               </div>
               <form.Field name="kind">
                 {(field: any) => (
-                  <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 xl:grid-cols-4">
                     {kindOptions.map((option) => {
                       const active = kind === option.value;
                       const optionClass = cn(
-                        "flex min-h-20 items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        "flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-16 sm:justify-start sm:gap-3 sm:rounded-xl sm:px-3.5 sm:py-3",
                         active
                           ? "border-brand-accent bg-brand-accent-light"
                           : "border-border bg-background hover:border-border-strong hover:bg-muted",
@@ -251,7 +247,7 @@ export function ProjectFormLayout({
                         <>
                           <span
                             className={cn(
-                              "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg",
+                              "flex size-5 shrink-0 items-center justify-center rounded-md sm:size-7 sm:rounded-lg",
                               active
                                 ? "bg-brand-accent text-brand-mint-foreground"
                                 : "bg-muted text-muted-foreground",
@@ -260,11 +256,8 @@ export function ProjectFormLayout({
                             {option.icon}
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-sm font-bold text-foreground">
+                            <span className="block text-xs font-bold text-foreground sm:text-sm">
                               {option.label}
-                            </span>
-                            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                              {option.description}
                             </span>
                           </span>
                         </>
@@ -304,7 +297,7 @@ export function ProjectFormLayout({
               </form.Field>
             </div>
 
-            <div className="space-y-6 px-5 py-6 sm:px-7">
+            <div className="space-y-5 px-4 py-5 sm:space-y-6 sm:px-7 sm:py-6">
               <FormSectionHeading
                 eyebrow="Step 2"
                 title="Tell people what it is"
@@ -406,8 +399,8 @@ export function ProjectFormLayout({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-5 py-5 sm:px-7">
+          <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+            <div className="border-b border-border px-4 py-4 sm:px-7 sm:py-5">
               <FormSectionHeading
                 eyebrow="Step 3"
                 title={kind === "project" ? "Connect the source" : "Write the details"}
@@ -418,7 +411,7 @@ export function ProjectFormLayout({
                 }
               />
             </div>
-            <div className="px-5 py-6 sm:px-7">
+            <div className="px-4 py-5 sm:px-7 sm:py-6">
               {kind === "project" ? (
                 <ProjectSourcePreview
                   form={form}
@@ -494,8 +487,8 @@ export function ProjectFormLayout({
           </section>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:space-y-5 lg:self-start">
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
             <div className="flex items-start gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent-light text-brand-accent">
                 <ShieldCheck size={18} />
@@ -580,7 +573,7 @@ export function ProjectFormLayout({
           </section>
 
           {mode === "edit" && kind !== "result" && (
-            <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
               <FieldLabel>Status</FieldLabel>
               <p className="mt-1 text-xs text-muted-foreground">Show where this work is today.</p>
               <form.Field name="status">
@@ -604,7 +597,7 @@ export function ProjectFormLayout({
           )}
 
           {kind === "idea" && (
-            <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
               <FieldLabel htmlFor="domain">Domain</FieldLabel>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Add a live domain if this idea already has a home on the web.
@@ -639,7 +632,7 @@ export function ProjectFormLayout({
           )}
 
           {isAdmin && (
-            <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
               <FieldLabel htmlFor="ownerId">Owner</FieldLabel>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Assign this entry to a NEAR account. Leave blank to use your account.
@@ -673,7 +666,7 @@ export function ProjectFormLayout({
             </section>
           )}
 
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <section className="hidden rounded-xl border border-border bg-card p-4 shadow-sm sm:block sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-foreground">Ready to share?</h2>
               <span className="text-xs font-semibold text-muted-foreground">
@@ -867,8 +860,8 @@ function ContentWriteTab({
   };
 
   return (
-    <div className="flex min-h-[55vh] flex-col lg:h-full lg:min-h-0">
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-3 py-2.5 sm:px-4">
+    <div className="flex min-h-[50vh] flex-col sm:min-h-[55vh] lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-border bg-card px-3 py-2.5 sm:px-4">
         {MARKDOWN_TOOLS.map((tool) => {
           const Icon = tool.icon;
           return (
@@ -877,7 +870,7 @@ function ContentWriteTab({
               type="button"
               onClick={() => applyMarkdown(tool)}
               title={tool.label}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground active:scale-95 [webkit-tap-highlight-color:transparent]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground active:scale-95 [webkit-tap-highlight-color:transparent]"
             >
               <Icon size={14} />
             </button>
@@ -892,12 +885,12 @@ function ContentWriteTab({
           placeholder ?? "# My Idea\n\nDescribe the concept, motivation, and next steps…"
         }
         className={cn(
-          "flex-1 w-full min-h-[320px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-5",
+          "flex-1 w-full min-h-[280px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-4 sm:min-h-[320px] sm:p-5",
           error ? "border-t-2 border-destructive" : "",
         )}
       />
       {error && (
-        <div className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-8 py-2 text-xs text-destructive">
+        <div className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive sm:px-8">
           {error}
         </div>
       )}
@@ -907,7 +900,7 @@ function ContentWriteTab({
 
 function MarkdownPreviewPanel({ content, compact }: { content: string; compact?: boolean }) {
   return (
-    <div className="flex min-h-[55vh] flex-col overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+    <div className="flex min-h-[50vh] flex-col overflow-visible sm:min-h-[55vh] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-3 sm:px-6">
         <FileText size={14} className="text-muted-foreground" />
         <span className="text-sm font-semibold text-foreground">Live Preview</span>
