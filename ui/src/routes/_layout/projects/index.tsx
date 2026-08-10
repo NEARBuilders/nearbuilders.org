@@ -1364,7 +1364,7 @@ function ProjectsList() {
       <div className="min-w-0">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
           <header>
-            <div className="flex max-w-3xl flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
                 <h1 className="text-4xl font-black tracking-tight text-foreground">Projects</h1>
                 <p className="mt-2 text-base text-muted-foreground sm:text-lg">
