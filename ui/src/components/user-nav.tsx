@@ -43,7 +43,11 @@ export function UserNav({ className }: { className?: string }) {
 
   if (!user) {
     return (
-      <Button asChild size="sm" className={cn("rounded-full", className)}>
+      <Button
+        asChild
+        size="sm"
+        className={cn("rounded-full bg-brand-accent text-brand-mint-foreground hover:opacity-90", className)}
+      >
         <Link to="/login">Connect</Link>
       </Button>
     );
