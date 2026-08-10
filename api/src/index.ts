@@ -159,7 +159,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         async ({ input, context }) => {
           const response = await services.plugins.builders(context).createTelegramNomination(input);
           const body = await resolveNominationResponse(response.body, context);
-          return { ...response, body } as never;
+          return { ...response, body };
         },
       ),
 
@@ -172,7 +172,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const nomination = await services.plugins
             .builders(context)
             .claimTelegramNomination(input);
-          return (await resolveNominationResponse(nomination, context)) as never;
+          return await resolveNominationResponse(nomination, context);
         },
       ),
 

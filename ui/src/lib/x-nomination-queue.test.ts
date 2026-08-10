@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createXNominationCsvData } from "../../../../lib/export-csv";
+import { createXNominationCsvData } from "./export-csv";
 import {
   filterXNominationGroups,
   groupXNominationRecords,
   X_QUEUE_STATUS_FILTERS,
   type XNominationRecord,
   xNominationContext,
-} from "../../../../lib/x-nomination-queue";
+} from "./x-nomination-queue";
 
 function nomination(overrides: Partial<XNominationRecord> = {}): XNominationRecord {
   return {

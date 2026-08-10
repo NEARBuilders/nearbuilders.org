@@ -4,6 +4,8 @@ import type { ApiClient, AuthClient } from "@/app";
 
 export const PAGE_SIZE = 24;
 
+export const X_NOMINATION_QUEUE_KEY = ["admin-x-nominations"] as const;
+
 export interface Builder {
   id: string;
   nearAccount: string;
@@ -156,6 +158,26 @@ export function builderProposalsOptions(apiClient: ApiClient, entityId: string) 
         limit: 100,
       }),
     enabled: !!entityId,
+    staleTime: 30_000,
+  };
+}
+
+export function xNominationQueueOptions(apiClient: ApiClient) {
+  return {
+    queryKey: X_NOMINATION_QUEUE_KEY,
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      apiClient.builders.listXNominationQueue({ limit: 100, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: { meta: { hasMore: boolean; nextCursor: string | null } }) =>
+      lastPage.meta.hasMore ? (lastPage.meta.nextCursor ?? undefined) : undefined,
+    staleTime: 15_000,
+  };
+}
+
+export function xNominationProposalsOptions(apiClient: ApiClient) {
+  return {
+    queryKey: ["admin-x-nomination-proposals"] as const,
+    queryFn: () => apiClient.getProposals({ pluginId: "builders", limit: 100 }),
     staleTime: 30_000,
   };
 }

@@ -48,11 +48,6 @@ describe("admin proposal dashboard", () => {
       status: "rejected",
       item: "claim:alice:project",
     });
-    expect(parseDashboardSearch({ tab: "x-nominations" })).toEqual({
-      tab: "x-nominations",
-      status: undefined,
-      item: undefined,
-    });
   });
 
   it("uses payload data for item titles", () => {

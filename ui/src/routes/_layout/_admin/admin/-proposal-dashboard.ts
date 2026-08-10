@@ -4,7 +4,7 @@ export type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["dat
 export type ProposalAuditEntry = Awaited<ReturnType<ApiClient["getAuditLog"]>>["data"][number];
 export type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
 export type ProposalDashboardTab = "builders" | "projects" | "events" | "activity";
-export type DashboardTab = ProposalDashboardTab | "x-nominations";
+export type DashboardTab = ProposalDashboardTab;
 export type ProposalReviewStatus = ProposalRecord["reviewStatus"];
 export type DashboardStatus = "all" | ProposalReviewStatus;
 
@@ -26,19 +26,11 @@ export const DASHBOARD_TABS = [
   pluginId: ProposalPluginId;
 }>;
 
-export const ADMIN_DASHBOARD_TABS = [
-  ...DASHBOARD_TABS.map(({ value, label }) => ({ value, label })),
-  { value: "x-nominations", label: "Nominations" },
-] as const satisfies ReadonlyArray<{ value: DashboardTab; label: string }>;
-
 export const DASHBOARD_STATUSES = ["all", "pending", "approved", "rejected", "removed"] as const;
 
 export function parseDashboardSearch(search: Record<string, unknown>): DashboardSearch {
   const tab =
-    search.tab === "projects" ||
-    search.tab === "events" ||
-    search.tab === "activity" ||
-    search.tab === "x-nominations"
+    search.tab === "projects" || search.tab === "events" || search.tab === "activity"
       ? search.tab
       : undefined;
   const status =
