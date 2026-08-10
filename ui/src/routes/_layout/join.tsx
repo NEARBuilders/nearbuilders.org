@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
-import { AlertTriangle, Check, CircleCheck, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
@@ -204,7 +204,7 @@ function JoinPage() {
   if ((pendingProposalQuery.data?.data.length ?? 0) > 0) {
     return (
       <JoinShell>
-        <CircleCheck className="mx-auto size-8 text-brand-green" />
+        <Clock3 className="mx-auto size-8 text-brand-cobalt" />
         <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
           Your profile is under review
         </h1>

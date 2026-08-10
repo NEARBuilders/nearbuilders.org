@@ -387,8 +387,8 @@ const BUILDER_STATUS_TONE: Record<
   },
   pending: {
     icon: Clock3,
-    iconClass: "text-brand-cyan",
-    badgeClass: "border-brand-cyan/30 bg-brand-cyan/10 text-brand-cyan",
+    iconClass: "text-brand-cobalt",
+    badgeClass: "border-brand-cobalt/30 bg-brand-cobalt/10 text-brand-cobalt",
   },
   rejected: {
     icon: X,
@@ -850,8 +850,8 @@ function BuilderProfileCard({
           </div>
 
           {builderProposal.reviewStatus === "pending" && (
-            <div className="flex gap-3 rounded-xl border border-brand-cyan/20 bg-brand-cyan/10 px-3.5 py-3 text-sm">
-              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-brand-cyan" />
+            <div className="flex gap-3 rounded-xl border border-brand-cobalt/20 bg-brand-cobalt/10 px-3.5 py-3 text-sm">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-brand-cobalt" />
               <div>
                 <p className="font-semibold text-foreground">Waiting for review</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
