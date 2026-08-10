@@ -686,12 +686,6 @@ function ProjectDetailPanel({
             <CalendarDays className="size-3.5 text-brand-accent" />
             Updated {formatDate(project.updatedAt)}
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <ThumbsUp className="size-3.5 text-brand-accent" />
-            {voteCountAvailable
-              ? `${project.upvoteCount} endorsements`
-              : "Endorsement count unavailable"}
-          </span>
         </section>
       </div>
 
