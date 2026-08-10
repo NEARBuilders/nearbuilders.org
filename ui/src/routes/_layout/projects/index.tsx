@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_layout/projects/")({
   validateSearch: parseProjectListSearch,
   head: () => ({
     meta: [
-      { title: "Projects | app" },
+      { title: "Projects | NEAR Builders" },
       { name: "description", content: "Browse projects and ideas, ranked live by votes." },
     ],
   }),
