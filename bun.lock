@@ -15,7 +15,7 @@
         "@orpc/server": "catalog:",
         "@types/node": "catalog:",
         "better-auth": "catalog:",
-        "better-near-auth": "1.8.2",
+        "better-near-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "effect": "catalog:",
         "every-plugin": "catalog:",
@@ -465,7 +465,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "better-auth": "1.6.25",
-    "better-near-auth": "1.8.1",
+    "better-near-auth": "1.8.2",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
     "effect": "3.21.2",
@@ -2971,8 +2971,6 @@
     "terser-webpack-plugin/schema-utils": ["schema-utils@4.3.3", "", { "dependencies": { "@types/json-schema": "^7.0.9", "ajv": "^8.9.0", "ajv-formats": "^2.1.1", "ajv-keywords": "^5.1.0" } }, "sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA=="],
 
     "tsyringe/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
-
-    "ui/better-near-auth": ["better-near-auth@1.8.1", "", { "dependencies": { "@scure/base": "^2.2.0", "nanostores": "^1.1.0", "near-kit": "^0.14.0", "zod": "^4.4.3" }, "peerDependencies": { "@better-auth/core": "^1.6.25", "better-auth": "^1.6.25", "typescript": "^5.9.3" } }, "sha512-JhuUW5D3BNu42XPUEAyk5rVJubZ8Qz8Zt8Gcvdf7nrBCnDJY5GSLgAh9Qy0IuPZl2UKPX40LWD1tkpGCz9kleg=="],
 
     "webpack/schema-utils": ["schema-utils@4.3.3", "", { "dependencies": { "@types/json-schema": "^7.0.9", "ajv": "^8.9.0", "ajv-formats": "^2.1.1", "ajv-keywords": "^5.1.0" } }, "sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA=="],
 
