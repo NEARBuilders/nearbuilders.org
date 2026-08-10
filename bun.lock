@@ -465,7 +465,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "better-auth": "1.6.25",
-    "better-near-auth": "1.8.1",
+    "better-near-auth": "1.8.2",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
     "effect": "3.21.2",
