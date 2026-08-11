@@ -161,8 +161,7 @@ function HeroSection() {
             Open network for builders
           </div>
           <h1 className="text-5xl font-black leading-none tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-            Build what's{" "}
-            <span className="block">next,{" "}</span>
+            Build what's <span className="block">next, </span>
             <span className="block text-brand-accent">together.</span>
           </h1>
           <p className="mt-7 max-w-lg text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl">
