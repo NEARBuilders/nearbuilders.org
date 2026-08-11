@@ -46,7 +46,10 @@ export function UserNav({ className }: { className?: string }) {
       <Button
         asChild
         size="sm"
-        className={cn("rounded-full bg-brand-accent text-brand-mint-foreground hover:opacity-90", className)}
+        className={cn(
+          "rounded-full bg-brand-accent text-brand-mint-foreground hover:opacity-90",
+          className,
+        )}
       >
         <Link to="/login">Connect</Link>
       </Button>

@@ -1,4 +1,5 @@
 import type { ApiClient } from "@/app";
+import type { XNominationGroup } from "@/lib/x-nomination-queue";
 
 type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
 type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
@@ -173,4 +174,56 @@ export async function exportProposalTable(
       : (options.reviewStatus ?? options.lifecycleStatus ?? "all");
   downloadCsv(`admin-${options.filenameLabel}-${status}-${date}.csv`, headers, rows);
   return proposals.length;
+}
+
+const X_NOMINATION_HEADERS = [
+  "nominationId",
+  "nomineeUsername",
+  "nomineeXId",
+  "nominatorUsername",
+  "nominatorXId",
+  "referralCount",
+  "engagementStatus",
+  "sourcePostIds",
+  "sourcePostUrls",
+  "replyUrl",
+  "contactedAt",
+  "linkOpenCount",
+  "lastOpenedAt",
+  "profileStatus",
+  "submittedNearAccount",
+  "submittedAt",
+  "createdAt",
+];
+
+export function createXNominationCsvData(groups: XNominationGroup[]) {
+  return {
+    headers: X_NOMINATION_HEADERS,
+    rows: groups.map(({ nomination, referrals }) => [
+      nomination.canonicalNominationId,
+      nomination.nomineeXUsername,
+      nomination.nomineeXId,
+      nomination.nominatorXUsername,
+      nomination.nominatorXId,
+      referrals.length,
+      nomination.engagementStatus,
+      referrals.map((referral) => referral.sourcePostId),
+      referrals.map((referral) => referral.sourcePostUrl),
+      nomination.replyUrl,
+      nomination.contactedAt,
+      nomination.openCount,
+      nomination.lastOpenedAt,
+      nomination.profileStatus,
+      nomination.submittedNearAccount,
+      nomination.submittedAt,
+      nomination.createdAt,
+    ]),
+  };
+}
+
+export function exportXNominationTable(groups: XNominationGroup[], status: string) {
+  const { headers, rows } = createXNominationCsvData(groups);
+  const date = new Date().toISOString().slice(0, 10);
+  downloadCsv(`admin-x-nominations-${status}-${date}.csv`, headers, rows);
+  return groups.length;
 }

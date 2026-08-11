@@ -277,13 +277,15 @@ function AdminDashboard() {
               const Icon = TAB_ICONS[item.value];
               const pendingQuery = pendingCountQueries[index];
               const pendingCount = pendingQuery?.data;
+              const pendingCountLoading = pendingQuery?.isLoading;
+              const pendingCountError = pendingQuery?.isError;
               return (
                 <TabsTrigger key={item.value} value={item.value} className="gap-2 px-4 sm:px-5">
                   <Icon />
                   {item.label}
-                  {pendingQuery?.isLoading ? (
+                  {pendingCountLoading ? (
                     <span className="size-4 animate-pulse rounded-full bg-secondary" aria-hidden />
-                  ) : pendingQuery?.isError ? (
+                  ) : pendingCountError ? (
                     <CircleAlert
                       className="size-3.5 text-destructive"
                       aria-label={`${item.label} pending count unavailable`}

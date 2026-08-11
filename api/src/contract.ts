@@ -75,6 +75,53 @@ const HttpUrl = z
     }
   }, "Profile links must use HTTP or HTTPS");
 
+const XId = z
+  .string()
+  .regex(/^[1-9]\d*$/)
+  .max(32);
+const XUsername = z
+  .string()
+  .min(1)
+  .max(15)
+  .regex(/^[A-Za-z0-9_]+$/);
+const XPostUrl = HttpUrl.refine((value) => {
+  const hostname = new URL(value).hostname.toLowerCase();
+  return hostname === "x.com" || hostname === "www.x.com";
+}, "An x.com post URL is required");
+
+const XNominationInput = z
+  .object({
+    source: z.literal("x"),
+    sourceNominationId: XId,
+    sourcePostUrl: XPostUrl,
+    sourcePostText: z
+      .string()
+      .max(10_000)
+      .refine((value) => value.trim().length > 0, "Source X post text is required"),
+    sourcePostCreatedAt: z.iso.datetime().nullable(),
+    nominatedByXId: XId,
+    nominatedByXUsername: XUsername,
+    nomineeXId: XId,
+    nomineeXUsername: XUsername,
+    conversationId: XId.nullable(),
+    replyToPostId: XId.nullable(),
+  })
+  .refine((input) => input.nominatedByXId !== input.nomineeXId, {
+    message: "X users cannot nominate themselves",
+    path: ["nomineeXId"],
+  })
+  .refine(
+    (input) => {
+      const path = new URL(input.sourcePostUrl).pathname.split("/").filter(Boolean);
+      const statusIndex = path.lastIndexOf("status");
+      return statusIndex >= 0 && path[statusIndex + 1] === input.sourceNominationId;
+    },
+    {
+      message: "The X post URL must match sourceNominationId",
+      path: ["sourcePostUrl"],
+    },
+  );
+
 const BuilderProfileSubmissionInput = z.object({
   nominationToken: z.string().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(100),
@@ -101,6 +148,8 @@ const TelegramNominationResponse = z.discriminatedUnion("status", [
   TelegramNominationMetadata.extend({ status: z.literal("removed") }),
   TelegramNominationMetadata.extend({ status: z.literal("processing_failed") }),
 ]);
+
+const XNominationReceipt = z.object({ nominationId: z.string() });
 
 const TelegramNominationHeaders = z.record(z.string(), z.string());
 
@@ -492,6 +541,38 @@ export const contract = oc.router({
       BAD_REQUEST,
       IDEMPOTENCY_CONFLICT,
     }),
+
+  createXNomination: oc
+    .route({
+      method: "POST",
+      path: "/builders/nominations/x",
+      inputStructure: "detailed",
+      outputStructure: "detailed",
+      successStatus: 201,
+    })
+    .input(
+      z.object({
+        headers: z.object({
+          "idempotency-key": z.string().trim().min(1).max(255),
+        }),
+        body: XNominationInput,
+      }),
+    )
+    .output(
+      z.union([
+        z.object({
+          status: z.literal(200),
+          headers: z.record(z.string(), z.string()),
+          body: XNominationReceipt,
+        }),
+        z.object({
+          status: z.literal(201),
+          headers: z.record(z.string(), z.string()),
+          body: XNominationReceipt,
+        }),
+      ]),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, IDEMPOTENCY_CONFLICT }),
 
   claimTelegramNomination: oc
     .route({ method: "POST", path: "/builders/nominations/claim" })

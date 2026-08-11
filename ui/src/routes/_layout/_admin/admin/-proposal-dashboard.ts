@@ -3,7 +3,8 @@ import type { ApiClient } from "@/app";
 export type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
 export type ProposalAuditEntry = Awaited<ReturnType<ApiClient["getAuditLog"]>>["data"][number];
 export type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
-export type DashboardTab = "builders" | "projects" | "events" | "activity";
+export type ProposalDashboardTab = "builders" | "projects" | "events" | "activity";
+export type DashboardTab = ProposalDashboardTab;
 export type ProposalReviewStatus = ProposalRecord["reviewStatus"];
 export type DashboardStatus = "all" | ProposalReviewStatus;
 
@@ -20,7 +21,7 @@ export const DASHBOARD_TABS = [
   { value: "events", label: "Events", pluginId: "events" },
   { value: "activity", label: "Activity", pluginId: "nearcatalog" },
 ] as const satisfies ReadonlyArray<{
-  value: DashboardTab;
+  value: ProposalDashboardTab;
   label: string;
   pluginId: ProposalPluginId;
 }>;
