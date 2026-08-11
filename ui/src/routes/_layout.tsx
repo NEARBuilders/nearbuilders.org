@@ -88,10 +88,10 @@ function Layout() {
           <div className="relative flex h-16 items-center justify-between">
             <Link
               to="/"
-              className="flex items-center gap-2.5 text-lg font-black tracking-tight text-foreground transition-opacity hover:opacity-75"
+              className="flex min-w-0 items-center gap-2 text-base font-black tracking-tight text-foreground transition-opacity hover:opacity-75 sm:gap-2.5 sm:text-lg"
             >
-              <img src="/logo.png" alt={appName} className="h-9 w-auto" />
-              {appName}
+              <img src="/logo.png" alt={appName} className="h-8 w-auto shrink-0 sm:h-9" />
+              <span className="truncate">{appName}</span>
             </Link>
 
             <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border bg-card p-1 md:flex">
@@ -99,7 +99,7 @@ function Layout() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-foreground [&.active]:text-background"
+                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-brand-accent-light [&.active]:text-brand-accent"
                 >
                   {link.label}
                 </Link>
@@ -112,8 +112,15 @@ function Layout() {
               <UserNav />
             </div>
 
-            <div className="flex items-center gap-1 md:hidden">
+            <div className="flex shrink-0 items-center gap-2 md:hidden">
               {user && <NotificationBell />}
+              <UserNav
+                className={
+                  user
+                    ? "size-9"
+                    : "h-9 px-4 text-xs font-bold bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                }
+              />
               <Button
                 type="button"
                 variant="ghost"
@@ -124,7 +131,7 @@ function Layout() {
                 aria-expanded={mobileOpen}
                 aria-controls="mobile-menu"
               >
-                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+                {mobileOpen ? <X size={18} /> : <Menu size={18} />}
               </Button>
             </div>
           </div>
