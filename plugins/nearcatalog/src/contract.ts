@@ -120,6 +120,7 @@ export const contract = oc.router({
     .input(
       z.object({
         nearAccount: z.string().min(1).max(100).optional(),
+        query: z.string().trim().max(200).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: CursorSchema.optional(),
       }),

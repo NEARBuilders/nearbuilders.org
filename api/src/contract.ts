@@ -918,6 +918,7 @@ export const contract = oc.router({
     .input(
       z.object({
         nearAccount: z.string().min(1).max(100).optional(),
+        query: z.string().trim().max(200).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: CatalogCursorSchema.optional(),
       }),
@@ -1034,6 +1035,8 @@ export const contract = oc.router({
         kind: z.enum(["project", "idea", "scope", "result"]).optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
+        query: z.string().trim().max(200).optional(),
+        sort: z.enum(["newest", "oldest"]).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),

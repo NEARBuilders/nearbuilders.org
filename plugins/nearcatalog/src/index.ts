@@ -37,6 +37,39 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+function matchesProjectQuery(
+  project: {
+    slug: string;
+    name: string;
+    tagline: string | null;
+    description: string | null;
+    repositoryUrl: string | null;
+    tags: string[];
+    phase: string | null;
+    status: string | null;
+  },
+  contributors: Array<{ nearAccount: string }>,
+  query?: string,
+) {
+  const normalizedQuery = query?.trim().toLowerCase();
+  if (!normalizedQuery) return true;
+  return [
+    project.slug,
+    project.name,
+    project.tagline,
+    project.description,
+    project.repositoryUrl,
+    project.phase,
+    project.status,
+    ...project.tags,
+    ...contributors.map((contributor) => contributor.nearAccount),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(normalizedQuery);
+}
+
 export default createPlugin({
   variables: z.object({
     baseUrl: z.url().default("https://api.nearcatalog.xyz"),
@@ -111,7 +144,11 @@ export default createPlugin({
             }
           },
         );
-        const available = projects.filter((project) => project !== null);
+        const available = projects
+          .filter((project) => project !== null)
+          .filter(({ project, contributors }) =>
+            matchesProjectQuery(project, contributors, input.query),
+          );
         const limit = Math.min(input.limit ?? 50, 100);
         const offset = input.cursor ? Math.max(Number.parseInt(input.cursor, 10) || 0, 0) : 0;
         const data = available.slice(offset, offset + limit);

@@ -31,6 +31,8 @@ export const contract = oc.router({
         kind: kindEnum.optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
+        query: z.string().trim().max(200).optional(),
+        sort: z.enum(["newest", "oldest"]).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
