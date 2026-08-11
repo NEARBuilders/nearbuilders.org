@@ -150,7 +150,7 @@ function BuildersPage() {
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [category, setCategory] = useState<BuilderCategory>("all");
+  const [category, setCategory] = useState<BuilderCategory>("nominated");
   const [skill, setSkill] = useState("all");
   const [location, setLocation] = useState("all");
   const [layout, setLayout] = useState<BuilderLayout>("grid");
@@ -461,9 +461,9 @@ function BuildersPage() {
         >
           {(
             [
-              { value: "all" as const, label: "All", icon: Users },
-              { value: "approved" as const, label: "Approved", icon: CheckCircle2 },
               { value: "nominated" as const, label: "Nominations", icon: Sparkles },
+              { value: "approved" as const, label: "Approved", icon: CheckCircle2 },
+              { value: "all" as const, label: "All", icon: Users },
             ] as const
           ).map(({ value, label, icon: Icon }) => (
             <button
