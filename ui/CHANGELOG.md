@@ -1,5 +1,12 @@
 # ui
 
+## 1.6.1
+
+### Patch Changes
+
+- 9235213: Replace the unreplaced build-template `| app` suffix on the `/projects` and `/about` page titles with `| NEAR Builders` to match the convention used by `/events`, `/activity`, and `/builders` (#121).
+- 380b52d: Fix "Pending review" using the same color as approved states, which made testers think a submission had already been approved. Pending states now use the brand-cobalt (blue) token instead of brand-cyan, which shares its hex value with brand-green.
+
 ## 1.6.0
 
 ### Minor Changes
