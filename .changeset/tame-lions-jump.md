@@ -2,4 +2,4 @@
 "ui": minor
 ---
 
-Add Discord as a builder profile social link. Since Discord has no public profile URL reachable from a bare username, it's shown as plain text on the profile page instead of a link, unlike the other social fields.
+Add Discord as a builder profile social link. It's stored as a numeric Discord user ID and links to `https://discord.com/users/USER_ID`, since usernames aren't stable enough to link to directly.

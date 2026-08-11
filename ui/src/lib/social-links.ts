@@ -4,7 +4,12 @@ export const SOCIAL_LINKS = [
   { key: "twitter", label: "X", base: "https://x.com/", placeholder: "username" },
   { key: "telegram", label: "Telegram", base: "https://t.me/", placeholder: "username" },
   { key: "linkedin", label: "LinkedIn", base: "https://linkedin.com/in/", placeholder: "username" },
-  { key: "discord", label: "Discord", base: "", placeholder: "username or user#1234" },
+  {
+    key: "discord",
+    label: "Discord",
+    base: "https://discord.com/users/",
+    placeholder: "123456789012345678",
+  },
 ] as const;
 
 function linkConfig(key: string) {
@@ -15,15 +20,12 @@ export function linkLabel(key: string): string {
   return linkConfig(key)?.label ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-export function isSocialLinkClickable(value: string): boolean {
-  return /^https?:\/\//i.test(value);
-}
-
-export const validateHandle = (value?: string) => {
+export const validateHandle = (key: string, value?: string) => {
   const v = value?.trim();
   if (!v) return undefined;
   if (v.length > 100) return "Too long";
   if (/\s/.test(v)) return "No spaces allowed";
+  if (key === "discord" && !/^\d{17,20}$/.test(v)) return "Must be a numeric Discord user ID";
   return undefined;
 };
 

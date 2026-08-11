@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSocialLinkClickable, mergeSocialLinks, socialLinkToUrl } from "./social-links";
+import { mergeSocialLinks, socialLinkToUrl, validateHandle } from "./social-links";
 
 describe("socialLinkToUrl", () => {
   it("turns social handles into absolute external URLs", () => {
@@ -18,21 +18,33 @@ describe("socialLinkToUrl", () => {
   });
 });
 
-describe("Discord handles", () => {
-  it("keeps discord handles as plain text instead of a broken link", () => {
-    expect(socialLinkToUrl("discord", "@nearbuilders")).toBe("nearbuilders");
-    expect(socialLinkToUrl("discord", "nearbuilders#1234")).toBe("nearbuilders#1234");
+describe("Discord user IDs", () => {
+  it("turns a numeric discord user id into a profile link", () => {
+    expect(socialLinkToUrl("discord", "123456789012345678")).toBe(
+      "https://discord.com/users/123456789012345678",
+    );
+  });
+
+  it("round-trips an already-complete discord URL", () => {
+    expect(socialLinkToUrl("discord", "https://discord.com/users/123456789012345678")).toBe(
+      "https://discord.com/users/123456789012345678",
+    );
   });
 });
 
-describe("isSocialLinkClickable", () => {
-  it("treats absolute http(s) URLs as clickable", () => {
-    expect(isSocialLinkClickable("https://github.com/nearbuilders")).toBe(true);
-    expect(isSocialLinkClickable("http://nearbuilders.org")).toBe(true);
+describe("validateHandle", () => {
+  it("accepts a numeric discord user id", () => {
+    expect(validateHandle("discord", "123456789012345678")).toBeUndefined();
   });
 
-  it("treats a bare discord handle as not clickable", () => {
-    expect(isSocialLinkClickable("nearbuilders#1234")).toBe(false);
+  it("rejects a non-numeric discord handle", () => {
+    expect(validateHandle("discord", "nearbuilders#1234")).toBe(
+      "Must be a numeric Discord user ID",
+    );
+  });
+
+  it("has no numeric constraint for other platforms", () => {
+    expect(validateHandle("github", "nearbuilders")).toBeUndefined();
   });
 });
 

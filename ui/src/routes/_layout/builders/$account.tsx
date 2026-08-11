@@ -34,7 +34,7 @@ import {
 } from "@/lib/queries/builders";
 import { claimedCatalogProjectsQueryOptions } from "@/lib/queries/catalog";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
-import { isSocialLinkClickable, linkLabel, mergeSocialLinks } from "@/lib/social-links";
+import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/builders/$account")({
@@ -480,23 +480,13 @@ function LoadedProfile({
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(allLinks).map(([platform, url]) => {
                       const Icon = socialIcon(platform);
-                      const chipClassName =
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-secondary border border-border hover:bg-muted hover:border-border/80 transition-all duration-150 font-medium";
-                      if (!isSocialLinkClickable(url)) {
-                        return (
-                          <span key={platform} className={chipClassName} title={url}>
-                            <Icon className="size-3.5" />
-                            {linkLabel(platform)}
-                          </span>
-                        );
-                      }
                       return (
                         <a
                           key={platform}
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={chipClassName}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-secondary border border-border hover:bg-muted hover:border-border/80 transition-all duration-150 font-medium"
                         >
                           <Icon className="size-3.5" />
                           {linkLabel(platform)}
