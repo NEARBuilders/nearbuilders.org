@@ -36,11 +36,14 @@ const encodedProjectSlug = "curate-fun-%ef%b8%8f-autonomous-news";
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
   const files = ["0000_happy_black_bolt.sql", "0001_plain_tusk.sql"];
+  const timestamps = [1783692963943, 1783697310496];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
   return {
     default: sources.map((source, index) => ({
+      idx: index,
+      when: timestamps[index],
       hash: `nearcatalog-test-${index}`,
       tag: files[index],
       sql: source.split("--> statement-breakpoint").map((statement) => statement.trim()),
