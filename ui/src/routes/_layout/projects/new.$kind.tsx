@@ -1,13 +1,13 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { customAlphabet } from "nanoid";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { clearDraft, getDraft, type ProjectKind, setDraft } from "@/lib/draft-store";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
@@ -194,22 +194,19 @@ function NewProjectPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
-            <Link
-              to="/projects"
-              search={{
-                preview: undefined,
-                kind: search.kind,
-                personal: search.personal,
-                private: search.private,
-                verified: search.verified,
-              }}
-            >
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm font-semibold text-foreground">New</span>
+          <PageBreadcrumb
+            parentLabel="Projects"
+            parentTo="/projects"
+            parentSearch={{
+              preview: undefined,
+              kind: search.kind,
+              personal: search.personal,
+              private: search.private,
+              verified: search.verified,
+            }}
+            current="New"
+            currentClassName="text-sm font-semibold text-foreground"
+          />
         </div>
 
         <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">

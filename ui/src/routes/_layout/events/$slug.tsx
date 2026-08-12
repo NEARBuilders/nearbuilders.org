@@ -208,7 +208,7 @@ function EventDetailPage() {
   return (
     <EventDetail
       event={event}
-      breadcrumb={event.slug}
+      breadcrumb={event.title}
       copied={copied}
       onShare={handleShare}
       badges={

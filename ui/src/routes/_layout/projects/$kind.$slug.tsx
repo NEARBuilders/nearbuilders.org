@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import {
-  ArrowLeft,
   BarChart2,
   Check,
   ExternalLink,
@@ -25,6 +24,7 @@ import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
@@ -282,27 +282,18 @@ function ProjectDetailPage() {
       <div className="flex h-full flex-col overflow-hidden">
         {/* top bar */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-          {/* breadcrumb */}
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
-              <Link
-                to="/projects"
-                search={{
-                  preview: project.id,
-                  kind: search.kind,
-                  personal: search.personal,
-                  private: search.private,
-                  verified: search.verified,
-                }}
-              >
-                <ArrowLeft size={15} />
-              </Link>
-            </Button>
-            <span className="hidden text-muted-foreground sm:inline">/</span>
-            <span className="hidden max-w-[160px] truncate text-sm font-semibold text-foreground sm:block">
-              {project.slug}
-            </span>
-          </div>
+          <PageBreadcrumb
+            parentLabel="Projects"
+            parentTo="/projects"
+            parentSearch={{
+              preview: project.id,
+              kind: search.kind,
+              personal: search.personal,
+              private: search.private,
+              verified: search.verified,
+            }}
+            current={project.slug}
+          />
 
           {/* actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">

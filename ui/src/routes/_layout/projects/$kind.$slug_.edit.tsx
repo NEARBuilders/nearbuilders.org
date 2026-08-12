@@ -1,11 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
@@ -270,22 +271,19 @@ function EditFormInner({
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to project">
-            <Link
-              to="/projects/$kind/$slug"
-              params={{ kind: project.kind, slug: project.slug }}
-              search={{
-                kind: search.kind,
-                personal: search.personal,
-                private: search.private,
-                verified: search.verified,
-              }}
-            >
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm font-semibold text-foreground">Edit</span>
+          <PageBreadcrumb
+            parentLabel="Projects"
+            parentTo="/projects"
+            parentSearch={{
+              preview: undefined,
+              kind: search.kind,
+              personal: search.personal,
+              private: search.private,
+              verified: search.verified,
+            }}
+            current="Edit"
+            currentClassName="text-sm font-semibold text-foreground"
+          />
         </div>
 
         <div className="flex items-center gap-2">
