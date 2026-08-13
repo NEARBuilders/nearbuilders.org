@@ -177,23 +177,30 @@ function NominationForm({
   apiClient: ReturnType<typeof useApiClient>;
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const skills = skillsRaw
+    .split(",")
+    .map((skill) => skill.trim())
+    .filter(Boolean);
 
   const nominateMutation = useMutation({
-    mutationFn: () =>
-      apiClient.propose({
-        pluginId: "builders",
-        entityId: nearAccount.trim().toLowerCase(),
-        payload: {
-          name: name.trim() || undefined,
-          bio: bio.trim() || undefined,
-          skills: skillsRaw
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
+    mutationFn: async () => {
+      if (isSelfNomination) {
+        await apiClient.submitBuilderProfile({
+          name: name.trim(),
+          bio: bio.trim(),
+          skills,
           location: location.trim() || undefined,
-        },
-        source: "web",
-      }),
+        });
+        return;
+      }
+      await apiClient.nominateBuilder({
+        nearAccount: nearAccount.trim().toLowerCase(),
+        name: name.trim() || undefined,
+        bio: bio.trim() || undefined,
+        skills,
+        location: location.trim() || undefined,
+      });
+    },
     onSuccess: () => {
       toast.success(
         isSelfNomination
@@ -242,6 +249,10 @@ function NominationForm({
         e.preventDefault();
         if (!nearAccount.trim()) {
           toast.error("NEAR account is required");
+          return;
+        }
+        if (isSelfNomination && (!name.trim() || !bio.trim() || skills.length === 0)) {
+          toast.error("Display name, bio, and at least one skill are required");
           return;
         }
         nominateMutation.mutate();

@@ -645,21 +645,19 @@ function BuilderProfileCard({
     skillsRaw: "",
     location: "",
   });
+  const skills = form.skillsRaw
+    .split(",")
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+  const canSubmit = Boolean(form.name.trim() && form.bio.trim() && skills.length > 0);
 
   const registerMutation = useMutation({
     mutationFn: () =>
-      apiClient.propose({
-        pluginId: "builders",
-        entityId: nearAccountId,
-        payload: {
-          name: form.name.trim() || undefined,
-          bio: form.bio.trim() || undefined,
-          skills: form.skillsRaw
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-          location: form.location.trim() || undefined,
-        },
+      apiClient.submitBuilderProfile({
+        name: form.name.trim(),
+        bio: form.bio.trim(),
+        skills,
+        location: form.location.trim() || undefined,
       }),
     onSuccess: () => {
       toast.success("Builder profile submitted for review");
@@ -705,7 +703,7 @@ function BuilderProfileCard({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                registerMutation.mutate();
+                if (canSubmit) registerMutation.mutate();
               }}
               className="space-y-3"
             >
@@ -770,7 +768,7 @@ function BuilderProfileCard({
                 />
               </div>
               <div className="flex gap-2 pt-1">
-                <Button type="submit" size="sm" disabled={registerMutation.isPending}>
+                <Button type="submit" size="sm" disabled={registerMutation.isPending || !canSubmit}>
                   {registerMutation.isPending && <Loader2 size={13} className="animate-spin" />}
                   Submit application
                 </Button>

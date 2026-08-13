@@ -131,6 +131,14 @@ const BuilderProfileSubmissionInput = z.object({
   links: z.record(z.string(), HttpUrl).optional(),
 });
 
+const BuilderNominationInput = z.object({
+  nearAccount: z.string().trim().min(1).max(255),
+  name: z.string().trim().max(100).optional(),
+  bio: z.string().trim().max(1000).optional(),
+  skills: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
+  location: z.string().trim().max(100).optional(),
+});
+
 const NominationJoinUrl = z.string().url().startsWith("https://");
 
 const TelegramNominationMetadata = z.object({ nominationId: z.string() });
@@ -596,6 +604,22 @@ export const contract = oc.router({
       INVALID_NOMINATION,
       NOMINATION_CONFLICT,
     }),
+
+  nominateBuilder: oc
+    .route({ method: "POST", path: "/builders/{nearAccount}/nominations" })
+    .input(BuilderNominationInput)
+    .output(
+      z.object({
+        data: z.object({
+          nearAccount: z.string(),
+          proposalId: z.string(),
+          nominationCount: z.number().int().nonnegative(),
+          voteCount: z.number().int().nonnegative(),
+          alreadyNominated: z.boolean(),
+        }),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   propose: oc
     .route({ method: "POST", path: "/proposals" })

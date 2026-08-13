@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,7 @@ function BuildersPage() {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+  const nearAccountId = auth.near.getAccountId();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -367,57 +369,38 @@ function BuildersPage() {
     }
   }, [latestVote, queryClient, allProposalIds, session?.user?.id]);
 
-  const upvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.upvote({ entityId }),
-    onSuccess: (data) => {
+  const nominationMutation = useMutation({
+    mutationFn: ({ nearAccount }: { nearAccount: string; proposalId: string }) =>
+      apiClient.nominateBuilder({ nearAccount }),
+    onSuccess: ({ data }) => {
       queryClient.setQueryData(
         ["upvoteCounts", allProposalIds],
         (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
           ...old,
-          [data.entityId]: data,
+          [data.proposalId]: { entityId: data.proposalId, totalCount: data.voteCount },
         }),
       );
       queryClient.setQueryData(
         ["userVotes", allProposalIds],
         (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
           ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: true },
+          [data.proposalId]: { entityId: data.proposalId, hasUpvote: true },
         }),
       );
     },
+    onError: (error: Error) => toast.error(error.message || "Failed to nominate builder"),
   });
 
-  const downvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.downvote({ entityId }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["upvoteCounts", allProposalIds],
-        (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
-          ...old,
-          [data.entityId]: data,
-        }),
-      );
-      queryClient.setQueryData(
-        ["userVotes", allProposalIds],
-        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
-          ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: false },
-        }),
-      );
-    },
-  });
-
-  const handleVote = (proposalId: string) => {
+  const handleVote = (proposal: Proposal) => {
     if (!isAuthenticated) {
       void navigate({ to: "/login", search: { redirect: pathname } });
       return;
     }
-    const entry = voteMap[proposalId];
-    if (entry?.hasUpvote) {
-      downvoteMutation.mutate(proposalId);
-    } else {
-      upvoteMutation.mutate(proposalId);
-    }
+    const createdByCaller =
+      proposal.createdBy === session?.user?.id ||
+      (nearAccountId !== null && proposal.createdBy.toLowerCase() === nearAccountId.toLowerCase());
+    if (voteMap[proposal.id]?.hasUpvote || createdByCaller) return;
+    nominationMutation.mutate({ nearAccount: proposal.entityId, proposalId: proposal.id });
   };
 
   const sentinelRef = useCallback(
@@ -625,12 +608,17 @@ function BuildersPage() {
                   const nominationCount = proposal
                     ? proposal.submissionCount + (counts[proposal.id]?.totalCount ?? 0)
                     : null;
-                  const hasNominated = proposal ? voteMap[proposal.id]?.hasUpvote === true : false;
-                  const isVoting = proposal
-                    ? (upvoteMutation.isPending && upvoteMutation.variables === proposal.id) ||
-                      (downvoteMutation.isPending && downvoteMutation.variables === proposal.id)
+                  const hasNominated = proposal
+                    ? voteMap[proposal.id]?.hasUpvote === true ||
+                      proposal.createdBy === session?.user?.id ||
+                      (nearAccountId !== null &&
+                        proposal.createdBy.toLowerCase() === nearAccountId.toLowerCase())
                     : false;
-                  const onVote = proposal ? () => handleVote(proposal.id) : undefined;
+                  const isVoting = proposal
+                    ? nominationMutation.isPending &&
+                      nominationMutation.variables?.proposalId === proposal.id
+                    : false;
+                  const onVote = proposal ? () => handleVote(proposal) : undefined;
 
                   if (card.kind === "builder") {
                     return (
@@ -961,7 +949,7 @@ function BuilderCard({
                   e.stopPropagation();
                   onVote!();
                 }}
-                disabled={isVoting}
+                disabled={isVoting || hasNominated}
                 className={cn(
                   "h-8 gap-1.5 rounded-full px-3 text-xs",
                   layout === "list" &&

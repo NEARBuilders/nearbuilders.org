@@ -247,6 +247,12 @@ export const contract = oc.router({
     )
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
+  getMySubmission: oc
+    .route({ method: "GET", path: "/v1/proposals/{pluginId}/{entityId}/submissions/me" })
+    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .output(z.object({ hasSubmitted: z.boolean() }))
+    .errors({ UNAUTHORIZED }),
+
   getReviewHistory: oc
     .route({ method: "GET", path: "/v1/proposals/review-history" })
     .input(
