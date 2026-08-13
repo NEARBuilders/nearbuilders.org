@@ -25,7 +25,14 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
           entityId,
           userId,
         });
-      } catch {}
+      } catch (error) {
+        const [existing] = await db
+          .select({ id: upvotes.id })
+          .from(upvotes)
+          .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)))
+          .limit(1);
+        if (!existing) throw error;
+      }
 
       const [result] = await db
         .select({ count: count() })

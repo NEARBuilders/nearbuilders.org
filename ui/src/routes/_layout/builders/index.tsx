@@ -192,6 +192,42 @@ function BuildersPage() {
   const builders = useMemo(() => infiniteData?.pages.flatMap((p) => p.data) ?? [], [infiniteData]);
 
   const {
+    data: ownBuilderProfileResult,
+    isLoading: ownBuilderProfileLoading,
+    isError: ownBuilderProfileError,
+  } = useQuery({
+    queryKey: ["my-builder-profile", session?.user?.id, nearAccountId],
+    queryFn: () => apiClient.getMyBuilderProfile({}),
+    enabled: isAuthenticated,
+  });
+
+  const {
+    data: ownBuilderProposalResult,
+    isLoading: ownBuilderProposalLoading,
+    isError: ownBuilderProposalError,
+  } = useQuery({
+    queryKey: ["builder-proposals", nearAccountId],
+    queryFn: () =>
+      apiClient.getProposals({
+        pluginId: "builders",
+        entityId: nearAccountId!,
+        limit: 1,
+      }),
+    enabled: Boolean(nearAccountId),
+  });
+
+  const hasActiveBuilderProfile =
+    Boolean(ownBuilderProfileResult?.data) ||
+    ownBuilderProposalResult?.data.some((proposal) => proposal.reviewStatus === "pending") === true;
+  const isBuilderProfileLoading =
+    isAuthenticated &&
+    (ownBuilderProfileLoading || (Boolean(nearAccountId) && ownBuilderProposalLoading));
+  const isBuilderProfileError =
+    isAuthenticated &&
+    !hasActiveBuilderProfile &&
+    (ownBuilderProfileError || (Boolean(nearAccountId) && ownBuilderProposalError));
+
+  const {
     data: proposalsData,
     isLoading: proposalsLoading,
     isError: proposalsError,
@@ -387,6 +423,11 @@ function BuildersPage() {
           [data.proposalId]: { entityId: data.proposalId, hasUpvote: true },
         }),
       );
+      if (data.alreadyNominated) {
+        toast.info("You've already nominated this builder");
+      } else {
+        toast.success("Nomination recorded");
+      }
     },
     onError: (error: Error) => toast.error(error.message || "Failed to nominate builder"),
   });
@@ -682,13 +723,43 @@ function BuildersPage() {
             label={isAuthenticated ? "Open your dashboard" : "Connect your wallet"}
             to={isAuthenticated ? "/dashboard" : "/login"}
           />
-          <BuilderActionCard
-            icon={UserPlus}
-            title="Nominate someone"
-            description="Recognize a builder who is making an impact in the NEAR ecosystem."
-            label="Nominate a builder"
-            to="/builders/add"
-          />
+          {isBuilderProfileLoading ? (
+            <section
+              aria-label="Checking builder profile"
+              className="animate-pulse rounded-xl border border-brand-accent-border bg-brand-accent-light p-5"
+            >
+              <div className="size-10 rounded-full bg-muted" />
+              <div className="mt-5 h-6 w-40 rounded bg-muted" />
+              <div className="mt-3 h-4 w-full rounded bg-muted" />
+              <div className="mt-2 h-4 w-4/5 rounded bg-muted" />
+              <div className="mt-5 h-5 w-32 rounded bg-muted" />
+            </section>
+          ) : isBuilderProfileError ? (
+            <BuilderActionCard
+              icon={CircleAlert}
+              title="Profile status unavailable"
+              description="We couldn't check your builder profile. Open your dashboard to try again."
+              label="Open your dashboard"
+              to="/dashboard"
+            />
+          ) : hasActiveBuilderProfile ? (
+            <BuilderActionCard
+              icon={UserPlus}
+              title="Nominate someone"
+              description="Recognize a builder who is making an impact in the NEAR ecosystem."
+              label="Nominate a builder"
+              to="/builders/add"
+            />
+          ) : (
+            <BuilderActionCard
+              icon={UserPlus}
+              title="Join as a builder"
+              description="Submit your profile and make your work discoverable in the NEAR ecosystem."
+              label="Create your builder profile"
+              to="/builders/add"
+              selfRegistration
+            />
+          )}
         </aside>
       </div>
     </div>
@@ -721,13 +792,24 @@ function BuilderActionCard({
   description,
   label,
   to,
+  selfRegistration = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description: string;
   label: string;
   to: "/dashboard" | "/login" | "/builders/add";
+  selfRegistration?: boolean;
 }) {
+  const linkClassName =
+    "mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent";
+  const linkContent = (
+    <>
+      {label}
+      <ArrowRight className="size-4" />
+    </>
+  );
+
   return (
     <section className="rounded-xl border border-brand-accent-border bg-brand-accent-light p-5">
       <div className="flex size-10 items-center justify-center rounded-full bg-card text-brand-accent shadow-sm">
@@ -735,13 +817,19 @@ function BuilderActionCard({
       </div>
       <h2 className="mt-5 text-lg font-bold text-foreground">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      <Link
-        to={to}
-        className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
-      >
-        {label}
-        <ArrowRight className="size-4" />
-      </Link>
+      {to === "/builders/add" ? (
+        <Link
+          to="/builders/add"
+          search={selfRegistration ? { intent: "self" } : undefined}
+          className={linkClassName}
+        >
+          {linkContent}
+        </Link>
+      ) : (
+        <Link to={to} className={linkClassName}>
+          {linkContent}
+        </Link>
+      )}
     </section>
   );
 }

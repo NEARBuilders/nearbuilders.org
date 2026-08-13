@@ -173,6 +173,11 @@ function BuilderProfilePage() {
           [data.proposalId]: { entityId: data.proposalId, hasUpvote: true },
         }),
       );
+      if (data.alreadyNominated) {
+        toast.info("You've already nominated this builder");
+      } else {
+        toast.success("Nomination recorded");
+      }
     },
     onError: (error: Error) => toast.error(error.message || "Failed to nominate builder"),
   });
