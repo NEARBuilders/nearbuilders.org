@@ -22,6 +22,13 @@
       "when": 1785495285854,
       "tag": "0002_chunky_roxanne_simpson",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786189516983,
+      "tag": "0003_slimy_talos",
+      "breakpoints": true
     }
   ]
 }

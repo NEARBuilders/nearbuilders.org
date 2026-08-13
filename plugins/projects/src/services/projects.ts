@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -110,6 +110,8 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         kind?: ProjectKind;
         visibility?: ProjectVisibility;
         status?: ProjectStatus;
+        query?: string;
+        sort?: "newest" | "oldest";
         limit?: number;
         cursor?: string;
       },
@@ -376,6 +378,21 @@ export const ProjectServiceLive = Layer.effect(
             conditions.push(eq(projects.status, input.status));
           }
 
+          if (input.query?.trim()) {
+            const pattern = `%${input.query.trim()}%`;
+            conditions.push(
+              or(
+                ilike(projects.title, pattern),
+                ilike(projects.slug, pattern),
+                ilike(projects.description, pattern),
+                ilike(projects.content, pattern),
+                ilike(projects.ownerId, pattern),
+                ilike(projects.repository, pattern),
+                ilike(projects.domain, pattern),
+              ),
+            );
+          }
+
           if (input.visibility) {
             conditions.push(eq(projects.visibility, input.visibility));
             if (input.visibility === "private" && userRole !== "admin") {
@@ -412,7 +429,7 @@ export const ProjectServiceLive = Layer.effect(
               .select()
               .from(projects)
               .where(whereClause)
-              .orderBy(desc(projects.createdAt))
+              .orderBy(input.sort === "oldest" ? asc(projects.createdAt) : desc(projects.createdAt))
               .limit(limit)
               .offset(offset),
           );

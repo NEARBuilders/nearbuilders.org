@@ -45,6 +45,8 @@ export function deriveTelegramNominationStatus(
   return "processing";
 }
 
+export const deriveNominationStatus = deriveTelegramNominationStatus;
+
 type VisibilityValue = "private" | "unlisted" | "public";
 
 function enforceContentCreationVisibility(
@@ -161,6 +163,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         },
       ),
 
+      createXNomination: builder.createXNomination.handler(async ({ input, context }) => {
+        return await services.plugins.builders(context).createXNomination(input);
+      }),
+
       claimTelegramNomination: builder.claimTelegramNomination.handler(
         async ({ input, context }) => {
           const nomination = await services.plugins
@@ -194,8 +200,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
 
           const nominationResolution = input.nominationToken
-            ? await buildersClient.resolveTelegramNomination({
+            ? await buildersClient.resolveNomination({
                 token: input.nominationToken,
+                recordOpen: false,
               })
             : null;
           const nomination = nominationResolution?.status === "ready" ? nominationResolution : null;
@@ -210,20 +217,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
               location: input.location || undefined,
               links: input.links,
             },
-            source: nomination ? "telegram" : "web",
+            source: nomination?.source ?? "web",
             ...(nomination
               ? {
-                  idempotencyKey: `telegram-builder-profile:${nomination.nominationId}`,
+                  idempotencyKey: `${nomination.source}-builder-profile:${nomination.nominationId}`,
                   metadata: {
                     nominationId: nomination.nominationId,
                     source: nomination.source,
+                    ...(nomination.source === "x"
+                      ? {
+                          referralNominationId: nomination.referralNominationId,
+                          sourcePostId: nomination.referralContext?.sourcePostId ?? null,
+                          nomineeXId: nomination.referralContext?.nomineeXId ?? null,
+                          nominatorXId: nomination.referralContext?.nominatorXId ?? null,
+                        }
+                      : {}),
                   },
                 }
               : {}),
           };
           const proposal = await services.plugins.proposals(context).propose(proposalInput);
           if (nomination && input.nominationToken) {
-            await buildersClient.finalizeTelegramNomination({
+            await buildersClient.finalizeNomination({
               token: input.nominationToken,
               proposalId: proposal.data.id,
             });

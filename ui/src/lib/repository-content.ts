@@ -26,23 +26,23 @@ export function getRawReadmeUrls(repositoryUrl: string): string[] {
 export async function fetchRepositoryReadme(repositoryUrl: string): Promise<string | null> {
   const candidates = getRawReadmeUrls(repositoryUrl);
   if (candidates.length === 0) {
-    console.error("[repository-content] Could not derive raw README URLs from:", repositoryUrl);
+    console.warn("[repository-content] Could not derive raw README URLs from:", repositoryUrl);
     return null;
   }
 
   for (const url of candidates) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!response.ok) {
         console.warn("[repository-content] fetch failed:", response.status, url);
         continue;
       }
       return sanitizeMarkdownContent(await response.text());
-    } catch (err) {
-      console.error("[repository-content] fetch error for", url, err);
+    } catch (error) {
+      console.warn("[repository-content] fetch error for", url, error);
     }
   }
 
-  console.error("[repository-content] all README candidates failed for:", repositoryUrl);
+  console.warn("[repository-content] all README candidates failed for:", repositoryUrl);
   return null;
 }

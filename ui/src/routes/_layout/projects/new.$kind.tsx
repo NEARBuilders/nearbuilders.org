@@ -183,6 +183,15 @@ function NewProjectPage() {
 
   const title = useStore(form.store, (s) => s.values.title);
   const slugPreview = generateSlug(title) || undefined;
+  const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
+  const actionLabel =
+    routeKind === "idea"
+      ? "Create idea"
+      : routeKind === "scope"
+        ? "Create scope"
+        : routeKind === "result"
+          ? "Post result"
+          : "Create project";
 
   useEffect(() => {
     try {
@@ -191,50 +200,48 @@ function NewProjectPage() {
   }, [routeKind]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <PageBreadcrumb
-            parentLabel="Projects"
-            parentTo="/projects"
-            parentSearch={{
-              preview: undefined,
-              kind: search.kind,
-              personal: search.personal,
-              private: search.private,
-              verified: search.verified,
-            }}
-            current="New"
-            currentClassName="text-sm font-semibold text-foreground"
-          />
-        </div>
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="shrink-0 border-b border-border bg-background sm:sticky sm:top-16 sm:z-30 sm:bg-background/95 sm:backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="min-w-0">
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{
+                preview: undefined,
+                kind: search.kind,
+                personal: search.personal,
+                private: search.private,
+                verified: search.verified,
+              }}
+              current="New"
+              currentClassName="text-sm font-semibold text-foreground"
+            />
+            <h1 className="mt-1 truncate text-base font-semibold text-foreground sm:text-xl">
+              Create a {kindLabel.toLowerCase()}
+            </h1>
+          </div>
 
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
-          {!canCreate && (
-            <span className="text-xs text-muted-foreground">
-              Link a NEAR account in settings to create projects
-            </span>
-          )}
-          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
-            {({ isSubmitting }) => (
-              <Button
-                type="button"
-                onClick={submitForm}
-                disabled={!canCreate || isSubmitting || createMutation.isPending}
-                size="sm"
-              >
-                {createMutation.isPending
-                  ? "Creating\u2026"
-                  : routeKind === "idea"
-                    ? "Create Idea"
-                    : routeKind === "scope"
-                      ? "Create Scope"
-                      : routeKind === "result"
-                        ? "Post Result"
-                        : "Create Project"}
-              </Button>
+          <div className="hidden w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:justify-end">
+            {!canCreate && (
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                Link a NEAR account to continue
+              </span>
             )}
-          </form.Subscribe>
+            <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
+              {({ isSubmitting }) => (
+                <Button
+                  type="button"
+                  onClick={submitForm}
+                  disabled={!canCreate || isSubmitting || createMutation.isPending}
+                  size="sm"
+                  className="h-10 flex-1 sm:h-8 sm:flex-none"
+                >
+                  {createMutation.isPending ? "Creating\u2026" : actionLabel}
+                </Button>
+              )}
+            </form.Subscribe>
+          </div>
         </div>
       </div>
 
@@ -244,7 +251,7 @@ function NewProjectPage() {
           e.stopPropagation();
           submitForm();
         }}
-        className="flex flex-1 overflow-y-auto lg:min-h-0 lg:overflow-hidden"
+        className="flex flex-1 flex-col"
       >
         <ProjectFormLayout
           form={form}
@@ -256,6 +263,23 @@ function NewProjectPage() {
           currentKind={routeKind}
         />
       </form>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
+        <div className="mx-auto max-w-7xl pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+          <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
+            {({ isSubmitting }) => (
+              <Button
+                type="button"
+                onClick={submitForm}
+                disabled={!canCreate || isSubmitting || createMutation.isPending}
+                className="h-11 w-full"
+              >
+                {createMutation.isPending ? "Creating…" : actionLabel}
+              </Button>
+            )}
+          </form.Subscribe>
+        </div>
+      </div>
     </div>
   );
 }

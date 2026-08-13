@@ -4,9 +4,12 @@ import { Link } from "@tanstack/react-router";
 import {
   BarChart2,
   Bold,
+  CheckCircle2,
   CheckSquare,
-  ChevronDown,
+  Circle,
   Code2,
+  ExternalLink,
+  Eye,
   FileCode2,
   FileText,
   Heading1,
@@ -16,8 +19,9 @@ import {
   List,
   ListOrdered,
   Quote,
+  ShieldCheck,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Input } from "@/components";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
@@ -181,261 +185,423 @@ export function ProjectFormLayout({
     }
   }, [content, currentTitle, currentDescription, kind, form]);
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const kindOptions = [
+    {
+      value: "project" as const,
+      label: "Project",
+      icon: <FileCode2 size={15} />,
+    },
+    {
+      value: "idea" as const,
+      label: "Idea",
+      icon: <FileText size={15} />,
+    },
+    {
+      value: "scope" as const,
+      label: "Scope",
+      icon: <Layers size={15} />,
+    },
+    {
+      value: "result" as const,
+      label: "Result",
+      icon: <BarChart2 size={15} />,
+    },
+  ];
+  const kindLabel = kindOptions.find((option) => option.value === kind)?.label ?? "Entry";
+  const titleReady = Boolean(currentTitle.trim());
+  const sourceReady = kind === "project" ? Boolean(repositoryUrl.trim()) : Boolean(content.trim());
+  const identityReady = Boolean(defaultOwnerId || isAdmin);
 
   return (
-    <div className="flex flex-1 flex-col overflow-visible lg:min-h-0 lg:overflow-hidden lg:flex-row">
-      <div
-        className={cn(
-          "overflow-visible border-b border-border bg-card lg:overflow-y-auto lg:w-[340px] lg:border-b-0 lg:border-r lg:shrink-0 xl:w-[360px]",
-          sidebarOpen ? "block" : "hidden lg:block",
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-semibold text-muted-foreground lg:hidden hover:bg-muted/50 transition-colors"
-        >
-          <span>Form Details</span>
-          <ChevronDown
-            className={cn("size-3.5 transition-transform", sidebarOpen && "rotate-180")}
-          />
-        </button>
-        <div className="px-4 py-5 sm:px-6 sm:py-6 pt-3 lg:pt-6">
-          <div className="space-y-5 pb-[env(safe-area-inset-bottom,0px)] lg:pb-0">
-            <form.Field name="kind">
-              {(field: any) => (
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(
-                      [
-                        { value: "idea" as const, label: "Idea", icon: <FileText size={15} /> },
-                        {
-                          value: "project" as const,
-                          label: "Project",
-                          icon: <FileCode2 size={15} />,
-                        },
-                        { value: "scope" as const, label: "Scope", icon: <Layers size={15} /> },
-                        {
-                          value: "result" as const,
-                          label: "Result",
-                          icon: <BarChart2 size={15} />,
-                        },
-                      ] as const
-                    ).map((opt) => {
-                      const active = kind === opt.value;
-                      const pillClass = cn(
-                        "flex items-center gap-2 rounded-lg border-2 px-3 py-3 text-sm font-bold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    <div className={cn("flex-1 bg-muted/40", mode === "create" && "pb-24 sm:pb-0")}>
+      <div className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7 lg:px-8">
+        <div className="min-w-0 space-y-5">
+          <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+            <div className="border-b border-border px-4 py-4 sm:px-7 sm:py-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                    Step 1
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-foreground">Choose a format</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    Start with the format that best describes what you are sharing.
+                  </p>
+                </div>
+                <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {kindLabel}
+                </span>
+              </div>
+              <form.Field name="kind">
+                {(field: any) => (
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 xl:grid-cols-4">
+                    {kindOptions.map((option) => {
+                      const active = kind === option.value;
+                      const optionClass = cn(
+                        "flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-16 sm:justify-start sm:gap-3 sm:rounded-xl sm:px-3.5 sm:py-3",
                         active
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border bg-card text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
+                          ? "border-brand-accent bg-brand-accent-light"
+                          : "border-border bg-background hover:border-border-strong hover:bg-muted",
                       );
+                      const content = (
+                        <>
+                          <span
+                            className={cn(
+                              "flex size-5 shrink-0 items-center justify-center rounded-md sm:size-7 sm:rounded-lg",
+                              active
+                                ? "bg-brand-accent text-brand-mint-foreground"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {option.icon}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-xs font-bold text-foreground sm:text-sm">
+                              {option.label}
+                            </span>
+                          </span>
+                        </>
+                      );
+
                       if (mode === "create") {
                         return (
                           <Link
-                            key={opt.value}
+                            key={option.value}
                             to="/projects/new/$kind"
-                            params={{ kind: opt.value }}
-                            search={(prev) => ({ ...prev, tab: tab === "preview" ? "write" : tab })}
+                            params={{ kind: option.value }}
+                            search={(prev) => ({ ...prev, tab: "write" })}
                             replace
-                            onClick={() => field.handleChange(opt.value)}
-                            className={pillClass}
+                            onClick={() => field.handleChange(option.value)}
+                            className={optionClass}
+                            aria-current={active ? "page" : undefined}
                           >
-                            <span className={cn(active ? "text-primary" : "text-muted-foreground")}>
-                              {opt.icon}
-                            </span>
-                            {opt.label}
+                            {content}
                           </Link>
                         );
                       }
+
                       return (
                         <button
-                          key={opt.value}
+                          key={option.value}
                           type="button"
-                          onClick={() => {
-                            field.handleChange(opt.value);
-                          }}
-                          className={pillClass}
+                          onClick={() => field.handleChange(option.value)}
+                          className={optionClass}
+                          aria-pressed={active}
                         >
-                          <span className={cn(active ? "text-primary" : "text-muted-foreground")}>
-                            {opt.icon}
-                          </span>
-                          {opt.label}
+                          {content}
                         </button>
                       );
                     })}
-                  </div>
-                </div>
-              )}
-            </form.Field>
-
-            <form.Field
-              name="title"
-              validators={{
-                onChange: ({ value }: any) => validateTitle(value),
-                onSubmit: ({ value }: any) => validateTitle(value),
-              }}
-            >
-              {(field: any) => {
-                const err = fieldError(field.state.meta.errors[0]);
-                return (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                      id="title"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={
-                        kind === "project"
-                          ? "near analytics"
-                          : kind === "idea"
-                            ? "On-chain social graphs"
-                            : kind === "scope"
-                              ? "MVP auth flow"
-                              : "Q1 builder growth"
-                      }
-                      className={err ? "!border-destructive" : ""}
-                    />
-                    {err && <ErrorText>{err}</ErrorText>}
-                    {slugPreview !== undefined && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        /{slugPreview || "my-entry"}
-                      </p>
-                    )}
-                  </div>
-                );
-              }}
-            </form.Field>
-
-            <form.Field
-              name="description"
-              validators={{
-                onChange: ({ value }: any) => validateDescription(value),
-                onSubmit: ({ value }: any) => validateDescription(value),
-              }}
-            >
-              {(field: any) => {
-                const err = fieldError(field.state.meta.errors[0]);
-                return (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="A short summary shown in the list"
-                      rows={3}
-                      className={cn(
-                        "resize-none",
-                        err ? "border-destructive focus-visible:border-destructive" : "",
-                      )}
-                    />
-                    {err && <ErrorText>{err}</ErrorText>}
-                  </div>
-                );
-              }}
-            </form.Field>
-
-            {kind === "project" && (
-              <form.Field
-                name="repository"
-                validators={{
-                  onChangeListenTo: ["kind"],
-                  onChange: ({ value }: any) => validateRepository(value, kind),
-                  onSubmit: ({ value }: any) => validateRepository(value, kind),
-                }}
-              >
-                {(field: any) => {
-                  const err = fieldError(field.state.meta.errors[0]);
-                  return (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="repository">Repository URL</Label>
-                      <Input
-                        id="repository"
-                        type="url"
-                        value={field.state.value ?? ""}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="https://github.com/user/repo"
-                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
-                      />
-                      {err && <ErrorText>{err}</ErrorText>}
-                      <HelperText>README fetched from the default branch.</HelperText>
-                    </div>
-                  );
-                }}
-              </form.Field>
-            )}
-
-            {mode === "edit" && kind !== "result" && (
-              <form.Field name="status">
-                {(field: any) => (
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select
-                      value={field.state.value ?? "active"}
-                      onValueChange={(v) => field.handleChange(v)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="paused">Paused</SelectItem>
-                        <SelectItem value="archived">Archived</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 )}
               </form.Field>
-            )}
+            </div>
+
+            <div className="space-y-5 px-4 py-5 sm:space-y-6 sm:px-7 sm:py-6">
+              <FormSectionHeading
+                eyebrow="Step 2"
+                title="Tell people what it is"
+                description="These details appear first in the directory and on the detail page."
+              />
+
+              <div className="space-y-5">
+                <form.Field
+                  name="title"
+                  validators={{
+                    onChange: ({ value }: any) => validateTitle(value),
+                    onSubmit: ({ value }: any) => validateTitle(value),
+                  }}
+                >
+                  {(field: any) => {
+                    const err = fieldError(field.state.meta.errors[0]);
+                    return (
+                      <div className="space-y-2">
+                        <FieldLabel htmlFor="title" required>
+                          Title
+                        </FieldLabel>
+                        <Input
+                          id="title"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder={
+                            kind === "project"
+                              ? "NEAR analytics"
+                              : kind === "idea"
+                                ? "On-chain social graphs"
+                                : kind === "scope"
+                                  ? "MVP auth flow"
+                                  : "Q1 builder growth"
+                          }
+                          maxLength={200}
+                          className={cn("h-12 text-base", err ? "border-destructive" : "")}
+                          aria-invalid={Boolean(err)}
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                          {err ? (
+                            <ErrorText>{err}</ErrorText>
+                          ) : (
+                            <HelperText>A clear, specific name works best.</HelperText>
+                          )}
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {currentTitle.length}/200
+                          </span>
+                        </div>
+                        {slugPreview !== undefined && (
+                          <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">URL</span>
+                            <span className="truncate font-mono">
+                              /projects/{kind}/{slugPreview || "your-title"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field
+                  name="description"
+                  validators={{
+                    onChange: ({ value }: any) => validateDescription(value),
+                    onSubmit: ({ value }: any) => validateDescription(value),
+                  }}
+                >
+                  {(field: any) => {
+                    const err = fieldError(field.state.meta.errors[0]);
+                    return (
+                      <div className="space-y-2">
+                        <FieldLabel htmlFor="description">Short description</FieldLabel>
+                        <Textarea
+                          id="description"
+                          value={field.state.value ?? ""}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="Summarize the problem, outcome, or opportunity in one or two sentences."
+                          rows={4}
+                          maxLength={1000}
+                          className={cn("resize-none", err ? "border-destructive" : "")}
+                          aria-invalid={Boolean(err)}
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                          {err ? (
+                            <ErrorText>{err}</ErrorText>
+                          ) : (
+                            <HelperText>Optional, but helpful in the directory.</HelperText>
+                          )}
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {currentDescription.length}/1000
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </form.Field>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+            <div className="border-b border-border px-4 py-4 sm:px-7 sm:py-5">
+              <FormSectionHeading
+                eyebrow="Step 3"
+                title={kind === "project" ? "Connect the source" : "Write the details"}
+                description={
+                  kind === "project"
+                    ? "Your README becomes the project page content automatically."
+                    : "Use Markdown to explain the context, work, and references."
+                }
+              />
+            </div>
+            <div className="px-4 py-5 sm:px-7 sm:py-6">
+              {kind === "project" ? (
+                <ProjectSourcePreview
+                  form={form}
+                  repositoryUrl={repositoryUrl}
+                  readmeQuery={readmeQuery}
+                />
+              ) : (
+                <form.Field
+                  name="content"
+                  validators={{
+                    onChangeListenTo: ["kind"],
+                    onChange: ({ value }: any) => validateContent(value, kind),
+                    onSubmit: ({ value }: any) => validateContent(value, kind),
+                  }}
+                >
+                  {(field: any) => {
+                    const err = fieldError(field.state.meta.errors[0]);
+                    const placeholder =
+                      kind === "scope"
+                        ? "# Scope\n\nDefine the work, success criteria, and references e.g. @alice.near/my-idea…"
+                        : kind === "result"
+                          ? "# Results\n\nWhat was built, measured, and learned. Reference scopes with @alice.near/scope-slug…"
+                          : "# My Idea\n\nDescribe the concept, motivation, and next steps…";
+                    return (
+                      <div className="overflow-hidden rounded-xl border border-border">
+                        <div className="hidden min-h-[420px] lg:grid lg:grid-cols-2">
+                          <div className="min-h-0 border-r border-border">
+                            <ContentWriteTab
+                              value={field.state.value ?? ""}
+                              onChange={field.handleChange}
+                              error={err}
+                              placeholder={placeholder}
+                            />
+                          </div>
+                          <MarkdownPreviewPanel content={field.state.value ?? ""} />
+                        </div>
+
+                        <Tabs value={tab} className="flex flex-col gap-0 lg:hidden">
+                          <div className="border-b border-border bg-muted/50">
+                            <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-none bg-transparent px-2">
+                              {(["write", "preview"] as const).map((t) => (
+                                <TabsTrigger
+                                  key={t}
+                                  value={t}
+                                  asChild
+                                  className="rounded-none border-b-2 border-l-0 border-r-0 border-t-0 px-4 py-3 text-[13px] font-semibold data-[state=active]:border-primary data-[state=inactive]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                                >
+                                  <Link to="." search={(prev) => ({ ...prev, tab: t })} replace>
+                                    {t === "write" ? "Write" : "Preview"}
+                                  </Link>
+                                </TabsTrigger>
+                              ))}
+                            </TabsList>
+                          </div>
+                          <TabsContent value="write" className="m-0">
+                            <ContentWriteTab
+                              value={field.state.value ?? ""}
+                              onChange={field.handleChange}
+                              error={err}
+                              placeholder={placeholder}
+                            />
+                          </TabsContent>
+                          <TabsContent value="preview" className="m-0">
+                            <MarkdownPreviewPanel content={field.state.value ?? ""} compact />
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    );
+                  }}
+                </form.Field>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:space-y-5 lg:self-start">
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-accent-light text-brand-accent">
+                <ShieldCheck size={18} />
+              </span>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Publishing</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Choose who can find this entry after you save it.
+                </p>
+              </div>
+            </div>
 
             <form.Field name="visibility">
               {(field: any) => (
-                <div className="space-y-2">
-                  <Label>Visibility</Label>
-                  <div className="flex flex-col gap-2">
-                    {(
-                      [
-                        {
-                          value: "public" as const,
-                          label: "Public",
-                          desc: isAdmin
-                            ? "Visible in the feed"
-                            : "Visible in the feed after review",
-                        },
-                        {
-                          value: "unlisted" as const,
-                          label: "Unlisted",
-                          desc: "Only via direct link",
-                        },
-                        { value: "private" as const, label: "Private", desc: "Only you" },
-                      ] as const
-                    ).map((opt) => {
-                      const active = field.state.value === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => field.handleChange(opt.value)}
-                          className={cn(
-                            "flex items-center justify-between rounded-lg border-2 px-3 py-2.5 text-sm transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                            active
-                              ? "border-primary bg-primary/10"
-                              : "border-border bg-card hover:bg-muted hover:border-border",
-                          )}
+                <div className="mt-5 space-y-2" role="radiogroup" aria-label="Visibility">
+                  {(
+                    [
+                      {
+                        value: "public" as const,
+                        label: "Public",
+                        desc: isAdmin ? "Visible in the directory" : "Visible after review",
+                        icon: <Eye size={15} />,
+                      },
+                      {
+                        value: "unlisted" as const,
+                        label: "Unlisted",
+                        desc: "Direct link only",
+                        icon: <ExternalLink size={15} />,
+                      },
+                      {
+                        value: "private" as const,
+                        label: "Private",
+                        desc: "Only you can see it",
+                        icon: <Circle size={15} />,
+                      },
+                    ] as const
+                  ).map((option) => {
+                    const active = field.state.value === option.value;
+                    return (
+                      <label
+                        key={option.value}
+                        className={cn(
+                          "flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors has-[:focus-visible]:outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2",
+                          active
+                            ? "border-brand-accent bg-brand-accent-light"
+                            : "border-border bg-background hover:border-border-strong hover:bg-muted",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="visibility"
+                          value={option.value}
+                          checked={active}
+                          onChange={() => field.handleChange(option.value)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={cn(active ? "text-brand-accent" : "text-muted-foreground")}
                         >
-                          <span className="font-bold text-foreground">{opt.label}</span>
-                          <span className="text-xs text-muted-foreground">{opt.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {option.icon}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold text-foreground">
+                            {option.label}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {option.desc}
+                          </span>
+                        </span>
+                        <span
+                          className={cn(
+                            "size-4 rounded-full border",
+                            active ? "border-brand-accent bg-brand-accent" : "border-border-strong",
+                          )}
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </form.Field>
+          </section>
 
-            {kind === "idea" && (
+          {mode === "edit" && kind !== "result" && (
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+              <FieldLabel>Status</FieldLabel>
+              <p className="mt-1 text-xs text-muted-foreground">Show where this work is today.</p>
+              <form.Field name="status">
+                {(field: any) => (
+                  <Select
+                    value={field.state.value ?? "active"}
+                    onValueChange={(value) => field.handleChange(value)}
+                  >
+                    <SelectTrigger className="mt-3 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </form.Field>
+            </section>
+          )}
+
+          {kind === "idea" && (
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+              <FieldLabel htmlFor="domain">Domain</FieldLabel>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Add a live domain if this idea already has a home on the web.
+              </p>
               <form.Field
                 name="domain"
                 validators={{
@@ -448,24 +614,29 @@ export function ProjectFormLayout({
                 {(field: any) => {
                   const err = fieldError(field.state.meta.errors[0]);
                   return (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="domain">Domain</Label>
+                    <>
                       <Input
                         id="domain"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
                         placeholder="example.com"
-                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
+                        className={cn("mt-3 font-mono text-sm", err ? "border-destructive" : "")}
+                        aria-invalid={Boolean(err)}
                       />
                       {err && <ErrorText>{err}</ErrorText>}
-                      <HelperText>Already have a domain to use?</HelperText>
-                    </div>
+                    </>
                   );
                 }}
               </form.Field>
-            )}
+            </section>
+          )}
 
-            {isAdmin && (
+          {isAdmin && (
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+              <FieldLabel htmlFor="ownerId">Owner</FieldLabel>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Assign this entry to a NEAR account. Leave blank to use your account.
+              </p>
               <form.Field
                 name="ownerId"
                 validators={{
@@ -478,127 +649,182 @@ export function ProjectFormLayout({
                 {(field: any) => {
                   const err = fieldError(field.state.meta.errors[0]);
                   return (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ownerId">Owner</Label>
+                    <>
                       <Input
                         id="ownerId"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder={defaultOwnerId}
-                        className={cn("font-mono text-sm", err ? "!border-destructive" : "")}
+                        placeholder={defaultOwnerId || "example.near"}
+                        className={cn("mt-3 font-mono text-sm", err ? "border-destructive" : "")}
+                        aria-invalid={Boolean(err)}
                       />
                       {err && <ErrorText>{err}</ErrorText>}
-                      <HelperText>NEAR account that owns this entry. Defaults to you.</HelperText>
-                    </div>
+                    </>
                   );
                 }}
               </form.Field>
+            </section>
+          )}
+
+          <section className="hidden rounded-xl border border-border bg-card p-4 shadow-sm sm:block sm:rounded-2xl sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-foreground">Ready to share?</h2>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {[titleReady, sourceReady, identityReady].filter(Boolean).length}/3
+              </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              <ChecklistItem complete={titleReady} label="Add a title" />
+              <ChecklistItem
+                complete={sourceReady}
+                label={kind === "project" ? "Connect a repository" : "Add Markdown content"}
+              />
+              <ChecklistItem complete={identityReady} label="Link a NEAR account" />
+            </div>
+            {!identityReady && (
+              <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                Link a NEAR account in settings before creating an entry.
+              </p>
             )}
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
+    </div>
+  );
+}
 
-      <div className="flex flex-col overflow-visible bg-muted lg:min-w-0 lg:flex-1 lg:overflow-hidden">
-        {kind === "idea" || kind === "scope" || kind === "result" ? (
-          <form.Field
-            name="content"
-            validators={{
-              onChangeListenTo: ["kind"],
-              onChange: ({ value }: any) => validateContent(value, kind),
-              onSubmit: ({ value }: any) => validateContent(value, kind),
-            }}
-          >
-            {(field: any) => {
-              const err = fieldError(field.state.meta.errors[0]);
-              const placeholder =
-                kind === "scope"
-                  ? "# Scope\n\nDefine the work, success criteria, and references e.g. @alice.near/my-idea…"
-                  : kind === "result"
-                    ? "# Results\n\nWhat was built, measured, and learned. Reference scopes with @alice.near/scope-slug…"
-                    : "# My Idea\n\nDescribe the concept, motivation, and next steps…";
-              return (
-                <>
-                  <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                    <div className="min-h-0 border-r border-border bg-card">
-                      <ContentWriteTab
-                        value={field.state.value ?? ""}
-                        onChange={field.handleChange}
-                        error={err}
-                        placeholder={placeholder}
-                      />
-                    </div>
-                    <MarkdownPreviewPanel content={field.state.value ?? ""} />
-                  </div>
+function FormSectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">{eyebrow}</p>
+      <h2 className="mt-1 text-lg font-semibold text-foreground">{title}</h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
-                  <Tabs value={tab} className="flex flex-col overflow-visible gap-0 lg:hidden">
-                    <div className="shrink-0 border-b border-border bg-card">
-                      <TabsList className="h-auto px-3 flex justify-start gap-0 w-full bg-transparent border-none rounded-none">
-                        {(["write", "preview"] as const).map((t) => (
-                          <TabsTrigger
-                            key={t}
-                            value={t}
-                            asChild
-                            className="px-5 py-3.5 text-[13px] font-semibold rounded-none border-b-2 border-t-0 border-l-0 border-r-0 data-[state=active]:border-primary data-[state=inactive]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none -mb-px"
-                          >
-                            <Link to="." search={(prev) => ({ ...prev, tab: t })} replace>
-                              {t === "write" ? "Write" : "Preview"}
-                            </Link>
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </div>
+function FieldLabel({
+  children,
+  required,
+  ...props
+}: React.ComponentProps<typeof Label> & { required?: boolean }) {
+  return (
+    <Label {...props}>
+      {children}
+      {required && <span className="text-brand-accent">*</span>}
+    </Label>
+  );
+}
 
-                    <TabsContent value="write" className="m-0 overflow-visible">
-                      <ContentWriteTab
-                        value={field.state.value ?? ""}
-                        onChange={field.handleChange}
-                        error={err}
-                        placeholder={placeholder}
-                      />
-                    </TabsContent>
+function ChecklistItem({ complete, label }: { complete: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm">
+      {complete ? (
+        <CheckCircle2 className="size-4 shrink-0 text-brand-accent" />
+      ) : (
+        <Circle className="size-4 shrink-0 text-border-strong" />
+      )}
+      <span className={cn(complete ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+    </div>
+  );
+}
 
-                    <TabsContent value="preview" className="m-0 overflow-visible">
-                      <MarkdownPreviewPanel content={field.state.value ?? ""} compact />
-                    </TabsContent>
-                  </Tabs>
-                </>
-              );
-            }}
-          </form.Field>
-        ) : (
-          <div className="flex flex-col overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-            {repositoryUrl.trim() ? (
-              <>
-                <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-3 sm:px-6">
-                  <FileCode2 size={14} className="text-muted-foreground" />
-                  <span className="text-sm font-semibold text-foreground">README Preview</span>
-                  {readmeQuery.isLoading && (
-                    <span className="text-xs text-muted-foreground">Loading…</span>
-                  )}
-                </div>
-                <div className="overflow-visible px-4 py-5 sm:px-8 sm:py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-                  {readmeQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading README…</p>
-                  ) : readmeQuery.data ? (
-                    <Markdown content={readmeQuery.data} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
-                      No README available for this repository.
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center sm:p-8">
-                <FileCode2 size={40} className="text-border" />
-                <p className="text-sm font-semibold text-foreground">Set a repository URL</p>
-                <p className="text-xs text-muted-foreground max-w-[280px]">
-                  The project detail page will fetch and render the README from the default branch.
-                </p>
+function ProjectSourcePreview({
+  form,
+  repositoryUrl,
+  readmeQuery,
+}: {
+  form: any;
+  repositoryUrl: string;
+  readmeQuery: any;
+}) {
+  return (
+    <div className="space-y-4">
+      <form.Field
+        name="repository"
+        validators={{
+          onChangeListenTo: ["kind"],
+          onChange: ({ value }: any) => validateRepository(value, "project"),
+          onSubmit: ({ value }: any) => validateRepository(value, "project"),
+        }}
+      >
+        {(field: any) => {
+          const err = fieldError(field.state.meta.errors[0]);
+          return (
+            <div className="space-y-2">
+              <FieldLabel htmlFor="repository" required>
+                Repository URL
+              </FieldLabel>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="repository"
+                  type="url"
+                  value={field.state.value ?? ""}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="https://github.com/near/example"
+                  className={cn("h-11 flex-1 font-mono text-sm", err ? "border-destructive" : "")}
+                  aria-invalid={Boolean(err)}
+                />
+                <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-semibold text-muted-foreground">
+                  <FileCode2 size={14} />
+                  README source
+                </span>
               </div>
-            )}
+              {err ? (
+                <ErrorText>{err}</ErrorText>
+              ) : (
+                <HelperText>
+                  We fetch the README from the default branch when the page is viewed.
+                </HelperText>
+              )}
+            </div>
+          );
+        }}
+      </form.Field>
+
+      <div className="rounded-xl border border-border bg-muted/50">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <FileText size={15} className="text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">README preview</span>
           </div>
-        )}
+          {readmeQuery.isLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
+        </div>
+        <div className="max-h-[430px] overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          {repositoryUrl.trim() ? (
+            readmeQuery.isLoading ? (
+              <div className="space-y-3">
+                <div className="h-4 w-1/3 animate-pulse rounded bg-border" />
+                <div className="h-3 w-full animate-pulse rounded bg-border" />
+                <div className="h-3 w-4/5 animate-pulse rounded bg-border" />
+              </div>
+            ) : readmeQuery.data ? (
+              <Markdown content={readmeQuery.data} />
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                No README is available yet. The repository URL will still be saved.
+              </div>
+            )
+          ) : (
+            <div className="flex min-h-32 flex-col items-center justify-center gap-2 px-4 text-center">
+              <FileCode2 size={24} className="text-border-strong" />
+              <p className="text-sm font-semibold text-foreground">
+                Add a repository to preview it
+              </p>
+              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                The README will become the main content of this project page.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -634,8 +860,8 @@ function ContentWriteTab({
   };
 
   return (
-    <div className="flex min-h-[55vh] flex-col lg:h-full lg:min-h-0">
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-3 py-2.5 sm:px-4">
+    <div className="flex min-h-[50vh] flex-col sm:min-h-[55vh] lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-border bg-card px-3 py-2.5 sm:px-4">
         {MARKDOWN_TOOLS.map((tool) => {
           const Icon = tool.icon;
           return (
@@ -644,7 +870,7 @@ function ContentWriteTab({
               type="button"
               onClick={() => applyMarkdown(tool)}
               title={tool.label}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground active:scale-95 [webkit-tap-highlight-color:transparent]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground active:scale-95 [webkit-tap-highlight-color:transparent]"
             >
               <Icon size={14} />
             </button>
@@ -659,12 +885,12 @@ function ContentWriteTab({
           placeholder ?? "# My Idea\n\nDescribe the concept, motivation, and next steps…"
         }
         className={cn(
-          "flex-1 w-full min-h-[320px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-5",
+          "flex-1 w-full min-h-[280px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-4 sm:min-h-[320px] sm:p-5",
           error ? "border-t-2 border-destructive" : "",
         )}
       />
       {error && (
-        <div className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-8 py-2 text-xs text-destructive">
+        <div className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive sm:px-8">
           {error}
         </div>
       )}
@@ -674,7 +900,7 @@ function ContentWriteTab({
 
 function MarkdownPreviewPanel({ content, compact }: { content: string; compact?: boolean }) {
   return (
-    <div className="flex min-h-[55vh] flex-col overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+    <div className="flex min-h-[50vh] flex-col overflow-visible sm:min-h-[55vh] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-3 sm:px-6">
         <FileText size={14} className="text-muted-foreground" />
         <span className="text-sm font-semibold text-foreground">Live Preview</span>
