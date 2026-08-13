@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarDays, Check, Clock, MapPin, Share2, Users } from "lu
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { formatEventTimeRange } from "./-event-sources";
 
 export type EventDetailData = {
   title: string;
@@ -178,15 +179,5 @@ export function formatEventDate(event: { startAt: string }) {
 }
 
 export function formatEventTime(event: { startAt: string; endAt: string | null }) {
-  const start = new Date(event.startAt);
-  const end = event.endAt ? new Date(event.endAt) : null;
-  const startLabel = start.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  if (!end) return startLabel;
-  return `${startLabel} - ${end.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
+  return formatEventTimeRange(event);
 }

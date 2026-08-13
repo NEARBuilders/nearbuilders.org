@@ -95,16 +95,59 @@ export function buildTimelineEvents(
     );
 }
 
+const EVENT_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+function viewerTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+function zoneNameFromParts(
+  date: Date,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+  locales?: Intl.LocalesArgument,
+) {
+  return (
+    new Intl.DateTimeFormat(locales, { timeZone, ...options })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value ?? ""
+  );
+}
+
+function isOffsetZoneLabel(value: string) {
+  return /^(GMT|UTC)([+-]|$)/i.test(value) || /^[+-]\d/.test(value);
+}
+
+function namedZoneFromLongLabel(date: Date, timeZone: string) {
+  const longName = zoneNameFromParts(date, timeZone, { timeZoneName: "long" }, "en-US");
+  if (!longName || isOffsetZoneLabel(longName) || /\d/.test(longName)) return "";
+  const initials = longName.match(/\b[A-Z]/g);
+  if (!initials || initials.length < 2 || initials.length > 5) return "";
+  return initials.join("");
+}
+
+function formatLocalTime(date: Date, timeZone: string) {
+  return date.toLocaleTimeString(undefined, { ...EVENT_TIME_OPTIONS, timeZone });
+}
+
+function formatLocalTimeZone(date: Date, timeZone: string) {
+  for (const locale of [undefined, "en-IN", "en-GB", "en-US"] as const) {
+    const shortName = zoneNameFromParts(date, timeZone, { timeZoneName: "short" }, locale);
+    if (shortName && !isOffsetZoneLabel(shortName)) return shortName;
+  }
+  return namedZoneFromLongLabel(date, timeZone) || zoneNameFromParts(date, timeZone, { timeZoneName: "short" });
+}
+
 export function formatEventTimeRange(event: Pick<TimelineEvent, "startAt" | "endAt">) {
+  const timeZone = viewerTimeZone();
   const start = new Date(event.startAt);
   const end = event.endAt ? new Date(event.endAt) : null;
-  const startLabel = start.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  if (!end) return startLabel;
-  return `${startLabel} - ${end.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
+  const range = end
+    ? `${formatLocalTime(start, timeZone)} - ${formatLocalTime(end, timeZone)}`
+    : formatLocalTime(start, timeZone);
+  const zone = formatLocalTimeZone(start, timeZone);
+  return zone ? `${range} ${zone}` : range;
 }
