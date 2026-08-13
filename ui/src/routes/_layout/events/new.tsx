@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays } from "lucide-react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { CalendarDays } from "lucide-react";
 import { customAlphabet } from "nanoid";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import {
   Select,
   SelectContent,
@@ -169,12 +170,12 @@ function NewEventPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-        <Button asChild variant="ghost" size="icon-sm" aria-label="Back to events">
-          <Link to="/events">
-            <ArrowLeft size={15} />
-          </Link>
-        </Button>
-        <h1 className="text-xl font-semibold text-foreground">New Event</h1>
+        <PageBreadcrumb
+          parentLabel="Events"
+          parentTo="/events"
+          current="New"
+          currentClassName="text-sm font-semibold text-foreground"
+        />
       </div>
 
       <form onSubmit={onSubmit} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
