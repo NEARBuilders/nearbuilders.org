@@ -1,6 +1,7 @@
 export type ProjectKindFilter = "all" | "project" | "idea" | "scope" | "result";
 
 export type ProjectSort = "votes" | "newest" | "oldest";
+export type ProjectStatusFilter = "all" | "active" | "paused" | "archived";
 
 export type ProjectListSearch = {
   preview?: string;
@@ -9,6 +10,8 @@ export type ProjectListSearch = {
   private?: boolean;
   verified?: boolean;
   sort?: ProjectSort;
+  query?: string;
+  status?: ProjectStatusFilter;
 };
 
 export function isProjectKind(value: unknown): value is Exclude<ProjectKindFilter, "all"> {
@@ -29,6 +32,10 @@ function isProjectSort(value: unknown): value is ProjectSort {
   return value === "votes" || value === "newest" || value === "oldest";
 }
 
+function isProjectStatus(value: unknown): value is ProjectStatusFilter {
+  return value === "all" || value === "active" || value === "paused" || value === "archived";
+}
+
 function hasSearchFlag(value: unknown) {
   return value === true || value === "true";
 }
@@ -44,6 +51,11 @@ export function parseProjectListSearch(search: Record<string, unknown>): Project
     personal: personal || undefined,
     private: privateOnly || undefined,
     verified: verified || undefined,
-    sort: isProjectSort(search.sort) && search.sort !== "votes" ? search.sort : undefined,
+    sort: isProjectSort(search.sort) ? search.sort : undefined,
+    query:
+      typeof search.query === "string" && search.query.trim().length > 0
+        ? search.query.trim()
+        : undefined,
+    status: isProjectStatus(search.status) && search.status !== "all" ? search.status : undefined,
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeSocialLinks, socialLinkToUrl } from "./social-links";
+import { mergeSocialLinks, socialLinkToUrl, validateHandle } from "./social-links";
 
 describe("socialLinkToUrl", () => {
   it("turns social handles into absolute external URLs", () => {
@@ -15,6 +15,36 @@ describe("socialLinkToUrl", () => {
     expect(socialLinkToUrl("github", "github.com/nearbuilders")).toBe(
       "https://github.com/nearbuilders",
     );
+  });
+});
+
+describe("Discord user IDs", () => {
+  it("turns a numeric discord user id into a profile link", () => {
+    expect(socialLinkToUrl("discord", "123456789012345678")).toBe(
+      "https://discord.com/users/123456789012345678",
+    );
+  });
+
+  it("round-trips an already-complete discord URL", () => {
+    expect(socialLinkToUrl("discord", "https://discord.com/users/123456789012345678")).toBe(
+      "https://discord.com/users/123456789012345678",
+    );
+  });
+});
+
+describe("validateHandle", () => {
+  it("accepts a numeric discord user id", () => {
+    expect(validateHandle("discord", "123456789012345678")).toBeUndefined();
+  });
+
+  it("rejects a non-numeric discord handle", () => {
+    expect(validateHandle("discord", "nearbuilders#1234")).toBe(
+      "Must be a numeric Discord user ID",
+    );
+  });
+
+  it("has no numeric constraint for other platforms", () => {
+    expect(validateHandle("github", "nearbuilders")).toBeUndefined();
   });
 });
 

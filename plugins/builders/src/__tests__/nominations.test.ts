@@ -5,12 +5,13 @@ import { sql } from "drizzle-orm";
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabaseDriver } from "../db";
-import { builderNominations } from "../db/schema";
+import { builderNominations, builderXIdentities } from "../db/schema";
 import Plugin from "../index";
 import {
   createNominationToken,
   hashNominationToken,
   type TelegramNominationInput,
+  type XNominationInput,
 } from "../services/builders";
 
 function testNear(primaryAccountId: string) {
@@ -34,6 +35,7 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0000_large_power_man.sql",
     "0001_grey_prodigy.sql",
     "0002_chunky_roxanne_simpson.sql",
+    "0003_slimy_talos.sql",
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -61,6 +63,20 @@ describe.sequential("Telegram builder nominations", () => {
     nomineeUsername: "alice",
     nominatedByTelegramId: 456,
     telegramGroupId: -100789,
+  };
+
+  const baseXNomination: XNominationInput = {
+    source: "x",
+    sourceNominationId: "420000000000000001",
+    sourcePostUrl: "https://x.com/nearbuilders/status/420000000000000001",
+    sourcePostText: "Nominate @alice for building on NEAR",
+    sourcePostCreatedAt: "2026-08-08T10:00:00.000Z",
+    nominatedByXId: "9001",
+    nominatedByXUsername: "nearbuilders",
+    nomineeXId: "9002",
+    nomineeXUsername: "alice",
+    conversationId: "420000000000000001",
+    replyToPostId: "410000000000000001",
   };
 
   beforeAll(async () => {
@@ -109,6 +125,49 @@ describe.sequential("Telegram builder nominations", () => {
       },
       body: nomination,
     };
+  }
+
+  function xNomination(
+    sourceNominationId: string,
+    overrides: Partial<XNominationInput> = {},
+  ): XNominationInput {
+    return {
+      ...baseXNomination,
+      sourceNominationId,
+      sourcePostUrl: `https://x.com/nearbuilders/status/${sourceNominationId}`,
+      conversationId: sourceNominationId,
+      ...overrides,
+    };
+  }
+
+  function createXInput(
+    nomination = baseXNomination,
+    idempotencyKey = `x-nomination:${nomination.sourceNominationId}`,
+  ) {
+    return {
+      headers: { "idempotency-key": idempotencyKey },
+      body: nomination,
+    };
+  }
+
+  function adminClient(userId = "x-review-admin") {
+    return loaded.createClient({
+      userId,
+      user: { ...testUser(userId), role: "admin" },
+    });
+  }
+
+  async function queueRow(nominationId: string) {
+    const queue = await adminClient().listXNominationQueue({ limit: 100 });
+    const row = queue.data.find((item) => item.id === nominationId);
+    if (!row) throw new Error(`X nomination ${nominationId} was not queued`);
+    return row;
+  }
+
+  async function queueToken(nominationId: string) {
+    const row = await queueRow(nominationId);
+    if (!row.joinUrl) throw new Error("Expected X onboarding URL");
+    return new URL(row.joinUrl).searchParams.get("nomination")!;
   }
 
   function joinToken(
@@ -336,6 +395,11 @@ describe.sequential("Telegram builder nominations", () => {
       nominationId: created.body.nominationId,
       source: "telegram",
     });
+    await expect(botClient().resolveNomination({ token })).resolves.toMatchObject({
+      status: "ready",
+      nominationId: created.body.nominationId,
+      source: "telegram",
+    });
     const alice = builderClient("alice-owner", "alice-owner.near");
     await expect(
       alice.finalizeTelegramNomination({ token, proposalId: "prop_owner" }),
@@ -482,6 +546,16 @@ describe.sequential("Telegram builder nominations", () => {
         '2026-01-03T00:00:00.000Z'
       )
     `);
+    await legacyDriver.db.execute(sql`
+      INSERT INTO builders (id, near_account, links, created_at, updated_at)
+      VALUES (
+        'bld_legacy_x',
+        'legacy-x.near',
+        '{"twitter":"https://x.com/legacybuilder"}',
+        '2026-01-01T00:00:00.000Z',
+        '2026-01-01T00:00:00.000Z'
+      )
+    `);
     await legacyDriver.close();
 
     const migrationRuntime = createPluginRuntime({ registry: { builders: { module: Plugin } } });
@@ -521,6 +595,7 @@ describe.sequential("Telegram builder nominations", () => {
     await migrationRuntime.shutdown();
     const migratedDriver = await createDatabaseDriver(databaseUrl);
     const rows = await migratedDriver.db.select().from(builderNominations);
+    const xIdentities = await migratedDriver.db.select().from(builderXIdentities);
     const canonical = rows.find((row) => row.id === canonicalId);
     const duplicate = rows.find((row) => row.id === duplicateId);
 
@@ -540,6 +615,13 @@ describe.sequential("Telegram builder nominations", () => {
       canonicalNominationId: canonicalId,
       tokenHash: hashNominationToken(duplicateToken),
     });
+    expect(xIdentities).toContainEqual(
+      expect.objectContaining({
+        usernameNormalized: "legacybuilder",
+        xUserId: null,
+        builderId: "bld_legacy_x",
+      }),
+    );
 
     await migratedDriver.close();
     await rm(migrationDir, { recursive: true, force: true });
@@ -579,5 +661,279 @@ describe.sequential("Telegram builder nominations", () => {
         ),
       ),
     ).rejects.toThrow("Invalid idempotency-key");
+  });
+
+  it("creates an X referral and replays the exact post with the same secure link", async () => {
+    const first = await botClient().createXNomination(createXInput());
+    const firstRow = await queueRow(first.body.nominationId);
+    const replay = await botClient().createXNomination(createXInput());
+    const replayRow = await queueRow(replay.body.nominationId);
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(200);
+    expect(replay.body).toEqual(first.body);
+    expect(Object.keys(first.body)).toEqual(["nominationId"]);
+    expect(firstRow.joinUrl).toBeTruthy();
+    expect(replayRow.joinUrl).toBe(firstRow.joinUrl);
+
+    const token = await queueToken(first.body.nominationId);
+    await expect(
+      botClient().resolveNomination({ token, recordOpen: false }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      nominationId: firstRow.canonicalNominationId,
+      referralNominationId: first.body.nominationId,
+      source: "x",
+      referralContext: {
+        sourcePostId: baseXNomination.sourceNominationId,
+        nomineeXId: baseXNomination.nomineeXId,
+      },
+    });
+  });
+
+  it("rejects a conflicting X replay and preserves the exact referral source", async () => {
+    const nomination = xNomination("420000000000000002");
+    const created = await botClient().createXNomination(createXInput(nomination));
+
+    await expect(
+      botClient().createXNomination(
+        createXInput({ ...nomination, sourcePostText: "Changed post text" }),
+      ),
+    ).rejects.toThrow("different data");
+
+    expect(await queueRow(created.body.nominationId)).toMatchObject({
+      sourcePostId: nomination.sourceNominationId,
+      sourcePostUrl: nomination.sourcePostUrl,
+      sourcePostText: nomination.sourcePostText,
+      nomineeXId: nomination.nomineeXId,
+      nominatorXId: nomination.nominatedByXId,
+    });
+  });
+
+  it("keeps concurrent source posts separate while sharing one canonical X identity", async () => {
+    const firstInput = xNomination("420000000000000003", {
+      sourcePostText: "Nominate @concurrentx for building on NEAR",
+      nomineeXId: "9030",
+      nomineeXUsername: "concurrentx",
+    });
+    const secondInput = xNomination("420000000000000004", {
+      sourcePostText: "Another nomination for @concurrentx",
+      nomineeXId: "9030",
+      nomineeXUsername: "concurrentx",
+    });
+    const results = await Promise.all([
+      botClient().createXNomination(createXInput(firstInput)),
+      botClient().createXNomination(createXInput(secondInput)),
+    ]);
+
+    expect(results.every((result) => result.status === 201)).toBe(true);
+    expect(new Set(results.map((result) => result.body.nominationId)).size).toBe(2);
+
+    const rows = await Promise.all(results.map((result) => queueRow(result.body.nominationId)));
+    expect(new Set(rows.map((row) => row.canonicalNominationId)).size).toBe(1);
+    expect(rows.filter((row) => row.isCanonical)).toHaveLength(1);
+    expect(rows.every((row) => row.sourceReferralCount === 2)).toBe(true);
+    expect(new Set(rows.map((row) => row.joinUrl)).size).toBe(2);
+
+    const resolutions = await Promise.all(
+      rows.map(async (row) =>
+        botClient().resolveNomination({
+          token: new URL(row.joinUrl!).searchParams.get("nomination")!,
+          recordOpen: false,
+        }),
+      ),
+    );
+    expect(
+      new Set(
+        resolutions.map((resolution) =>
+          resolution.status === "invalid" ? "invalid" : resolution.nominationId,
+        ),
+      ).size,
+    ).toBe(1);
+    expect(
+      new Set(
+        resolutions.map((resolution) =>
+          resolution.status === "invalid" ? "invalid" : resolution.referralNominationId,
+        ),
+      ).size,
+    ).toBe(2);
+  });
+
+  it("uses stable X IDs across username changes", async () => {
+    const first = await botClient().createXNomination(
+      createXInput(
+        xNomination("420000000000000005", {
+          nomineeXId: "9040",
+          nomineeXUsername: "oldname",
+        }),
+      ),
+    );
+    const second = await botClient().createXNomination(
+      createXInput(
+        xNomination("420000000000000006", {
+          nomineeXId: "9040",
+          nomineeXUsername: "newname",
+        }),
+      ),
+    );
+    const rows = await Promise.all([
+      queueRow(first.body.nominationId),
+      queueRow(second.body.nominationId),
+    ]);
+
+    expect(new Set(rows.map((row) => row.canonicalNominationId)).size).toBe(1);
+    expect(rows.map((row) => row.nomineeXUsername)).toEqual(["oldname", "newname"]);
+  });
+
+  it("detects an existing builder without creating an onboarding link", async () => {
+    const admin = adminClient("existing-builder-admin");
+    const existing = await admin.createBuilder({
+      nearAccount: "existing-x.near",
+      name: "Existing X Builder",
+      links: { twitter: "https://x.com/existingbuilder" },
+    });
+    const created = await botClient().createXNomination(
+      createXInput(
+        xNomination("420000000000000007", {
+          nomineeXId: "9050",
+          nomineeXUsername: "existingbuilder",
+        }),
+      ),
+    );
+    const row = await queueRow(created.body.nominationId);
+
+    expect(created.status).toBe(201);
+    expect(row.joinUrl).toBeNull();
+    expect(row.linkedNomineeBuilderId).toBe(existing.data.id);
+    expect(row.linkedNomineeNearAccount).toBe("existing-x.near");
+  });
+
+  it("records page opens without counting non-visual token resolution", async () => {
+    const created = await botClient().createXNomination(
+      createXInput(
+        xNomination("420000000000000008", {
+          nomineeXId: "9060",
+          nomineeXUsername: "openperson",
+        }),
+      ),
+    );
+    const token = await queueToken(created.body.nominationId);
+
+    await botClient().resolveNomination({ token, recordOpen: true });
+    await botClient().resolveNomination({ token, recordOpen: false });
+
+    const opened = await queueRow(created.body.nominationId);
+    expect(opened.openCount).toBe(1);
+    expect(opened.firstOpenedAt).toBeTruthy();
+    expect(opened.lastOpenedAt).toBeTruthy();
+  });
+
+  it("applies admin transitions with optimistic concurrency", async () => {
+    const created = await botClient().createXNomination(
+      createXInput(
+        xNomination("420000000000000009", {
+          nomineeXId: "9070",
+          nomineeXUsername: "reviewperson",
+        }),
+      ),
+    );
+    const admin = adminClient("engagement-admin");
+    const pending = await queueRow(created.body.nominationId);
+    const contacted = await admin.updateXNomination({
+      nominationId: pending.id,
+      expectedEngagementUpdatedAt: pending.engagementUpdatedAt,
+      action: "mark_contacted",
+    });
+
+    expect(contacted).toMatchObject({
+      engagementStatus: "contacted",
+      replyUrl: null,
+      updatedBy: "engagement-admin",
+    });
+    expect(contacted.contactedAt).toBeTruthy();
+
+    const replied = await admin.updateXNomination({
+      nominationId: contacted.id,
+      expectedEngagementUpdatedAt: contacted.engagementUpdatedAt,
+      action: "mark_contacted",
+      replyUrl: "https://x.com/nearbuilders/status/520000000000000009",
+    });
+
+    expect(replied).toMatchObject({
+      engagementStatus: "contacted",
+      replyUrl: "https://x.com/nearbuilders/status/520000000000000009",
+      updatedBy: "engagement-admin",
+    });
+    await expect(
+      admin.updateXNomination({
+        nominationId: pending.id,
+        expectedEngagementUpdatedAt: pending.engagementUpdatedAt,
+        action: "reject",
+      }),
+    ).rejects.toThrow("changed before");
+
+    const rejected = await admin.updateXNomination({
+      nominationId: replied.id,
+      expectedEngagementUpdatedAt: replied.engagementUpdatedAt,
+      action: "reject",
+    });
+    expect(rejected.engagementStatus).toBe("rejected");
+    const reopened = await admin.updateXNomination({
+      nominationId: rejected.id,
+      expectedEngagementUpdatedAt: rejected.engagementUpdatedAt,
+      action: "reopen",
+    });
+    expect(reopened.engagementStatus).toBe("pending_contact");
+
+    const metrics = await admin.getXNominationMetrics({});
+    expect(metrics.qualifiedEngagementReplies).toBeGreaterThanOrEqual(1);
+  });
+
+  it("finalizes every referral and links the resulting builder profile", async () => {
+    const nominee = {
+      nomineeXId: "9080",
+      nomineeXUsername: "finalizedperson",
+    };
+    const first = await botClient().createXNomination(
+      createXInput(xNomination("420000000000000010", nominee)),
+    );
+    const second = await botClient().createXNomination(
+      createXInput(xNomination("420000000000000011", nominee)),
+    );
+    const token = await queueToken(second.body.nominationId);
+    const owner = builderClient("finalized-owner", "finalized-owner.near");
+
+    const finalized = await owner.finalizeNomination({
+      token,
+      proposalId: "prop-finalized",
+    });
+    expect(finalized).toMatchObject({
+      nominationId: (await queueRow(first.body.nominationId)).canonicalNominationId,
+      referralNominationId: second.body.nominationId,
+      source: "x",
+    });
+    await expect(
+      owner.finalizeNomination({ token, proposalId: "prop-finalized" }),
+    ).resolves.toMatchObject({ nominationId: finalized.nominationId });
+
+    const completedRows = await Promise.all([
+      queueRow(first.body.nominationId),
+      queueRow(second.body.nominationId),
+    ]);
+    expect(completedRows.every((row) => row.engagementStatus === "completed")).toBe(true);
+
+    const builder = await adminClient("finalized-admin").createBuilder({
+      nearAccount: "finalized-owner.near",
+      name: "Finalized Person",
+    });
+    expect(await queueRow(first.body.nominationId)).toMatchObject({
+      linkedNomineeBuilderId: builder.data.id,
+      linkedNomineeNearAccount: "finalized-owner.near",
+      profileStatus: "submitted",
+      proposalId: "prop-finalized",
+    });
+    await expect(
+      botClient().resolveNomination({ token, recordOpen: false }),
+    ).resolves.toMatchObject({ status: "submitted", source: "x" });
   });
 });

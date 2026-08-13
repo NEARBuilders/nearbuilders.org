@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_layout/about")({
   },
   head: () => ({
     meta: [
-      { title: "About | app" },
+      { title: "About | NEAR Builders" },
       { name: "description", content: "About this runtime-composed app on NEAR." },
     ],
   }),

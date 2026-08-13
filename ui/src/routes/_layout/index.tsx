@@ -156,13 +156,14 @@ function HeroSection() {
     <section className="overflow-hidden border-b border-border bg-muted/20">
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-center lg:gap-14 lg:px-8 lg:py-24">
         <div className="relative z-10 max-w-xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-accent-border bg-brand-accent-light px-3 py-1.5 text-xs font-bold text-foreground">
-            <Network className="size-3.5 text-brand-accent" />
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-xs">
+            <span className="flex size-5 items-center justify-center rounded-full bg-brand-accent-light">
+              <Network className="size-3.5 text-brand-accent" />
+            </span>
             Open network for builders
           </div>
-          <h1 className="text-5xl font-black leading-none tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-            Build what's
-            <span className="block">next,</span>
+          <h1 className="text-balance text-5xl font-black leading-[1.1] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+            Build what's <span className="block">next, </span>
             <span className="block text-brand-accent">together.</span>
           </h1>
           <p className="mt-7 max-w-lg text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl">
@@ -219,45 +220,29 @@ function HeroSection() {
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
               <Link
                 to="/builders"
                 search={{ highlight: undefined }}
-                className="group rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent hover:shadow-md sm:p-5"
+                className="rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-xs sm:p-5"
               >
-                <div className="flex items-center">
-                  <span className="flex size-9 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
-                    <Users className="size-4" />
-                  </span>
-                </div>
-                <div className="mt-6">
-                  <p className="text-3xl font-black tabular-nums tracking-tight text-foreground sm:text-4xl">
-                    {networkStats?.builders ?? "—"}
-                  </p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground">
-                    Builders
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">Across the network</p>
-                </div>
+                <p className="mt-4 text-4xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-5xl">
+                  {networkStats?.builders ?? "—"}
+                </p>
+                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Builders
+                </p>
               </Link>
               <Link
                 to="/projects"
-                className="group rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent hover:shadow-md sm:p-5"
+                className="rounded-2xl border border-brand-accent-border bg-background/90 p-4 shadow-xs sm:p-5"
               >
-                <div className="flex items-center">
-                  <span className="flex size-9 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
-                    <PanelsTopLeft className="size-4" />
-                  </span>
-                </div>
-                <div className="mt-6">
-                  <p className="text-3xl font-black tabular-nums tracking-tight text-foreground sm:text-4xl">
-                    {networkStats?.projects ?? "—"}
-                  </p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-widest text-foreground">
-                    Projects
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">Open work to explore</p>
-                </div>
+                <p className="mt-4 text-4xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-5xl">
+                  {networkStats?.projects ?? "—"}
+                </p>
+                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Projects
+                </p>
               </Link>
             </div>
 
@@ -302,15 +287,17 @@ function BuilderAvatar({ builder, className }: { builder: LandingBuilder; classN
       role="img"
       aria-label={`${builder.name} profile`}
     >
-      {initials}
       {imageUrl && !errored && (
         <img
           src={imageUrl}
           alt=""
           onError={() => setErrored(true)}
           className="absolute inset-0 size-full object-cover"
+          fetchPriority="high"
+          loading="eager"
         />
       )}
+      {(!imageUrl || errored) && <span aria-hidden="true">{initials}</span>}
     </div>
   );
 }
@@ -338,6 +325,22 @@ function EcosystemNetworkCard({ item, className }: { item: EcosystemLink; classN
 
 function LogoImage({ item, className }: { item: EcosystemLink; className?: string }) {
   const [errored, setErrored] = useState(false);
+
+  if (item.label === "MultiAgency") {
+    return (
+      <span
+        className={cn(
+          "block shrink-0 bg-foreground [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]",
+          className,
+        )}
+        style={{
+          maskImage: `url(${item.logoSrc})`,
+          WebkitMaskImage: `url(${item.logoSrc})`,
+        }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   if (errored) {
     return (

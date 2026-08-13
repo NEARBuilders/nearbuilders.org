@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
@@ -42,15 +42,20 @@ function LoginPage() {
 
   const [nearPending, setNearPending] = useState(false);
   const [anonPending, setAnonPending] = useState(false);
+  const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.near.detectNearAccount().then((result) => {
+      if (result?.accountId) {
+        setDetectedAccount(result.accountId);
+      }
+    });
+  }, [auth.near]);
 
   const handleSuccess = async (message: string) => {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
     toast.success(message);
-    const { data: freshSession } = await auth.getSession();
-    if (freshSession) {
-      queryClient.setQueryData(["session"], freshSession);
-    }
-    await queryClient.invalidateQueries({ queryKey: ["session"] });
+    queryClient.invalidateQueries({ queryKey: ["session"] });
     navigate({ to: redirectTo, replace: true, search: {} });
   };
 
@@ -122,7 +127,11 @@ function LoginPage() {
             size="lg"
             className="w-full rounded-full h-12 text-sm font-bold bg-brand-green hover:bg-brand-green/90 text-black shadow-md shadow-brand-green/20 hover:shadow-lg hover:shadow-brand-green/30 transition-all"
           >
-            {nearPending ? "Connecting…" : "Connect with NEAR"}
+            {nearPending
+              ? "Connecting…"
+              : detectedAccount
+                ? `Continue as ${detectedAccount}`
+                : "Connect with NEAR"}
           </Button>
 
           <div className="relative flex items-center gap-3">

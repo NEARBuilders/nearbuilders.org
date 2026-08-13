@@ -24,6 +24,7 @@ import { getBaseStyles } from "@/app";
 import { Toaster } from "@/components/ui/sonner";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
+import { getSiteUrl } from "@/lib/site-url";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -50,7 +51,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       session,
     };
   },
-  head: ({ loaderData }) => {
+  head: ({ loaderData, matches }) => {
     const runtimeConfig = loaderData?.runtimeConfig;
     const cspNonce = loaderData?.cspNonce;
     const runtimeBasePath = runtimeConfig?.runtime?.runtimeBasePath ?? "/";
@@ -58,6 +59,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const siteUrl = runtimeConfig?.hostUrl
       ? `${runtimeConfig.hostUrl}${runtimeBasePath === "/" ? "" : runtimeBasePath}`
       : "";
+    const pathname = matches[matches.length - 1]?.pathname ?? "/";
+    const canonicalUrl = getSiteUrl(runtimeConfig, pathname) ?? siteUrl;
     const title = runtimeConfig?.runtime?.title ?? runtimeConfig?.account ?? "";
     const description = runtimeConfig?.runtime?.description ?? "";
 
@@ -117,7 +120,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           href: "/apple-touch-icon.png",
         },
         { rel: "manifest", href: "/site.webmanifest" },
-        ...(siteUrl ? [{ rel: "canonical", href: siteUrl }] : []),
+        ...(canonicalUrl ? [{ rel: "canonical", href: canonicalUrl }] : []),
       ],
       scripts: [
         ...(typeof window === "undefined"
