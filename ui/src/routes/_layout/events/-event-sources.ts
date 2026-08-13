@@ -138,7 +138,10 @@ function formatLocalTimeZone(date: Date, timeZone: string) {
     const shortName = zoneNameFromParts(date, timeZone, { timeZoneName: "short" }, locale);
     if (shortName && !isOffsetZoneLabel(shortName)) return shortName;
   }
-  return namedZoneFromLongLabel(date, timeZone) || zoneNameFromParts(date, timeZone, { timeZoneName: "short" });
+  return (
+    namedZoneFromLongLabel(date, timeZone) ||
+    zoneNameFromParts(date, timeZone, { timeZoneName: "short" })
+  );
 }
 
 export function formatEventTimeRange(event: Pick<TimelineEvent, "startAt" | "endAt">) {
