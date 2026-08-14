@@ -86,7 +86,7 @@ export function EventDetail({
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Fact icon={<CalendarDays size={14} />} text={formatEventDate(event)} />
-          <Fact icon={<Clock size={14} />} text={formatEventTime(event)} />
+          <Fact icon={<Clock size={14} />} text={formatEventTimeRange(event)} />
           {event.participantCount !== undefined && (
             <Fact
               icon={<Users size={14} />}
@@ -176,8 +176,4 @@ export function formatEventDate(event: { startAt: string }) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-export function formatEventTime(event: { startAt: string; endAt: string | null }) {
-  return formatEventTimeRange(event);
 }
