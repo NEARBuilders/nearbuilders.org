@@ -1,13 +1,13 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { customAlphabet } from "nanoid";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { clearDraft, getDraft, type ProjectKind, setDraft } from "@/lib/draft-store";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
@@ -203,35 +203,23 @@ function NewProjectPage() {
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="shrink-0 border-b border-border bg-background sm:sticky sm:top-16 sm:z-30 sm:bg-background/95 sm:backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <Button
-              asChild
-              variant="outline"
-              size="icon-sm"
-              className="size-10 sm:size-8"
-              aria-label="Back to projects"
-            >
-              <Link
-                to="/projects"
-                search={{
-                  preview: undefined,
-                  kind: search.kind,
-                  personal: search.personal,
-                  private: search.private,
-                  verified: search.verified,
-                }}
-              >
-                <ArrowLeft size={15} />
-              </Link>
-            </Button>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:text-xs">
-                Projects / New
-              </p>
-              <h1 className="truncate text-base font-semibold text-foreground sm:text-xl">
-                Create a {kindLabel.toLowerCase()}
-              </h1>
-            </div>
+          <div className="min-w-0">
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{
+                preview: undefined,
+                kind: search.kind,
+                personal: search.personal,
+                private: search.private,
+                verified: search.verified,
+              }}
+              current="New"
+              currentClassName="text-sm font-semibold text-foreground"
+            />
+            <h1 className="mt-1 truncate text-base font-semibold text-foreground sm:text-xl">
+              Create a {kindLabel.toLowerCase()}
+            </h1>
           </div>
 
           <div className="hidden w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:justify-end">

@@ -1,11 +1,12 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
@@ -272,29 +273,23 @@ function EditFormInner({
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="shrink-0 border-b border-border bg-background">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button asChild variant="outline" size="icon-sm" aria-label="Back to project">
-              <Link
-                to="/projects/$kind/$slug"
-                params={{ kind: project.kind, slug: project.slug }}
-                search={{
-                  kind: search.kind,
-                  personal: search.personal,
-                  private: search.private,
-                  verified: search.verified,
-                }}
-              >
-                <ArrowLeft size={15} />
-              </Link>
-            </Button>
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Projects / Edit
-              </p>
-              <h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">
-                Edit {kindLabel.toLowerCase()}
-              </h1>
-            </div>
+          <div className="min-w-0">
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{
+                preview: undefined,
+                kind: search.kind,
+                personal: search.personal,
+                private: search.private,
+                verified: search.verified,
+              }}
+              current="Edit"
+              currentClassName="text-sm font-semibold text-foreground"
+            />
+            <h1 className="mt-1 truncate text-lg font-semibold text-foreground sm:text-xl">
+              Edit {kindLabel.toLowerCase()}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
