@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
+import { BuilderProfileStats } from "@/components/builder-profile-stats";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderDetailOptions,
   builderProposalsOptions,
+  builderStatsOptions,
   nearProfileOptions,
   upvoteCountsOptions,
   userVotesOptions,
@@ -67,6 +69,7 @@ export const Route = createFileRoute("/_layout/builders/$account")({
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
       queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
+      queryClient.prefetchQuery(builderStatsOptions(apiClient, params.account)),
     ]);
 
     if (proposalIds.length > 0) {
@@ -304,6 +307,12 @@ function LoadedProfile({
       }),
   });
 
+  const {
+    data: statsResult,
+    isLoading: statsLoading,
+    isError: statsError,
+  } = useQuery(builderStatsOptions(apiClient, account));
+
   const projects = projectsResult?.data ?? [];
 
   const displayName = builder.name || profile?.name || account;
@@ -500,6 +509,12 @@ function LoadedProfile({
           )}
         </div>
       </div>
+
+      <BuilderProfileStats
+        stats={statsResult?.data}
+        isLoading={statsLoading}
+        isError={statsError}
+      />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main>

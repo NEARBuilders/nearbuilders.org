@@ -431,6 +431,14 @@ const BuilderOutput = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+const BuilderStatsOutput = z.object({
+  projects: z.number().int().nonnegative(),
+  ideas: z.number().int().nonnegative(),
+  feedbackRounds: z.number().int().nonnegative(),
+  githubIssues: z.number().int().nonnegative(),
+  collaborations: z.number().int().nonnegative(),
+});
+
 const registryMetadataSchema = z.object({
   claimedBy: z.string().nullable(),
   title: z.string().nullable(),
@@ -1334,6 +1342,12 @@ export const contract = oc.router({
     .input(z.object({ nearAccount: z.string() }))
     .output(z.object({ data: BuilderOutput }))
     .errors({ NOT_FOUND }),
+
+  getBuilderStats: oc
+    .route({ method: "GET", path: "/v1/builders/{nearAccount}/stats" })
+    .input(z.object({ nearAccount: z.string().min(1).max(100) }))
+    .output(z.object({ data: BuilderStatsOutput }))
+    .errors({ BAD_REQUEST }),
 
   getMyBuilderProfile: oc
     .route({ method: "GET", path: "/v1/builders/me" })

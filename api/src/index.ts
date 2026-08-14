@@ -6,6 +6,7 @@ import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
@@ -640,6 +641,49 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getBuilder: builder.getBuilder.handler(async ({ input, context }) => {
         return await services.plugins.builders(context).getBuilder(input);
+      }),
+
+      getBuilderStats: builder.getBuilderStats.handler(async ({ input, context }) => {
+        const [projects, ideas, feedbackRounds, githubIssues, collaborations] =
+          await Promise.allSettled([
+            services.plugins.projects(context).listProjects({
+              ownerId: input.nearAccount,
+              kind: "project",
+              visibility: "public",
+              limit: 1,
+            }),
+            services.plugins.projects(context).listProjects({
+              ownerId: input.nearAccount,
+              kind: "idea",
+              visibility: "public",
+              limit: 1,
+            }),
+            services.plugins.activity().getActivityFeed({
+              actor: input.nearAccount,
+              source: "feedback",
+              limit: 1,
+            }),
+            services.plugins.activity().getActivityFeed({
+              actor: input.nearAccount,
+              source: "github",
+              type: "issue",
+              limit: 1,
+            }),
+            services.plugins.nearcatalog().listClaimedCatalogProjects({
+              nearAccount: input.nearAccount,
+              limit: 1,
+            }),
+          ]);
+
+        return {
+          data: resolveBuilderStats({
+            projects,
+            ideas,
+            feedbackRounds,
+            githubIssues,
+            collaborations,
+          }),
+        };
       }),
 
       getMyBuilderProfile: builder.getMyBuilderProfile

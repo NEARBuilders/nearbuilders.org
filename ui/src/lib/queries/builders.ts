@@ -15,6 +15,8 @@ export interface Builder {
   location: string | null;
 }
 
+export type BuilderStats = Awaited<ReturnType<ApiClient["getBuilderStats"]>>["data"];
+
 export interface ProposalPayload {
   name?: string;
   bio?: string;
@@ -145,6 +147,14 @@ export function builderDetailOptions(apiClient: ApiClient, nearAccount: string) 
       }
     },
     staleTime: 30_000,
+  };
+}
+
+export function builderStatsOptions(apiClient: ApiClient, nearAccount: string) {
+  return {
+    queryKey: ["builder-stats", nearAccount] as const,
+    queryFn: () => apiClient.getBuilderStats({ nearAccount }),
+    staleTime: 60_000,
   };
 }
 
