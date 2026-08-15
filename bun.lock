@@ -15,7 +15,7 @@
         "@orpc/server": "catalog:",
         "@types/node": "catalog:",
         "better-auth": "catalog:",
-        "better-near-auth": "1.8.2",
+        "better-near-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "effect": "catalog:",
         "every-plugin": "catalog:",
@@ -337,7 +337,7 @@
     },
     "ui": {
       "name": "ui",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
         "@better-auth/core": "catalog:",

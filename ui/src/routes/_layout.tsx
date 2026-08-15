@@ -167,6 +167,7 @@ function Layout() {
               <div className="mt-auto pt-8">
                 <Link
                   to="/builders/add"
+                  search={{ intent: "self" }}
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-mint-foreground"
                 >

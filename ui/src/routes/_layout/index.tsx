@@ -182,7 +182,9 @@ function HeroSection() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-full px-7">
-              <Link to="/builders/add">Share your work</Link>
+              <Link to="/builders/add" search={{ intent: "self" }}>
+                Share your work
+              </Link>
             </Button>
           </div>
           {featuredBuilders.length > 0 && (
@@ -488,7 +490,7 @@ function ParticipationSection() {
               size="lg"
               className="rounded-full bg-foreground px-6 text-background hover:bg-foreground/90"
             >
-              <Link to="/builders/add">
+              <Link to="/builders/add" search={{ intent: "self" }}>
                 <Users className="size-4" />
                 Create builder profile
               </Link>

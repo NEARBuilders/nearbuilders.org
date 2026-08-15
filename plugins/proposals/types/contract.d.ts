@@ -971,6 +971,25 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
+    getMySubmission: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        pluginId: z.ZodString;
+        entityId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        hasSubmitted: z.ZodBoolean;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     getReviewHistory: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
