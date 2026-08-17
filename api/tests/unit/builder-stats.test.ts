@@ -14,32 +14,32 @@ describe("builder stats", () => {
         ideas: fulfilled(3),
         feedbackRounds: fulfilled(8),
         githubIssues: fulfilled(2),
-        collaborations: fulfilled(5),
+        catalogProjects: fulfilled(5),
       }),
     ).toEqual({
       projects: 4,
       ideas: 3,
       feedbackRounds: 8,
       githubIssues: 2,
-      collaborations: 5,
+      catalogProjects: 5,
     });
   });
 
-  it("falls back to zero when a source is unavailable", () => {
+  it("keeps unavailable sources separate from real zero values", () => {
     expect(
       resolveBuilderStats({
         projects: fulfilled(4),
         ideas: { status: "rejected", reason: new Error("unavailable") },
         feedbackRounds: fulfilled(8),
         githubIssues: { status: "rejected", reason: new Error("unavailable") },
-        collaborations: fulfilled(5),
+        catalogProjects: fulfilled(0),
       }),
     ).toMatchObject({
       projects: 4,
-      ideas: 0,
+      ideas: null,
       feedbackRounds: 8,
-      githubIssues: 0,
-      collaborations: 5,
+      githubIssues: null,
+      catalogProjects: 0,
     });
   });
 });

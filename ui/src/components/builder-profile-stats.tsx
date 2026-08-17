@@ -1,11 +1,31 @@
 import type { BuilderStats } from "@/lib/queries/builders";
 
-const STAT_ITEMS: Array<{ key: keyof BuilderStats; label: string }> = [
-  { key: "projects", label: "Projects" },
-  { key: "ideas", label: "Ideas" },
-  { key: "feedbackRounds", label: "Feedback rounds tested" },
-  { key: "githubIssues", label: "GitHub issues filed" },
-  { key: "collaborations", label: "Collaborations joined" },
+const STAT_ITEMS: Array<{
+  key: keyof BuilderStats;
+  label: string;
+  mobileLabel: string;
+  featured: boolean;
+}> = [
+  { key: "projects", label: "Projects", mobileLabel: "Projects", featured: true },
+  { key: "ideas", label: "Ideas", mobileLabel: "Ideas", featured: true },
+  {
+    key: "feedbackRounds",
+    label: "Feedback rounds tested",
+    mobileLabel: "Feedback",
+    featured: false,
+  },
+  {
+    key: "githubIssues",
+    label: "GitHub issues filed",
+    mobileLabel: "GitHub issues",
+    featured: false,
+  },
+  {
+    key: "catalogProjects",
+    label: "Catalog projects",
+    mobileLabel: "Catalog",
+    featured: false,
+  },
 ];
 
 export function BuilderProfileStats({
@@ -20,32 +40,39 @@ export function BuilderProfileStats({
   return (
     <section
       aria-label="Builder contribution stats"
-      className="mb-8 overflow-hidden rounded-xl border border-border bg-border"
+      className="mb-8 overflow-hidden rounded-2xl border border-border bg-border"
     >
-      <div className="grid grid-cols-2 gap-px sm:grid-cols-5">
-        {STAT_ITEMS.map(({ key, label }) => (
-          <div
-            key={key}
-            className="flex min-w-0 flex-col items-center justify-center gap-1 bg-card px-3 py-3 text-center last:col-span-2 sm:py-4 sm:last:col-span-1"
-          >
-            {isLoading ? (
-              <span className="h-6 w-8 animate-pulse rounded bg-muted" />
-            ) : (
-              <span
-                className={
-                  isError
-                    ? "text-xl font-semibold tracking-tight text-muted-foreground"
-                    : "text-xl font-semibold tabular-nums tracking-tight text-foreground"
-                }
-              >
-                {isError ? "—" : (stats?.[key] ?? 0)}
+      <div className="grid grid-cols-6 gap-px sm:grid-cols-5">
+        {STAT_ITEMS.map(({ key, label, mobileLabel, featured }) => {
+          const value = stats?.[key] ?? null;
+          const unavailable = isError || value === null;
+
+          return (
+            <fieldset
+              key={key}
+              aria-label={label}
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 bg-card px-2 py-3 text-center sm:px-3 sm:py-4 ${featured ? "col-span-3" : "col-span-2"} sm:col-span-1`}
+            >
+              {isLoading ? (
+                <span
+                  className={`animate-pulse rounded bg-muted ${featured ? "h-7 w-10" : "h-6 w-8"}`}
+                />
+              ) : (
+                <span
+                  className={`font-semibold tabular-nums tracking-tight ${
+                    unavailable ? "text-muted-foreground" : "text-foreground"
+                  } ${featured ? "text-2xl sm:text-xl" : "text-lg sm:text-xl"}`}
+                >
+                  {unavailable ? "—" : value}
+                </span>
+              )}
+              <span className="flex min-h-7 items-center justify-center text-[10px] font-bold uppercase leading-tight tracking-wide text-muted-foreground">
+                <span className="sm:hidden">{mobileLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
               </span>
-            )}
-            <span className="flex min-h-7 items-center justify-center text-[10px] font-bold uppercase leading-tight tracking-wide text-muted-foreground">
-              {label}
-            </span>
-          </div>
-        ))}
+            </fieldset>
+          );
+        })}
       </div>
     </section>
   );

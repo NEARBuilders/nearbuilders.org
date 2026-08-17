@@ -644,7 +644,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       getBuilderStats: builder.getBuilderStats.handler(async ({ input, context }) => {
-        const [projects, ideas, feedbackRounds, githubIssues, collaborations] =
+        const [projects, ideas, feedbackRounds, githubIssues, catalogProjects] =
           await Promise.allSettled([
             services.plugins.projects(context).listProjects({
               ownerId: input.nearAccount,
@@ -681,7 +681,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             ideas,
             feedbackRounds,
             githubIssues,
-            collaborations,
+            catalogProjects,
           }),
         };
       }),

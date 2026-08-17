@@ -130,7 +130,7 @@ export function NearProfile({
               <img
                 src={backgroundUrl}
                 alt="Profile background"
-                className="relative z-10 h-full w-full object-contain"
+                className="relative z-10 h-full w-full object-cover"
                 onError={() => {
                   setBackgroundImageError(true);
                 }}

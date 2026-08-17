@@ -45,6 +45,14 @@ export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboa
 });
 
 const RECENT_PROJECTS_LIMIT = 5;
+type ProjectKind = "project" | "idea" | "scope" | "result";
+
+const PROJECT_KIND_TABS: Array<{ kind: ProjectKind; label: string }> = [
+  { kind: "project", label: "Projects" },
+  { kind: "idea", label: "Ideas" },
+  { kind: "scope", label: "Scope" },
+  { kind: "result", label: "Results" },
+];
 
 function Dashboard() {
   const auth = useAuthClient();
@@ -65,6 +73,24 @@ function Dashboard() {
         ownerId: nearAccountId ?? undefined,
       }),
     enabled: !!nearAccountId,
+  });
+
+  const { data: projectKindAvailability } = useQuery({
+    queryKey: ["projects-kind-availability", nearAccountId],
+    queryFn: async () => {
+      const results = await Promise.all(
+        PROJECT_KIND_TABS.map(async ({ kind }) => {
+          const result = await apiClient.listProjects({
+            limit: 1,
+            ownerId: nearAccountId!,
+            kind,
+          });
+          return [kind, result.meta.total > 0] as const;
+        }),
+      );
+      return Object.fromEntries(results) as Record<ProjectKind, boolean>;
+    },
+    enabled: Boolean(nearAccountId),
   });
 
   const { data: builderResult, isLoading: builderLoading } = useQuery({
@@ -105,6 +131,9 @@ function Dashboard() {
   const projects = projectsData?.data ?? [];
   const projectCount = projectsData?.meta.total ?? projects.length;
   const projectIds = projects.map((project) => project.id);
+  const visibleProjectTabs = PROJECT_KIND_TABS.filter(
+    ({ kind }) => projectKindAvailability?.[kind],
+  );
 
   const { data: projectVoteCounts } = useQuery({
     queryKey: ["dashboard-project-upvote-counts", projectIds],
@@ -171,31 +200,47 @@ function Dashboard() {
       />
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
-        <div className="min-w-0">
+        <div className="order-2 min-w-0 lg:order-none">
           <NearProfile accountId={nearAccountId} variant="card" className="h-full" />
         </div>
 
-        <div className="min-w-0 space-y-3 lg:sticky lg:top-24 lg:self-start">
-          <BuilderOnboardingChecklist
-            accountId={nearAccountId}
-            nearProfile={nearProfile}
-            builderProfile={builderProfile}
-            hasFirstIdea={(firstIdeaResult?.data.length ?? 0) > 0}
-            isLoading={
-              nearProfileLoading || builderLoading || builderProposalLoading || firstIdeaLoading
-            }
-          />
-          <BuilderProfileCard
-            builderProfile={builderProfile}
-            builderProposal={builderProposal}
-            isLoading={builderLoading || builderProposalLoading}
-            nearAccountId={nearAccountId}
-            apiClient={apiClient}
-          />
+        <div className="contents min-w-0 order-1 lg:order-none lg:block lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24 lg:self-start lg:space-y-5">
+          <div className="order-1 min-w-0 lg:order-none">
+            <BuilderOnboardingChecklist
+              accountId={nearAccountId}
+              nearProfile={nearProfile}
+              builderProfile={builderProfile}
+              hasFirstIdea={(firstIdeaResult?.data.length ?? 0) > 0}
+              isLoading={
+                nearProfileLoading || builderLoading || builderProposalLoading || firstIdeaLoading
+              }
+            />
+          </div>
+
+          <div className="order-3 min-w-0 lg:order-none">
+            <BuilderProfileCard
+              builderProfile={builderProfile}
+              builderProposal={builderProposal}
+              isLoading={builderLoading || builderProposalLoading}
+              nearAccountId={nearAccountId}
+              apiClient={apiClient}
+            />
+          </div>
+
+          <div className="order-4 min-w-0 lg:order-none">
+            <ReviewActivityCard
+              builderProposal={builderProposal}
+              auditEntries={auditEntries}
+              hasMore={auditLogQuery.hasNextPage}
+              isLoading={builderProposalLoading || auditLogQuery.isLoading}
+              isLoadingMore={auditLogQuery.isFetchingNextPage}
+              onLoadMore={() => auditLogQuery.fetchNextPage()}
+            />
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <section className="grid gap-5">
         <div className="min-w-0 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
@@ -229,6 +274,24 @@ function Dashboard() {
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
+
+          {visibleProjectTabs.length > 0 && (
+            <nav
+              aria-label="Project types"
+              className="flex min-w-0 overflow-x-auto border-b border-border"
+            >
+              {visibleProjectTabs.map(({ kind, label }) => (
+                <Link
+                  key={kind}
+                  to="/projects"
+                  search={{ kind, personal: true }}
+                  className="relative inline-flex min-h-10 shrink-0 items-center border-b-2 border-transparent px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-brand-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           {projectsError ? (
             <DashboardErrorCard message="Projects and ideas could not be loaded." />
@@ -273,17 +336,6 @@ function Dashboard() {
             </div>
           )}
         </div>
-
-        <aside className="min-w-0 space-y-4">
-          <ReviewActivityCard
-            builderProposal={builderProposal}
-            auditEntries={auditEntries}
-            hasMore={auditLogQuery.hasNextPage}
-            isLoading={builderProposalLoading || auditLogQuery.isLoading}
-            isLoadingMore={auditLogQuery.isFetchingNextPage}
-            onLoadMore={() => auditLogQuery.fetchNextPage()}
-          />
-        </aside>
       </section>
     </DashboardPageFrame>
   );
@@ -717,71 +769,36 @@ function BuilderProfileCard({
     );
   }
 
-  const approvedBuilder = builderProfile!;
-
   return (
     <Card className={profileCardClassName}>
-      <CardHeader className="bg-brand-accent-light/60 pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Hammer size={14} className="text-muted-foreground" />
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Builder Profile
+      <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-accent bg-brand-accent-light">
+            <Check className="h-4 w-4 text-foreground" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Builder Approved</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Your builder profile is live in the directory.
             </p>
           </div>
-          <BuilderStatusPill status="approved" />
         </div>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-3">
-        <div className="space-y-0.5">
-          <div className="font-semibold text-foreground text-sm">
-            {approvedBuilder.name || "Your builder profile is live"}
-          </div>
-          {approvedBuilder.location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin size={10} />
-              {approvedBuilder.location}
-            </div>
-          )}
-        </div>
-
-        {approvedBuilder.bio && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            {approvedBuilder.bio}
-          </p>
-        )}
-
-        {approvedBuilder.skills.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {approvedBuilder.skills.slice(0, 6).map((skill) => (
-              <Badge key={skill} variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
-                {skill}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
-              Edit builder profile
-            </Link>
-          </Button>
-        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="w-full rounded-full border-brand-accent-border bg-background/70 sm:w-auto"
+        >
+          <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
+            Edit profile
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function BuilderStatusPill({ status }: { status: ProposalStatus | "approved" | "not-listed" }) {
-  if (status === "approved") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-accent-light border border-brand-accent text-foreground">
-        <Check size={9} />
-        approved
-      </span>
-    );
-  }
+function BuilderStatusPill({ status }: { status: ProposalStatus | "not-listed" }) {
   if (status === "rejected") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive">
@@ -829,11 +846,11 @@ function DashboardHeader({
       <div className="relative flex flex-col gap-5 p-5 sm:p-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-mint-foreground/70">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/75">
               Builder workspace
             </p>
             {nearAccountId && (
-              <span className="max-w-full truncate rounded-full border border-brand-accent-border bg-background/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-brand-mint-foreground/80">
+              <span className="max-w-full truncate rounded-full border border-border bg-background/80 px-2 py-0.5 font-mono text-[10px] font-semibold text-foreground">
                 {nearAccountId}
               </span>
             )}
@@ -894,7 +911,7 @@ interface Project {
   slug: string;
   title: string;
   description: string | null;
-  kind: "project" | "idea" | "scope" | "result";
+  kind: ProjectKind;
   status: "active" | "paused" | "archived";
   visibility: "private" | "unlisted" | "public";
 }
