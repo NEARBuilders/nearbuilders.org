@@ -201,7 +201,12 @@ function Dashboard() {
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
         <div className="order-2 min-w-0 lg:order-none">
-          <NearProfile accountId={nearAccountId} variant="card" className="h-full" />
+          <NearProfile
+            accountId={nearAccountId}
+            variant="card"
+            className="h-full"
+            builderProfile={builderProfile}
+          />
         </div>
 
         <div className="contents min-w-0 order-1 lg:order-none lg:block lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24 lg:self-start lg:space-y-5">

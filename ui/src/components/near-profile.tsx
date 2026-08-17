@@ -2,10 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import type { Profile } from "better-near-auth";
 import { useEffect, useState } from "react";
 import { useAuthClient } from "@/app";
+import { Badge } from "@/components/ui/badge";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import { socialIcon } from "@/components/ui/social-icons";
 import { nearProfileOptions } from "@/lib/queries/builders";
-import { mergeSocialLinks } from "@/lib/social-links";
+import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
+
+interface NearProfileBuilderDetails {
+  bio: string | null;
+  skills: string[];
+  links: Record<string, string> | null;
+}
 
 interface NearProfileProps {
   accountId?: string;
@@ -13,6 +21,7 @@ interface NearProfileProps {
   showAvatar?: boolean;
   showName?: boolean;
   className?: string;
+  builderProfile?: NearProfileBuilderDetails | null;
 }
 
 export function NearProfile({
@@ -21,6 +30,7 @@ export function NearProfile({
   showAvatar = true,
   showName = true,
   className = "",
+  builderProfile,
 }: NearProfileProps) {
   const auth = useAuthClient();
   const {
@@ -40,7 +50,8 @@ export function NearProfile({
     (profile?.backgroundImage?.ipfs_cid
       ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
       : null);
-  const socialLinks = mergeSocialLinks(profile?.linktree);
+  const bio = builderProfile?.bio?.trim() || profile?.description?.trim();
+  const socialLinks = mergeSocialLinks(profile?.linktree, builderProfile?.links);
   const [backgroundImageError, setBackgroundImageError] = useState(false);
 
   useEffect(() => {
@@ -168,31 +179,61 @@ export function NearProfile({
             )}
           </div>
 
-          {!profile?.description && (
+          {!bio && (
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
               NEAR account connected. Add projects and keep your builder presence current.
             </p>
           )}
 
-          {profile?.description && (
-            <div className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              <Markdown content={profile.description} />
+          {bio && (
+            <div className="mt-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Bio
+              </p>
+              <div className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <Markdown content={bio} />
+              </div>
+            </div>
+          )}
+
+          {builderProfile && builderProfile.skills.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Skills
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {builderProfile.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary" className="rounded-full px-2 py-0.5">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
 
           {Object.keys(socialLinks).length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {Object.entries(socialLinks).map(([platform, url]) => (
-                <a
-                  key={platform}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold transition-colors hover:bg-secondary"
-                >
-                  {platform}
-                </a>
-              ))}
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Social links
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(socialLinks).map(([platform, url]) => {
+                  const Icon = socialIcon(platform);
+                  return (
+                    <Badge
+                      key={platform}
+                      asChild
+                      variant="outline"
+                      className="gap-1.5 rounded-full px-2 py-0.5"
+                    >
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        <Icon className="size-3" />
+                        {linkLabel(platform)}
+                      </a>
+                    </Badge>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

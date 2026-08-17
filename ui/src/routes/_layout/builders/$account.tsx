@@ -345,7 +345,12 @@ function LoadedProfile({
           <ClientOnly>
             {isOwner && (
               <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-                <Button asChild size="sm" className="gap-1.5 rounded-full">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-full border-border bg-background/80 hover:bg-accent"
+                >
                   <Link to="/profile/activity" search={{ mode: "claim" }}>
                     <Plus size={13} />
                     Add contribution
