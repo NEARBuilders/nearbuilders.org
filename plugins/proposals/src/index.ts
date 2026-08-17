@@ -63,6 +63,13 @@ export default createPlugin({
   shutdown: () => Effect.log("[Proposals] Shutdown"),
 
   createRouter: (services, builder) => {
+    const requireAuth = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      return next({ context });
+    });
+
     const requireAdmin = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
@@ -241,6 +248,30 @@ export default createPlugin({
       getSubmissions: builder.getSubmissions.use(requireAdmin).handler(async ({ input }) => {
         return await runEffect(services.proposal.getSubmissions(input));
       }),
+
+      getMySubmission: builder.getMySubmission
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccounts = [
+            context.near?.primaryAccountId,
+            ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+          ];
+          const submittedBy = Array.from(
+            new Set(
+              [
+                context.userId,
+                ...nearAccounts,
+                ...nearAccounts.map((accountId) => accountId?.toLowerCase()),
+              ].filter((value): value is string => Boolean(value)),
+            ),
+          );
+          return await runEffect(
+            services.proposal.getMySubmission({
+              ...input,
+              submittedBy,
+            }),
+          );
+        }),
 
       getReviewHistory: builder.getReviewHistory.use(requireAdmin).handler(async ({ input }) => {
         return await runEffect(services.proposal.getReviewHistory(input));

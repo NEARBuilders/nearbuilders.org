@@ -1,5 +1,11 @@
 # ui
 
+## 1.7.0
+
+### Minor Changes
+
+- 8606f32: Add Discord as a builder profile social link. It's stored as a numeric Discord user ID and links to `https://discord.com/users/USER_ID`, since usernames aren't stable enough to link to directly.
+
 ## 1.6.1
 
 ### Patch Changes

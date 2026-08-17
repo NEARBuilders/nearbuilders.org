@@ -87,6 +87,15 @@ function isNotFoundError(error: unknown): boolean {
 
 const createCallbacks: Record<string, CreateCallback> = {
   builders: async (plugins, proposal, context) => {
+    try {
+      const existing = await plugins.builders(context).getBuilder({
+        nearAccount: proposal.entityId,
+      });
+      return existing.data.nearAccount;
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error;
+    }
+
     const payload = requireObjectPayload(proposal.payload);
     const result = await plugins.builders(context).createBuilder({
       nearAccount: proposal.entityId,

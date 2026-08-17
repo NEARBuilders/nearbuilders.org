@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import {
-  ArrowLeft,
   BarChart2,
   Check,
   ExternalLink,
@@ -25,6 +24,7 @@ import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
@@ -281,18 +281,12 @@ function ProjectDetailPage() {
         {/* top bar */}
         <div className="border-b border-border bg-background">
           <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-            {/* breadcrumb */}
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="icon-sm" aria-label="Back to projects">
-                <Link to="/projects" search={listSearch}>
-                  <ArrowLeft size={15} />
-                </Link>
-              </Button>
-              <span className="hidden text-muted-foreground sm:inline">/</span>
-              <span className="hidden max-w-[160px] truncate text-sm font-semibold text-foreground sm:block">
-                {project.slug}
-              </span>
-            </div>
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{ ...listSearch, preview: project.id }}
+              current={project.slug}
+            />
 
             {/* actions */}
             <div className="flex items-center gap-1.5 sm:gap-2">

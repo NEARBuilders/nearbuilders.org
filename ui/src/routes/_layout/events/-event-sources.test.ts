@@ -3,6 +3,7 @@ import {
   buildTimelineEvents,
   calendarSourceId,
   type EventRecord,
+  formatEventTimeRange,
   type LumaEvent,
 } from "./-event-sources";
 
@@ -133,5 +134,43 @@ describe("event source normalization", () => {
     );
 
     expect(timeline).toHaveLength(1);
+  });
+});
+
+describe("formatEventTimeRange", () => {
+  const timeOptions: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+
+  it("converts UTC timestamps to the viewer's local time", () => {
+    const event = {
+      startAt: "2026-08-01T12:00:00.000Z",
+      endAt: "2026-08-01T15:00:00.000Z",
+    };
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = new Date(event.startAt).toLocaleTimeString(undefined, {
+      ...timeOptions,
+      timeZone,
+    });
+    const end = new Date(event.endAt).toLocaleTimeString(undefined, {
+      ...timeOptions,
+      timeZone,
+    });
+    const formatted = formatEventTimeRange(event);
+
+    expect(formatted.startsWith(`${start} - ${end}`)).toBe(true);
+    expect(formatted).not.toMatch(/GMT[+-]\d/);
+  });
+
+  it("appends a timezone label when only a start time is present", () => {
+    const event = { startAt: "2026-08-01T12:00:00.000Z", endAt: null };
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = new Date(event.startAt).toLocaleTimeString(undefined, {
+      ...timeOptions,
+      timeZone,
+    });
+    const formatted = formatEventTimeRange(event);
+
+    expect(formatted.startsWith(start)).toBe(true);
+    expect(formatted.length).toBeGreaterThan(start.length);
+    expect(formatted).not.toMatch(/GMT[+-]\d/);
   });
 });

@@ -206,6 +206,83 @@ describe.sequential("Proposals plugin", () => {
     expect(rejected.data.rejectionReason).toBe("Add another role");
   });
 
+  it("recognizes authenticated submission aliases without exposing submissions", async () => {
+    await expect(
+      loaded.createClient().getMySubmission({
+        pluginId: "builders",
+        entityId: "public-builder.near",
+      }),
+    ).rejects.toThrow("Authentication required");
+
+    await expect(
+      aliceClient().getMySubmission({
+        pluginId: "builders",
+        entityId: "public-builder.near",
+      }),
+    ).resolves.toEqual({ hasSubmitted: true });
+    await expect(
+      bobClient().getMySubmission({
+        pluginId: "builders",
+        entityId: "public-builder.near",
+      }),
+    ).resolves.toEqual({ hasSubmitted: false });
+
+    const legacyUser = loaded.createClient({
+      userId: "legacy-user-id",
+      user: testUser("legacy-user-id", "member"),
+    });
+    await legacyUser.propose({
+      pluginId: "builders",
+      entityId: "legacy-user-submission.near",
+      payload: { name: "Legacy User" },
+    });
+
+    const linkedLegacyUser = loaded.createClient({
+      userId: "legacy-user-id",
+      near: testNear("current-wallet.near"),
+      user: testUser("legacy-user-id", "member"),
+    });
+    await expect(
+      linkedLegacyUser.getMySubmission({
+        pluginId: "builders",
+        entityId: "legacy-user-submission.near",
+      }),
+    ).resolves.toEqual({ hasSubmitted: true });
+
+    await loaded
+      .createClient({
+        userId: "historical-user-id",
+        near: testNear("legacy-wallet.near"),
+        user: testUser("historical-user-id", "member"),
+      })
+      .propose({
+        pluginId: "builders",
+        entityId: "legacy-near-submission.near",
+        payload: { name: "Legacy NEAR" },
+      });
+    const linkedLegacyNear = loaded.createClient({
+      userId: "current-user-id",
+      near: {
+        ...testNear("current-wallet.near"),
+        linkedAccounts: [
+          {
+            accountId: "legacy-wallet.near",
+            network: "mainnet",
+            publicKey: "legacy-public-key",
+            isPrimary: false,
+          },
+        ],
+      },
+      user: testUser("current-user-id", "member"),
+    });
+    await expect(
+      linkedLegacyNear.getMySubmission({
+        pluginId: "builders",
+        entityId: "legacy-near-submission.near",
+      }),
+    ).resolves.toEqual({ hasSubmitted: true });
+  });
+
   it("keeps retries idempotent and only permits rejected proposal revisions", async () => {
     const input = {
       pluginId: "nearcatalog",
