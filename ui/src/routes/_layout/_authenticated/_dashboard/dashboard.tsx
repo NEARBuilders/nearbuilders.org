@@ -336,7 +336,7 @@ type BuilderStatusTone = "approved" | "pending" | "rejected" | "neutral";
 function DashboardPageFrame({ children }: { children: ReactNode }) {
   return (
     <div className="w-full px-4 py-6 pb-10 sm:px-6 sm:py-8 sm:pb-12 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">{children}</div>
+      <div className="mx-auto max-w-7xl space-y-6">{children}</div>
     </div>
   );
 }
