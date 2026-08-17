@@ -217,7 +217,7 @@ function HeroSection() {
                 <Network className="size-4 text-brand-accent" />
                 Builder network
               </div>
-              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-mint-foreground">
+              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-brand-mint-foreground sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider">
                 Community curated
               </span>
             </div>
