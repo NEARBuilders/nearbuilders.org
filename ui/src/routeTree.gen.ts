@@ -46,6 +46,7 @@ import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './rout
 import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
 import { Route as LayoutAuthenticatedDashboardNotificationsRouteImport } from './routes/_layout/_authenticated/_dashboard/notifications'
 import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
+import { Route as LayoutAdminAdminNominationsRouteImport } from './routes/_layout/_admin/admin/nominations'
 import { Route as LayoutAdminAdminDashboardRouteImport } from './routes/_layout/_admin/admin/dashboard'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
 import { Route as LayoutAuthenticatedDashboardScopesIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/scopes.index'
@@ -253,6 +254,12 @@ const LayoutAuthenticatedDashboardDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
+const LayoutAdminAdminNominationsRoute =
+  LayoutAdminAdminNominationsRouteImport.update({
+    id: '/admin/nominations',
+    path: '/admin/nominations',
+    getParentRoute: () => LayoutAdminRoute,
+  } as any)
 const LayoutAdminAdminDashboardRoute =
   LayoutAdminAdminDashboardRouteImport.update({
     id: '/admin/dashboard',
@@ -359,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/events/': typeof LayoutEventsIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
   '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/admin/nominations': typeof LayoutAdminAdminNominationsRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -405,6 +413,7 @@ export interface FileRoutesByTo {
   '/events': typeof LayoutEventsIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
   '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/admin/nominations': typeof LayoutAdminAdminNominationsRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -458,6 +467,7 @@ export interface FileRoutesById {
   '/_layout/events/': typeof LayoutEventsIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
   '/_layout/_admin/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
+  '/_layout/_admin/admin/nominations': typeof LayoutAdminAdminNominationsRoute
   '/_layout/_authenticated/_dashboard/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/_layout/_authenticated/_dashboard/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -509,6 +519,7 @@ export interface FileRouteTypes {
     | '/events/'
     | '/projects/'
     | '/admin/dashboard'
+    | '/admin/nominations'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -555,6 +566,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/projects'
     | '/admin/dashboard'
+    | '/admin/nominations'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -607,6 +619,7 @@ export interface FileRouteTypes {
     | '/_layout/events/'
     | '/_layout/projects/'
     | '/_layout/_admin/admin/dashboard'
+    | '/_layout/_admin/admin/nominations'
     | '/_layout/_authenticated/_dashboard/dashboard'
     | '/_layout/_authenticated/_dashboard/notifications'
     | '/_layout/_authenticated/_dashboard/profile'
@@ -901,6 +914,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
+    '/_layout/_admin/admin/nominations': {
+      id: '/_layout/_admin/admin/nominations'
+      path: '/admin/nominations'
+      fullPath: '/admin/nominations'
+      preLoaderRoute: typeof LayoutAdminAdminNominationsRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
     '/_layout/_admin/admin/dashboard': {
       id: '/_layout/_admin/admin/dashboard'
       path: '/admin/dashboard'
@@ -1004,10 +1024,12 @@ declare module '@tanstack/react-router' {
 
 interface LayoutAdminRouteChildren {
   LayoutAdminAdminDashboardRoute: typeof LayoutAdminAdminDashboardRoute
+  LayoutAdminAdminNominationsRoute: typeof LayoutAdminAdminNominationsRoute
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminAdminDashboardRoute: LayoutAdminAdminDashboardRoute,
+  LayoutAdminAdminNominationsRoute: LayoutAdminAdminNominationsRoute,
 }
 
 const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(

@@ -75,6 +75,53 @@ const HttpUrl = z
     }
   }, "Profile links must use HTTP or HTTPS");
 
+const XId = z
+  .string()
+  .regex(/^[1-9]\d*$/)
+  .max(32);
+const XUsername = z
+  .string()
+  .min(1)
+  .max(15)
+  .regex(/^[A-Za-z0-9_]+$/);
+const XPostUrl = HttpUrl.refine((value) => {
+  const hostname = new URL(value).hostname.toLowerCase();
+  return hostname === "x.com" || hostname === "www.x.com";
+}, "An x.com post URL is required");
+
+const XNominationInput = z
+  .object({
+    source: z.literal("x"),
+    sourceNominationId: XId,
+    sourcePostUrl: XPostUrl,
+    sourcePostText: z
+      .string()
+      .max(10_000)
+      .refine((value) => value.trim().length > 0, "Source X post text is required"),
+    sourcePostCreatedAt: z.iso.datetime().nullable(),
+    nominatedByXId: XId,
+    nominatedByXUsername: XUsername,
+    nomineeXId: XId,
+    nomineeXUsername: XUsername,
+    conversationId: XId.nullable(),
+    replyToPostId: XId.nullable(),
+  })
+  .refine((input) => input.nominatedByXId !== input.nomineeXId, {
+    message: "X users cannot nominate themselves",
+    path: ["nomineeXId"],
+  })
+  .refine(
+    (input) => {
+      const path = new URL(input.sourcePostUrl).pathname.split("/").filter(Boolean);
+      const statusIndex = path.lastIndexOf("status");
+      return statusIndex >= 0 && path[statusIndex + 1] === input.sourceNominationId;
+    },
+    {
+      message: "The X post URL must match sourceNominationId",
+      path: ["sourcePostUrl"],
+    },
+  );
+
 const BuilderProfileSubmissionInput = z.object({
   nominationToken: z.string().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(100),
@@ -82,6 +129,14 @@ const BuilderProfileSubmissionInput = z.object({
   skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
+});
+
+const BuilderNominationInput = z.object({
+  nearAccount: z.string().trim().min(1).max(255),
+  name: z.string().trim().max(100).optional(),
+  bio: z.string().trim().max(1000).optional(),
+  skills: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
+  location: z.string().trim().max(100).optional(),
 });
 
 const NominationJoinUrl = z.string().url().startsWith("https://");
@@ -101,6 +156,8 @@ const TelegramNominationResponse = z.discriminatedUnion("status", [
   TelegramNominationMetadata.extend({ status: z.literal("removed") }),
   TelegramNominationMetadata.extend({ status: z.literal("processing_failed") }),
 ]);
+
+const XNominationReceipt = z.object({ nominationId: z.string() });
 
 const TelegramNominationHeaders = z.record(z.string(), z.string());
 
@@ -524,6 +581,38 @@ export const contract = oc.router({
       IDEMPOTENCY_CONFLICT,
     }),
 
+  createXNomination: oc
+    .route({
+      method: "POST",
+      path: "/builders/nominations/x",
+      inputStructure: "detailed",
+      outputStructure: "detailed",
+      successStatus: 201,
+    })
+    .input(
+      z.object({
+        headers: z.object({
+          "idempotency-key": z.string().trim().min(1).max(255),
+        }),
+        body: XNominationInput,
+      }),
+    )
+    .output(
+      z.union([
+        z.object({
+          status: z.literal(200),
+          headers: z.record(z.string(), z.string()),
+          body: XNominationReceipt,
+        }),
+        z.object({
+          status: z.literal(201),
+          headers: z.record(z.string(), z.string()),
+          body: XNominationReceipt,
+        }),
+      ]),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, IDEMPOTENCY_CONFLICT }),
+
   claimTelegramNomination: oc
     .route({ method: "POST", path: "/builders/nominations/claim" })
     .input(TelegramNominationClaimInput)
@@ -546,6 +635,22 @@ export const contract = oc.router({
       INVALID_NOMINATION,
       NOMINATION_CONFLICT,
     }),
+
+  nominateBuilder: oc
+    .route({ method: "POST", path: "/builders/{nearAccount}/nominations" })
+    .input(BuilderNominationInput)
+    .output(
+      z.object({
+        data: z.object({
+          nearAccount: z.string(),
+          proposalId: z.string(),
+          nominationCount: z.number().int().nonnegative(),
+          voteCount: z.number().int().nonnegative(),
+          alreadyNominated: z.boolean(),
+        }),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   propose: oc
     .route({ method: "POST", path: "/proposals" })
@@ -868,6 +973,7 @@ export const contract = oc.router({
     .input(
       z.object({
         nearAccount: z.string().min(1).max(100).optional(),
+        query: z.string().trim().max(200).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: CatalogCursorSchema.optional(),
       }),
@@ -984,6 +1090,8 @@ export const contract = oc.router({
         kind: z.enum(["project", "idea", "scope", "result"]).optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
+        query: z.string().trim().max(200).optional(),
+        sort: z.enum(["newest", "oldest"]).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),

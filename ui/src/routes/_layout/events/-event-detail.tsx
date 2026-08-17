@@ -1,8 +1,9 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, Check, Clock, MapPin, Share2, Users } from "lucide-react";
+import { CalendarDays, Check, Clock, MapPin, Share2, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { formatEventTimeRange } from "./-event-sources";
 
 export type EventDetailData = {
   title: string;
@@ -45,17 +46,7 @@ export function EventDetail({
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Back to events">
-            <Link to="/events">
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <span className="hidden text-muted-foreground sm:inline">/</span>
-          <span className="hidden max-w-[180px] truncate text-sm font-semibold text-foreground sm:block">
-            {breadcrumb}
-          </span>
-        </div>
+        <PageBreadcrumb parentLabel="Events" parentTo="/events" current={breadcrumb} />
 
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
@@ -85,7 +76,7 @@ export function EventDetail({
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Fact icon={<CalendarDays size={14} />} text={formatEventDate(event)} />
-          <Fact icon={<Clock size={14} />} text={formatEventTime(event)} />
+          <Fact icon={<Clock size={14} />} text={formatEventTimeRange(event)} />
           {event.participantCount !== undefined && (
             <Fact
               icon={<Users size={14} />}
@@ -175,18 +166,4 @@ export function formatEventDate(event: { startAt: string }) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-export function formatEventTime(event: { startAt: string; endAt: string | null }) {
-  const start = new Date(event.startAt);
-  const end = event.endAt ? new Date(event.endAt) : null;
-  const startLabel = start.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  if (!end) return startLabel;
-  return `${startLabel} - ${end.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
 }

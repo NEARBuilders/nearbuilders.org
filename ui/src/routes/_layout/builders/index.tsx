@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,7 @@ function BuildersPage() {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+  const nearAccountId = auth.near.getAccountId();
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -188,6 +190,42 @@ function BuildersPage() {
   });
 
   const builders = useMemo(() => infiniteData?.pages.flatMap((p) => p.data) ?? [], [infiniteData]);
+
+  const {
+    data: ownBuilderProfileResult,
+    isLoading: ownBuilderProfileLoading,
+    isError: ownBuilderProfileError,
+  } = useQuery({
+    queryKey: ["my-builder-profile", session?.user?.id, nearAccountId],
+    queryFn: () => apiClient.getMyBuilderProfile({}),
+    enabled: isAuthenticated,
+  });
+
+  const {
+    data: ownBuilderProposalResult,
+    isLoading: ownBuilderProposalLoading,
+    isError: ownBuilderProposalError,
+  } = useQuery({
+    queryKey: ["builder-proposals", nearAccountId],
+    queryFn: () =>
+      apiClient.getProposals({
+        pluginId: "builders",
+        entityId: nearAccountId!,
+        limit: 1,
+      }),
+    enabled: Boolean(nearAccountId),
+  });
+
+  const hasActiveBuilderProfile =
+    Boolean(ownBuilderProfileResult?.data) ||
+    ownBuilderProposalResult?.data.some((proposal) => proposal.reviewStatus === "pending") === true;
+  const isBuilderProfileLoading =
+    isAuthenticated &&
+    (ownBuilderProfileLoading || (Boolean(nearAccountId) && ownBuilderProposalLoading));
+  const isBuilderProfileError =
+    isAuthenticated &&
+    !hasActiveBuilderProfile &&
+    (ownBuilderProfileError || (Boolean(nearAccountId) && ownBuilderProposalError));
 
   const {
     data: proposalsData,
@@ -367,57 +405,43 @@ function BuildersPage() {
     }
   }, [latestVote, queryClient, allProposalIds, session?.user?.id]);
 
-  const upvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.upvote({ entityId }),
-    onSuccess: (data) => {
+  const nominationMutation = useMutation({
+    mutationFn: ({ nearAccount }: { nearAccount: string; proposalId: string }) =>
+      apiClient.nominateBuilder({ nearAccount }),
+    onSuccess: ({ data }) => {
       queryClient.setQueryData(
         ["upvoteCounts", allProposalIds],
         (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
           ...old,
-          [data.entityId]: data,
+          [data.proposalId]: { entityId: data.proposalId, totalCount: data.voteCount },
         }),
       );
       queryClient.setQueryData(
         ["userVotes", allProposalIds],
         (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
           ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: true },
+          [data.proposalId]: { entityId: data.proposalId, hasUpvote: true },
         }),
       );
+      if (data.alreadyNominated) {
+        toast.info("You've already nominated this builder");
+      } else {
+        toast.success("Nomination recorded");
+      }
     },
+    onError: (error: Error) => toast.error(error.message || "Failed to nominate builder"),
   });
 
-  const downvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.downvote({ entityId }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["upvoteCounts", allProposalIds],
-        (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
-          ...old,
-          [data.entityId]: data,
-        }),
-      );
-      queryClient.setQueryData(
-        ["userVotes", allProposalIds],
-        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
-          ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: false },
-        }),
-      );
-    },
-  });
-
-  const handleVote = (proposalId: string) => {
+  const handleVote = (proposal: Proposal) => {
     if (!isAuthenticated) {
       void navigate({ to: "/login", search: { redirect: pathname } });
       return;
     }
-    const entry = voteMap[proposalId];
-    if (entry?.hasUpvote) {
-      downvoteMutation.mutate(proposalId);
-    } else {
-      upvoteMutation.mutate(proposalId);
-    }
+    const createdByCaller =
+      proposal.createdBy === session?.user?.id ||
+      (nearAccountId !== null && proposal.createdBy.toLowerCase() === nearAccountId.toLowerCase());
+    if (voteMap[proposal.id]?.hasUpvote || createdByCaller) return;
+    nominationMutation.mutate({ nearAccount: proposal.entityId, proposalId: proposal.id });
   };
 
   const sentinelRef = useCallback(
@@ -625,12 +649,17 @@ function BuildersPage() {
                   const nominationCount = proposal
                     ? proposal.submissionCount + (counts[proposal.id]?.totalCount ?? 0)
                     : null;
-                  const hasNominated = proposal ? voteMap[proposal.id]?.hasUpvote === true : false;
-                  const isVoting = proposal
-                    ? (upvoteMutation.isPending && upvoteMutation.variables === proposal.id) ||
-                      (downvoteMutation.isPending && downvoteMutation.variables === proposal.id)
+                  const hasNominated = proposal
+                    ? voteMap[proposal.id]?.hasUpvote === true ||
+                      proposal.createdBy === session?.user?.id ||
+                      (nearAccountId !== null &&
+                        proposal.createdBy.toLowerCase() === nearAccountId.toLowerCase())
                     : false;
-                  const onVote = proposal ? () => handleVote(proposal.id) : undefined;
+                  const isVoting = proposal
+                    ? nominationMutation.isPending &&
+                      nominationMutation.variables?.proposalId === proposal.id
+                    : false;
+                  const onVote = proposal ? () => handleVote(proposal) : undefined;
 
                   if (card.kind === "builder") {
                     return (
@@ -694,13 +723,43 @@ function BuildersPage() {
             label={isAuthenticated ? "Open your dashboard" : "Connect your wallet"}
             to={isAuthenticated ? "/dashboard" : "/login"}
           />
-          <BuilderActionCard
-            icon={UserPlus}
-            title="Nominate someone"
-            description="Recognize a builder who is making an impact in the NEAR ecosystem."
-            label="Nominate a builder"
-            to="/builders/add"
-          />
+          {isBuilderProfileLoading ? (
+            <section
+              aria-label="Checking builder profile"
+              className="animate-pulse rounded-xl border border-brand-accent-border bg-brand-accent-light p-5"
+            >
+              <div className="size-10 rounded-full bg-muted" />
+              <div className="mt-5 h-6 w-40 rounded bg-muted" />
+              <div className="mt-3 h-4 w-full rounded bg-muted" />
+              <div className="mt-2 h-4 w-4/5 rounded bg-muted" />
+              <div className="mt-5 h-5 w-32 rounded bg-muted" />
+            </section>
+          ) : isBuilderProfileError ? (
+            <BuilderActionCard
+              icon={CircleAlert}
+              title="Profile status unavailable"
+              description="We couldn't check your builder profile. Open your dashboard to try again."
+              label="Open your dashboard"
+              to="/dashboard"
+            />
+          ) : hasActiveBuilderProfile ? (
+            <BuilderActionCard
+              icon={UserPlus}
+              title="Nominate someone"
+              description="Recognize a builder who is making an impact in the NEAR ecosystem."
+              label="Nominate a builder"
+              to="/builders/add"
+            />
+          ) : (
+            <BuilderActionCard
+              icon={UserPlus}
+              title="Join as a builder"
+              description="Submit your profile and make your work discoverable in the NEAR ecosystem."
+              label="Create your builder profile"
+              to="/builders/add"
+              selfRegistration
+            />
+          )}
         </aside>
       </div>
     </div>
@@ -733,13 +792,24 @@ function BuilderActionCard({
   description,
   label,
   to,
+  selfRegistration = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description: string;
   label: string;
   to: "/dashboard" | "/login" | "/builders/add";
+  selfRegistration?: boolean;
 }) {
+  const linkClassName =
+    "mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent";
+  const linkContent = (
+    <>
+      {label}
+      <ArrowRight className="size-4" />
+    </>
+  );
+
   return (
     <section className="rounded-xl border border-brand-accent-border bg-brand-accent-light p-5">
       <div className="flex size-10 items-center justify-center rounded-full bg-card text-brand-accent shadow-sm">
@@ -747,13 +817,19 @@ function BuilderActionCard({
       </div>
       <h2 className="mt-5 text-lg font-bold text-foreground">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      <Link
-        to={to}
-        className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
-      >
-        {label}
-        <ArrowRight className="size-4" />
-      </Link>
+      {to === "/builders/add" ? (
+        <Link
+          to="/builders/add"
+          search={selfRegistration ? { intent: "self" } : undefined}
+          className={linkClassName}
+        >
+          {linkContent}
+        </Link>
+      ) : (
+        <Link to={to} className={linkClassName}>
+          {linkContent}
+        </Link>
+      )}
     </section>
   );
 }
@@ -961,7 +1037,7 @@ function BuilderCard({
                   e.stopPropagation();
                   onVote!();
                 }}
-                disabled={isVoting}
+                disabled={isVoting || hasNominated}
                 className={cn(
                   "h-8 gap-1.5 rounded-full px-3 text-xs",
                   layout === "list" &&

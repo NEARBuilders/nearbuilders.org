@@ -1,6 +1,12 @@
 import type { ClaimedCatalogProject } from "@/lib/queries/catalog";
 
-export function normalizeCatalogDirectoryProject({ project, contributors }: ClaimedCatalogProject) {
+type CatalogProject = ClaimedCatalogProject["project"];
+type CatalogContributor = ClaimedCatalogProject["contributors"][number];
+
+export function normalizeCatalogDirectoryProjectData(
+  project: CatalogProject,
+  contributors: CatalogContributor[] = [],
+) {
   const createdAt =
     contributors
       .map((contributor) => contributor.createdAt)
@@ -27,8 +33,15 @@ export function normalizeCatalogDirectoryProject({ project, contributors }: Clai
     source: "nearcatalog" as const,
     catalogUrl: project.catalogUrl,
     imageUrl: project.imageUrl,
+    catalogTags: project.tags,
+    catalogPhase: project.phase,
+    catalogStatus: project.status,
     contributors: contributors.map(({ nearAccount, roles }) => ({ nearAccount, roles })),
   };
+}
+
+export function normalizeCatalogDirectoryProject({ project, contributors }: ClaimedCatalogProject) {
+  return normalizeCatalogDirectoryProjectData(project, contributors);
 }
 
 export function selectCatalogDirectoryProjects(

@@ -114,6 +114,30 @@ export default createPlugin({
           };
         }),
 
+      createXNomination: builder.createXNomination
+        .use(requireApiKey)
+        .handler(async ({ input, context, errors }) => {
+          const expectedIdempotencyKey = `x-nomination:${input.body.sourceNominationId}`;
+          if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
+            throw errors.BAD_REQUEST({
+              message: "Invalid idempotency-key header",
+              data: { invalidFields: ["idempotency-key"] },
+            });
+          }
+          const result = await runEffect(
+            services.builder.createXNomination({
+              nomination: input.body,
+              apiKeyId: context.apiKey.id,
+              tokenSecret: services.nominationTokenSecret,
+            }),
+          );
+          return {
+            status: result.created ? (201 as const) : (200 as const),
+            headers: { "cache-control": "no-store" },
+            body: { nominationId: result.nominationId },
+          };
+        }),
+
       claimTelegramNomination: builder.claimTelegramNomination
         .use(requireApiKey)
         .handler(async ({ input }) => {
@@ -128,6 +152,12 @@ export default createPlugin({
 
       resolveTelegramNomination: builder.resolveTelegramNomination.handler(async ({ input }) => {
         return await runEffect(services.builder.resolveTelegramNomination(input.token));
+      }),
+
+      resolveNomination: builder.resolveNomination.handler(async ({ input }) => {
+        return await runEffect(
+          services.builder.resolveNomination(input.token, input.recordOpen ?? true),
+        );
       }),
 
       finalizeTelegramNomination: builder.finalizeTelegramNomination
@@ -148,6 +178,54 @@ export default createPlugin({
             ),
           );
         }),
+
+      finalizeNomination: builder.finalizeNomination
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccount = context.near?.primaryAccountId;
+          if (!nearAccount) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "A linked NEAR account is required",
+            });
+          }
+          return await runEffect(
+            services.builder.finalizeNomination(
+              input.token,
+              input.proposalId,
+              nearAccount,
+              context.userId,
+            ),
+          );
+        }),
+
+      listXNominationQueue: builder.listXNominationQueue
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await runEffect(
+            services.builder.listXNominationQueue({
+              ...input,
+              joinBaseUrl: services.nominationJoinBaseUrl,
+              tokenSecret: services.nominationTokenSecret,
+            }),
+          );
+        }),
+
+      updateXNomination: builder.updateXNomination
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await runEffect(
+            services.builder.updateXNomination({
+              ...input,
+              actorUserId: context.userId,
+              joinBaseUrl: services.nominationJoinBaseUrl,
+              tokenSecret: services.nominationTokenSecret,
+            }),
+          );
+        }),
+
+      getXNominationMetrics: builder.getXNominationMetrics
+        .use(requireAdmin)
+        .handler(async () => await runEffect(services.builder.getXNominationMetrics())),
 
       listBuilders: builder.listBuilders.handler(async ({ input }) => {
         return await runEffect(services.builder.listBuilders(input));

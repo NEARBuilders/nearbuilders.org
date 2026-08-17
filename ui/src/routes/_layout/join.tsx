@@ -2,20 +2,34 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
-import { AlertTriangle, Check, CircleCheck, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
-import { composeLinks, initialFormLinks } from "@/lib/social-links";
 import {
   initializeNominationToken,
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
-} from "@/lib/telegram-nomination";
+} from "@/lib/nomination-token";
+import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 type NominationStatus = "ready" | "submitted" | "invalid" | "error";
+type NominationSource = "telegram" | "x";
+
+type NominationReferralContext = {
+  sourcePostId: string;
+  sourcePostUrl: string;
+  sourcePostText: string;
+  sourcePostCreatedAt: string | null;
+  conversationId: string | null;
+  replyToPostId: string | null;
+  nominatorXId: string;
+  nominatorXUsername: string;
+  nomineeXId: string;
+  nomineeXUsername: string;
+};
 
 type JoinSearch = {
   nomination?: string;
@@ -70,8 +84,9 @@ function JoinPage() {
 
   const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
   const nominationQuery = useQuery({
-    queryKey: ["telegram-nomination", nominationToken],
-    queryFn: () => apiClient.builders.resolveTelegramNomination({ token: nominationToken! }),
+    queryKey: ["nomination", nominationToken],
+    queryFn: () =>
+      apiClient.builders.resolveNomination({ token: nominationToken!, recordOpen: true }),
     enabled: nominationInitialized && Boolean(nominationToken),
     retry: false,
   });
@@ -86,6 +101,14 @@ function JoinPage() {
   const isSignedIn = Boolean(session?.user && !session.user.isAnonymous);
   const nearAccountId = auth.near.getAccountId();
   const nominationAttached = nominationQuery.data?.status === "ready";
+  const nominationSource: NominationSource | undefined =
+    nominationQuery.data?.status === "ready" || nominationQuery.data?.status === "submitted"
+      ? nominationQuery.data.source
+      : undefined;
+  const referralContext: NominationReferralContext | undefined =
+    nominationQuery.data?.status === "ready" || nominationQuery.data?.status === "submitted"
+      ? nominationQuery.data.referralContext
+      : undefined;
   const nominationStatus: NominationStatus | undefined = nominationQuery.isError
     ? "error"
     : nominationQuery.data?.status;
@@ -158,7 +181,11 @@ function JoinPage() {
   if (!isSignedIn || !nearAccountId) {
     return (
       <JoinShell>
-        <NominationNotice status={nominationStatus} attached={nominationAttached} />
+        <NominationNotice
+          status={nominationStatus}
+          source={nominationSource}
+          attached={nominationAttached}
+        />
         <h1 className="text-3xl font-black tracking-tight text-foreground">Connect your account</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Connect the NEAR account that should appear on your builder profile.
@@ -204,7 +231,7 @@ function JoinPage() {
   if ((pendingProposalQuery.data?.data.length ?? 0) > 0) {
     return (
       <JoinShell>
-        <CircleCheck className="mx-auto size-8 text-brand-green" />
+        <Clock3 className="mx-auto size-8 text-brand-cobalt" />
         <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
           Your profile is under review
         </h1>
@@ -227,6 +254,8 @@ function JoinPage() {
       apiClient={apiClient}
       nominationToken={nominationAttached ? nominationToken : null}
       nominationStatus={nominationStatus}
+      nominationSource={nominationSource}
+      referralContext={referralContext}
     />
   );
 }
@@ -237,12 +266,16 @@ function BuilderProfileForm({
   apiClient,
   nominationToken,
   nominationStatus,
+  nominationSource,
+  referralContext,
 }: {
   accountId: string;
   socialProfile: Profile | null | undefined;
   apiClient: ReturnType<typeof useApiClient>;
   nominationToken: string | null;
   nominationStatus?: NominationStatus;
+  nominationSource?: NominationSource;
+  referralContext?: NominationReferralContext;
 }) {
   const queryClient = useQueryClient();
   const [submitted, setSubmitted] = useState(false);
@@ -277,7 +310,12 @@ function BuilderProfileForm({
       bio: socialProfile?.description ?? "",
       skills: "",
       location: "",
-      links: initialFormLinks(undefined, socialProfile?.linktree),
+      links: initialFormLinks(undefined, {
+        ...(socialProfile?.linktree ?? {}),
+        ...(nominationSource === "x" && referralContext?.nomineeXUsername
+          ? { twitter: referralContext.nomineeXUsername }
+          : {}),
+      }),
     } satisfies BuilderFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
@@ -299,7 +337,7 @@ function BuilderProfileForm({
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {nominationAttached
-            ? "Your Telegram nomination and builder profile are now pending admin review."
+            ? `Your ${nominationSource === "x" ? "X" : "Telegram"} nomination and builder profile are now pending admin review.`
             : "Your builder profile is now pending admin review."}
         </p>
         <Button asChild size="lg" className="mt-8 w-full rounded-full font-bold">
@@ -314,7 +352,11 @@ function BuilderProfileForm({
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6">
       <div className="mb-8">
-        <NominationNotice status={nominationStatus} attached={nominationAttached} />
+        <NominationNotice
+          status={nominationStatus}
+          source={nominationSource}
+          attached={nominationAttached}
+        />
         <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
           Create your builder profile
         </h1>
@@ -360,12 +402,28 @@ function BuilderProfileForm({
   );
 }
 
-function NominationNotice({ status, attached }: { status?: NominationStatus; attached: boolean }) {
+function NominationNotice({
+  status,
+  source,
+  attached,
+}: {
+  status?: NominationStatus;
+  source?: NominationSource;
+  attached: boolean;
+}) {
   if (attached) {
     return (
-      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1.5 text-xs font-semibold text-foreground">
-        <CircleCheck className="size-4 text-brand-green" />
-        Telegram nomination attached
+      <div className="mb-5 text-left">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1.5 text-xs font-semibold text-foreground">
+          <CircleCheck className="size-4 text-brand-green" />
+          {source === "x" ? "X nomination attached" : "Telegram nomination attached"}
+        </div>
+        {source === "x" && (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Someone in the NEAR community highlighted your work on X. Add your public profile links
+            so the review team can connect your nomination to the right builder.
+          </p>
+        )}
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
@@ -41,16 +41,20 @@ function LoginPage() {
   const queryClient = useQueryClient();
 
   const [nearPending, setNearPending] = useState(false);
-  const [anonPending, setAnonPending] = useState(false);
+  const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.near.detectNearAccount().then((result) => {
+      if (result?.accountId) {
+        setDetectedAccount(result.accountId);
+      }
+    });
+  }, [auth.near]);
 
   const handleSuccess = async (message: string) => {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
     toast.success(message);
-    const { data: freshSession } = await auth.getSession();
-    if (freshSession) {
-      queryClient.setQueryData(["session"], freshSession);
-    }
-    await queryClient.invalidateQueries({ queryKey: ["session"] });
+    queryClient.invalidateQueries({ queryKey: ["session"] });
     navigate({ to: redirectTo, replace: true, search: {} });
   };
 
@@ -77,37 +81,15 @@ function LoginPage() {
     });
   };
 
-  const handleAnonymous = async () => {
-    setAnonPending(true);
-    try {
-      await auth.signIn.anonymous({
-        fetchOptions: {
-          onSuccess: async () => {
-            setAnonPending(false);
-            await handleSuccess("Started anonymous session");
-          },
-          onError: (ctx: { error?: { message?: string } }) => {
-            setAnonPending(false);
-            handleError(new Error(ctx.error?.message || "Anonymous sign in failed"));
-          },
-        },
-      });
-    } catch {
-      setAnonPending(false);
-    }
-  };
-
   if (session?.user) {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
     return <Navigate to={redirectTo} replace search={{}} />;
   }
 
-  const isPending = nearPending || anonPending;
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-10">
+        <div className="text-center mb-4">
           <img src="/logo.png" alt="Near Builders" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
@@ -115,38 +97,20 @@ function LoginPage() {
           </p>
         </div>
 
-        <div className="space-y-3 animate-fade-in-up">
+        <div className="animate-fade-in-up">
           <Button
             onClick={handleNear}
-            disabled={isPending}
+            disabled={nearPending}
             size="lg"
             className="w-full rounded-full h-12 text-sm font-bold bg-brand-green hover:bg-brand-green/90 text-black shadow-md shadow-brand-green/20 hover:shadow-lg hover:shadow-brand-green/30 transition-all"
           >
-            {nearPending ? "Connecting…" : "Connect with NEAR"}
-          </Button>
-
-          <div className="relative flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <Button
-            variant="ghost"
-            onClick={handleAnonymous}
-            disabled={isPending}
-            size="lg"
-            className="w-full rounded-full h-12 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
-          >
-            {anonPending ? "Starting…" : "Continue anonymously"}
+            {nearPending
+              ? "Connecting…"
+              : detectedAccount
+                ? `Continue as ${detectedAccount}`
+                : "Connect with NEAR"}
           </Button>
         </div>
-
-        <p className="text-xs text-muted-foreground text-center mt-8 leading-relaxed">
-          Anonymous sessions don't persist after sign out.
-          <br />
-          Connect a wallet to save your work.
-        </p>
       </div>
     </div>
   );
