@@ -244,6 +244,7 @@ export declare const contract: {
     }>>, Record<never, never>>;
     listClaimedCatalogProjects: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         nearAccount: z.ZodOptional<z.ZodString>;
+        query: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{

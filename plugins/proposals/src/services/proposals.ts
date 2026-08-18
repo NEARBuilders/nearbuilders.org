@@ -221,6 +221,11 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       limit?: number;
       cursor?: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    getMySubmission: (input: {
+      pluginId: string;
+      entityId: string;
+      submittedBy: string[];
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getReviewHistory: (input: {
       pluginId?: string;
       limit?: number;
@@ -1119,6 +1124,25 @@ export const ProposalServiceLive = Layer.effect(
               nextCursor: hasMore ? String(nextOffset) : null,
             },
           };
+        }),
+
+      getMySubmission: (input) =>
+        Effect.gen(function* () {
+          if (input.submittedBy.length === 0) return { hasSubmitted: false };
+          const [submission] = yield* Effect.promise(() =>
+            db
+              .select({ id: proposalSubmissions.id })
+              .from(proposalSubmissions)
+              .where(
+                and(
+                  eq(proposalSubmissions.pluginId, input.pluginId),
+                  eq(proposalSubmissions.entityId, input.entityId),
+                  inArray(proposalSubmissions.submittedBy, input.submittedBy),
+                ),
+              )
+              .limit(1),
+          );
+          return { hasSubmitted: Boolean(submission) };
         }),
 
       getReviewHistory: (input) =>
