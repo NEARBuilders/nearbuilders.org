@@ -465,7 +465,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "better-auth": "1.6.25",
-    "better-near-auth": "1.10.0",
+    "better-near-auth": "1.10.1",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
     "effect": "3.21.2",
@@ -1542,7 +1542,7 @@
 
     "better-call": ["better-call@1.3.7", "", { "dependencies": { "@better-auth/utils": "^0.4.0", "@better-fetch/fetch": "^1.1.21", "rou3": "^0.7.12", "set-cookie-parser": "^3.0.1" }, "peerDependencies": { "zod": "^4.0.0" }, "optionalPeers": ["zod"] }, "sha512-Al51/hjp2SSp6CRTa3F2ptcx4yQVS1xWKoY6jcVXqNYOap6mHFP2jUBn5EwIL4iIed1/Sq4hlQ+Umm6EflZG+w=="],
 
-    "better-near-auth": ["better-near-auth@1.10.0", "", { "dependencies": { "@scure/base": "^2.2.0", "nanostores": "^1.1.0", "near-kit": "^0.14.0", "zod": "^4.4.3" }, "peerDependencies": { "@better-auth/core": "^1.6.25", "better-auth": "^1.6.25", "typescript": "^5.9.3" } }, "sha512-qLMm+pM+3wUHewLvEwpgT0LDFAIXhRwoKr0IgNcKC0Eu+DALaqe6x8KGX7FmIffY9ETevGubNjth2cmG1AaOMg=="],
+    "better-near-auth": ["better-near-auth@1.10.1", "", { "dependencies": { "@scure/base": "^2.2.0", "nanostores": "^1.1.0", "near-kit": "^0.14.0", "zod": "^4.4.3" }, "peerDependencies": { "@better-auth/core": "^1.6.25", "better-auth": "^1.6.25", "typescript": "^5.9.3" } }, "sha512-c5Lz0ODtRMD2JQDCo3prN80N/2tuCfNm56YtI69q7eNQRYqIgbE03JMWixcjw69Kdh6re+UxUiCczb+BSQcrEA=="],
 
     "better-path-resolve": ["better-path-resolve@1.0.0", "", { "dependencies": { "is-windows": "^1.0.0" } }, "sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g=="],
 
