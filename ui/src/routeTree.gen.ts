@@ -11,56 +11,61 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
-import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
-import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
-import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
-import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
-import { Route as LayoutIronclawRouteImport } from './routes/_layout/ironclaw'
-import { Route as LayoutJoinRouteImport } from './routes/_layout/join'
-import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
-import { Route as LayoutProjectsRouteImport } from './routes/_layout/projects'
 import { Route as LayoutSkillRouteImport } from './routes/_layout/skill'
-import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
-import { Route as LayoutActivityIndexRouteImport } from './routes/_layout/activity/index'
-import { Route as LayoutActivityLeaderboardRouteImport } from './routes/_layout/activity/leaderboard'
-import { Route as LayoutAppsIndexRouteImport } from './routes/_layout/apps/index'
-import { Route as LayoutBuildersIndexRouteImport } from './routes/_layout/builders/index'
-import { Route as LayoutBuildersAccountRouteImport } from './routes/_layout/builders/$account'
-import { Route as LayoutBuildersAddRouteImport } from './routes/_layout/builders/add'
-import { Route as LayoutEventsIndexRouteImport } from './routes/_layout/events/index'
-import { Route as LayoutEventsSlugRouteImport } from './routes/_layout/events/$slug'
-import { Route as LayoutEventsNewRouteImport } from './routes/_layout/events/new'
+import { Route as LayoutProjectsRouteImport } from './routes/_layout/projects'
+import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
+import { Route as LayoutJoinRouteImport } from './routes/_layout/join'
+import { Route as LayoutIronclawRouteImport } from './routes/_layout/ironclaw'
+import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
+import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
+import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
+import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
+import { Route as LayoutEventsIndexRouteImport } from './routes/_layout/events/index'
+import { Route as LayoutBuildersIndexRouteImport } from './routes/_layout/builders/index'
+import { Route as LayoutAppsIndexRouteImport } from './routes/_layout/apps/index'
+import { Route as LayoutActivityIndexRouteImport } from './routes/_layout/activity/index'
 import { Route as LayoutProjectsNewRouteImport } from './routes/_layout/projects/new'
-import { Route as LayoutAdminAdminDashboardRouteImport } from './routes/_layout/_admin/admin/dashboard'
-import { Route as LayoutAdminAdminNominationsRouteImport } from './routes/_layout/_admin/admin/nominations'
-import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
-import { Route as LayoutAuthenticatedDashboardNotificationsRouteImport } from './routes/_layout/_authenticated/_dashboard/notifications'
-import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
-import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
-import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
-import { Route as LayoutAuthenticatedProfileActivityRouteImport } from './routes/_layout/_authenticated/profile.activity'
-import { Route as LayoutAppsAccountIdIndexRouteImport } from './routes/_layout/apps/$accountId/index'
-import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layout/apps/$accountId/$gatewayId'
-import { Route as LayoutBuildersAccountEditRouteImport } from './routes/_layout/builders/$account_.edit'
-import { Route as LayoutEventsSlugEditRouteImport } from './routes/_layout/events/$slug_.edit'
-import { Route as LayoutProjectsKindIndexRouteImport } from './routes/_layout/projects/$kind.index'
-import { Route as LayoutProjectsKindSlugRouteImport } from './routes/_layout/projects/$kind.$slug'
+import { Route as LayoutEventsNewRouteImport } from './routes/_layout/events/new'
+import { Route as LayoutEventsSlugRouteImport } from './routes/_layout/events/$slug'
+import { Route as LayoutBuildersAddRouteImport } from './routes/_layout/builders/add'
+import { Route as LayoutBuildersAccountRouteImport } from './routes/_layout/builders/$account'
+import { Route as LayoutActivityLeaderboardRouteImport } from './routes/_layout/activity/leaderboard'
+import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
 import { Route as LayoutProjectsNewIndexRouteImport } from './routes/_layout/projects/new.index'
+import { Route as LayoutProjectsKindIndexRouteImport } from './routes/_layout/projects/$kind.index'
+import { Route as LayoutAppsAccountIdIndexRouteImport } from './routes/_layout/apps/$accountId/index'
 import { Route as LayoutProjectsNewKindRouteImport } from './routes/_layout/projects/new.$kind'
-import { Route as LayoutAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/ideas.index'
-import { Route as LayoutAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/index'
-import { Route as LayoutAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/$slug'
-import { Route as LayoutAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/new'
-import { Route as LayoutAuthenticatedDashboardResultsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/results.index'
-import { Route as LayoutAuthenticatedDashboardScopesIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/scopes.index'
+import { Route as LayoutProjectsKindSlugRouteImport } from './routes/_layout/projects/$kind.$slug'
+import { Route as LayoutEventsSlugEditRouteImport } from './routes/_layout/events/$slug_.edit'
+import { Route as LayoutBuildersAccountEditRouteImport } from './routes/_layout/builders/$account_.edit'
+import { Route as LayoutAppsAccountIdGatewayIdRouteImport } from './routes/_layout/apps/$accountId/$gatewayId'
+import { Route as LayoutAuthenticatedProfileActivityRouteImport } from './routes/_layout/_authenticated/profile.activity'
+import { Route as LayoutAuthenticatedAcceptInvitationIdRouteImport } from './routes/_layout/_authenticated/accept-invitation.$id'
+import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings'
+import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
+import { Route as LayoutAuthenticatedDashboardNotificationsRouteImport } from './routes/_layout/_authenticated/_dashboard/notifications'
+import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
+import { Route as LayoutAdminAdminDashboardRouteImport } from './routes/_layout/_admin/admin/dashboard'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
-import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/api-keys'
-import { Route as LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/auth-methods'
-import { Route as LayoutAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/profile'
-import { Route as LayoutAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/security'
-import { Route as LayoutEventsLumaCalendarIdEventIdRouteImport } from './routes/_layout/events/luma/$calendarId/$eventId'
+import { Route as LayoutAuthenticatedDashboardScopesIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/scopes.index'
+import { Route as LayoutAuthenticatedDashboardResultsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/results.index'
+import { Route as LayoutAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/index'
+import { Route as LayoutAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/ideas.index'
+import { Route as LayoutAdminAdminDashboardIndexRouteImport } from './routes/_layout/_admin/admin/dashboard/index'
 import { Route as LayoutProjectsKindSlugEditRouteImport } from './routes/_layout/projects/$kind.$slug_.edit'
+import { Route as LayoutEventsLumaCalendarIdEventIdRouteImport } from './routes/_layout/events/luma/$calendarId/$eventId'
+import { Route as LayoutAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/security'
+import { Route as LayoutAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/profile'
+import { Route as LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/auth-methods'
+import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/api-keys'
+import { Route as LayoutAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/new'
+import { Route as LayoutAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/$slug'
+import { Route as LayoutAdminAdminDashboardXNominationsRouteImport } from './routes/_layout/_admin/admin/dashboard/x-nominations'
+import { Route as LayoutAdminAdminDashboardProjectsRouteImport } from './routes/_layout/_admin/admin/dashboard/projects'
+import { Route as LayoutAdminAdminDashboardEventsRouteImport } from './routes/_layout/_admin/admin/dashboard/events'
+import { Route as LayoutAdminAdminDashboardBuildersRouteImport } from './routes/_layout/_admin/admin/dashboard/builders'
+import { Route as LayoutAdminAdminDashboardActivityRouteImport } from './routes/_layout/_admin/admin/dashboard/activity'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -71,37 +76,9 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutAdminRoute = LayoutAdminRouteImport.update({
-  id: '/_admin',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutAuthenticatedRoute = LayoutAuthenticatedRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutAboutRoute = LayoutAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutEventsRoute = LayoutEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutIronclawRoute = LayoutIronclawRouteImport.update({
-  id: '/ironclaw',
-  path: '/ironclaw',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutJoinRoute = LayoutJoinRouteImport.update({
-  id: '/join',
-  path: '/join',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutLoginRoute = LayoutLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const LayoutSkillRoute = LayoutSkillRouteImport.update({
+  id: '/skill',
+  path: '/skill',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutProjectsRoute = LayoutProjectsRouteImport.update({
@@ -109,19 +86,87 @@ const LayoutProjectsRoute = LayoutProjectsRouteImport.update({
   path: '/projects',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutSkillRoute = LayoutSkillRouteImport.update({
-  id: '/skill',
-  path: '/skill',
+const LayoutLoginRoute = LayoutLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutAuthenticatedDashboardRoute =
-  LayoutAuthenticatedDashboardRouteImport.update({
-    id: '/_dashboard',
-    getParentRoute: () => LayoutAuthenticatedRoute,
-  } as any)
+const LayoutJoinRoute = LayoutJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutIronclawRoute = LayoutIronclawRouteImport.update({
+  id: '/ironclaw',
+  path: '/ironclaw',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutEventsRoute = LayoutEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAboutRoute = LayoutAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAuthenticatedRoute = LayoutAuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAdminRoute = LayoutAdminRouteImport.update({
+  id: '/_admin',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutProjectsRoute,
+} as any)
+const LayoutEventsIndexRoute = LayoutEventsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutEventsRoute,
+} as any)
+const LayoutBuildersIndexRoute = LayoutBuildersIndexRouteImport.update({
+  id: '/builders/',
+  path: '/builders/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutAppsIndexRoute = LayoutAppsIndexRouteImport.update({
+  id: '/apps/',
+  path: '/apps/',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutActivityIndexRoute = LayoutActivityIndexRouteImport.update({
   id: '/activity/',
   path: '/activity/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutProjectsNewRoute = LayoutProjectsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => LayoutProjectsRoute,
+} as any)
+const LayoutEventsNewRoute = LayoutEventsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => LayoutEventsRoute,
+} as any)
+const LayoutEventsSlugRoute = LayoutEventsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => LayoutEventsRoute,
+} as any)
+const LayoutBuildersAddRoute = LayoutBuildersAddRouteImport.update({
+  id: '/builders/add',
+  path: '/builders/add',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBuildersAccountRoute = LayoutBuildersAccountRouteImport.update({
+  id: '/builders/$account',
+  path: '/builders/$account',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutActivityLeaderboardRoute =
@@ -130,103 +175,46 @@ const LayoutActivityLeaderboardRoute =
     path: '/activity/leaderboard',
     getParentRoute: () => LayoutRoute,
   } as any)
-const LayoutAppsIndexRoute = LayoutAppsIndexRouteImport.update({
-  id: '/apps/',
-  path: '/apps/',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutBuildersIndexRoute = LayoutBuildersIndexRouteImport.update({
-  id: '/builders/',
-  path: '/builders/',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutBuildersAccountRoute = LayoutBuildersAccountRouteImport.update({
-  id: '/builders/$account',
-  path: '/builders/$account',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutBuildersAddRoute = LayoutBuildersAddRouteImport.update({
-  id: '/builders/add',
-  path: '/builders/add',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutEventsIndexRoute = LayoutEventsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LayoutEventsRoute,
-} as any)
-const LayoutEventsSlugRoute = LayoutEventsSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => LayoutEventsRoute,
-} as any)
-const LayoutEventsNewRoute = LayoutEventsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => LayoutEventsRoute,
-} as any)
-const LayoutProjectsIndexRoute = LayoutProjectsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LayoutProjectsRoute,
-} as any)
-const LayoutProjectsNewRoute = LayoutProjectsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => LayoutProjectsRoute,
-} as any)
-const LayoutAdminAdminDashboardRoute =
-  LayoutAdminAdminDashboardRouteImport.update({
-    id: '/admin/dashboard',
-    path: '/admin/dashboard',
-    getParentRoute: () => LayoutAdminRoute,
-  } as any)
-const LayoutAdminAdminNominationsRoute =
-  LayoutAdminAdminNominationsRouteImport.update({
-    id: '/admin/nominations',
-    path: '/admin/nominations',
-    getParentRoute: () => LayoutAdminRoute,
-  } as any)
-const LayoutAuthenticatedDashboardDashboardRoute =
-  LayoutAuthenticatedDashboardDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
-    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
-  } as any)
-const LayoutAuthenticatedDashboardNotificationsRoute =
-  LayoutAuthenticatedDashboardNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
-  } as any)
-const LayoutAuthenticatedDashboardProfileRoute =
-  LayoutAuthenticatedDashboardProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
-  } as any)
-const LayoutAuthenticatedDashboardSettingsRoute =
-  LayoutAuthenticatedDashboardSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
-  } as any)
-const LayoutAuthenticatedAcceptInvitationIdRoute =
-  LayoutAuthenticatedAcceptInvitationIdRouteImport.update({
-    id: '/accept-invitation/$id',
-    path: '/accept-invitation/$id',
+const LayoutAuthenticatedDashboardRoute =
+  LayoutAuthenticatedDashboardRouteImport.update({
+    id: '/_dashboard',
     getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
-const LayoutAuthenticatedProfileActivityRoute =
-  LayoutAuthenticatedProfileActivityRouteImport.update({
-    id: '/profile/activity',
-    path: '/profile/activity',
-    getParentRoute: () => LayoutAuthenticatedRoute,
-  } as any)
+const LayoutProjectsNewIndexRoute = LayoutProjectsNewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutProjectsNewRoute,
+} as any)
+const LayoutProjectsKindIndexRoute = LayoutProjectsKindIndexRouteImport.update({
+  id: '/$kind/',
+  path: '/$kind/',
+  getParentRoute: () => LayoutProjectsRoute,
+} as any)
 const LayoutAppsAccountIdIndexRoute =
   LayoutAppsAccountIdIndexRouteImport.update({
     id: '/apps/$accountId/',
     path: '/apps/$accountId/',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutProjectsNewKindRoute = LayoutProjectsNewKindRouteImport.update({
+  id: '/$kind',
+  path: '/$kind',
+  getParentRoute: () => LayoutProjectsNewRoute,
+} as any)
+const LayoutProjectsKindSlugRoute = LayoutProjectsKindSlugRouteImport.update({
+  id: '/$kind/$slug',
+  path: '/$kind/$slug',
+  getParentRoute: () => LayoutProjectsRoute,
+} as any)
+const LayoutEventsSlugEditRoute = LayoutEventsSlugEditRouteImport.update({
+  id: '/$slug_/edit',
+  path: '/$slug/edit',
+  getParentRoute: () => LayoutEventsRoute,
+} as any)
+const LayoutBuildersAccountEditRoute =
+  LayoutBuildersAccountEditRouteImport.update({
+    id: '/builders/$account_/edit',
+    path: '/builders/$account/edit',
     getParentRoute: () => LayoutRoute,
   } as any)
 const LayoutAppsAccountIdGatewayIdRoute =
@@ -235,59 +223,58 @@ const LayoutAppsAccountIdGatewayIdRoute =
     path: '/apps/$accountId/$gatewayId',
     getParentRoute: () => LayoutRoute,
   } as any)
-const LayoutBuildersAccountEditRoute =
-  LayoutBuildersAccountEditRouteImport.update({
-    id: '/builders/$account_/edit',
-    path: '/builders/$account/edit',
-    getParentRoute: () => LayoutRoute,
+const LayoutAuthenticatedProfileActivityRoute =
+  LayoutAuthenticatedProfileActivityRouteImport.update({
+    id: '/profile/activity',
+    path: '/profile/activity',
+    getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
-const LayoutEventsSlugEditRoute = LayoutEventsSlugEditRouteImport.update({
-  id: '/$slug_/edit',
-  path: '/$slug/edit',
-  getParentRoute: () => LayoutEventsRoute,
-} as any)
-const LayoutProjectsKindIndexRoute = LayoutProjectsKindIndexRouteImport.update({
-  id: '/$kind/',
-  path: '/$kind/',
-  getParentRoute: () => LayoutProjectsRoute,
-} as any)
-const LayoutProjectsKindSlugRoute = LayoutProjectsKindSlugRouteImport.update({
-  id: '/$kind/$slug',
-  path: '/$kind/$slug',
-  getParentRoute: () => LayoutProjectsRoute,
-} as any)
-const LayoutProjectsNewIndexRoute = LayoutProjectsNewIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LayoutProjectsNewRoute,
-} as any)
-const LayoutProjectsNewKindRoute = LayoutProjectsNewKindRouteImport.update({
-  id: '/$kind',
-  path: '/$kind',
-  getParentRoute: () => LayoutProjectsNewRoute,
-} as any)
-const LayoutAuthenticatedDashboardIdeasIndexRoute =
-  LayoutAuthenticatedDashboardIdeasIndexRouteImport.update({
-    id: '/ideas/',
-    path: '/ideas/',
+const LayoutAuthenticatedAcceptInvitationIdRoute =
+  LayoutAuthenticatedAcceptInvitationIdRouteImport.update({
+    id: '/accept-invitation/$id',
+    path: '/accept-invitation/$id',
+    getParentRoute: () => LayoutAuthenticatedRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsRoute =
+  LayoutAuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardOrganizationsIndexRoute =
-  LayoutAuthenticatedDashboardOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
+const LayoutAuthenticatedDashboardProfileRoute =
+  LayoutAuthenticatedDashboardProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardOrganizationsSlugRoute =
-  LayoutAuthenticatedDashboardOrganizationsSlugRouteImport.update({
-    id: '/organizations/$slug',
-    path: '/organizations/$slug',
+const LayoutAuthenticatedDashboardNotificationsRoute =
+  LayoutAuthenticatedDashboardNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardOrganizationsNewRoute =
-  LayoutAuthenticatedDashboardOrganizationsNewRouteImport.update({
-    id: '/organizations/new',
-    path: '/organizations/new',
+const LayoutAuthenticatedDashboardDashboardRoute =
+  LayoutAuthenticatedDashboardDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardRoute =
+  LayoutAdminAdminDashboardRouteImport.update({
+    id: '/admin/dashboard',
+    path: '/admin/dashboard',
+    getParentRoute: () => LayoutAdminRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsIndexRoute =
+  LayoutAuthenticatedDashboardSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
+  } as any)
+const LayoutAuthenticatedDashboardScopesIndexRoute =
+  LayoutAuthenticatedDashboardScopesIndexRouteImport.update({
+    id: '/scopes/',
+    path: '/scopes/',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
 const LayoutAuthenticatedDashboardResultsIndexRoute =
@@ -296,28 +283,40 @@ const LayoutAuthenticatedDashboardResultsIndexRoute =
     path: '/results/',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardScopesIndexRoute =
-  LayoutAuthenticatedDashboardScopesIndexRouteImport.update({
-    id: '/scopes/',
-    path: '/scopes/',
+const LayoutAuthenticatedDashboardOrganizationsIndexRoute =
+  LayoutAuthenticatedDashboardOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardSettingsIndexRoute =
-  LayoutAuthenticatedDashboardSettingsIndexRouteImport.update({
+const LayoutAuthenticatedDashboardIdeasIndexRoute =
+  LayoutAuthenticatedDashboardIdeasIndexRouteImport.update({
+    id: '/ideas/',
+    path: '/ideas/',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardIndexRoute =
+  LayoutAdminAdminDashboardIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
   } as any)
-const LayoutAuthenticatedDashboardSettingsApiKeysRoute =
-  LayoutAuthenticatedDashboardSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
-    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
+const LayoutProjectsKindSlugEditRoute =
+  LayoutProjectsKindSlugEditRouteImport.update({
+    id: '/$kind/$slug_/edit',
+    path: '/$kind/$slug/edit',
+    getParentRoute: () => LayoutProjectsRoute,
   } as any)
-const LayoutAuthenticatedDashboardSettingsAuthMethodsRoute =
-  LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
-    id: '/auth-methods',
-    path: '/auth-methods',
+const LayoutEventsLumaCalendarIdEventIdRoute =
+  LayoutEventsLumaCalendarIdEventIdRouteImport.update({
+    id: '/luma/$calendarId/$eventId',
+    path: '/luma/$calendarId/$eventId',
+    getParentRoute: () => LayoutEventsRoute,
+  } as any)
+const LayoutAuthenticatedDashboardSettingsSecurityRoute =
+  LayoutAuthenticatedDashboardSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
     getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
 const LayoutAuthenticatedDashboardSettingsProfileRoute =
@@ -326,23 +325,59 @@ const LayoutAuthenticatedDashboardSettingsProfileRoute =
     path: '/profile',
     getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutAuthenticatedDashboardSettingsSecurityRoute =
-  LayoutAuthenticatedDashboardSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
+const LayoutAuthenticatedDashboardSettingsAuthMethodsRoute =
+  LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
+    id: '/auth-methods',
+    path: '/auth-methods',
     getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutEventsLumaCalendarIdEventIdRoute =
-  LayoutEventsLumaCalendarIdEventIdRouteImport.update({
-    id: '/luma/$calendarId/$eventId',
-    path: '/luma/$calendarId/$eventId',
-    getParentRoute: () => LayoutEventsRoute,
+const LayoutAuthenticatedDashboardSettingsApiKeysRoute =
+  LayoutAuthenticatedDashboardSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => LayoutAuthenticatedDashboardSettingsRoute,
   } as any)
-const LayoutProjectsKindSlugEditRoute =
-  LayoutProjectsKindSlugEditRouteImport.update({
-    id: '/$kind/$slug_/edit',
-    path: '/$kind/$slug/edit',
-    getParentRoute: () => LayoutProjectsRoute,
+const LayoutAuthenticatedDashboardOrganizationsNewRoute =
+  LayoutAuthenticatedDashboardOrganizationsNewRouteImport.update({
+    id: '/organizations/new',
+    path: '/organizations/new',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAuthenticatedDashboardOrganizationsSlugRoute =
+  LayoutAuthenticatedDashboardOrganizationsSlugRouteImport.update({
+    id: '/organizations/$slug',
+    path: '/organizations/$slug',
+    getParentRoute: () => LayoutAuthenticatedDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardXNominationsRoute =
+  LayoutAdminAdminDashboardXNominationsRouteImport.update({
+    id: '/x-nominations',
+    path: '/x-nominations',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardProjectsRoute =
+  LayoutAdminAdminDashboardProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardEventsRoute =
+  LayoutAdminAdminDashboardEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardBuildersRoute =
+  LayoutAdminAdminDashboardBuildersRouteImport.update({
+    id: '/builders',
+    path: '/builders',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
+const LayoutAdminAdminDashboardActivityRoute =
+  LayoutAdminAdminDashboardActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -365,8 +400,7 @@ export interface FileRoutesByFullPath {
   '/builders/': typeof LayoutBuildersIndexRoute
   '/events/': typeof LayoutEventsIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
-  '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
-  '/admin/nominations': typeof LayoutAdminAdminNominationsRoute
+  '/admin/dashboard': typeof LayoutAdminAdminDashboardRouteWithChildren
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -381,6 +415,11 @@ export interface FileRoutesByFullPath {
   '/apps/$accountId/': typeof LayoutAppsAccountIdIndexRoute
   '/projects/$kind/': typeof LayoutProjectsKindIndexRoute
   '/projects/new/': typeof LayoutProjectsNewIndexRoute
+  '/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
+  '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
+  '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -389,6 +428,7 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
   '/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof LayoutProjectsKindSlugEditRoute
+  '/admin/dashboard/': typeof LayoutAdminAdminDashboardIndexRoute
   '/ideas/': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/organizations/': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
   '/results/': typeof LayoutAuthenticatedDashboardResultsIndexRoute
@@ -412,8 +452,6 @@ export interface FileRoutesByTo {
   '/builders': typeof LayoutBuildersIndexRoute
   '/events': typeof LayoutEventsIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
-  '/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
-  '/admin/nominations': typeof LayoutAdminAdminNominationsRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -427,6 +465,11 @@ export interface FileRoutesByTo {
   '/apps/$accountId': typeof LayoutAppsAccountIdIndexRoute
   '/projects/$kind': typeof LayoutProjectsKindIndexRoute
   '/projects/new': typeof LayoutProjectsNewIndexRoute
+  '/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
+  '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
+  '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
   '/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -435,6 +478,7 @@ export interface FileRoutesByTo {
   '/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
   '/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof LayoutProjectsKindSlugEditRoute
+  '/admin/dashboard': typeof LayoutAdminAdminDashboardIndexRoute
   '/ideas': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/organizations': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
   '/results': typeof LayoutAuthenticatedDashboardResultsIndexRoute
@@ -466,8 +510,7 @@ export interface FileRoutesById {
   '/_layout/builders/': typeof LayoutBuildersIndexRoute
   '/_layout/events/': typeof LayoutEventsIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
-  '/_layout/_admin/admin/dashboard': typeof LayoutAdminAdminDashboardRoute
-  '/_layout/_admin/admin/nominations': typeof LayoutAdminAdminNominationsRoute
+  '/_layout/_admin/admin/dashboard': typeof LayoutAdminAdminDashboardRouteWithChildren
   '/_layout/_authenticated/_dashboard/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/_layout/_authenticated/_dashboard/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -482,6 +525,11 @@ export interface FileRoutesById {
   '/_layout/apps/$accountId/': typeof LayoutAppsAccountIdIndexRoute
   '/_layout/projects/$kind/': typeof LayoutProjectsKindIndexRoute
   '/_layout/projects/new/': typeof LayoutProjectsNewIndexRoute
+  '/_layout/_admin/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
+  '/_layout/_admin/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/_layout/_admin/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
+  '/_layout/_admin/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/_layout/_admin/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/_layout/_authenticated/_dashboard/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/_layout/_authenticated/_dashboard/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
   '/_layout/_authenticated/_dashboard/settings/api-keys': typeof LayoutAuthenticatedDashboardSettingsApiKeysRoute
@@ -490,6 +538,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/_dashboard/settings/security': typeof LayoutAuthenticatedDashboardSettingsSecurityRoute
   '/_layout/events/luma/$calendarId/$eventId': typeof LayoutEventsLumaCalendarIdEventIdRoute
   '/_layout/projects/$kind/$slug_/edit': typeof LayoutProjectsKindSlugEditRoute
+  '/_layout/_admin/admin/dashboard/': typeof LayoutAdminAdminDashboardIndexRoute
   '/_layout/_authenticated/_dashboard/ideas/': typeof LayoutAuthenticatedDashboardIdeasIndexRoute
   '/_layout/_authenticated/_dashboard/organizations/': typeof LayoutAuthenticatedDashboardOrganizationsIndexRoute
   '/_layout/_authenticated/_dashboard/results/': typeof LayoutAuthenticatedDashboardResultsIndexRoute
@@ -519,7 +568,6 @@ export interface FileRouteTypes {
     | '/events/'
     | '/projects/'
     | '/admin/dashboard'
-    | '/admin/nominations'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -534,6 +582,11 @@ export interface FileRouteTypes {
     | '/apps/$accountId/'
     | '/projects/$kind/'
     | '/projects/new/'
+    | '/admin/dashboard/activity'
+    | '/admin/dashboard/builders'
+    | '/admin/dashboard/events'
+    | '/admin/dashboard/projects'
+    | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
     | '/settings/api-keys'
@@ -542,6 +595,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/events/luma/$calendarId/$eventId'
     | '/projects/$kind/$slug/edit'
+    | '/admin/dashboard/'
     | '/ideas/'
     | '/organizations/'
     | '/results/'
@@ -565,8 +619,6 @@ export interface FileRouteTypes {
     | '/builders'
     | '/events'
     | '/projects'
-    | '/admin/dashboard'
-    | '/admin/nominations'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -580,6 +632,11 @@ export interface FileRouteTypes {
     | '/apps/$accountId'
     | '/projects/$kind'
     | '/projects/new'
+    | '/admin/dashboard/activity'
+    | '/admin/dashboard/builders'
+    | '/admin/dashboard/events'
+    | '/admin/dashboard/projects'
+    | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
     | '/settings/api-keys'
@@ -588,6 +645,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/events/luma/$calendarId/$eventId'
     | '/projects/$kind/$slug/edit'
+    | '/admin/dashboard'
     | '/ideas'
     | '/organizations'
     | '/results'
@@ -619,7 +677,6 @@ export interface FileRouteTypes {
     | '/_layout/events/'
     | '/_layout/projects/'
     | '/_layout/_admin/admin/dashboard'
-    | '/_layout/_admin/admin/nominations'
     | '/_layout/_authenticated/_dashboard/dashboard'
     | '/_layout/_authenticated/_dashboard/notifications'
     | '/_layout/_authenticated/_dashboard/profile'
@@ -634,6 +691,11 @@ export interface FileRouteTypes {
     | '/_layout/apps/$accountId/'
     | '/_layout/projects/$kind/'
     | '/_layout/projects/new/'
+    | '/_layout/_admin/admin/dashboard/activity'
+    | '/_layout/_admin/admin/dashboard/builders'
+    | '/_layout/_admin/admin/dashboard/events'
+    | '/_layout/_admin/admin/dashboard/projects'
+    | '/_layout/_admin/admin/dashboard/x-nominations'
     | '/_layout/_authenticated/_dashboard/organizations/$slug'
     | '/_layout/_authenticated/_dashboard/organizations/new'
     | '/_layout/_authenticated/_dashboard/settings/api-keys'
@@ -642,6 +704,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/_dashboard/settings/security'
     | '/_layout/events/luma/$calendarId/$eventId'
     | '/_layout/projects/$kind/$slug_/edit'
+    | '/_layout/_admin/admin/dashboard/'
     | '/_layout/_authenticated/_dashboard/ideas/'
     | '/_layout/_authenticated/_dashboard/organizations/'
     | '/_layout/_authenticated/_dashboard/results/'
@@ -669,53 +732,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/_admin': {
-      id: '/_layout/_admin'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof LayoutAdminRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/_authenticated': {
-      id: '/_layout/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof LayoutAuthenticatedRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/about': {
-      id: '/_layout/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof LayoutAboutRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/events': {
-      id: '/_layout/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof LayoutEventsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/ironclaw': {
-      id: '/_layout/ironclaw'
-      path: '/ironclaw'
-      fullPath: '/ironclaw'
-      preLoaderRoute: typeof LayoutIronclawRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/join': {
-      id: '/_layout/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof LayoutJoinRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/login': {
-      id: '/_layout/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LayoutLoginRouteImport
+    '/_layout/skill': {
+      id: '/_layout/skill'
+      path: '/skill'
+      fullPath: '/skill'
+      preLoaderRoute: typeof LayoutSkillRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/projects': {
@@ -725,32 +746,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutProjectsRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/skill': {
-      id: '/_layout/skill'
-      path: '/skill'
-      fullPath: '/skill'
-      preLoaderRoute: typeof LayoutSkillRouteImport
+    '/_layout/login': {
+      id: '/_layout/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LayoutLoginRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/_authenticated/_dashboard': {
-      id: '/_layout/_authenticated/_dashboard'
+    '/_layout/join': {
+      id: '/_layout/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof LayoutJoinRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/ironclaw': {
+      id: '/_layout/ironclaw'
+      path: '/ironclaw'
+      fullPath: '/ironclaw'
+      preLoaderRoute: typeof LayoutIronclawRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/events': {
+      id: '/_layout/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof LayoutEventsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/about': {
+      id: '/_layout/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof LayoutAboutRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/_authenticated': {
+      id: '/_layout/_authenticated'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
-    }
-    '/_layout/activity/': {
-      id: '/_layout/activity/'
-      path: '/activity'
-      fullPath: '/activity/'
-      preLoaderRoute: typeof LayoutActivityIndexRouteImport
+      preLoaderRoute: typeof LayoutAuthenticatedRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/activity/leaderboard': {
-      id: '/_layout/activity/leaderboard'
-      path: '/activity/leaderboard'
-      fullPath: '/activity/leaderboard'
-      preLoaderRoute: typeof LayoutActivityLeaderboardRouteImport
+    '/_layout/_admin': {
+      id: '/_layout/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutAdminRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/': {
+      id: '/_layout/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof LayoutProjectsIndexRouteImport
+      parentRoute: typeof LayoutProjectsRoute
+    }
+    '/_layout/events/': {
+      id: '/_layout/events/'
+      path: '/'
+      fullPath: '/events/'
+      preLoaderRoute: typeof LayoutEventsIndexRouteImport
+      parentRoute: typeof LayoutEventsRoute
+    }
+    '/_layout/builders/': {
+      id: '/_layout/builders/'
+      path: '/builders'
+      fullPath: '/builders/'
+      preLoaderRoute: typeof LayoutBuildersIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/apps/': {
@@ -760,32 +823,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAppsIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/builders/': {
-      id: '/_layout/builders/'
-      path: '/builders'
-      fullPath: '/builders/'
-      preLoaderRoute: typeof LayoutBuildersIndexRouteImport
+    '/_layout/activity/': {
+      id: '/_layout/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof LayoutActivityIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/builders/$account': {
-      id: '/_layout/builders/$account'
-      path: '/builders/$account'
-      fullPath: '/builders/$account'
-      preLoaderRoute: typeof LayoutBuildersAccountRouteImport
-      parentRoute: typeof LayoutRoute
+    '/_layout/projects/new': {
+      id: '/_layout/projects/new'
+      path: '/new'
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof LayoutProjectsNewRouteImport
+      parentRoute: typeof LayoutProjectsRoute
     }
-    '/_layout/builders/add': {
-      id: '/_layout/builders/add'
-      path: '/builders/add'
-      fullPath: '/builders/add'
-      preLoaderRoute: typeof LayoutBuildersAddRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/events/': {
-      id: '/_layout/events/'
-      path: '/'
-      fullPath: '/events/'
-      preLoaderRoute: typeof LayoutEventsIndexRouteImport
+    '/_layout/events/new': {
+      id: '/_layout/events/new'
+      path: '/new'
+      fullPath: '/events/new'
+      preLoaderRoute: typeof LayoutEventsNewRouteImport
       parentRoute: typeof LayoutEventsRoute
     }
     '/_layout/events/$slug': {
@@ -795,88 +851,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutEventsSlugRouteImport
       parentRoute: typeof LayoutEventsRoute
     }
-    '/_layout/events/new': {
-      id: '/_layout/events/new'
-      path: '/new'
-      fullPath: '/events/new'
-      preLoaderRoute: typeof LayoutEventsNewRouteImport
-      parentRoute: typeof LayoutEventsRoute
+    '/_layout/builders/add': {
+      id: '/_layout/builders/add'
+      path: '/builders/add'
+      fullPath: '/builders/add'
+      preLoaderRoute: typeof LayoutBuildersAddRouteImport
+      parentRoute: typeof LayoutRoute
     }
-    '/_layout/projects/': {
-      id: '/_layout/projects/'
+    '/_layout/builders/$account': {
+      id: '/_layout/builders/$account'
+      path: '/builders/$account'
+      fullPath: '/builders/$account'
+      preLoaderRoute: typeof LayoutBuildersAccountRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/activity/leaderboard': {
+      id: '/_layout/activity/leaderboard'
+      path: '/activity/leaderboard'
+      fullPath: '/activity/leaderboard'
+      preLoaderRoute: typeof LayoutActivityLeaderboardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/_authenticated/_dashboard': {
+      id: '/_layout/_authenticated/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
+    }
+    '/_layout/projects/new/': {
+      id: '/_layout/projects/new/'
       path: '/'
-      fullPath: '/projects/'
-      preLoaderRoute: typeof LayoutProjectsIndexRouteImport
+      fullPath: '/projects/new/'
+      preLoaderRoute: typeof LayoutProjectsNewIndexRouteImport
+      parentRoute: typeof LayoutProjectsNewRoute
+    }
+    '/_layout/projects/$kind/': {
+      id: '/_layout/projects/$kind/'
+      path: '/$kind'
+      fullPath: '/projects/$kind/'
+      preLoaderRoute: typeof LayoutProjectsKindIndexRouteImport
       parentRoute: typeof LayoutProjectsRoute
-    }
-    '/_layout/projects/new': {
-      id: '/_layout/projects/new'
-      path: '/new'
-      fullPath: '/projects/new'
-      preLoaderRoute: typeof LayoutProjectsNewRouteImport
-      parentRoute: typeof LayoutProjectsRoute
-    }
-    '/_layout/_admin/admin/dashboard': {
-      id: '/_layout/_admin/admin/dashboard'
-      path: '/admin/dashboard'
-      fullPath: '/admin/dashboard'
-      preLoaderRoute: typeof LayoutAdminAdminDashboardRouteImport
-      parentRoute: typeof LayoutAdminRoute
-    }
-    '/_layout/_admin/admin/nominations': {
-      id: '/_layout/_admin/admin/nominations'
-      path: '/admin/nominations'
-      fullPath: '/admin/nominations'
-      preLoaderRoute: typeof LayoutAdminAdminNominationsRouteImport
-      parentRoute: typeof LayoutAdminRoute
-    }
-    '/_layout/_authenticated/_dashboard/dashboard': {
-      id: '/_layout/_authenticated/_dashboard/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/notifications': {
-      id: '/_layout/_authenticated/_dashboard/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardNotificationsRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/profile': {
-      id: '/_layout/_authenticated/_dashboard/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardProfileRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/settings': {
-      id: '/_layout/_authenticated/_dashboard/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/accept-invitation/$id': {
-      id: '/_layout/_authenticated/accept-invitation/$id'
-      path: '/accept-invitation/$id'
-      fullPath: '/accept-invitation/$id'
-      preLoaderRoute: typeof LayoutAuthenticatedAcceptInvitationIdRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
-    }
-    '/_layout/_authenticated/profile/activity': {
-      id: '/_layout/_authenticated/profile/activity'
-      path: '/profile/activity'
-      fullPath: '/profile/activity'
-      preLoaderRoute: typeof LayoutAuthenticatedProfileActivityRouteImport
-      parentRoute: typeof LayoutAuthenticatedRoute
     }
     '/_layout/apps/$accountId/': {
       id: '/_layout/apps/$accountId/'
       path: '/apps/$accountId'
       fullPath: '/apps/$accountId/'
       preLoaderRoute: typeof LayoutAppsAccountIdIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/projects/new/$kind': {
+      id: '/_layout/projects/new/$kind'
+      path: '/$kind'
+      fullPath: '/projects/new/$kind'
+      preLoaderRoute: typeof LayoutProjectsNewKindRouteImport
+      parentRoute: typeof LayoutProjectsNewRoute
+    }
+    '/_layout/projects/$kind/$slug': {
+      id: '/_layout/projects/$kind/$slug'
+      path: '/$kind/$slug'
+      fullPath: '/projects/$kind/$slug'
+      preLoaderRoute: typeof LayoutProjectsKindSlugRouteImport
+      parentRoute: typeof LayoutProjectsRoute
+    }
+    '/_layout/events/$slug_/edit': {
+      id: '/_layout/events/$slug_/edit'
+      path: '/$slug/edit'
+      fullPath: '/events/$slug/edit'
+      preLoaderRoute: typeof LayoutEventsSlugEditRouteImport
+      parentRoute: typeof LayoutEventsRoute
+    }
+    '/_layout/builders/$account_/edit': {
+      id: '/_layout/builders/$account_/edit'
+      path: '/builders/$account/edit'
+      fullPath: '/builders/$account/edit'
+      preLoaderRoute: typeof LayoutBuildersAccountEditRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/apps/$accountId/$gatewayId': {
@@ -886,74 +935,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAppsAccountIdGatewayIdRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/builders/$account_/edit': {
-      id: '/_layout/builders/$account_/edit'
-      path: '/builders/$account/edit'
-      fullPath: '/builders/$account/edit'
-      preLoaderRoute: typeof LayoutBuildersAccountEditRouteImport
-      parentRoute: typeof LayoutRoute
+    '/_layout/_authenticated/profile/activity': {
+      id: '/_layout/_authenticated/profile/activity'
+      path: '/profile/activity'
+      fullPath: '/profile/activity'
+      preLoaderRoute: typeof LayoutAuthenticatedProfileActivityRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
     }
-    '/_layout/events/$slug_/edit': {
-      id: '/_layout/events/$slug_/edit'
-      path: '/$slug/edit'
-      fullPath: '/events/$slug/edit'
-      preLoaderRoute: typeof LayoutEventsSlugEditRouteImport
-      parentRoute: typeof LayoutEventsRoute
+    '/_layout/_authenticated/accept-invitation/$id': {
+      id: '/_layout/_authenticated/accept-invitation/$id'
+      path: '/accept-invitation/$id'
+      fullPath: '/accept-invitation/$id'
+      preLoaderRoute: typeof LayoutAuthenticatedAcceptInvitationIdRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
     }
-    '/_layout/projects/$kind/': {
-      id: '/_layout/projects/$kind/'
-      path: '/$kind'
-      fullPath: '/projects/$kind/'
-      preLoaderRoute: typeof LayoutProjectsKindIndexRouteImport
-      parentRoute: typeof LayoutProjectsRoute
+    '/_layout/_authenticated/_dashboard/settings': {
+      id: '/_layout/_authenticated/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/projects/$kind/$slug': {
-      id: '/_layout/projects/$kind/$slug'
-      path: '/$kind/$slug'
-      fullPath: '/projects/$kind/$slug'
-      preLoaderRoute: typeof LayoutProjectsKindSlugRouteImport
-      parentRoute: typeof LayoutProjectsRoute
+    '/_layout/_authenticated/_dashboard/profile': {
+      id: '/_layout/_authenticated/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardProfileRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/projects/new/': {
-      id: '/_layout/projects/new/'
+    '/_layout/_authenticated/_dashboard/notifications': {
+      id: '/_layout/_authenticated/_dashboard/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardNotificationsRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/dashboard': {
+      id: '/_layout/_authenticated/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard': {
+      id: '/_layout/_admin/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardRouteImport
+      parentRoute: typeof LayoutAdminRoute
+    }
+    '/_layout/_authenticated/_dashboard/settings/': {
+      id: '/_layout/_authenticated/_dashboard/settings/'
       path: '/'
-      fullPath: '/projects/new/'
-      preLoaderRoute: typeof LayoutProjectsNewIndexRouteImport
-      parentRoute: typeof LayoutProjectsNewRoute
+      fullPath: '/settings/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/projects/new/$kind': {
-      id: '/_layout/projects/new/$kind'
-      path: '/$kind'
-      fullPath: '/projects/new/$kind'
-      preLoaderRoute: typeof LayoutProjectsNewKindRouteImport
-      parentRoute: typeof LayoutProjectsNewRoute
-    }
-    '/_layout/_authenticated/_dashboard/ideas/': {
-      id: '/_layout/_authenticated/_dashboard/ideas/'
-      path: '/ideas'
-      fullPath: '/ideas/'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardIdeasIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/organizations/': {
-      id: '/_layout/_authenticated/_dashboard/organizations/'
-      path: '/organizations'
-      fullPath: '/organizations/'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/organizations/$slug': {
-      id: '/_layout/_authenticated/_dashboard/organizations/$slug'
-      path: '/organizations/$slug'
-      fullPath: '/organizations/$slug'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsSlugRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardRoute
-    }
-    '/_layout/_authenticated/_dashboard/organizations/new': {
-      id: '/_layout/_authenticated/_dashboard/organizations/new'
-      path: '/organizations/new'
-      fullPath: '/organizations/new'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsNewRouteImport
+    '/_layout/_authenticated/_dashboard/scopes/': {
+      id: '/_layout/_authenticated/_dashboard/scopes/'
+      path: '/scopes'
+      fullPath: '/scopes/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardScopesIndexRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
     '/_layout/_authenticated/_dashboard/results/': {
@@ -963,32 +1005,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardResultsIndexRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_authenticated/_dashboard/scopes/': {
-      id: '/_layout/_authenticated/_dashboard/scopes/'
-      path: '/scopes'
-      fullPath: '/scopes/'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardScopesIndexRouteImport
+    '/_layout/_authenticated/_dashboard/organizations/': {
+      id: '/_layout/_authenticated/_dashboard/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsIndexRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_authenticated/_dashboard/settings/': {
-      id: '/_layout/_authenticated/_dashboard/settings/'
+    '/_layout/_authenticated/_dashboard/ideas/': {
+      id: '/_layout/_authenticated/_dashboard/ideas/'
+      path: '/ideas'
+      fullPath: '/ideas/'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardIdeasIndexRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/': {
+      id: '/_layout/_admin/admin/dashboard/'
       path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsIndexRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
+      fullPath: '/admin/dashboard/'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardIndexRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
     }
-    '/_layout/_authenticated/_dashboard/settings/api-keys': {
-      id: '/_layout/_authenticated/_dashboard/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsApiKeysRouteImport
-      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
+    '/_layout/projects/$kind/$slug_/edit': {
+      id: '/_layout/projects/$kind/$slug_/edit'
+      path: '/$kind/$slug/edit'
+      fullPath: '/projects/$kind/$slug/edit'
+      preLoaderRoute: typeof LayoutProjectsKindSlugEditRouteImport
+      parentRoute: typeof LayoutProjectsRoute
     }
-    '/_layout/_authenticated/_dashboard/settings/auth-methods': {
-      id: '/_layout/_authenticated/_dashboard/settings/auth-methods'
-      path: '/auth-methods'
-      fullPath: '/settings/auth-methods'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport
+    '/_layout/events/luma/$calendarId/$eventId': {
+      id: '/_layout/events/luma/$calendarId/$eventId'
+      path: '/luma/$calendarId/$eventId'
+      fullPath: '/events/luma/$calendarId/$eventId'
+      preLoaderRoute: typeof LayoutEventsLumaCalendarIdEventIdRouteImport
+      parentRoute: typeof LayoutEventsRoute
+    }
+    '/_layout/_authenticated/_dashboard/settings/security': {
+      id: '/_layout/_authenticated/_dashboard/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsSecurityRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
     '/_layout/_authenticated/_dashboard/settings/profile': {
@@ -998,38 +1054,106 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsProfileRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/_authenticated/_dashboard/settings/security': {
-      id: '/_layout/_authenticated/_dashboard/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsSecurityRouteImport
+    '/_layout/_authenticated/_dashboard/settings/auth-methods': {
+      id: '/_layout/_authenticated/_dashboard/settings/auth-methods'
+      path: '/auth-methods'
+      fullPath: '/settings/auth-methods'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsAuthMethodsRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/events/luma/$calendarId/$eventId': {
-      id: '/_layout/events/luma/$calendarId/$eventId'
-      path: '/luma/$calendarId/$eventId'
-      fullPath: '/events/luma/$calendarId/$eventId'
-      preLoaderRoute: typeof LayoutEventsLumaCalendarIdEventIdRouteImport
-      parentRoute: typeof LayoutEventsRoute
+    '/_layout/_authenticated/_dashboard/settings/api-keys': {
+      id: '/_layout/_authenticated/_dashboard/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardSettingsApiKeysRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardSettingsRoute
     }
-    '/_layout/projects/$kind/$slug_/edit': {
-      id: '/_layout/projects/$kind/$slug_/edit'
-      path: '/$kind/$slug/edit'
-      fullPath: '/projects/$kind/$slug/edit'
-      preLoaderRoute: typeof LayoutProjectsKindSlugEditRouteImport
-      parentRoute: typeof LayoutProjectsRoute
+    '/_layout/_authenticated/_dashboard/organizations/new': {
+      id: '/_layout/_authenticated/_dashboard/organizations/new'
+      path: '/organizations/new'
+      fullPath: '/organizations/new'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsNewRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_authenticated/_dashboard/organizations/$slug': {
+      id: '/_layout/_authenticated/_dashboard/organizations/$slug'
+      path: '/organizations/$slug'
+      fullPath: '/organizations/$slug'
+      preLoaderRoute: typeof LayoutAuthenticatedDashboardOrganizationsSlugRouteImport
+      parentRoute: typeof LayoutAuthenticatedDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/x-nominations': {
+      id: '/_layout/_admin/admin/dashboard/x-nominations'
+      path: '/x-nominations'
+      fullPath: '/admin/dashboard/x-nominations'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardXNominationsRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/projects': {
+      id: '/_layout/_admin/admin/dashboard/projects'
+      path: '/projects'
+      fullPath: '/admin/dashboard/projects'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardProjectsRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/events': {
+      id: '/_layout/_admin/admin/dashboard/events'
+      path: '/events'
+      fullPath: '/admin/dashboard/events'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardEventsRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/builders': {
+      id: '/_layout/_admin/admin/dashboard/builders'
+      path: '/builders'
+      fullPath: '/admin/dashboard/builders'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardBuildersRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
+    '/_layout/_admin/admin/dashboard/activity': {
+      id: '/_layout/_admin/admin/dashboard/activity'
+      path: '/activity'
+      fullPath: '/admin/dashboard/activity'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardActivityRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
     }
   }
 }
 
+interface LayoutAdminAdminDashboardRouteChildren {
+  LayoutAdminAdminDashboardActivityRoute: typeof LayoutAdminAdminDashboardActivityRoute
+  LayoutAdminAdminDashboardBuildersRoute: typeof LayoutAdminAdminDashboardBuildersRoute
+  LayoutAdminAdminDashboardEventsRoute: typeof LayoutAdminAdminDashboardEventsRoute
+  LayoutAdminAdminDashboardProjectsRoute: typeof LayoutAdminAdminDashboardProjectsRoute
+  LayoutAdminAdminDashboardXNominationsRoute: typeof LayoutAdminAdminDashboardXNominationsRoute
+  LayoutAdminAdminDashboardIndexRoute: typeof LayoutAdminAdminDashboardIndexRoute
+}
+
+const LayoutAdminAdminDashboardRouteChildren: LayoutAdminAdminDashboardRouteChildren =
+  {
+    LayoutAdminAdminDashboardActivityRoute:
+      LayoutAdminAdminDashboardActivityRoute,
+    LayoutAdminAdminDashboardBuildersRoute:
+      LayoutAdminAdminDashboardBuildersRoute,
+    LayoutAdminAdminDashboardEventsRoute: LayoutAdminAdminDashboardEventsRoute,
+    LayoutAdminAdminDashboardProjectsRoute:
+      LayoutAdminAdminDashboardProjectsRoute,
+    LayoutAdminAdminDashboardXNominationsRoute:
+      LayoutAdminAdminDashboardXNominationsRoute,
+    LayoutAdminAdminDashboardIndexRoute: LayoutAdminAdminDashboardIndexRoute,
+  }
+
+const LayoutAdminAdminDashboardRouteWithChildren =
+  LayoutAdminAdminDashboardRoute._addFileChildren(
+    LayoutAdminAdminDashboardRouteChildren,
+  )
+
 interface LayoutAdminRouteChildren {
-  LayoutAdminAdminDashboardRoute: typeof LayoutAdminAdminDashboardRoute
-  LayoutAdminAdminNominationsRoute: typeof LayoutAdminAdminNominationsRoute
+  LayoutAdminAdminDashboardRoute: typeof LayoutAdminAdminDashboardRouteWithChildren
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
-  LayoutAdminAdminDashboardRoute: LayoutAdminAdminDashboardRoute,
-  LayoutAdminAdminNominationsRoute: LayoutAdminAdminNominationsRoute,
+  LayoutAdminAdminDashboardRoute: LayoutAdminAdminDashboardRouteWithChildren,
 }
 
 const LayoutAdminRouteWithChildren = LayoutAdminRoute._addFileChildren(

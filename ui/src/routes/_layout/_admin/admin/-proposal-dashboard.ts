@@ -3,36 +3,18 @@ import type { ApiClient } from "@/app";
 export type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
 export type ProposalAuditEntry = Awaited<ReturnType<ApiClient["getAuditLog"]>>["data"][number];
 export type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
-export type ProposalDashboardTab = "builders" | "projects" | "events" | "activity";
-export type DashboardTab = ProposalDashboardTab;
 export type ProposalReviewStatus = ProposalRecord["reviewStatus"];
 export type DashboardStatus = "all" | ProposalReviewStatus;
 
-export type DashboardSearch = {
-  tab?: Exclude<DashboardTab, "builders">;
+export type ProposalTabSearch = {
   status?: Exclude<DashboardStatus, "all">;
   item?: string;
   q?: string;
 };
 
-export const DASHBOARD_TABS = [
-  { value: "builders", label: "Builders", pluginId: "builders" },
-  { value: "projects", label: "Projects", pluginId: "projects" },
-  { value: "events", label: "Events", pluginId: "events" },
-  { value: "activity", label: "Activity", pluginId: "nearcatalog" },
-] as const satisfies ReadonlyArray<{
-  value: ProposalDashboardTab;
-  label: string;
-  pluginId: ProposalPluginId;
-}>;
-
 export const DASHBOARD_STATUSES = ["all", "pending", "approved", "rejected", "removed"] as const;
 
-export function parseDashboardSearch(search: Record<string, unknown>): DashboardSearch {
-  const tab =
-    search.tab === "projects" || search.tab === "events" || search.tab === "activity"
-      ? search.tab
-      : undefined;
+export function parseProposalTabSearch(search: Record<string, unknown>): ProposalTabSearch {
   const status =
     search.status === "pending" ||
     search.status === "approved" ||
@@ -42,16 +24,59 @@ export function parseDashboardSearch(search: Record<string, unknown>): Dashboard
       : undefined;
 
   return {
-    tab,
     status,
     item: typeof search.item === "string" && search.item.trim() ? search.item : undefined,
     q: typeof search.q === "string" && search.q.trim() ? search.q.trim().slice(0, 200) : undefined,
   };
 }
 
-export function getPluginId(tab: DashboardTab): ProposalPluginId {
-  return DASHBOARD_TABS.find((item) => item.value === tab)?.pluginId ?? "builders";
-}
+export type AdminTab = "builders" | "projects" | "events" | "activity" | "x-nominations";
+
+export const ADMIN_TABS = [
+  {
+    value: "builders",
+    label: "Builders",
+    to: "/admin/dashboard/builders",
+    pluginId: "builders" as ProposalPluginId,
+    icon: "Hammer" as const,
+  },
+  {
+    value: "projects",
+    label: "Projects",
+    to: "/admin/dashboard/projects",
+    pluginId: "projects" as ProposalPluginId,
+    icon: "FolderKanban" as const,
+  },
+  {
+    value: "events",
+    label: "Events",
+    to: "/admin/dashboard/events",
+    pluginId: "events" as ProposalPluginId,
+    icon: "CalendarDays" as const,
+  },
+  {
+    value: "activity",
+    label: "Activity",
+    to: "/admin/dashboard/activity",
+    pluginId: "nearcatalog" as ProposalPluginId,
+    icon: "Activity" as const,
+  },
+  {
+    value: "x-nominations",
+    label: "X nominations",
+    to: "/admin/dashboard/x-nominations",
+    pluginId: null,
+    icon: "AtSign" as const,
+  },
+] as const satisfies ReadonlyArray<{
+  value: AdminTab;
+  label: string;
+  to: string;
+  pluginId: ProposalPluginId | null;
+  icon: string;
+}>;
+
+export type AdminTabConfig = (typeof ADMIN_TABS)[number];
 
 export function readPayload(payload: unknown): Record<string, unknown> {
   return payload && typeof payload === "object" && !Array.isArray(payload)
