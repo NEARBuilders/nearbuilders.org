@@ -1,6 +1,6 @@
 import type { XNominationFilter } from "@/lib/x-nomination-queue";
 
-export type NominationsSearch = {
+type NominationsSearch = {
   status?: XNominationFilter;
   q?: string;
 };

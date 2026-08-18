@@ -1,12 +1,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CircleAlert, Download, Search, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SegmentedFilter } from "@/components/ui/segmented-filter";
 import { exportXNominationTable } from "@/lib/export-csv";
 import {
   X_NOMINATION_QUEUE_KEY,
@@ -21,30 +17,36 @@ import {
   type XNominationRecord,
   type XNominationUpdate,
 } from "@/lib/x-nomination-queue";
+import { FilterBar } from "../-filter-bar";
 import { parseNominationsSearch } from "../-nominations-search";
+import { titleCase } from "../-proposal-dashboard";
+import { RecordsState } from "../-records-state";
 import { XNominationReviewSheet } from "../-x-nomination-review-sheet";
 import { XNominationTable, XNominationTableSkeleton } from "../-x-nomination-table";
+
+const NOUN = { singular: "X Nomination", plural: "X Nominations" };
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard/x-nominations")({
   validateSearch: parseNominationsSearch,
   head: () => ({
     meta: [{ title: "X Nominations · Admin Dashboard | NEAR Builders" }],
   }),
+  loader: async ({ context }) => {
+    const { queryClient, apiClient } = context;
+    await queryClient.prefetchInfiniteQuery(xNominationQueueOptions(apiClient));
+  },
   component: XNominationsTab,
 });
-
-const DEFAULT_STATUS = "pending_contact";
 
 function XNominationsTab() {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const status: XNominationFilter = search.status ?? DEFAULT_STATUS;
+  const status: XNominationFilter = search.status ?? "all";
   const query = search.q ?? "";
   const [searchInput, setSearchInput] = useState(query);
   const [selectedRow, setSelectedRow] = useState<XNominationRecord>();
-
   useEffect(() => {
     setSearchInput(query);
   }, [query]);
@@ -107,86 +109,66 @@ function XNominationsTab() {
     ? (groups.find((group) => group.nomination.id === selectedRow.id)?.referrals ?? [selectedRow])
     : [];
 
+  const statusWord =
+    status === "all"
+      ? "total"
+      : (X_QUEUE_STATUS_FILTERS.find((filter) => filter.value === status)?.label.toLowerCase() ??
+        status);
+  const itemWord = rows.length === 1 ? NOUN.singular : NOUN.plural;
+
   const setStatus = (nextStatus: XNominationFilter) => {
     void navigate({
       search: (previous) => ({
         ...previous,
-        status: nextStatus === DEFAULT_STATUS ? undefined : nextStatus,
+        status: nextStatus === "all" ? undefined : nextStatus,
       }),
     });
     setSelectedRow(undefined);
   };
 
   return (
-    <section aria-labelledby="x-nominations-heading">
-      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 id="x-nominations-heading" className="text-xl font-bold text-foreground">
-            X nominations
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {queueQuery.isLoading
-              ? "Loading nominations..."
-              : `${rows.length} ${status === "all" ? "total" : X_QUEUE_STATUS_FILTERS.find((filter) => filter.value === status)?.label.toLowerCase()} nomination${rows.length === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative min-w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search nominations"
-              aria-label="Search X nominations"
-              className="h-10 pl-8 sm:h-8"
-            />
-          </div>
-          <div className="max-w-full overflow-x-auto pb-1 [&_button]:h-9 sm:pb-0 sm:[&_button]:h-7">
-            <SegmentedFilter
-              options={[...X_QUEUE_STATUS_FILTERS]}
-              value={status}
-              onChange={setStatus}
-              ariaLabel="X nomination status"
-            />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-10 sm:h-8"
-            disabled={visibleGroups.length === 0}
-            onClick={() => {
-              const count = exportXNominationTable(visibleGroups, status);
-              toast.success(`${count} nomination${count === 1 ? "" : "s"} exported`);
-            }}
-          >
-            <Download />
-            Export CSV
-          </Button>
-        </div>
-      </div>
+    <section>
+      <FilterBar
+        title={titleCase(NOUN.singular)}
+        subtitle={
+          queueQuery.isLoading
+            ? `Loading ${NOUN.plural}...`
+            : `${rows.length} ${statusWord} ${itemWord}`
+        }
+        search={{
+          value: searchInput,
+          onChange: setSearchInput,
+          placeholder: `Search ${NOUN.plural}`,
+          ariaLabel: "Search X Nominations",
+        }}
+        filters={{
+          options: X_QUEUE_STATUS_FILTERS,
+          value: status,
+          onChange: setStatus,
+          ariaLabel: "X Nominations status",
+        }}
+        exportAction={{
+          onClick: () => {
+            const count = exportXNominationTable(visibleGroups, status);
+            toast.success(`${count} nomination${count === 1 ? "" : "s"} exported`);
+          },
+          disabled: visibleGroups.length === 0,
+        }}
+      />
 
-      {queueQuery.isLoading ? (
-        <XNominationTableSkeleton />
-      ) : queueQuery.isError ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-6 py-12 text-center">
-          <CircleAlert className="mx-auto size-6 text-destructive" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            The X nomination queue could not be loaded.
-          </p>
-          <Button className="mt-4" size="sm" variant="outline" onClick={() => queueQuery.refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
-          <Send className="mx-auto size-6 text-muted-foreground" />
-          <p className="mt-3 font-semibold text-foreground">No nominations in this view</p>
-          <p className="mt-1 text-sm text-muted-foreground">Try another status or search term.</p>
-        </div>
-      ) : (
+      <RecordsState
+        isLoading={queueQuery.isLoading}
+        isError={queueQuery.isError}
+        isEmpty={rows.length === 0}
+        onRetry={() => queueQuery.refetch()}
+        loadingFallback={<XNominationTableSkeleton />}
+        errorTitle={`${titleCase(NOUN.singular)} could not be loaded`}
+        errorBody="Retry the request to continue."
+        emptyTitle={`No ${NOUN.plural}`}
+        emptyBody="Try another status or search term."
+      >
         <XNominationTable rows={rows} selectedId={selectedRow?.id} onSelect={setSelectedRow} />
-      )}
+      </RecordsState>
 
       <XNominationReviewSheet
         row={selectedRow}

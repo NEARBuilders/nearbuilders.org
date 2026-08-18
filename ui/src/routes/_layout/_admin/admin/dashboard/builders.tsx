@@ -1,39 +1,30 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  type DashboardStatus,
-  type ProposalTabSearch,
-  parseProposalTabSearch,
-} from "../-proposal-dashboard";
-import { ProposalTab, type ProposalTabActions } from "../-proposal-tab";
+import { createFileRoute } from "@tanstack/react-router";
+import { parseProposalTabSearch } from "../-proposal-dashboard";
+import { getProposalQueryOptions, ProposalTab } from "../-proposal-tab";
+import { dashboardTabTitle, useProposalTabActions } from "../-proposal-tab-route";
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard/builders")({
   validateSearch: parseProposalTabSearch,
-  head: () => ({ meta: [{ title: "Builders · Admin Dashboard | NEAR Builders" }] }),
+  head: () => ({ meta: [{ title: dashboardTabTitle("Builders") }] }),
+  loader: async ({ context }) => {
+    const { queryClient, apiClient } = context;
+    await queryClient.prefetchInfiniteQuery(
+      getProposalQueryOptions(apiClient, "builders", "all", ""),
+    );
+  },
   component: BuildersTab,
 });
 
 function BuildersTab() {
-  const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
-  const actions: ProposalTabActions = {
-    setQuery: (query) =>
-      navigate({
-        search: (previous) => ({ ...(previous as ProposalTabSearch), q: query, item: undefined }),
-        replace: true,
-      }),
-    setStatus: (status) =>
-      navigate({
-        search: (previous) => ({
-          ...(previous as ProposalTabSearch),
-          status: status as Exclude<DashboardStatus, "all"> | undefined,
-          item: undefined,
-        }),
-      }),
-    setSelectedItem: (item) =>
-      navigate({
-        search: (previous) => ({ ...(previous as ProposalTabSearch), item }),
-        replace: item === undefined,
-      }),
-  };
-  return <ProposalTab pluginId="builders" search={search} actions={actions} />;
+  const actions = useProposalTabActions();
+  return (
+    <ProposalTab
+      title="Builders"
+      noun={{ singular: "builder", plural: "builders" }}
+      pluginId="builders"
+      search={search}
+      actions={actions}
+    />
+  );
 }

@@ -63,7 +63,7 @@ export const ADMIN_TABS = [
   },
   {
     value: "x-nominations",
-    label: "X nominations",
+    label: "X Nominations",
     to: "/admin/dashboard/x-nominations",
     pluginId: null,
     icon: "AtSign" as const,
@@ -236,4 +236,8 @@ export function formatDateTime(value: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function titleCase(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
