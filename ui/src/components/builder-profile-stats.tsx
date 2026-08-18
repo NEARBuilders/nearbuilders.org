@@ -9,18 +9,6 @@ const STAT_ITEMS: Array<{
   { key: "projects", label: "Projects", mobileLabel: "Projects", featured: true },
   { key: "ideas", label: "Ideas", mobileLabel: "Ideas", featured: true },
   {
-    key: "feedbackRounds",
-    label: "Feedback rounds tested",
-    mobileLabel: "Feedback",
-    featured: false,
-  },
-  {
-    key: "githubIssues",
-    label: "GitHub issues filed",
-    mobileLabel: "GitHub issues",
-    featured: false,
-  },
-  {
     key: "catalogProjects",
     label: "Catalog projects",
     mobileLabel: "Catalog",
@@ -42,7 +30,7 @@ export function BuilderProfileStats({
       aria-label="Builder contribution stats"
       className="mb-8 overflow-hidden rounded-2xl border border-border bg-border"
     >
-      <div className="grid grid-cols-6 gap-px sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-px">
         {STAT_ITEMS.map(({ key, label, mobileLabel, featured }) => {
           const value = stats?.[key] ?? null;
           const unavailable = isError || value === null;
@@ -51,7 +39,7 @@ export function BuilderProfileStats({
             <fieldset
               key={key}
               aria-label={label}
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 bg-card px-2 py-3 text-center sm:px-3 sm:py-4 ${featured ? "col-span-3" : "col-span-2"} sm:col-span-1`}
+              className="flex min-w-0 flex-col items-center justify-center gap-1 bg-card px-2 py-3 text-center sm:px-3 sm:py-4"
             >
               {isLoading ? (
                 <span

@@ -442,10 +442,10 @@ const BuilderOutput = z.object({
 const BuilderStatsOutput = z.object({
   projects: z.number().int().nonnegative().nullable(),
   ideas: z.number().int().nonnegative().nullable(),
-  feedbackRounds: z.number().int().nonnegative().nullable(),
-  githubIssues: z.number().int().nonnegative().nullable(),
   catalogProjects: z.number().int().nonnegative().nullable(),
 });
+
+export type BuilderStats = z.infer<typeof BuilderStatsOutput>;
 
 const registryMetadataSchema = z.object({
   claimedBy: z.string().nullable(),

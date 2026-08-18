@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Profile } from "better-near-auth";
 import { useEffect, useState } from "react";
-import { useAuthClient } from "@/app";
+import { type ApiClient, useAuthClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,11 +9,10 @@ import { socialIcon } from "@/components/ui/social-icons";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 
-interface NearProfileBuilderDetails {
-  bio: string | null;
-  skills: string[];
-  links: Record<string, string> | null;
-}
+type ExtendedProfile = Pick<
+  NonNullable<Awaited<ReturnType<ApiClient["getMyBuilderProfile"]>>["data"]>,
+  "bio" | "skills" | "links"
+>;
 
 interface NearProfileProps {
   accountId?: string;
@@ -21,7 +20,7 @@ interface NearProfileProps {
   showAvatar?: boolean;
   showName?: boolean;
   className?: string;
-  builderProfile?: NearProfileBuilderDetails | null;
+  extendedProfile?: ExtendedProfile | null;
 }
 
 export function NearProfile({
@@ -30,7 +29,7 @@ export function NearProfile({
   showAvatar = true,
   showName = true,
   className = "",
-  builderProfile,
+  extendedProfile,
 }: NearProfileProps) {
   const auth = useAuthClient();
   const {
@@ -50,8 +49,8 @@ export function NearProfile({
     (profile?.backgroundImage?.ipfs_cid
       ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
       : null);
-  const bio = builderProfile?.bio?.trim() || profile?.description?.trim();
-  const socialLinks = mergeSocialLinks(profile?.linktree, builderProfile?.links);
+  const bio = extendedProfile?.bio?.trim() || profile?.description?.trim();
+  const socialLinks = mergeSocialLinks(profile?.linktree, extendedProfile?.links);
   const [backgroundImageError, setBackgroundImageError] = useState(false);
 
   useEffect(() => {
@@ -196,13 +195,13 @@ export function NearProfile({
             </div>
           )}
 
-          {builderProfile && builderProfile.skills.length > 0 && (
+          {extendedProfile && extendedProfile.skills.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Skills
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {builderProfile.skills.map((skill) => (
+                {extendedProfile.skills.map((skill) => (
                   <Badge key={skill} variant="secondary" className="rounded-full px-2 py-0.5">
                     {skill}
                   </Badge>

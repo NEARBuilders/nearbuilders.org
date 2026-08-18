@@ -205,7 +205,7 @@ function Dashboard() {
             accountId={nearAccountId}
             variant="card"
             className="h-full"
-            builderProfile={builderProfile}
+            extendedProfile={builderProfile}
           />
         </div>
 
