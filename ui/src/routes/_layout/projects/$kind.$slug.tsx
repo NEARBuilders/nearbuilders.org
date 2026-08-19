@@ -7,7 +7,6 @@ import {
   ExternalLink,
   FileCode2,
   FileText,
-  GitCommitHorizontal,
   Globe,
   Info,
   Layers,
@@ -31,7 +30,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { VoteButton } from "@/components/ui/vote-button";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
-  fetchRepositoryCommits,
   fetchRepositoryLastCommitDate,
   fetchRepositoryReadme,
   mostRecentIsoDate,
@@ -149,16 +147,6 @@ function ProjectDetailPage() {
     queryFn: async () => {
       if (!project?.repository) return null;
       return await fetchRepositoryLastCommitDate(project.repository);
-    },
-    enabled: project?.kind === "project" && Boolean(project?.repository),
-    staleTime: 5 * 60_000,
-  });
-
-  const commitsQuery = useQuery({
-    queryKey: ["commits", project?.id, project?.repository],
-    queryFn: async () => {
-      if (!project?.repository) return [];
-      return await fetchRepositoryCommits(project.repository, 8);
     },
     enabled: project?.kind === "project" && Boolean(project?.repository),
     staleTime: 5 * 60_000,
@@ -494,53 +482,6 @@ function ProjectDetailPage() {
                   )}
                 </div>
               </section>
-
-              {project.kind === "project" && project.repository && (
-                <section className="border-t border-border pt-6">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
-                      Timeline
-                    </p>
-                    <h2 className="mt-1 text-xl font-semibold text-foreground">Recent commits</h2>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-sm sm:px-8 sm:py-6">
-                    {commitsQuery.isLoading ? (
-                      <div className="space-y-3">
-                        <div className="h-4 w-2/3 animate-pulse rounded bg-border" />
-                        <div className="h-4 w-1/2 animate-pulse rounded bg-border" />
-                        <div className="h-4 w-3/5 animate-pulse rounded bg-border" />
-                      </div>
-                    ) : commitsQuery.data && commitsQuery.data.length > 0 ? (
-                      <ol className="space-y-4">
-                        {commitsQuery.data.map((commit) => (
-                          <li key={commit.sha} className="flex items-start gap-3">
-                            <GitCommitHorizontal className="mt-0.5 size-4 shrink-0 text-brand-accent" />
-                            <div className="min-w-0 flex-1">
-                              <a
-                                href={commit.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="line-clamp-1 text-sm font-semibold text-foreground hover:underline"
-                              >
-                                {commit.message || "(no commit message)"}
-                              </a>
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {commit.author ? `${commit.author} · ` : ""}
-                                {commit.date ? formatRelativeTime(commit.date) : "Unknown date"}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No commit history available for this repository.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              )}
 
               {(project.kind === "scope" || project.kind === "result") && (
                 <MentionsSection projectId={project.id} />
