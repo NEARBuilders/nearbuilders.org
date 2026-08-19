@@ -1,10 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Profile } from "better-near-auth";
-import { useAuthClient } from "@/app";
+import { useEffect, useState } from "react";
+import { type ApiClient, useAuthClient } from "@/app";
+import { Badge } from "@/components/ui/badge";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import { socialIcon } from "@/components/ui/social-icons";
 import { nearProfileOptions } from "@/lib/queries/builders";
-import { mergeSocialLinks } from "@/lib/social-links";
+import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
+
+type ExtendedProfile = Pick<
+  NonNullable<Awaited<ReturnType<ApiClient["getMyBuilderProfile"]>>["data"]>,
+  "bio" | "skills" | "links"
+>;
 
 interface NearProfileProps {
   accountId?: string;
@@ -12,6 +20,7 @@ interface NearProfileProps {
   showAvatar?: boolean;
   showName?: boolean;
   className?: string;
+  extendedProfile?: ExtendedProfile | null;
 }
 
 export function NearProfile({
@@ -20,6 +29,7 @@ export function NearProfile({
   showAvatar = true,
   showName = true,
   className = "",
+  extendedProfile,
 }: NearProfileProps) {
   const auth = useAuthClient();
   const {
@@ -39,7 +49,15 @@ export function NearProfile({
     (profile?.backgroundImage?.ipfs_cid
       ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
       : null);
-  const socialLinks = mergeSocialLinks(profile?.linktree);
+  const bio = extendedProfile?.bio?.trim() || profile?.description?.trim();
+  const socialLinks = mergeSocialLinks(profile?.linktree, extendedProfile?.links);
+  const [backgroundImageError, setBackgroundImageError] = useState(false);
+
+  useEffect(() => {
+    setBackgroundImageError(false);
+  }, [backgroundUrl]);
+
+  const hasBackgroundImage = Boolean(backgroundUrl && !backgroundImageError);
 
   if (isLoading) {
     if (variant === "card") {
@@ -102,22 +120,35 @@ export function NearProfile({
   if (variant === "card") {
     return (
       <div
-        className={`w-full overflow-hidden rounded-xl border border-border bg-card ${className}`}
+        className={`relative w-full rounded-2xl border border-border bg-card shadow-sm ${className}`}
       >
-        <div className="relative h-36 bg-secondary">
-          <div className="absolute inset-x-0 top-0 h-1 bg-brand-green" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-border" />
-          {backgroundUrl && (
-            <img
-              src={backgroundUrl}
-              alt="Profile background"
-              className="relative h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          )}
-          <div className="absolute -bottom-8 left-5 sm:left-6">
+        <div className="relative h-36 rounded-t-2xl bg-gradient-to-br from-brand-accent-light via-secondary to-muted">
+          <div className="absolute inset-0 overflow-hidden rounded-t-2xl">
+            {!hasBackgroundImage && (
+              <>
+                <div
+                  className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full border-[18px] border-brand-accent-border/40"
+                  aria-hidden="true"
+                />
+                <div
+                  className="pointer-events-none absolute -bottom-24 left-1/2 h-40 w-40 rounded-full border-[16px] border-brand-accent-border/25"
+                  aria-hidden="true"
+                />
+              </>
+            )}
+            {hasBackgroundImage && backgroundUrl && (
+              <img
+                src={backgroundUrl}
+                alt="Profile background"
+                className="relative z-10 h-full w-full object-cover"
+                onError={() => {
+                  setBackgroundImageError(true);
+                }}
+              />
+            )}
+          </div>
+          <div className="absolute inset-x-0 bottom-0 z-20 h-px bg-border" />
+          <div className="absolute -bottom-8 left-5 z-30 sm:left-6">
             <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-background bg-background shadow-lg ring-1 ring-border">
               {avatarUrl ? (
                 <img
@@ -147,31 +178,61 @@ export function NearProfile({
             )}
           </div>
 
-          {!profile?.description && (
+          {!bio && (
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
               NEAR account connected. Add projects and keep your builder presence current.
             </p>
           )}
 
-          {profile?.description && (
-            <div className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              <Markdown content={profile.description} />
+          {bio && (
+            <div className="mt-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Bio
+              </p>
+              <div className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <Markdown content={bio} />
+              </div>
+            </div>
+          )}
+
+          {extendedProfile && extendedProfile.skills.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Skills
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {extendedProfile.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary" className="rounded-full px-2 py-0.5">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
 
           {Object.keys(socialLinks).length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {Object.entries(socialLinks).map(([platform, url]) => (
-                <a
-                  key={platform}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold transition-colors hover:bg-secondary"
-                >
-                  {platform}
-                </a>
-              ))}
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Social links
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(socialLinks).map(([platform, url]) => {
+                  const Icon = socialIcon(platform);
+                  return (
+                    <Badge
+                      key={platform}
+                      asChild
+                      variant="outline"
+                      className="gap-1.5 rounded-full px-2 py-0.5"
+                    >
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        <Icon className="size-3" />
+                        {linkLabel(platform)}
+                      </a>
+                    </Badge>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
