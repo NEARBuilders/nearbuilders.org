@@ -28,7 +28,12 @@ import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
-import { fetchRepositoryReadme } from "@/lib/repository-content";
+import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  fetchRepositoryLastCommitDate,
+  fetchRepositoryReadme,
+  mostRecentIsoDate,
+} from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
@@ -135,6 +140,16 @@ function ProjectDetailPage() {
       return await fetchRepositoryReadme(project.repository);
     },
     enabled: project?.kind === "project" && Boolean(project?.repository),
+  });
+
+  const lastCommitQuery = useQuery({
+    queryKey: ["lastCommit", project?.id, project?.repository],
+    queryFn: async () => {
+      if (!project?.repository) return null;
+      return await fetchRepositoryLastCommitDate(project.repository);
+    },
+    enabled: project?.kind === "project" && Boolean(project?.repository),
+    staleTime: 5 * 60_000,
   });
 
   const upvoteCountQuery = useQuery({
@@ -244,6 +259,8 @@ function ProjectDetailPage() {
     );
   }
 
+  const effectiveUpdatedAt =
+    mostRecentIsoDate(project.updatedAt, lastCommitQuery.data) ?? project.updatedAt;
   const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
   const canManage = isOwner;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
@@ -271,7 +288,7 @@ function ProjectDetailPage() {
       <MetaItem label="Slug" value={project.slug} mono />
       {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
       <MetaItem label="Created" value={formatDate(project.createdAt)} />
-      <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
+      <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
     </div>
   );
 
@@ -497,7 +514,7 @@ function ProjectDetailPage() {
                 <MetaItem label="Slug" value={project.slug} mono />
                 {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
                 <MetaItem label="Created" value={formatDate(project.createdAt)} />
-                <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
+                <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
               </div>
             </div>
             <div

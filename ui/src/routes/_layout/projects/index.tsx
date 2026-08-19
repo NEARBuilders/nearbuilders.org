@@ -62,7 +62,12 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
-import { fetchRepositoryReadme } from "@/lib/repository-content";
+import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  fetchRepositoryLastCommitDate,
+  fetchRepositoryReadme,
+  mostRecentIsoDate,
+} from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
 import {
   type ProjectKindFilter,
@@ -348,6 +353,10 @@ function ProjectCard({
           <span className="mt-1 line-clamp-1 text-sm leading-relaxed text-muted-foreground">
             {project.description || "No description added yet."}
           </span>
+          <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <CalendarDays className="size-3 text-brand-accent" />
+            Updated {formatRelativeTime(project.updatedAt)}
+          </span>
         </span>
         <span className="flex shrink-0 self-center items-center justify-self-end gap-2 sm:w-20 sm:justify-between">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
@@ -516,6 +525,7 @@ function ProjectDetailPanel({
   readme,
   isReadmeLoading,
   isReadmeError,
+  lastCommitAt,
   voteCountAvailable,
   voteDirection,
   canParticipate,
@@ -532,6 +542,7 @@ function ProjectDetailPanel({
   readme?: string | null;
   isReadmeLoading: boolean;
   isReadmeError: boolean;
+  lastCommitAt?: string | null;
   voteCountAvailable: boolean;
   voteDirection: VoteDirection;
   canParticipate: boolean;
@@ -548,6 +559,8 @@ function ProjectDetailPanel({
     project.kind === "project" && !isReadmeLoading && isReadmeError && !readme;
   const content = project.kind === "project" ? readme || project.description : project.content;
   const detailSearch = { ...search, preview: undefined };
+  const effectiveUpdatedAt =
+    mostRecentIsoDate(project.updatedAt, lastCommitAt) ?? project.updatedAt;
 
   return (
     <div className="min-w-0">
@@ -684,7 +697,7 @@ function ProjectDetailPanel({
           </span>
           <span className="inline-flex items-center gap-1.5">
             <CalendarDays className="size-3.5 text-brand-accent" />
-            Updated {formatDate(project.updatedAt)}
+            Updated {formatRelativeTime(effectiveUpdatedAt)}
           </span>
         </section>
       </div>
@@ -1134,6 +1147,15 @@ function ProjectsList() {
       selectedProject?.source === "local" &&
       selectedProject.kind === "project" &&
       Boolean(selectedProject.repository),
+  });
+  const selectedLastCommitQuery = useQuery({
+    queryKey: ["projectPreviewLastCommit", selectedProject?.id, selectedProject?.repository],
+    queryFn: async () =>
+      selectedProject?.repository
+        ? fetchRepositoryLastCommitDate(selectedProject.repository)
+        : null,
+    enabled: selectedProject?.kind === "project" && Boolean(selectedProject.repository),
+    staleTime: 5 * 60_000,
   });
 
   const upvoteMutation = useMutation({
@@ -1627,6 +1649,7 @@ function ProjectsList() {
                       readme={selectedReadmeQuery.data}
                       isReadmeLoading={selectedReadmeQuery.isLoading}
                       isReadmeError={selectedReadmeQuery.isError}
+                      lastCommitAt={selectedLastCommitQuery.data}
                       voteCountAvailable={voteCountAvailable}
                       voteDirection={userVoteMap[selectedProject.id] ?? null}
                       canParticipate={canParticipate}
