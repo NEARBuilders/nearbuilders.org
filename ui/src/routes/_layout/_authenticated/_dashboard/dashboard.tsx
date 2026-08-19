@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { Profile } from "better-near-auth";
 import {
   AlertCircle,
   ArrowRight,
@@ -13,15 +14,14 @@ import {
   MapPin,
   Plus,
   Settings,
-  Sparkles,
   ThumbsUp,
-  UserRound,
   Wallet,
   X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
 import { NearProfile } from "@/components/near-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboard")({
   head: () => ({
@@ -44,6 +45,14 @@ export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboa
 });
 
 const RECENT_PROJECTS_LIMIT = 5;
+type ProjectKind = "project" | "idea" | "scope" | "result";
+
+const PROJECT_KIND_TABS: Array<{ kind: ProjectKind; label: string }> = [
+  { kind: "project", label: "Projects" },
+  { kind: "idea", label: "Ideas" },
+  { kind: "scope", label: "Scope" },
+  { kind: "result", label: "Results" },
+];
 
 function Dashboard() {
   const auth = useAuthClient();
@@ -66,10 +75,43 @@ function Dashboard() {
     enabled: !!nearAccountId,
   });
 
+  const { data: projectKindAvailability } = useQuery({
+    queryKey: ["projects-kind-availability", nearAccountId],
+    queryFn: async () => {
+      const results = await Promise.all(
+        PROJECT_KIND_TABS.map(async ({ kind }) => {
+          const result = await apiClient.listProjects({
+            limit: 1,
+            ownerId: nearAccountId!,
+            kind,
+          });
+          return [kind, result.meta.total > 0] as const;
+        }),
+      );
+      return Object.fromEntries(results) as Record<ProjectKind, boolean>;
+    },
+    enabled: Boolean(nearAccountId),
+  });
+
   const { data: builderResult, isLoading: builderLoading } = useQuery({
     queryKey: ["my-builder-profile", user?.id, nearAccountId],
     queryFn: () => apiClient.getMyBuilderProfile({}),
     enabled: Boolean(user && !user.isAnonymous),
+  });
+
+  const { data: nearProfile, isLoading: nearProfileLoading } = useQuery<Profile | null>(
+    nearProfileOptions(auth, nearAccountId ?? ""),
+  );
+
+  const { data: firstIdeaResult, isLoading: firstIdeaLoading } = useQuery({
+    queryKey: ["builder-first-idea", nearAccountId],
+    queryFn: () =>
+      apiClient.listProjects({
+        ownerId: nearAccountId ?? undefined,
+        kind: "idea",
+        limit: 1,
+      }),
+    enabled: Boolean(nearAccountId),
   });
 
   const { data: builderProposalResult, isLoading: builderProposalLoading } = useQuery({
@@ -85,35 +127,35 @@ function Dashboard() {
 
   const builderProfile = builderResult?.data ?? null;
   const builderProposal = builderProposalResult?.data[0] ?? null;
-  const builderStatus = getBuilderStatusSummary(builderProfile, builderProposal);
 
   const projects = projectsData?.data ?? [];
   const projectCount = projectsData?.meta.total ?? projects.length;
   const projectIds = projects.map((project) => project.id);
+  const visibleProjectTabs = PROJECT_KIND_TABS.filter(
+    ({ kind }) => projectKindAvailability?.[kind],
+  );
 
-  const { data: projectVoteCounts, isLoading: projectVotesLoading } = useQuery({
+  const { data: projectVoteCounts } = useQuery({
     queryKey: ["dashboard-project-upvote-counts", projectIds],
     queryFn: () => apiClient.getUpvoteCounts({ entityIds: projectIds }),
     enabled: projectIds.length > 0,
   });
 
-  const { data: auditLogResult, isLoading: auditLogLoading } = useQuery({
+  const auditLogQuery = useInfiniteQuery({
     queryKey: ["builder-audit-log", nearAccountId],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       apiClient.getAuditLog({
         pluginId: "builders",
         entityId: nearAccountId!,
-        limit: 4,
+        limit: 20,
+        cursor: pageParam,
       }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.meta.nextCursor ?? undefined,
     enabled: Boolean(nearAccountId && (builderProfile || builderProposal)),
   });
 
-  const totalProjectVotes = Object.values(projectVoteCounts ?? {}).reduce(
-    (total, item) => total + item.totalCount,
-    0,
-  );
-  const builderSkills = getDashboardSkills(builderProfile, builderProposal);
-  const auditEntries = auditLogResult?.data ?? [];
+  const auditEntries = auditLogQuery.data?.pages.flatMap((page) => page.data) ?? [];
 
   if (!user) {
     return (
@@ -151,50 +193,110 @@ function Dashboard() {
   }
   return (
     <DashboardPageFrame>
-      <DashboardHeader nearAccountId={nearAccountId} />
+      <DashboardHeader
+        nearAccountId={nearAccountId}
+        nearProfile={nearProfile}
+        showPublicProfile={Boolean(builderProfile)}
+      />
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
-        <div className="min-w-0">
-          <NearProfile accountId={nearAccountId} variant="card" className="h-full" />
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
+        <div className="order-2 min-w-0 lg:order-none">
+          <NearProfile
+            accountId={nearAccountId}
+            variant="card"
+            className="h-full"
+            extendedProfile={builderProfile}
+          />
         </div>
 
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          <BuilderStatusSummaryCard
-            label={builderStatus.label}
-            description={builderStatus.description}
-            tone={builderStatus.tone}
-            isLoading={builderLoading || builderProposalLoading}
-          />
-          <SkillsSummaryCard
-            skills={builderSkills}
-            isLoading={builderLoading || builderProposalLoading}
-          />
+        <div className="contents min-w-0 order-1 lg:order-none lg:block lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24 lg:self-start lg:space-y-5">
+          <div className="order-1 min-w-0 lg:order-none">
+            <BuilderOnboardingChecklist
+              accountId={nearAccountId}
+              nearProfile={nearProfile}
+              builderProfile={builderProfile}
+              hasFirstIdea={(firstIdeaResult?.data.length ?? 0) > 0}
+              isLoading={
+                nearProfileLoading || builderLoading || builderProposalLoading || firstIdeaLoading
+              }
+            />
+          </div>
+
+          <div className="order-3 min-w-0 lg:order-none">
+            <BuilderProfileCard
+              builderProfile={builderProfile}
+              builderProposal={builderProposal}
+              isLoading={builderLoading || builderProposalLoading}
+              nearAccountId={nearAccountId}
+              apiClient={apiClient}
+            />
+          </div>
+
+          <div className="order-4 min-w-0 lg:order-none">
+            <ReviewActivityCard
+              builderProposal={builderProposal}
+              auditEntries={auditEntries}
+              hasMore={auditLogQuery.hasNextPage}
+              isLoading={builderProposalLoading || auditLogQuery.isLoading}
+              isLoadingMore={auditLogQuery.isFetchingNextPage}
+              onLoadMore={() => auditLogQuery.fetchNextPage()}
+            />
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+      <section className="grid gap-5">
         <div className="min-w-0 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                 Workspace
               </p>
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">
-                Projects and ideas
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                  Projects and ideas
+                </h2>
+                {projectsLoading ? (
+                  <Skeleton className="h-5 w-8 rounded-full" />
+                ) : (
+                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted-foreground">
+                    {projectCount}
+                  </span>
+                )}
+              </div>
               <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
                 Keep active projects, early ideas, repositories, and live apps visible from one
                 workspace.
               </p>
             </div>
 
-            <Button asChild size="sm" className="h-9 gap-1.5 rounded-full px-4 text-xs">
-              <Link to="/projects/new" search={{ tab: "write" }}>
-                <Plus className="h-3.5 w-3.5" />
-                New project or idea
-              </Link>
-            </Button>
+            <Link
+              to="/projects"
+              search={{ personal: true }}
+              className="group inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View all
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
+
+          {visibleProjectTabs.length > 0 && (
+            <nav
+              aria-label="Project types"
+              className="flex min-w-0 overflow-x-auto border-b border-border"
+            >
+              {visibleProjectTabs.map(({ kind, label }) => (
+                <Link
+                  key={kind}
+                  to="/projects"
+                  search={{ kind, personal: true }}
+                  className="relative inline-flex min-h-10 shrink-0 items-center border-b-2 border-transparent px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-brand-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4"
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           {projectsError ? (
             <DashboardErrorCard message="Projects and ideas could not be loaded." />
@@ -228,7 +330,7 @@ function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
               {projects.map((project) => (
                 <ProjectRow
                   key={project.id}
@@ -239,26 +341,6 @@ function Dashboard() {
             </div>
           )}
         </div>
-
-        <aside className="min-w-0 space-y-4">
-          <ProjectsSummaryCard
-            projectCount={projectCount}
-            totalProjectVotes={totalProjectVotes}
-            isLoading={projectsLoading || projectVotesLoading}
-          />
-          <ReviewActivityCard
-            builderProposal={builderProposal}
-            auditEntries={auditEntries}
-            isLoading={builderProposalLoading || auditLogLoading}
-          />
-          <BuilderProfileCard
-            builderProfile={builderProfile}
-            builderProposal={builderProposal}
-            isLoading={builderLoading || builderProposalLoading}
-            nearAccountId={nearAccountId}
-            apiClient={apiClient}
-          />
-        </aside>
       </section>
     </DashboardPageFrame>
   );
@@ -270,6 +352,7 @@ interface BuilderProfileData {
   bio: string | null;
   skills: string[];
   location: string | null;
+  links: Record<string, string> | null;
 }
 
 type ProposalStatus = "pending" | "approved" | "rejected" | "removed";
@@ -306,15 +389,6 @@ function readProposalPayload(payload: unknown) {
   };
 }
 
-function getDashboardSkills(
-  builderProfile: BuilderProfileData | null,
-  builderProposal: BuilderProposalData | null,
-) {
-  if (builderProfile?.skills.length) return builderProfile.skills;
-  if (builderProposal) return readProposalPayload(builderProposal.payload).skills;
-  return [];
-}
-
 function formatAuditAction(action: string) {
   return action
     .split("_")
@@ -331,115 +405,10 @@ function formatDashboardDate(value: string) {
   }).format(new Date(value));
 }
 
-type BuilderStatusTone = "approved" | "pending" | "rejected" | "neutral";
-
 function DashboardPageFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="w-full px-4 py-6 pb-10 sm:px-6 sm:py-8 sm:pb-12 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">{children}</div>
-    </div>
-  );
-}
-
-function getBuilderStatusSummary(
-  builderProfile: BuilderProfileData | null,
-  builderProposal: BuilderProposalData | null,
-): { label: string; description: string; tone: BuilderStatusTone } {
-  if (builderProfile) {
-    return {
-      label: "Listed builder",
-      description: "Your profile is visible in the public builder directory.",
-      tone: "approved",
-    };
-  }
-
-  if (builderProposal?.reviewStatus === "pending") {
-    return {
-      label: "Pending review",
-      description: "Your builder application is waiting for admin review.",
-      tone: "pending",
-    };
-  }
-
-  if (builderProposal?.reviewStatus === "rejected") {
-    return {
-      label: "Needs update",
-      description: "Review the feedback and submit a clearer builder profile.",
-      tone: "rejected",
-    };
-  }
-
-  return {
-    label: "Not listed yet",
-    description: "Register as a builder when you are ready to be discovered.",
-    tone: "neutral",
-  };
-}
-
-const BUILDER_STATUS_TONE: Record<
-  BuilderStatusTone,
-  { icon: typeof Check; iconClass: string; badgeClass: string }
-> = {
-  approved: {
-    icon: Check,
-    iconClass: "text-brand-green",
-    badgeClass: "border-brand-green/30 bg-brand-green/10 text-brand-green",
-  },
-  pending: {
-    icon: Clock3,
-    iconClass: "text-brand-cobalt",
-    badgeClass: "border-brand-cobalt/30 bg-brand-cobalt/10 text-brand-cobalt",
-  },
-  rejected: {
-    icon: X,
-    iconClass: "text-destructive",
-    badgeClass: "border-destructive/30 bg-destructive/10 text-destructive",
-  },
-  neutral: {
-    icon: UserRound,
-    iconClass: "text-muted-foreground",
-    badgeClass: "border-border bg-secondary text-muted-foreground",
-  },
-};
-
-function BuilderStatusSummaryCard({
-  label,
-  description,
-  tone,
-  isLoading,
-}: {
-  label: string;
-  description: string;
-  tone: BuilderStatusTone;
-  isLoading: boolean;
-}) {
-  const toneConfig = BUILDER_STATUS_TONE[tone];
-  const Icon = toneConfig.icon;
-
-  return (
-    <div className="flex min-h-[132px] flex-col justify-between rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted">
-          <Icon className={`h-4 w-4 ${toneConfig.iconClass}`} />
-        </div>
-        {isLoading ? (
-          <Skeleton className="h-5 w-24 rounded-full" />
-        ) : (
-          <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneConfig.badgeClass}`}
-          >
-            {label}
-          </span>
-        )}
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-foreground">Builder status</p>
-        {isLoading ? (
-          <Skeleton className="mt-2 h-4 w-44" />
-        ) : (
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
-        )}
-      </div>
+    <div className="w-full bg-muted/30 px-4 py-6 pb-10 sm:px-6 sm:py-8 sm:pb-12 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-7">{children}</div>
     </div>
   );
 }
@@ -460,107 +429,20 @@ function DashboardErrorCard({ message }: { message: string }) {
   );
 }
 
-function SkillsSummaryCard({ skills, isLoading }: { skills: string[]; isLoading: boolean }) {
-  return (
-    <div className="flex min-h-[132px] flex-col justify-between rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted">
-          <Sparkles className="h-4 w-4 text-brand-cyan" />
-        </div>
-        <a
-          href="https://hub.ironclaw.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Skills hub
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-foreground">Builder skills</p>
-        {isLoading ? (
-          <div className="mt-2 flex gap-1.5">
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </div>
-        ) : skills.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {skills.slice(0, 6).map((skill) => (
-              <Badge key={skill} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
-                {skill}
-              </Badge>
-            ))}
-            {skills.length > 6 && (
-              <Badge variant="outline" className="rounded-full px-2 py-0.5 text-xs">
-                +{skills.length - 6}
-              </Badge>
-            )}
-          </div>
-        ) : (
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Add skills to your builder profile, then manage broader credentials in the hub.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProjectsSummaryCard({
-  projectCount,
-  totalProjectVotes,
-  isLoading,
-}: {
-  projectCount: number;
-  totalProjectVotes: number;
-  isLoading: boolean;
-}) {
-  return (
-    <Link
-      to="/projects"
-      search={{ personal: true }}
-      className="group flex min-h-[116px] items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-border-strong hover:bg-secondary/40"
-    >
-      <div className="flex min-w-0 items-center gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted">
-          <FolderOpen className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">Project workspace</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            View every project and idea attached to this account.
-          </p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {isLoading ? (
-          <Skeleton className="h-8 w-12" />
-        ) : (
-          <div className="text-right">
-            <span className="block text-3xl font-semibold tracking-tight text-foreground">
-              {projectCount}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <ThumbsUp className="h-3 w-3" />
-              {totalProjectVotes} votes
-            </span>
-          </div>
-        )}
-        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-      </div>
-    </Link>
-  );
-}
-
 function ReviewActivityCard({
   builderProposal,
   auditEntries,
+  hasMore,
   isLoading,
+  isLoadingMore,
+  onLoadMore,
 }: {
   builderProposal: BuilderProposalData | null;
   auditEntries: AuditEntryData[];
+  hasMore: boolean;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
 }) {
   return (
     <Card>
@@ -572,7 +454,6 @@ function ReviewActivityCard({
               Review activity
             </p>
           </div>
-          {builderProposal && <BuilderStatusPill status={builderProposal.reviewStatus} />}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
@@ -607,6 +488,23 @@ function ReviewActivityCard({
                     </div>
                   </div>
                 ))}
+                {hasMore && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="mt-1 w-full justify-between px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={onLoadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? "Loading activity..." : "View more activity"}
+                    {isLoadingMore ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                )}
               </div>
             ) : (
               <p className="text-xs leading-relaxed text-muted-foreground">
@@ -645,6 +543,7 @@ function BuilderProfileCard({
     skillsRaw: "",
     location: "",
   });
+  const profileCardClassName = "overflow-hidden rounded-2xl border-brand-accent-border shadow-sm";
   const skills = form.skillsRaw
     .split(",")
     .map((skill) => skill.trim())
@@ -670,7 +569,7 @@ function BuilderProfileCard({
 
   if (isLoading) {
     return (
-      <Card className="min-h-[168px]">
+      <Card className={`${profileCardClassName} min-h-[168px]`}>
         <CardContent className="flex h-full min-h-[168px] items-center">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Loader2 size={14} className="animate-spin" />
@@ -683,8 +582,8 @@ function BuilderProfileCard({
 
   if (!builderProfile && !builderProposal) {
     return (
-      <Card>
-        <CardHeader className="pb-4">
+      <Card className={profileCardClassName}>
+        <CardHeader className="bg-brand-accent-light/60 pb-4">
           <div className="mb-1 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted">
               <Hammer size={14} className="text-brand-cyan" />
@@ -692,6 +591,7 @@ function BuilderProfileCard({
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Builder Profile
             </p>
+            <BuilderStatusPill status="not-listed" />
           </div>
           <CardTitle className="text-base">Get discovered as a builder</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -797,8 +697,8 @@ function BuilderProfileCard({
     const proposalPayload = readProposalPayload(builderProposal.payload);
 
     return (
-      <Card>
-        <CardHeader className="pb-4">
+      <Card className={profileCardClassName}>
+        <CardHeader className="bg-brand-accent-light/60 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted">
@@ -815,9 +715,8 @@ function BuilderProfileCard({
           <div className="rounded-xl border border-border bg-muted/35 p-4">
             <div className="space-y-0.5">
               <div className="text-sm font-semibold text-foreground">
-                {proposalPayload.name || nearAccountId}
+                {proposalPayload.name || "Builder application"}
               </div>
-              <div className="break-all font-mono text-xs text-brand-cyan">{nearAccountId}</div>
               {proposalPayload.location && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin size={10} />
@@ -873,83 +772,48 @@ function BuilderProfileCard({
     );
   }
 
-  const approvedBuilder = builderProfile!;
-
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Hammer size={14} className="text-muted-foreground" />
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Builder Profile
+    <Card className={profileCardClassName}>
+      <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-accent bg-brand-accent-light">
+            <Check className="h-4 w-4 text-foreground" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Builder Approved</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Your builder profile is live in the directory.
             </p>
           </div>
-          <BuilderStatusPill status="approved" />
         </div>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-3">
-        <div className="space-y-0.5">
-          <div className="font-semibold text-foreground text-sm">
-            {approvedBuilder.name || nearAccountId}
-          </div>
-          <div className="break-all text-xs font-mono text-brand-cyan">{nearAccountId}</div>
-          {approvedBuilder.location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin size={10} />
-              {approvedBuilder.location}
-            </div>
-          )}
-        </div>
-
-        {approvedBuilder.bio && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            {approvedBuilder.bio}
-          </p>
-        )}
-
-        {approvedBuilder.skills.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {approvedBuilder.skills.slice(0, 6).map((skill) => (
-              <Badge key={skill} variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
-                {skill}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild size="sm" variant="outline">
-            <Link to="/builders/$account" params={{ account: nearAccountId }}>
-              View public profile
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
-              Edit builder profile
-            </Link>
-          </Button>
-        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="w-full rounded-full border-brand-accent-border bg-background/70 sm:w-auto"
+        >
+          <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
+            Edit profile
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function BuilderStatusPill({ status }: { status: ProposalStatus | "approved" }) {
-  if (status === "approved") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-accent-light border border-brand-accent text-foreground">
-        <Check size={9} />
-        approved
-      </span>
-    );
-  }
+function BuilderStatusPill({ status }: { status: ProposalStatus | "not-listed" }) {
   if (status === "rejected") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive">
         <X size={9} />
         not approved
+      </span>
+    );
+  }
+  if (status === "not-listed") {
+    return (
+      <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+        not listed
       </span>
     );
   }
@@ -960,43 +824,86 @@ function BuilderStatusPill({ status }: { status: ProposalStatus | "approved" }) 
   );
 }
 
-function DashboardHeader({ nearAccountId }: { nearAccountId?: string | null }) {
+function DashboardHeader({
+  nearAccountId,
+  nearProfile,
+  showPublicProfile = false,
+}: {
+  nearAccountId?: string | null;
+  nearProfile?: Profile | null;
+  showPublicProfile?: boolean;
+}) {
+  const displayName = nearProfile?.name?.trim() || nearAccountId?.split(".")[0] || "builder";
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-2">
-        <div className="space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            Workspace
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Builder dashboard
+    <div className="relative overflow-hidden rounded-2xl border border-brand-accent-border bg-gradient-to-br from-brand-accent-light via-card to-muted shadow-sm">
+      <div
+        className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full border-[24px] border-brand-accent-border/40"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-28 left-1/2 h-48 w-48 rounded-full border-[18px] border-brand-accent-border/25"
+        aria-hidden="true"
+      />
+
+      <div className="relative flex flex-col gap-5 p-5 sm:p-6 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/75">
+              Builder workspace
+            </p>
+            {nearAccountId && (
+              <span className="max-w-full truncate rounded-full border border-border bg-background/80 px-2 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+                {nearAccountId}
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            {nearAccountId ? `Welcome back, ${displayName}` : "Builder dashboard"}
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Manage projects, ideas, skills, profile status, proposal review, and vote activity from
-            one place.
+            Manage your profile, projects, ideas, and builder activity from one focused workspace.
           </p>
         </div>
-      </div>
-      <div className="flex items-center gap-2 self-start">
-        {nearAccountId && (
-          <Button asChild size="sm" className="h-9 gap-1.5 rounded-full px-4 text-xs">
-            <Link to="/projects/new" search={{ tab: "write" }}>
-              <Plus className="h-3.5 w-3.5" />
-              New project or idea
+
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
+          {showPublicProfile && nearAccountId && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="flex-1 h-9 gap-1.5 rounded-full border-brand-accent-border bg-background/70 px-3 text-xs sm:flex-none"
+            >
+              <Link to="/builders/$account" params={{ account: nearAccountId }}>
+                View public profile
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          )}
+          {nearAccountId && (
+            <Button
+              asChild
+              size="sm"
+              className="order-last h-9 w-full gap-1.5 rounded-full px-4 text-xs sm:order-none sm:w-auto"
+            >
+              <Link to="/projects/new" search={{ tab: "write" }}>
+                <Plus className="h-3.5 w-3.5" />
+                New project or idea
+              </Link>
+            </Button>
+          )}
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="rounded-full border-brand-accent-border bg-background/70"
+            aria-label="Settings"
+          >
+            <Link to="/settings">
+              <Settings className="h-4 w-4" />
             </Link>
           </Button>
-        )}
-        <Button
-          asChild
-          variant="outline"
-          size="icon"
-          className="rounded-full"
-          aria-label="Settings"
-        >
-          <Link to="/settings">
-            <Settings className="h-4 w-4" />
-          </Link>
-        </Button>
+        </div>
       </div>
     </div>
   );
@@ -1007,7 +914,7 @@ interface Project {
   slug: string;
   title: string;
   description: string | null;
-  kind: "project" | "idea" | "scope" | "result";
+  kind: ProjectKind;
   status: "active" | "paused" | "archived";
   visibility: "private" | "unlisted" | "public";
 }
@@ -1017,32 +924,28 @@ function ProjectRow({ project, voteCount }: { project: Project; voteCount?: numb
     <Link
       to="/projects/$kind/$slug"
       params={{ kind: project.kind, slug: project.slug }}
-      className="block"
+      className="group block border-b border-border last:border-b-0"
     >
-      <Card className="transition-colors hover:bg-muted/40">
-        <CardHeader className="px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <KindChip kind={project.kind} />
-                <CardTitle className="truncate text-sm font-medium">{project.title}</CardTitle>
-              </div>
-              {project.description && (
-                <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {typeof voteCount === "number" && (
-                <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  <ThumbsUp className="h-3 w-3" />
-                  {voteCount}
-                </span>
-              )}
-              <StatusChip status={project.status} />
-            </div>
+      <div className="flex items-start justify-between gap-3 px-4 py-4 transition-colors hover:bg-muted/40 sm:px-5">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <KindChip kind={project.kind} />
+            <p className="truncate text-sm font-medium text-foreground">{project.title}</p>
           </div>
-        </CardHeader>
-      </Card>
+          {project.description && (
+            <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {typeof voteCount === "number" && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              <ThumbsUp className="h-3 w-3" />
+              {voteCount}
+            </span>
+          )}
+          <StatusChip status={project.status} />
+        </div>
+      </div>
     </Link>
   );
 }
