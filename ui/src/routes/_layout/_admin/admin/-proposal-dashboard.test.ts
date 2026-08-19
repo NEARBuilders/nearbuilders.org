@@ -6,7 +6,7 @@ import {
   hasCanonicalPage,
   isLifecycleStalled,
   type ProposalRecord,
-  parseDashboardSearch,
+  parseProposalTabSearch,
 } from "./-proposal-dashboard";
 
 function proposal(overrides: Partial<ProposalRecord> = {}): ProposalRecord {
@@ -35,18 +35,18 @@ function proposal(overrides: Partial<ProposalRecord> = {}): ProposalRecord {
 }
 
 describe("admin proposal dashboard", () => {
-  it("keeps dashboard state canonical", () => {
-    expect(parseDashboardSearch({ tab: "builders", status: "all", item: "" })).toEqual({
-      tab: undefined,
+  it("keeps proposal tab search canonical", () => {
+    expect(parseProposalTabSearch({ status: "all", item: "" })).toEqual({
       status: undefined,
       item: undefined,
+      q: undefined,
     });
     expect(
-      parseDashboardSearch({ tab: "activity", status: "rejected", item: "claim:alice:project" }),
+      parseProposalTabSearch({ status: "rejected", item: "claim:alice:project", q: " alice " }),
     ).toEqual({
-      tab: "activity",
       status: "rejected",
       item: "claim:alice:project",
+      q: "alice",
     });
   });
 

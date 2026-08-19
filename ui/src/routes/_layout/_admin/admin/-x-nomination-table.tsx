@@ -1,20 +1,12 @@
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Check, CheckCircle2, Clock3, ExternalLink, Send, XCircle } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type XNominationRecord, xNominationContext } from "@/lib/x-nomination-queue";
+import { DataTable } from "./-data-table";
 import { formatDate } from "./-proposal-dashboard";
 
 type XNominationStatus = XNominationRecord["engagementStatus"];
@@ -53,6 +45,11 @@ export function XNominationStatusBadge({ status }: { status: XNominationStatus }
   );
 }
 
+const ACTIONS_META = {
+  thClassName: "w-px whitespace-nowrap px-2 text-right",
+  tdClassName: "w-px whitespace-nowrap px-2",
+};
+
 export function XNominationTable({
   rows,
   selectedId,
@@ -62,7 +59,7 @@ export function XNominationTable({
   selectedId?: string;
   onSelect: (row: XNominationRecord) => void;
 }) {
-  const columns = useMemo<ColumnDef<XNominationRecord>[]>(
+  const columns = useMemo<ColumnDef<XNominationRecord, any>[]>(
     () => [
       {
         id: "nominee",
@@ -90,6 +87,10 @@ export function XNominationTable({
             </button>
           );
         },
+        meta: {
+          thClassName: "min-w-52",
+          tdClassName: "min-w-52 max-w-64 whitespace-normal",
+        },
       },
       {
         id: "referral",
@@ -112,6 +113,10 @@ export function XNominationTable({
             </div>
           );
         },
+        meta: {
+          thClassName: "min-w-80",
+          tdClassName: "min-w-80 max-w-xl whitespace-normal",
+        },
       },
       {
         id: "nominator",
@@ -126,6 +131,10 @@ export function XNominationTable({
             @{row.original.nominatorXUsername}
           </a>
         ),
+        meta: {
+          thClassName: "min-w-44",
+          tdClassName: "min-w-44 max-w-56 whitespace-normal",
+        },
       },
       {
         id: "activity",
@@ -140,11 +149,19 @@ export function XNominationTable({
             </span>
           </div>
         ),
+        meta: {
+          thClassName: "w-px whitespace-nowrap",
+          tdClassName: "w-px whitespace-nowrap",
+        },
       },
       {
         id: "status",
         header: "Status",
         cell: ({ row }) => <XNominationStatusBadge status={row.original.engagementStatus} />,
+        meta: {
+          thClassName: "w-px whitespace-nowrap px-2",
+          tdClassName: "w-px whitespace-nowrap px-2",
+        },
       },
       {
         id: "actions",
@@ -167,86 +184,22 @@ export function XNominationTable({
             </Tooltip>
           </div>
         ),
+        meta: ACTIONS_META,
       },
     ],
     [onSelect],
   );
-  const table = useReactTable({
-    data: rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.id,
-  });
 
   return (
-    <TooltipProvider>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table
-          aria-label="X nomination review queue"
-          className="table-auto"
-          style={{ width: "max-content", minWidth: "100%" }}
-        >
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      header.column.id === "nominee" && "min-w-52",
-                      header.column.id === "referral" && "min-w-80",
-                      header.column.id === "nominator" && "min-w-44",
-                      (header.column.id === "activity" ||
-                        header.column.id === "status" ||
-                        header.column.id === "actions") &&
-                        "w-px whitespace-nowrap",
-                      (header.column.id === "status" || header.column.id === "actions") && "px-2",
-                      header.column.id === "actions" && "text-right",
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={selectedId === row.original.id ? "selected" : undefined}
-                className="cursor-pointer"
-                onClick={() => onSelect(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      "min-w-0 py-3",
-                      cell.column.id === "nominee" && "min-w-52 max-w-64 whitespace-normal",
-                      cell.column.id === "referral" && "min-w-80 max-w-xl whitespace-normal",
-                      cell.column.id === "nominator" && "min-w-44 max-w-56 whitespace-normal",
-                      (cell.column.id === "activity" ||
-                        cell.column.id === "status" ||
-                        cell.column.id === "actions") &&
-                        "w-px whitespace-nowrap",
-                      (cell.column.id === "status" || cell.column.id === "actions") && "px-2",
-                    )}
-                    onClick={
-                      cell.column.id === "actions" ? (event) => event.stopPropagation() : undefined
-                    }
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </TooltipProvider>
+    <DataTable
+      data={rows}
+      columns={columns}
+      rowId={(row) => row.id}
+      ariaLabel="X nomination review queue"
+      selectedKey={selectedId}
+      getSelectedKey={(row) => row.id}
+      onRowClick={onSelect}
+    />
   );
 }
 
