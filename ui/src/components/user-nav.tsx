@@ -99,7 +99,7 @@ export function UserNav({ className }: { className?: string }) {
         </DropdownMenuItem>
         {user.role === "admin" && (
           <DropdownMenuItem asChild>
-            <Link to="/admin/dashboard">Admin Dashboard</Link>
+            <Link to="/admin/dashboard/builders">Admin Dashboard</Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
