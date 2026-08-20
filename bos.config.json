@@ -59,13 +59,17 @@
       },
       "secrets": [
         "PROPOSALS_DATABASE_URL"
-      ]
+      ],
+      "production": "https://elliot-braem-7542-everything-dev-proposals-plugin-8f087306a-ze.zephyrcloud.app",
+      "integrity": "sha384-r1RSJO0Em6cgW0oxKLqZC9VjZ5s4bjcG3UtRo73NHPiYwN2y5eRR9o9Oh2moyKax"
     },
     "votes": {
       "development": "local:plugins/votes",
       "secrets": [
         "VOTES_DATABASE_URL"
-      ]
+      ],
+      "production": "https://elliot-braem-7543-everything-dev-votes-plugin-nea-a1f03db80-ze.zephyrcloud.app",
+      "integrity": "sha384-N8VS4d0u8lpFQMF+W25nbnPnQanevq6CB3/aUEPSBpzWnZAVbsqk6Oo1zc6881dS"
     },
     "notifications": {
       "development": "local:plugins/notifications",
