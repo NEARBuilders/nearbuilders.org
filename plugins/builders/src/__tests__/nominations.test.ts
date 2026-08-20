@@ -3,8 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { createPluginRuntime } from "every-plugin";
+import { pluginMigrationSlug } from "everything-dev/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabaseDriver } from "../db";
+
+const buildersSchema = `plugin_${pluginMigrationSlug("builders")}`;
+
 import { builderNominations, builderXIdentities } from "../db/schema";
 import Plugin from "../index";
 import {
@@ -450,7 +454,7 @@ describe.sequential("Telegram builder nominations", () => {
     const token = new URL(claimed.joinUrl).searchParams.get("nomination")!;
 
     await isolatedRuntime.shutdown();
-    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`);
+    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`, buildersSchema);
     const [stored] = await driver.db.select().from(builderNominations).limit(1);
 
     expect(stored).toMatchObject({
@@ -593,7 +597,7 @@ describe.sequential("Telegram builder nominations", () => {
     });
 
     await migrationRuntime.shutdown();
-    const migratedDriver = await createDatabaseDriver(databaseUrl);
+    const migratedDriver = await createDatabaseDriver(databaseUrl, buildersSchema);
     const rows = await migratedDriver.db.select().from(builderNominations);
     const xIdentities = await migratedDriver.db.select().from(builderXIdentities);
     const canonical = rows.find((row) => row.id === canonicalId);

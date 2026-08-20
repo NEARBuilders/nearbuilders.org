@@ -10,9 +10,14 @@ export const DatabaseLive = (url: string) =>
   Layer.scoped(
     DatabaseTag,
     Effect.gen(function* () {
+      const pluginId = yield* PluginIdTag;
+      const slug = pluginMigrationSlug(pluginId);
+      const schemaName = pluginId === "api" ? undefined : `plugin_${slug}`;
+      const storage = getMigrationStorage(slug);
+
       const driver = yield* Effect.acquireRelease(
         Effect.tryPromise({
-          try: () => createDatabaseDriver(url),
+          try: () => createDatabaseDriver(url, schemaName),
           catch: (cause) => new DatabaseError({ stage: "driver", cause }),
         }),
         (driver) =>
@@ -22,8 +27,6 @@ export const DatabaseLive = (url: string) =>
           }).pipe(Effect.ignore),
       );
 
-      const pluginId = yield* PluginIdTag;
-      const storage = getMigrationStorage(pluginMigrationSlug(pluginId));
       const { migrations, source } = yield* loadMigrations();
 
       if (migrations.length === 0) {
@@ -31,7 +34,7 @@ export const DatabaseLive = (url: string) =>
           `[Database] No migrations found (source: ${source}) — schema may be missing`,
         );
       } else {
-        const applied = yield* migrate(driver.db, migrations, storage);
+        const applied = yield* migrate(driver.db, migrations, storage, schemaName);
 
         if (applied === 0) {
           yield* Effect.logInfo(
@@ -39,11 +42,11 @@ export const DatabaseLive = (url: string) =>
           );
         } else {
           yield* Effect.logInfo(
-            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table})`,
+            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table}, schema: ${schemaName ?? "public"})`,
           );
         }
 
-        const drift = yield* detectDrift(driver.db, migrations, storage);
+        const drift = yield* detectDrift(driver.db, migrations, storage, schemaName);
         if (drift.status === "healthy" || drift.status === "untracked-existing-schema") {
           yield* Effect.logInfo(`[Database] Ready`);
         } else if (drift.status === "drift-safe-repair") {

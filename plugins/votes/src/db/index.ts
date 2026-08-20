@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { Data } from "every-plugin/effect";
+import type { PoolConfig } from "pg";
 import * as schema from "./schema";
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -9,6 +10,16 @@ export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 export interface DatabaseDriver {
   readonly db: Database;
   close(): Promise<void>;
+}
+
+interface PoolLike {
+  on(event: "error", listener: (err: Error) => void): this;
+  on(
+    event: "connect",
+    listener: (client: { query: (sql: string) => Promise<unknown> }) => void,
+  ): this;
+  removeAllListeners(event?: string | symbol): this;
+  end(): Promise<void>;
 }
 
 export class DatabaseError extends Data.TaggedError("DatabaseError")<{
@@ -37,7 +48,49 @@ export function unwrapDatabaseError(error: unknown): string {
   return parts.join(": ");
 }
 
-export async function createDatabaseDriver(url: string): Promise<DatabaseDriver> {
+function buildPoolConfig(url: string): PoolConfig {
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
+  return {
+    connectionString: url,
+    ssl: isLocal
+      ? false
+      : { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === "true" },
+    max: Number(process.env.DB_POOL_MAX) || 10,
+    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 30_000,
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30_000,
+  };
+}
+
+function attachPoolSchemaHandlers(pool: PoolLike, schemaName: string | undefined): void {
+  pool.on("error", (err: Error) => {
+    console.error("[Database] Unexpected pool error:", err.message);
+  });
+  if (schemaName) {
+    pool.on("connect", (client) => {
+      client
+        .query(
+          `CREATE SCHEMA IF NOT EXISTS "${schemaName}"; SET search_path TO "${schemaName}", public`,
+        )
+        .catch((err: Error) => console.error("[Database] Schema init failed:", err.message));
+    });
+  }
+}
+
+function createCloseHandler(pool: PoolLike): () => Promise<void> {
+  let closed = false;
+  return async () => {
+    if (closed) return;
+    closed = true;
+    pool.removeAllListeners("error");
+    pool.removeAllListeners("connect");
+    await pool.end();
+  };
+}
+
+export async function createDatabaseDriver(
+  url: string,
+  schemaName?: string,
+): Promise<DatabaseDriver> {
   if (url.startsWith("pglite:") || url === ":memory:") {
     const { drizzle } = await import("drizzle-orm/pglite");
     const { PGlite } = await import("@electric-sql/pglite");
@@ -47,6 +100,10 @@ export async function createDatabaseDriver(url: string): Promise<DatabaseDriver>
       mkdirSync(dirname(dataDir), { recursive: true });
     }
     const pglite = new PGlite(dataDir);
+    if (schemaName) {
+      await pglite.exec(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+      await pglite.exec(`SET search_path TO "${schemaName}", public`);
+    }
     const db = drizzle(pglite, { schema });
     return {
       db,
@@ -58,31 +115,10 @@ export async function createDatabaseDriver(url: string): Promise<DatabaseDriver>
 
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
-  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
-  const pool = new Pool({
-    connectionString: url,
-    ssl: isLocal
-      ? false
-      : { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === "true" },
-    max: Number(process.env.DB_POOL_MAX) || 10,
-    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 30_000,
-    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30_000,
-  });
-  pool.on("error", (err: Error) => {
-    console.error("[Database] Unexpected pool error:", err.message);
-  });
-  let closed = false;
+  const pool = new Pool(buildPoolConfig(url));
+  attachPoolSchemaHandlers(pool, schemaName);
   return {
     db: drizzle(pool, { schema }),
-    close: async () => {
-      if (closed) return;
-      closed = true;
-      pool.removeAllListeners("error");
-      console.error(
-        "[Database] pool.end() called from:",
-        new Error("pool.end() stack trace").stack,
-      );
-      await pool.end();
-    },
+    close: createCloseHandler(pool),
   };
 }
