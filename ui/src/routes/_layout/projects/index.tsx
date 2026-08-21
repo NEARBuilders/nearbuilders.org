@@ -1259,12 +1259,14 @@ function ProjectsList() {
     void navigate({
       to: "/projects",
       search: (previous) => ({ ...previous, preview: projectId }),
+      resetScroll: false,
     });
   };
   const closePreview = useCallback(() => {
     void navigate({
       to: "/projects",
       search: (previous) => ({ ...previous, preview: undefined }),
+      resetScroll: false,
     });
   }, [navigate]);
   useEffect(() => {

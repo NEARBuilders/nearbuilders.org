@@ -30,6 +30,7 @@ export function useProposalTabActions(): ProposalTabActions {
       void navigate({
         search: (previous: ProposalTabSearch) => ({ ...previous, item }),
         replace: item === undefined,
+        resetScroll: false,
       } as never);
     },
   };
