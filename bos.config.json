@@ -67,6 +67,12 @@
         "VOTES_DATABASE_URL"
       ]
     },
+    "bookmarks": {
+      "development": "local:plugins/bookmarks",
+      "secrets": [
+        "BOOKMARKS_DATABASE_URL"
+      ]
+    },
     "notifications": {
       "development": "local:plugins/notifications",
       "secrets": [

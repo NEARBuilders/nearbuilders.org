@@ -1,8 +1,21 @@
-import { BarChart2, FileText, Globe, Layers, Lock, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  BarChart2,
+  Bookmark,
+  FileText,
+  Globe,
+  Layers,
+  Lock,
+  Share2,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { NewBadge } from "@/components/ui/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { useBookmark } from "@/lib/bookmarks";
 import { cn } from "@/lib/utils";
 
 export type VoteDirection = "up" | "down" | null;
@@ -68,9 +81,33 @@ export function ProjectDirectoryListRow({
   onUpvote: () => void;
   onDownvote: () => void;
 }) {
+  const { isBookmarked, toggle: toggleBookmark, canBookmark } = useBookmark(project.id);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    const url =
+      project.catalogUrl ??
+      (typeof window !== "undefined"
+        ? `${window.location.origin}/projects/${project.kind}/${project.slug}`
+        : "");
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Copying links is unavailable in this browser.");
+      return;
+    }
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopied(true);
+        toast.success("Link copied");
+        window.setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => toast.error("Could not copy the link."));
+  };
+
   return (
     <div
-      className={`border-b border-border flex items-center gap-2.5 px-3.5 py-3 transition-all duration-[120ms] ${isSelected ? "lg:bg-brand-accent-light lg:border-l-[3px] lg:border-l-brand-accent" : "border-l-[3px] border-l-transparent hover:bg-muted/60"}`}
+      className={`group border-b border-border flex items-center gap-2.5 px-3.5 py-3 transition-all duration-[120ms] ${isSelected ? "lg:bg-brand-accent-light lg:border-l-[3px] lg:border-l-brand-accent" : "border-l-[3px] border-l-transparent hover:bg-muted/60"}`}
     >
       <span
         className={`hidden lg:block w-6 text-xs font-bold text-center shrink-0 ${isSelected ? "text-brand-accent" : "text-muted-foreground/40"}`}
@@ -96,6 +133,35 @@ export function ProjectDirectoryListRow({
         <ProjectImage project={project} />
         <ProjectDirectoryRowContent project={project} />
       </button>
+      <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleBookmark();
+          }}
+          disabled={!canBookmark}
+          className={cn(
+            "rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground",
+            isBookmarked && "text-brand-accent opacity-100",
+          )}
+          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark project"}
+          title={canBookmark ? undefined : "Sign in to bookmark"}
+        >
+          <Bookmark size={13} fill={isBookmarked ? "currentColor" : "none"} />
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          className={cn(
+            "rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+            copied && "text-brand-accent opacity-100",
+          )}
+          aria-label="Copy project link"
+        >
+          <Share2 size={13} />
+        </button>
+      </div>
       <div className="flex shrink-0 items-center gap-1 rounded-lg bg-secondary px-1 py-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
