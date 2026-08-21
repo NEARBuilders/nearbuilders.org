@@ -13,6 +13,16 @@ const NostrCommentOutput = z.object({
   createdAt: z.number().int(),
   tags: z.array(z.array(z.string())).optional(),
   source: z.enum(["standard", "buzz"]),
+  profile: z
+    .object({
+      name: z.string().optional().nullable(),
+      picture: z.string().optional().nullable(),
+      about: z.string().optional().nullable(),
+      nip05: z.string().optional().nullable(),
+      website: z.string().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 
 const RelayStatusOutput = z.object({

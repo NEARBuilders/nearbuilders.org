@@ -896,7 +896,7 @@ function BuilderCard({
       to="/builders/$account"
       params={{ account: nearAccount }}
       className={cn(
-        "group relative flex min-h-72 flex-col rounded-xl border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-accent-border hover:shadow-md",
+        "group relative flex min-h-72 flex-col rounded-xl border bg-background p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-accent-border hover:shadow-md",
         layout === "list" && "sm:min-h-0 sm:flex-row sm:items-center sm:gap-4 sm:p-4",
         isNominated ? "border border-dashed border-border" : "border border-border",
       )}

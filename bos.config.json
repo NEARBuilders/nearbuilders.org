@@ -104,12 +104,6 @@
       "production": "https://elliot-braem-7054-everything-dev-activity-plugin--4e38358a3-ze.zephyrcloud.app",
       "integrity": "sha384-WvvEA+B14JciiH2y2nejMar/ZVjaZqksbXocTJ091XhtuOAW7KiqHUCMzu0e1dIZ"
     },
-    "mcp": {
-      "development": "local:plugins/mcp",
-      "variables": {
-        "MCP_PLUGIN_REGISTRY_URL": "http://localhost:3000"
-      }
-    },
     "nearcatalog": {
       "development": "local:plugins/nearcatalog",
       "variables": {

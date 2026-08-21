@@ -8,27 +8,16 @@ import {
 } from "near-nostr-sdk";
 import { type FormEvent, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { useAuthClient, sessionQueryOptions } from "@/app";
-import { getRuntimeConfig } from "everything-dev/ui/runtime";
+import { useApiClient, type ApiClient, sessionQueryOptions, useAuthClient } from "@/app";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
-type NostrComment = {
-  id: string;
-  eventId?: string;
-  pubkey: string;
-  nearAccountId?: string;
-  content: string;
-  createdAt: number;
-  parentId?: string;
-  profile?: {
-    name?: string;
-    picture?: string;
-    about?: string;
-  };
-};
+// Types inferred from the generated apiClient contract — single source of truth
+type NostrComment = Awaited<
+  ReturnType<ApiClient["listNostrComments"]>
+>["data"][number];
 
 type NostrFeedProps = {
   target: string;
@@ -92,7 +81,7 @@ function CommentRow({ comment }: { comment: NostrComment }) {
           </span>
           <PubkeyBadge
             pubkey={comment.pubkey}
-            nearAccountId={comment.nearAccountId}
+            nearAccountId={comment.nearAccountId ?? undefined}
           />
         </div>
         <p className="text-sm text-foreground/90 break-words">
@@ -144,24 +133,19 @@ export function NostrFeed({
 }: NostrFeedProps) {
   const [content, setContent] = useState("");
   const auth = useAuthClient();
+  const apiClient = useApiClient();
   const queryClient = useQueryClient();
-
-  const apiUrl = getRuntimeConfig().hostUrl + "/api";
 
   const { data: commentsData, isLoading } = useQuery({
     queryKey: ["nostr-comments", target, adapterType, requireBound],
-    queryFn: async () => {
-      const params = new URLSearchParams({
+    queryFn: () =>
+      apiClient.listNostrComments({
         target,
         targetType,
         adapterType,
-      });
-      const res = await fetch(`${apiUrl}/v1/comments?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(`Failed to fetch comments: ${res.status}`);
-      return res.json() as Promise<{ data: NostrComment[]; meta: { count: number } }>;
-    },
+        requireBound,
+        enrich: true,
+      }),
     refetchInterval: 30_000,
   });
 
@@ -209,26 +193,15 @@ export function NostrFeed({
       const signedEvent: NostrEvent = await signer.signEvent(template);
       console.log("[NOSTR-FEED] signedEvent:", signedEvent.id?.slice(0, 12));
 
-      // Publish via REST — server-side plugin publishes to relays
+      // Publish via API — server-side plugin publishes to relays
       // (CSP blocks direct wss:// from browser; Firefox doesn't allow wss under https:)
-      console.log("[NOSTR-FEED] posting to:", `${apiUrl}/v1/comments`);
-      const payload = { event: signedEvent, target, targetType, adapterType };
-      console.log("[NOSTR-FEED] payload kind:", signedEvent.kind, "event keys:", Object.keys(signedEvent));
-      console.log("[NOSTR-FEED] raw payload:", JSON.stringify(payload));
-      const res = await fetch(`${apiUrl}/v1/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
+      const result = await apiClient.createNostrComment({
+        event: signedEvent,
+        target,
+        targetType,
+        adapterType,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("[NOSTR-FEED] post failed:", res.status, err);
-        throw new Error(err?.message ?? `Failed to post: ${res.status}`);
-      }
-      const result = await res.json();
-      console.log("[NOSTR-FEED] post result:", JSON.stringify(result));
-      const statuses = result.statuses || [];
+      const statuses = result.statuses ?? [];
       const okCount = statuses.filter((s: { success: boolean }) => s.success).length;
       if (okCount === 0) {
         throw new Error(`All relays rejected the event`);
@@ -248,7 +221,6 @@ export function NostrFeed({
       e.preventDefault();
       const text = content.trim();
       if (!text || isPosting) return;
-      console.log("[NOSTR-FEED] handleSubmit:", { text: text.slice(0, 30), isPosting, hasNostrKey, nearAccountId });
       postComment(text);
     },
     [content, isPosting, postComment],
@@ -322,7 +294,7 @@ export function NostrFeed({
         ) : (
           <div className="divide-y divide-border">
             {comments.map((c) => (
-              <CommentRow key={c.eventId ?? c.id} comment={c} />
+              <CommentRow key={c.id} comment={c} />
             ))}
           </div>
         )}
