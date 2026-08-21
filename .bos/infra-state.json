@@ -1,0 +1,22 @@
+{
+  "postgresPorts": {
+    "activity": 5434,
+    "api": 5432,
+    "auth": 5433,
+    "builders": 5435,
+    "events": 5436,
+    "nearcatalog": 5437,
+    "notifications": 5438,
+    "projects": 5439,
+    "proposals": 5440,
+    "votes": 5441
+  },
+  "redisPorts": {},
+  "devPorts": {
+    "host": 3000,
+    "api": 3001,
+    "auth": 3002,
+    "ui": 3003,
+    "pluginPortStart": 3010
+  }
+}
