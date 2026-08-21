@@ -23,11 +23,14 @@ function testUser(id: string, role: string) {
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const files = ["0000_third_dazzler.sql", "0001_clear_champions.sql"];
+  const timestamps = [1782299122315, 1783924992496];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
   return {
     default: sources.map((source, index) => ({
+      idx: index,
+      when: timestamps[index],
       hash: `activity-test-${index}`,
       tag: files[index],
       sql: source.split("--> statement-breakpoint").map((statement) => statement.trim()),

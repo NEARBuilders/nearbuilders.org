@@ -61,7 +61,7 @@ function LeaderboardPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-foreground mb-2">Leaderboard</h1>

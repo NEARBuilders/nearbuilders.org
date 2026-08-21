@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_layout/about")({
   },
   head: () => ({
     meta: [
-      { title: "About | app" },
+      { title: "About | NEAR Builders" },
       { name: "description", content: "About this runtime-composed app on NEAR." },
     ],
   }),
@@ -58,7 +58,7 @@ function About() {
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="flex-1">
-        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 animate-fade-in">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 animate-fade-in">
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">

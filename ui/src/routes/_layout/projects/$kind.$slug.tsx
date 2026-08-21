@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import {
-  ArrowLeft,
   BarChart2,
   Check,
   ExternalLink,
@@ -25,10 +24,16 @@ import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
-import { fetchRepositoryReadme } from "@/lib/repository-content";
+import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  fetchRepositoryLastCommitDate,
+  fetchRepositoryReadme,
+  mostRecentIsoDate,
+} from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
@@ -111,6 +116,7 @@ function ProjectDetailPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const search = Route.useSearch();
+  const listSearch = { ...search, preview: undefined };
 
   const [copied, setCopied] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -136,6 +142,16 @@ function ProjectDetailPage() {
     enabled: project?.kind === "project" && Boolean(project?.repository),
   });
 
+  const lastCommitQuery = useQuery({
+    queryKey: ["lastCommit", project?.id, project?.repository],
+    queryFn: async () => {
+      if (!project?.repository) return null;
+      return await fetchRepositoryLastCommitDate(project.repository);
+    },
+    enabled: project?.kind === "project" && Boolean(project?.repository),
+    staleTime: 5 * 60_000,
+  });
+
   const upvoteCountQuery = useQuery({
     queryKey: ["upvoteCount", projectId],
     queryFn: () => apiClient.getUpvoteCount({ entityId: projectId! }),
@@ -156,13 +172,7 @@ function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       navigate({
         to: "/projects",
-        search: {
-          preview: undefined,
-          kind: search.kind,
-          personal: search.personal,
-          private: search.private,
-          verified: search.verified,
-        },
+        search: listSearch,
       });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to delete"),
@@ -203,13 +213,20 @@ function ProjectDetailPage() {
     else downvoteMutation.mutate();
   };
 
-  const handleShare = useCallback(() => {
+  const handleShare = useCallback(async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
-    navigator.clipboard.writeText(url).then(() => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Copying links is unavailable in this browser.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success("Link copied");
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {
+      toast.error("Could not copy the link.");
+    }
   }, []);
 
   if (projectQuery.isLoading) {
@@ -233,13 +250,7 @@ function ProjectDetailPage() {
         <p className="text-base font-semibold text-foreground">Project not found.</p>
         <Link
           to="/projects"
-          search={{
-            preview: undefined,
-            kind: search.kind,
-            personal: search.personal,
-            private: search.private,
-            verified: search.verified,
-          }}
+          search={listSearch}
           className="text-sm font-bold text-brand-accent hover:underline"
         >
           {"\u2190"} Back to projects
@@ -248,23 +259,27 @@ function ProjectDetailPage() {
     );
   }
 
+  const effectiveUpdatedAt =
+    mostRecentIsoDate(project.updatedAt, lastCommitQuery.data) ?? project.updatedAt;
   const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
   const canManage = isOwner;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
+  const voteCountAvailable = !upvoteCountQuery.isLoading && !upvoteCountQuery.isError;
   const voteDirection = userVoteQuery.data ?? null;
 
   const renderedContent =
     project.kind === "idea" || project.kind === "scope" || project.kind === "result"
       ? project.content
       : (readmeQuery.data ?? project.description ?? null);
+  const readmeUnavailable = project.kind === "project" && readmeQuery.isError && !readmeQuery.data;
 
   const metaItems = (
     <div className="space-y-4">
       <MetaSectionLabel>Details</MetaSectionLabel>
+      <MetaItem label="Status" value={project.status} />
       <MetaItem label="Visibility" value={project.visibility} />
-      <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
       <MetaLinkItem
-        label="Builder"
+        label="Owner / builder"
         to="/builders/$account"
         params={{ account: project.ownerId }}
         value={shortenId(project.ownerId)}
@@ -273,176 +288,137 @@ function ProjectDetailPage() {
       <MetaItem label="Slug" value={project.slug} mono />
       {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
       <MetaItem label="Created" value={formatDate(project.createdAt)} />
-      <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
+      <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
     </div>
   );
 
   return (
     <TooltipProvider>
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="min-h-[calc(100dvh-4rem)] bg-muted/30">
         {/* top bar */}
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-          {/* breadcrumb */}
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="icon-sm" aria-label="Back to projects">
-              <Link
-                to="/projects"
-                search={{
-                  preview: project.id,
-                  kind: search.kind,
-                  personal: search.personal,
-                  private: search.private,
-                  verified: search.verified,
-                }}
-              >
-                <ArrowLeft size={15} />
-              </Link>
-            </Button>
-            <span className="hidden text-muted-foreground sm:inline">/</span>
-            <span className="hidden max-w-[160px] truncate text-sm font-semibold text-foreground sm:block">
-              {project.slug}
-            </span>
-          </div>
-
-          {/* actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* vote widget */}
-            <div className="inline-flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 bg-secondary">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <VoteButton
-                    icon={<ThumbsUp size={18} strokeWidth={2.25} />}
-                    onClick={() => runVote("up")}
-                    label="Upvote"
-                    disabled={!canParticipate || upvoteMutation.isPending}
-                    active={voteDirection === "up"}
-                    activeColor="text-brand-accent"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Endorse this entry</TooltipContent>
-              </Tooltip>
-              <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
-                {voteCount}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <VoteButton
-                    icon={<ThumbsDown size={18} strokeWidth={2.25} />}
-                    onClick={() => runVote("down")}
-                    label="Downvote"
-                    disabled={!canParticipate || downvoteMutation.isPending}
-                    active={voteDirection === "down"}
-                    activeColor="text-destructive"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Remove your endorsement</TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* repo link */}
-            {project.repository && (
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="hidden sm:inline-flex max-w-[160px]"
-              >
-                <a
-                  href={project.repository}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={project.repository}
-                >
-                  {isGithubUrl(project.repository) ? <GithubIcon size={13} /> : <Globe size={13} />}
-                  <span className="truncate">
-                    {project.repository
-                      .replace(/^https?:\/\/(www\.)?/, "")
-                      .split("/")
-                      .slice(0, 2)
-                      .join("/")}
-                  </span>
-                </a>
-              </Button>
-            )}
-
-            {/* share */}
-            <VoteButton
-              icon={copied ? <Check size={14} /> : <Share2 size={14} />}
-              onClick={handleShare}
-              label={copied ? "Link copied" : "Copy link"}
-              active={copied}
-              activeColor="text-brand-accent"
+        <div className="border-b border-border bg-background">
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{ ...listSearch, preview: project.id }}
+              current={project.slug}
             />
 
-            {/* details sheet trigger */}
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon-sm"
-              className="sm:hidden"
-              onClick={() => setDetailsOpen(true)}
-              aria-label="Show details"
-            >
-              <Info size={15} />
-            </Button>
+            {/* actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* vote widget */}
+              <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-card px-1 py-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <VoteButton
+                      size="compact"
+                      icon={<ThumbsUp size={18} strokeWidth={2.25} />}
+                      onClick={() => runVote("up")}
+                      label="Upvote"
+                      disabled={!canParticipate || upvoteMutation.isPending}
+                      active={voteDirection === "up"}
+                      activeColor="text-brand-accent"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Endorse this entry</TooltipContent>
+                </Tooltip>
+                <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
+                  {voteCountAvailable ? voteCount : "—"}
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <VoteButton
+                      size="compact"
+                      icon={<ThumbsDown size={18} strokeWidth={2.25} />}
+                      onClick={() => runVote("down")}
+                      label="Downvote"
+                      disabled={!canParticipate || downvoteMutation.isPending}
+                      active={voteDirection === "down"}
+                      activeColor="text-destructive"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Remove your endorsement</TooltipContent>
+                </Tooltip>
+              </div>
 
-            {canManage && (
-              <>
-                <Button asChild size="sm" variant="outline">
-                  <Link
-                    to="/projects/$kind/$slug/edit"
-                    params={{ kind: project.kind, slug: project.slug }}
-                    search={{
-                      tab: "write",
-                      kind: search.kind,
-                      personal: search.personal,
-                      private: search.private,
-                      verified: search.verified,
+              {/* share */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={handleShare}
+                aria-label={copied ? "Link copied" : "Copy link"}
+              >
+                {copied ? <Check size={14} /> : <Share2 size={14} />}
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-sm"
+                className="sm:hidden"
+                onClick={() => setDetailsOpen(true)}
+                aria-label="Show details"
+              >
+                <Info size={15} />
+              </Button>
+
+              {canManage && (
+                <>
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to="/projects/$kind/$slug/edit"
+                      params={{ kind: project.kind, slug: project.slug }}
+                      search={{ ...listSearch, tab: "write" }}
+                    >
+                      <Pencil size={13} />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm("Delete this project permanently?")) deleteMutation.mutate();
                     }}
+                    disabled={deleteMutation.isPending}
                   >
-                    <Pencil size={13} />
-                    <span className="hidden sm:inline">Edit</span>
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => {
-                    if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-                  }}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 size={13} />
-                  <span className="hidden sm:inline">Delete</span>
-                </Button>
-              </>
-            )}
+                    <Trash2 size={13} />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
         {/* body */}
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto grid w-full max-w-7xl gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-9 lg:px-8">
           {/* main content */}
-          <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-            <div className="mx-auto max-w-3xl space-y-4">
+          <div className="min-w-0">
+            <div className="mx-auto max-w-4xl space-y-6">
               <ProjectReviewStatus projectId={project.id} visible={isOwner} />
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <KindChip kind={project.kind} />
-                  {project.kind !== "result" && project.status !== "active" && (
-                    <StatusChip status={project.status} />
-                  )}
+                  <StatusChip status={project.status} />
                   <NewBadge createdAt={project.createdAt} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-[26px] sm:text-[30px] font-semibold leading-tight text-foreground">
+                  <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
                     {project.title}
                   </h1>
                   {project.visibility === "private" && <PrivateIndicator />}
                 </div>
                 {project.description && (
-                  <p className="text-[15px] leading-relaxed text-muted-foreground">
+                  <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
                     {project.description}
+                  </p>
+                )}
+                {!canParticipate && (
+                  <p className="text-xs text-muted-foreground">
+                    Link an identity to endorse entries.
                   </p>
                 )}
                 {project.repository && (
@@ -462,23 +438,50 @@ function ProjectDetailPage() {
                 )}
               </div>
 
-              <div className="h-px bg-border" />
-
-              {project.kind === "project" && readmeQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading README\u2026</p>
-              ) : renderedContent ? (
-                <Markdown content={renderedContent} />
-              ) : (
-                <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
-                  {project.kind === "project"
-                    ? "No README available for this repository."
-                    : project.kind === "scope"
-                      ? "This scope has no content yet."
-                      : project.kind === "result"
-                        ? "This result has no content yet."
-                        : "This idea has no content yet."}
+              <section className="border-t border-border pt-6">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                      {project.kind === "project" ? "README" : "Entry details"}
+                    </p>
+                    <h2 className="mt-1 text-xl font-semibold text-foreground">
+                      {project.kind === "project" ? "About this project" : "What was shared"}
+                    </h2>
+                  </div>
+                  {project.kind === "project" && project.repository && (
+                    <span className="text-xs text-muted-foreground">
+                      Fetched from the default branch
+                    </span>
+                  )}
                 </div>
-              )}
+
+                <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+                  {readmeUnavailable && (
+                    <p className="mb-5 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                      README unavailable. Showing the project description instead.
+                    </p>
+                  )}
+                  {project.kind === "project" && readmeQuery.isLoading ? (
+                    <div className="space-y-3">
+                      <div className="h-5 w-1/3 animate-pulse rounded bg-border" />
+                      <div className="h-3 w-full animate-pulse rounded bg-border" />
+                      <div className="h-3 w-5/6 animate-pulse rounded bg-border" />
+                    </div>
+                  ) : renderedContent ? (
+                    <Markdown content={renderedContent} />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+                      {project.kind === "project"
+                        ? "No README available for this repository."
+                        : project.kind === "scope"
+                          ? "This scope has no content yet."
+                          : project.kind === "result"
+                            ? "This result has no content yet."
+                            : "This idea has no content yet."}
+                    </div>
+                  )}
+                </div>
+              </section>
 
               {(project.kind === "scope" || project.kind === "result") && (
                 <MentionsSection projectId={project.id} />
@@ -487,7 +490,7 @@ function ProjectDetailPage() {
           </div>
 
           {/* desktop sidebar */}
-          <div className="hidden sm:block w-[220px] shrink-0 border-l border-border overflow-y-auto bg-muted px-5 py-6">
+          <div className="hidden rounded-2xl border border-border bg-card p-5 shadow-sm sm:block lg:sticky lg:top-24 lg:self-start">
             {metaItems}
           </div>
         </div>
@@ -511,7 +514,7 @@ function ProjectDetailPage() {
                 <MetaItem label="Slug" value={project.slug} mono />
                 {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
                 <MetaItem label="Created" value={formatDate(project.createdAt)} />
-                <MetaItem label="Updated" value={formatDate(project.updatedAt)} />
+                <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
               </div>
             </div>
             <div
@@ -535,6 +538,8 @@ function PrivateIndicator() {
   return (
     <span
       title="Private"
+      role="img"
+      aria-label="Private"
       className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary p-1 text-muted-foreground"
     >
       <Lock size={12} />
@@ -550,7 +555,7 @@ function KindChip({ kind }: { kind: "project" | "idea" | "scope" | "result" }) {
     result: <BarChart2 size={11} />,
   };
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold border border-border bg-secondary text-foreground">
+    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">
       {icons[kind]}
       {kind}
     </span>
@@ -637,7 +642,7 @@ function StatusChip({ status }: { status: string }) {
   };
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border ${variants[status] ?? "border-border bg-muted text-muted-foreground"}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${variants[status] ?? "border-border bg-muted text-muted-foreground"}`}
     >
       {status}
     </span>
@@ -656,7 +661,7 @@ function MetaItem({ label, value, mono }: { label: string; value: string; mono?:
   return (
     <div className="space-y-0.5">
       <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
-      <div className={`text-[13px] text-foreground break-all ${mono ? "font-mono" : ""}`}>
+      <div className={`break-words text-[13px] text-foreground ${mono ? "font-mono" : ""}`}>
         {value}
       </div>
     </div>
@@ -682,7 +687,7 @@ function MetaLinkItem({
       <Link
         to={to}
         params={params}
-        className={`text-[13px] text-brand-cyan hover:underline break-all ${mono ? "font-mono" : ""}`}
+        className={`break-words text-[13px] text-brand-cyan hover:underline ${mono ? "font-mono" : ""}`}
       >
         {value}
       </Link>

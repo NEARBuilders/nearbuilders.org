@@ -6,6 +6,7 @@ import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
@@ -44,6 +45,8 @@ export function deriveTelegramNominationStatus(
   }
   return "processing";
 }
+
+export const deriveNominationStatus = deriveTelegramNominationStatus;
 
 type VisibilityValue = "private" | "unlisted" | "public";
 
@@ -93,6 +96,115 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const nominateBuilder = async (
+      input: {
+        nearAccount: string;
+        payload: unknown;
+        source?: string;
+        metadata?: unknown;
+      },
+      context: Context,
+    ) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+
+      const nominatorAccount = context.near?.primaryAccountId;
+      if (!nominatorAccount) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "A linked NEAR account is required to nominate a builder",
+        });
+      }
+
+      const nominatorAccounts = new Set(
+        [
+          nominatorAccount,
+          ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+        ]
+          .map((accountId) => accountId.trim().toLowerCase())
+          .filter(Boolean),
+      );
+
+      const nearAccount = input.nearAccount.trim().toLowerCase();
+      assertValidBuilderProposalAccount({ pluginId: "builders", entityId: nearAccount });
+      if (nominatorAccounts.has(nearAccount)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Use the builder profile endpoint to submit your own profile",
+        });
+      }
+
+      const proposalsClient = services.plugins.proposals({
+        ...context,
+        resubmissionPolicy: "rejected-only",
+      });
+      const votesClient = services.plugins.votes(context);
+      const loadProposal = async () => {
+        const result = await proposalsClient.getProposals({
+          pluginId: "builders",
+          entityId: nearAccount,
+          limit: 1,
+        });
+        return result.data[0] ?? null;
+      };
+      const response = (
+        proposal: { id: string; submissionCount: number },
+        voteCount: number,
+        alreadyNominated: boolean,
+      ) => ({
+        data: {
+          nearAccount,
+          proposalId: proposal.id,
+          nominationCount: proposal.submissionCount + voteCount,
+          voteCount,
+          alreadyNominated,
+        },
+      });
+      const nominateExisting = async (
+        proposal: NonNullable<Awaited<ReturnType<typeof loadProposal>>>,
+      ) => {
+        if (proposal.reviewStatus === "approved") {
+          throw new ORPCError("BAD_REQUEST", { message: "This builder is already listed" });
+        }
+        if (proposal.reviewStatus !== "pending") {
+          throw new ORPCError("BAD_REQUEST", { message: "This builder nomination is closed" });
+        }
+
+        const [submission, vote, voteCount] = await Promise.all([
+          proposalsClient.getMySubmission({ pluginId: "builders", entityId: nearAccount }),
+          votesClient.getUserVote({ entityId: proposal.id }),
+          votesClient.getUpvoteCount({ entityId: proposal.id }),
+        ]);
+        if (submission.hasSubmitted || vote.hasUpvote) {
+          return { proposal, response: response(proposal, voteCount.totalCount, true) };
+        }
+
+        const upvote = await votesClient.upvote({ entityId: proposal.id });
+        return { proposal, response: response(proposal, upvote.totalCount, false) };
+      };
+
+      const existing = await loadProposal();
+      if (existing) return await nominateExisting(existing);
+
+      try {
+        const proposed = await proposalsClient.propose({
+          pluginId: "builders",
+          entityId: nearAccount,
+          payload: input.payload,
+          source: input.source ?? "web",
+          metadata: input.metadata,
+          idempotencyKey: `builder-nomination:${context.userId}:${nearAccount}`,
+        });
+        const voteCount = await votesClient.getUpvoteCount({ entityId: proposed.data.id });
+        return {
+          proposal: proposed.data,
+          response: response(proposed.data, voteCount.totalCount, false),
+        };
+      } catch (error) {
+        const racedProposal = await loadProposal().catch(() => null);
+        if (!racedProposal) throw error;
+        return await nominateExisting(racedProposal);
+      }
+    };
     const resolveNominationResponse = async (
       nomination: {
         nominationId: string;
@@ -161,6 +273,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         },
       ),
 
+      createXNomination: builder.createXNomination.handler(async ({ input, context }) => {
+        return await services.plugins.builders(context).createXNomination(input);
+      }),
+
       claimTelegramNomination: builder.claimTelegramNomination.handler(
         async ({ input, context }) => {
           const nomination = await services.plugins
@@ -194,11 +310,24 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
 
           const nominationResolution = input.nominationToken
-            ? await buildersClient.resolveTelegramNomination({
+            ? await buildersClient.resolveNomination({
                 token: input.nominationToken,
+                recordOpen: false,
               })
             : null;
           const nomination = nominationResolution?.status === "ready" ? nominationResolution : null;
+          const proposalsClient = services.plugins.proposals(context);
+          const pendingProfiles = await proposalsClient.getProposals({
+            pluginId: "builders",
+            entityId: nearAccount.toLowerCase(),
+            reviewStatus: "pending",
+            limit: 1,
+          });
+          if (pendingProfiles.data.length > 0 && !nomination) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "A builder profile is already pending review for this NEAR account",
+            });
+          }
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -210,20 +339,28 @@ export default createPlugin.withPlugins<PluginsClient>()({
               location: input.location || undefined,
               links: input.links,
             },
-            source: nomination ? "telegram" : "web",
+            source: nomination?.source ?? "web",
             ...(nomination
               ? {
-                  idempotencyKey: `telegram-builder-profile:${nomination.nominationId}`,
+                  idempotencyKey: `${nomination.source}-builder-profile:${nomination.nominationId}`,
                   metadata: {
                     nominationId: nomination.nominationId,
                     source: nomination.source,
+                    ...(nomination.source === "x"
+                      ? {
+                          referralNominationId: nomination.referralNominationId,
+                          sourcePostId: nomination.referralContext?.sourcePostId ?? null,
+                          nomineeXId: nomination.referralContext?.nomineeXId ?? null,
+                          nominatorXId: nomination.referralContext?.nominatorXId ?? null,
+                        }
+                      : {}),
                   },
                 }
               : {}),
           };
-          const proposal = await services.plugins.proposals(context).propose(proposalInput);
+          const proposal = await proposalsClient.propose(proposalInput);
           if (nomination && input.nominationToken) {
-            await buildersClient.finalizeTelegramNomination({
+            await buildersClient.finalizeNomination({
               token: input.nominationToken,
               proposalId: proposal.data.id,
             });
@@ -235,6 +372,25 @@ export default createPlugin.withPlugins<PluginsClient>()({
           };
         }),
 
+      nominateBuilder: builder.nominateBuilder
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const result = await nominateBuilder(
+            {
+              nearAccount: input.nearAccount,
+              payload: {
+                name: input.name || undefined,
+                bio: input.bio || undefined,
+                skills: input.skills ?? [],
+                location: input.location || undefined,
+              },
+              source: "web",
+            },
+            context,
+          );
+          return result.response;
+        }),
+
       propose: builder.propose.use(requireAuthOrApiKey).handler(async ({ input, context }) => {
         if (input.pluginId === "nearcatalog") {
           throw new ORPCError("BAD_REQUEST", {
@@ -242,6 +398,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
           });
         }
         assertValidBuilderProposalAccount(input);
+        if (input.pluginId === "builders") {
+          const result = await nominateBuilder(
+            {
+              nearAccount: input.entityId,
+              payload: input.payload,
+              source: input.source,
+              metadata: input.metadata,
+            },
+            context,
+          );
+          return { data: result.proposal };
+        }
         return await services.plugins.proposals(context).propose(input);
       }),
 
@@ -639,6 +807,35 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getBuilder: builder.getBuilder.handler(async ({ input, context }) => {
         return await services.plugins.builders(context).getBuilder(input);
+      }),
+
+      getBuilderStats: builder.getBuilderStats.handler(async ({ input, context }) => {
+        const [projects, ideas, catalogProjects] = await Promise.allSettled([
+          services.plugins.projects(context).listProjects({
+            ownerId: input.nearAccount,
+            kind: "project",
+            visibility: "public",
+            limit: 1,
+          }),
+          services.plugins.projects(context).listProjects({
+            ownerId: input.nearAccount,
+            kind: "idea",
+            visibility: "public",
+            limit: 1,
+          }),
+          services.plugins.nearcatalog().listClaimedCatalogProjects({
+            nearAccount: input.nearAccount,
+            limit: 1,
+          }),
+        ]);
+
+        return {
+          data: resolveBuilderStats({
+            projects,
+            ideas,
+            catalogProjects,
+          }),
+        };
       }),
 
       getMyBuilderProfile: builder.getMyBuilderProfile

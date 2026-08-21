@@ -221,7 +221,7 @@ function EventsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-3xl font-black tracking-tight text-foreground">Events</h1>
         {canCreate ? (

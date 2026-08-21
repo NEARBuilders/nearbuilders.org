@@ -197,8 +197,8 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
                 key={key}
                 name={`links.${key}`}
                 validators={{
-                  onChange: ({ value }: any) => validateHandle(value),
-                  onSubmit: ({ value }: any) => validateHandle(value),
+                  onChange: ({ value }: any) => validateHandle(key, value),
+                  onSubmit: ({ value }: any) => validateHandle(key, value),
                 }}
               >
                 {(field: any) => {

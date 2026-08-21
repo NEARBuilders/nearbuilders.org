@@ -14,8 +14,10 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
+import { BuilderProfileStats } from "@/components/builder-profile-stats";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderDetailOptions,
   builderProposalsOptions,
+  builderStatsOptions,
   nearProfileOptions,
   upvoteCountsOptions,
   userVotesOptions,
@@ -67,6 +70,7 @@ export const Route = createFileRoute("/_layout/builders/$account")({
         activityFeedQueryOptions(apiClient, { actor: params.account }),
       ),
       queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
+      queryClient.prefetchQuery(builderStatsOptions(apiClient, params.account)),
     ]);
 
     if (proposalIds.length > 0) {
@@ -154,44 +158,31 @@ function BuilderProfilePage() {
 
   const queryClient = useQueryClient();
 
-  const upvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.upvote({ entityId }),
-    onSuccess: (data) => {
+  const nominationMutation = useMutation({
+    mutationFn: (_input: { proposalId: string }) =>
+      apiClient.nominateBuilder({ nearAccount: account }),
+    onSuccess: ({ data }) => {
       queryClient.setQueryData(
         ["upvoteCounts", proposalIds],
         (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
           ...old,
-          [data.entityId]: data,
+          [data.proposalId]: { entityId: data.proposalId, totalCount: data.voteCount },
         }),
       );
       queryClient.setQueryData(
         ["userVotes", proposalIds],
         (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
           ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: true },
+          [data.proposalId]: { entityId: data.proposalId, hasUpvote: true },
         }),
       );
+      if (data.alreadyNominated) {
+        toast.info("You've already nominated this builder");
+      } else {
+        toast.success("Nomination recorded");
+      }
     },
-  });
-
-  const downvoteMutation = useMutation({
-    mutationFn: (entityId: string) => apiClient.downvote({ entityId }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["upvoteCounts", proposalIds],
-        (old: Record<string, { entityId: string; totalCount: number }> | undefined) => ({
-          ...old,
-          [data.entityId]: data,
-        }),
-      );
-      queryClient.setQueryData(
-        ["userVotes", proposalIds],
-        (old: Record<string, { entityId: string; hasUpvote: boolean }> | undefined) => ({
-          ...old,
-          [data.entityId]: { entityId: data.entityId, hasUpvote: false },
-        }),
-      );
-    },
+    onError: (error: Error) => toast.error(error.message || "Failed to nominate builder"),
   });
 
   const handleVote = (proposalId: string) => {
@@ -199,13 +190,18 @@ function BuilderProfilePage() {
       void navigate({ to: "/login", search: { redirect: `/builders/${account}` } });
       return;
     }
-    const entry = voteMap[proposalId];
-    if (entry?.hasUpvote) {
-      downvoteMutation.mutate(proposalId);
-    } else {
-      upvoteMutation.mutate(proposalId);
-    }
+    const proposal = proposals.find((candidate) => candidate.id === proposalId);
+    const createdByCaller =
+      proposal?.createdBy === session?.user?.id ||
+      (nearAccountId !== null && proposal?.createdBy.toLowerCase() === nearAccountId.toLowerCase());
+    if (voteMap[proposalId]?.hasUpvote || createdByCaller) return;
+    nominationMutation.mutate({ proposalId });
   };
+
+  const hasNominated = (proposal: (typeof proposals)[number]) =>
+    voteMap[proposal.id]?.hasUpvote === true ||
+    proposal.createdBy === session?.user?.id ||
+    (nearAccountId !== null && proposal.createdBy.toLowerCase() === nearAccountId.toLowerCase());
 
   if (builderLoading) return <ProfileSkeleton account={account} />;
 
@@ -223,11 +219,11 @@ function BuilderProfilePage() {
             ? activeProposal.submissionCount + (counts[activeProposal.id]?.totalCount ?? 0)
             : null
         }
-        hasNominated={activeProposal ? voteMap[activeProposal.id]?.hasUpvote === true : false}
+        hasNominated={activeProposal ? hasNominated(activeProposal) : false}
         isVoting={
           activeProposal
-            ? (upvoteMutation.isPending && upvoteMutation.variables === activeProposal.id) ||
-              (downvoteMutation.isPending && downvoteMutation.variables === activeProposal.id)
+            ? nominationMutation.isPending &&
+              nominationMutation.variables?.proposalId === activeProposal.id
             : false
         }
         onVote={activeProposal ? () => handleVote(activeProposal!.id) : undefined}
@@ -247,16 +243,10 @@ function BuilderProfilePage() {
             ? activeProposal.submissionCount + (counts[activeProposal.id]?.totalCount ?? 0)
             : proposals[0].submissionCount + (counts[proposals[0].id]?.totalCount ?? 0)
         }
-        hasNominated={
-          activeProposal
-            ? voteMap[activeProposal.id]?.hasUpvote === true
-            : voteMap[proposals[0].id]?.hasUpvote === true
-        }
+        hasNominated={activeProposal ? hasNominated(activeProposal) : hasNominated(proposals[0])}
         isVoting={
-          (upvoteMutation.isPending &&
-            upvoteMutation.variables === (activeProposal ?? proposals[0]).id) ||
-          (downvoteMutation.isPending &&
-            downvoteMutation.variables === (activeProposal ?? proposals[0]).id)
+          nominationMutation.isPending &&
+          nominationMutation.variables?.proposalId === (activeProposal ?? proposals[0]).id
         }
         onVote={() => handleVote((activeProposal ?? proposals[0]).id)}
         allProposals={proposals}
@@ -304,6 +294,12 @@ function LoadedProfile({
       }),
   });
 
+  const {
+    data: statsResult,
+    isLoading: statsLoading,
+    isError: statsError,
+  } = useQuery(builderStatsOptions(apiClient, account));
+
   const projects = projectsResult?.data ?? [];
 
   const displayName = builder.name || profile?.name || account;
@@ -349,7 +345,12 @@ function LoadedProfile({
           <ClientOnly>
             {isOwner && (
               <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-                <Button asChild size="sm" className="gap-1.5 rounded-full">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-full border-border bg-background/80 hover:bg-accent"
+                >
                   <Link to="/profile/activity" search={{ mode: "claim" }}>
                     <Plus size={13} />
                     Add contribution
@@ -446,7 +447,7 @@ function LoadedProfile({
                         variant={hasNominated ? "secondary" : "outline"}
                         size="sm"
                         onClick={onVote}
-                        disabled={isVoting}
+                        disabled={isVoting || hasNominated}
                         className={cn(
                           "gap-1.5 rounded-full text-xs h-8 px-3",
                           hasNominated &&
@@ -500,6 +501,12 @@ function LoadedProfile({
           )}
         </div>
       </div>
+
+      <BuilderProfileStats
+        stats={statsResult?.data}
+        isLoading={statsLoading}
+        isError={statsError}
+      />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main>
@@ -784,7 +791,7 @@ function NominatedFallback({
                     variant={hasNominated ? "secondary" : "outline"}
                     size="sm"
                     onClick={onVote}
-                    disabled={isVoting}
+                    disabled={isVoting || hasNominated}
                     className={cn(
                       "gap-1.5 rounded-full text-xs h-8 px-3",
                       hasNominated && "border-brand-accent bg-brand-accent-light text-foreground",
