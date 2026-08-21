@@ -88,6 +88,12 @@
       "production": "https://elliot-braem-7052-everything-dev-votes-plugin-nea-c97d11348-ze.zephyrcloud.app",
       "integrity": "sha384-/gHI9NZudoR1x24vQR3ljlB7/8LMigYZTWfnVmor9DqjgvFA/b/4qkdAprntIfwy"
     },
+    "bookmarks": {
+      "development": "local:plugins/bookmarks",
+      "secrets": [
+        "BOOKMARKS_DATABASE_URL"
+      ]
+    },
     "notifications": {
       "development": "local:plugins/notifications",
       "secrets": [

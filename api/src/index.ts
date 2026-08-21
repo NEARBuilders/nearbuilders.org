@@ -439,6 +439,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
       }),
 
+      bookmark: builder.bookmark.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.bookmarks(context).bookmark(input);
+      }),
+
+      unbookmark: builder.unbookmark.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.bookmarks(context).unbookmark(input);
+      }),
+
+      getUserBookmark: builder.getUserBookmark
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.bookmarks(context).getUserBookmark(input);
+        }),
+
       searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().searchCatalogProjects(input);
       }),

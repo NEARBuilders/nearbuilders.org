@@ -347,7 +347,7 @@ function EventCard({
 }) {
   const isCancelled = event.status === "cancelled";
   const status = getEventCardStatus(event, proposalStatus);
-  const { isBookmarked, toggle: toggleBookmark } = useBookmark(event.id);
+  const { isBookmarked, toggle: toggleBookmark, canBookmark } = useBookmark(event.id);
   const apiClient = useApiClient();
   const participantsQuery = useQuery({
     queryKey: ["eventParticipants", event.id],
@@ -378,11 +378,13 @@ function EventCard({
             e.stopPropagation();
             toggleBookmark();
           }}
+          disabled={!canBookmark}
           className={cn(
-            "shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+            "shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground",
             isBookmarked && "text-brand-accent opacity-100",
           )}
           aria-label={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+          title={canBookmark ? undefined : "Sign in to bookmark"}
         >
           <Bookmark size={14} fill={isBookmarked ? "currentColor" : "none"} />
         </button>

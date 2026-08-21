@@ -1,38 +1,47 @@
-import { useCallback, useState } from "react";
-
-const STORAGE_KEY = "nb:bookmarks";
-
-function readBookmarks(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeBookmarks(ids: Set<string>) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
-  } catch {
-    // localStorage unavailable (private browsing, quota) — bookmark just won't persist.
-  }
-}
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { toast } from "sonner";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 
 export function useBookmark(entityId: string) {
-  const [isBookmarked, setIsBookmarked] = useState(() => readBookmarks().has(entityId));
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const queryClient = useQueryClient();
+
+  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const canBookmark = Boolean(session?.user && !session.user.isAnonymous);
+
+  const queryKey = ["bookmark", entityId];
+
+  const bookmarkQuery = useQuery({
+    queryKey,
+    queryFn: () => apiClient.getUserBookmark({ entityId }),
+    enabled: canBookmark,
+    staleTime: 60_000,
+  });
+
+  const setCached = (isBookmarked: boolean) =>
+    queryClient.setQueryData(queryKey, { entityId, isBookmarked });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: () => apiClient.bookmark({ entityId }),
+    onSuccess: () => setCached(true),
+    onError: () => toast.error("Failed to bookmark"),
+  });
+
+  const unbookmarkMutation = useMutation({
+    mutationFn: () => apiClient.unbookmark({ entityId }),
+    onSuccess: () => setCached(false),
+    onError: () => toast.error("Failed to remove bookmark"),
+  });
+
+  const isBookmarked = bookmarkQuery.data?.isBookmarked ?? false;
 
   const toggle = useCallback(() => {
-    const ids = readBookmarks();
-    if (ids.has(entityId)) {
-      ids.delete(entityId);
-    } else {
-      ids.add(entityId);
-    }
-    writeBookmarks(ids);
-    setIsBookmarked(ids.has(entityId));
-  }, [entityId]);
+    if (!canBookmark) return;
+    if (isBookmarked) unbookmarkMutation.mutate();
+    else bookmarkMutation.mutate();
+  }, [canBookmark, isBookmarked, bookmarkMutation, unbookmarkMutation]);
 
-  return { isBookmarked, toggle };
+  return { isBookmarked, toggle, canBookmark };
 }

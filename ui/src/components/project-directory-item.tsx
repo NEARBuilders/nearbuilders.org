@@ -78,7 +78,7 @@ export function ProjectDirectoryListRow({
   onUpvote: () => void;
   onDownvote: () => void;
 }) {
-  const { isBookmarked, toggle: toggleBookmark } = useBookmark(project.id);
+  const { isBookmarked, toggle: toggleBookmark, canBookmark } = useBookmark(project.id);
   const [copied, setCopied] = useState(false);
 
   const handleShare = (e: { stopPropagation: () => void }) => {
@@ -137,11 +137,13 @@ export function ProjectDirectoryListRow({
             e.stopPropagation();
             toggleBookmark();
           }}
+          disabled={!canBookmark}
           className={cn(
-            "rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+            "rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground",
             isBookmarked && "text-brand-accent opacity-100",
           )}
           aria-label={isBookmarked ? "Remove bookmark" : "Bookmark project"}
+          title={canBookmark ? undefined : "Sign in to bookmark"}
         >
           <Bookmark size={13} fill={isBookmarked ? "currentColor" : "none"} />
         </button>
