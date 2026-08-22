@@ -65,7 +65,7 @@ export const contract = oc.router({
         event: z.object({
           id: z.string(),
           pubkey: z.string(),
-          kind: z.number().int().default(1),
+          kind: z.number().int().default(1111),
           content: z.string(),
           tags: z.array(z.array(z.string())),
           created_at: z.number().int(),
@@ -119,7 +119,7 @@ export const contract = oc.router({
         event: z.object({
           id: z.string(),
           pubkey: z.string(),
-          kind: z.number().int().default(1),
+          kind: z.number().int().default(1111),
           content: z.string(),
           tags: z.array(z.array(z.string())),
           created_at: z.number().int(),

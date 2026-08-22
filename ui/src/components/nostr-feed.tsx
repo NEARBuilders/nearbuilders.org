@@ -185,7 +185,7 @@ export function NostrFeed({
       const eHex = await getTargetHex(target);
       console.log("[NOSTR-FEED] targetHex:", eHex);
       const template = {
-        kind: 1 as const,
+        kind: 1111 as const, // NIP-22 comment — keeps comments out of the global kind-1 feed
         created_at: Math.floor(Date.now() / 1000),
         tags: await buildStandardTags(target, targetType, pubkey, nearAccountId, eHex),
         content: text,
