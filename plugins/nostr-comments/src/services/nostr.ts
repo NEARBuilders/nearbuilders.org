@@ -46,6 +46,10 @@ export type ChannelInfo = {
  * Unified service wrapping near-nostr-sdk adapters.
  * Accepts pre-signed events (from extension/nsec) — never holds keys server-side.
  */
+
+/** FastNear KV base URL (binding verification for requireVerified) */
+const KV_API = "https://kv.main.fastnear.com";
+
 export class NostrCommentService {
   #adapters: Map<string, RelayAdapter> = new Map();
 
