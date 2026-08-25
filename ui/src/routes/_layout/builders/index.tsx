@@ -526,10 +526,10 @@ function BuildersPage() {
                 {skillOptions
                   .filter((option) => option.toLocaleLowerCase() !== "all")
                   .map((option) => (
-                  <SelectItem key={option} value={option} className="cursor-pointer">
-                    {option}
-                  </SelectItem>
-                ))}
+                    <SelectItem key={option} value={option} className="cursor-pointer">
+                      {option}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -548,10 +548,10 @@ function BuildersPage() {
                 {locationOptions
                   .filter((option) => option.toLocaleLowerCase() !== "all")
                   .map((option) => (
-                  <SelectItem key={option} value={option} className="cursor-pointer">
-                    {option}
-                  </SelectItem>
-                ))}
+                    <SelectItem key={option} value={option} className="cursor-pointer">
+                      {option}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
