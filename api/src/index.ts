@@ -4,6 +4,12 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
+import {
+  LOCATION_ERROR,
+  locationError,
+  normalizeLocation,
+  normalizeSkills,
+} from "./lib/builder-tags";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { resolveBuilderStats } from "./services/builder-stats";
@@ -14,6 +20,16 @@ import {
   assertValidBuilderProposalAccount,
   createProposalOrchestration,
 } from "./services/proposal-orchestration";
+
+function normalizedBuilderProfile(input: { skills?: string[]; location?: string }) {
+  if (input.location?.trim() && locationError(input.location)) {
+    throw new ORPCError("BAD_REQUEST", { message: LOCATION_ERROR });
+  }
+  return {
+    skills: input.skills ? normalizeSkills(input.skills) : undefined,
+    location: normalizeLocation(input.location ?? "") || undefined,
+  };
+}
 
 function notificationContext(context: Context) {
   return {
@@ -328,6 +344,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "A builder profile is already pending review for this NEAR account",
             });
           }
+          const tags = normalizedBuilderProfile(input);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -335,8 +352,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
               userId: context.userId,
               name: input.name,
               bio: input.bio,
-              skills: input.skills,
-              location: input.location || undefined,
+              skills: tags.skills,
+              location: tags.location,
               links: input.links,
             },
             source: nomination?.source ?? "web",
@@ -375,14 +392,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
       nominateBuilder: builder.nominateBuilder
         .use(requireAuth)
         .handler(async ({ input, context }) => {
+          const tags = normalizedBuilderProfile(input);
           const result = await nominateBuilder(
             {
               nearAccount: input.nearAccount,
               payload: {
                 name: input.name || undefined,
                 bio: input.bio || undefined,
-                skills: input.skills ?? [],
-                location: input.location || undefined,
+                skills: tags.skills ?? [],
+                location: tags.location,
               },
               source: "web",
             },

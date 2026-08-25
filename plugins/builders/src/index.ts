@@ -26,6 +26,7 @@ export default createPlugin({
       const Database = DatabaseLive(config.secrets.BUILDERS_DATABASE_URL);
       const BuilderServices = BuilderServiceLive.pipe(Layer.provide(Database));
       const builder = yield* tools.buildService(BuilderService, BuilderServices);
+      yield* builder.backfillNormalizedTags();
 
       console.log("[Builders] Services Initialized");
       return {

@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { extractCountry, sortFilterValues, valuesMatch } from "@/lib/builder-tags";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -308,31 +309,27 @@ function BuildersPage() {
 
   const skillOptions = useMemo(
     () =>
-      Array.from(
-        new Set(
-          mergedCards.flatMap((card) =>
-            card.kind === "builder"
-              ? card.builder.skills
-              : Array.isArray(card.payload.skills)
-                ? card.payload.skills
-                : [],
-          ),
+      sortFilterValues(
+        mergedCards.flatMap((card) =>
+          card.kind === "builder"
+            ? card.builder.skills
+            : Array.isArray(card.payload.skills)
+              ? card.payload.skills
+              : [],
         ),
-      ).sort((a, b) => a.localeCompare(b)),
+      ),
     [mergedCards],
   );
 
   const locationOptions = useMemo(
     () =>
-      Array.from(
-        new Set(
-          mergedCards
-            .map((card) =>
-              card.kind === "builder" ? card.builder.location : card.payload.location,
-            )
-            .filter((value): value is string => Boolean(value)),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
+      sortFilterValues(
+        mergedCards
+          .map((card) =>
+            extractCountry(card.kind === "builder" ? card.builder.location : card.payload.location),
+          )
+          .filter((value): value is string => Boolean(value)),
+      ),
     [mergedCards],
   );
 
@@ -350,11 +347,12 @@ function BuildersPage() {
             : [];
       const cardLocation =
         card.kind === "builder" ? card.builder.location : card.payload.location || null;
+      const cardCountry = extractCountry(cardLocation);
       return (
         matchesSearch &&
         matchesCategory &&
-        (skill === "all" || cardSkills.includes(skill)) &&
-        (location === "all" || cardLocation === location)
+        (skill === "all" || cardSkills.some((value) => valuesMatch(value, skill))) &&
+        (location === "all" || (cardCountry !== null && valuesMatch(cardCountry, location)))
       );
     });
   }, [sortedCards, debouncedQuery, category, skill, location]);
@@ -521,11 +519,13 @@ function BuildersPage() {
               >
                 <SelectValue placeholder="All skills" />
               </SelectTrigger>
-              <SelectContent align="start">
+              <SelectContent align="start" collisionPadding={16}>
                 <SelectItem value="all" className="cursor-pointer">
                   All skills
                 </SelectItem>
-                {skillOptions.map((option) => (
+                {skillOptions
+                  .filter((option) => option.toLocaleLowerCase() !== "all")
+                  .map((option) => (
                   <SelectItem key={option} value={option} className="cursor-pointer">
                     {option}
                   </SelectItem>
@@ -539,13 +539,15 @@ function BuildersPage() {
                 className="h-11 min-h-11 w-full cursor-pointer rounded-xl bg-card px-3 sm:h-10 sm:min-h-10 sm:w-auto sm:rounded-full"
                 aria-label="Filter by location"
               >
-                <SelectValue placeholder="All locations" />
+                <SelectValue placeholder="All countries" />
               </SelectTrigger>
-              <SelectContent align="start">
+              <SelectContent align="start" collisionPadding={16}>
                 <SelectItem value="all" className="cursor-pointer">
-                  All locations
+                  All countries
                 </SelectItem>
-                {locationOptions.map((option) => (
+                {locationOptions
+                  .filter((option) => option.toLocaleLowerCase() !== "all")
+                  .map((option) => (
                   <SelectItem key={option} value={option} className="cursor-pointer">
                     {option}
                   </SelectItem>

@@ -5,6 +5,13 @@ import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
 import { builderNominations, builders } from "../db/schema";
 import {
+  LOCATION_ERROR,
+  locationError,
+  normalizeLocation,
+  normalizeSkills,
+  resolveLocation,
+} from "../lib/builder-tags";
+import {
   createNominationToken,
   createXNominationRecord,
   finalizeNomination as finalizeNominationRecord,
@@ -77,6 +84,17 @@ function serializeSkills(skills?: string[]): string {
 function serializeLinks(links?: Record<string, string>): string | null {
   if (!links || Object.keys(links).length === 0) return null;
   return JSON.stringify(links);
+}
+
+function tagsFromInput(input: { skills?: string[]; location?: string; skillCatalog?: string[] }) {
+  if (input.location?.trim() && locationError(input.location)) {
+    return { error: LOCATION_ERROR };
+  }
+  return {
+    skills:
+      input.skills !== undefined ? normalizeSkills(input.skills, input.skillCatalog) : undefined,
+    location: input.location === undefined ? undefined : normalizeLocation(input.location),
+  };
 }
 
 export interface Builder {
@@ -367,6 +385,8 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
 
     getXNominationMetrics: () => Effect.Effect<XNominationMetrics, ORPCError<string, unknown>>;
 
+    backfillNormalizedTags: () => Effect.Effect<void, ORPCError<string, unknown>>;
+
     createTelegramNomination: (
       input: CreateTelegramNominationInput,
     ) => Effect.Effect<CreatedTelegramNomination, ORPCError<string, unknown>>;
@@ -474,6 +494,11 @@ export const BuilderServiceLive = Layer.effect(
 
       createBuilder: (input) =>
         Effect.gen(function* () {
+          const tags = tagsFromInput(input);
+          if ("error" in tags) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: tags.error }));
+          }
+
           const [existing] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, input.nearAccount)).limit(1),
           );
@@ -488,8 +513,8 @@ export const BuilderServiceLive = Layer.effect(
                   name: input.name?.trim() ?? existing.name,
                   bio: input.bio?.trim() ?? existing.bio,
                   skills:
-                    input.skills !== undefined ? serializeSkills(input.skills) : existing.skills,
-                  location: input.location?.trim() ?? existing.location,
+                    tags.skills !== undefined ? serializeSkills(tags.skills) : existing.skills,
+                  location: tags.location !== undefined ? tags.location : existing.location,
                   links: input.links !== undefined ? serializeLinks(input.links) : existing.links,
                   updatedAt: now,
                 })
@@ -530,8 +555,8 @@ export const BuilderServiceLive = Layer.effect(
               userId: input.userId ?? null,
               name: input.name?.trim() ?? null,
               bio: input.bio?.trim() ?? null,
-              skills: serializeSkills(input.skills),
-              location: input.location?.trim() ?? null,
+              skills: serializeSkills(tags.skills),
+              location: tags.location ?? null,
               links: serializeLinks(input.links),
               createdAt: now,
               updatedAt: now,
@@ -546,8 +571,8 @@ export const BuilderServiceLive = Layer.effect(
             userId: input.userId ?? null,
             name: input.name?.trim() ?? null,
             bio: input.bio?.trim() ?? null,
-            skills: input.skills ?? [],
-            location: input.location?.trim() ?? null,
+            skills: tags.skills ?? [],
+            location: tags.location ?? null,
             links: input.links && Object.keys(input.links).length > 0 ? input.links : null,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
@@ -579,13 +604,18 @@ export const BuilderServiceLive = Layer.effect(
             );
           }
 
+          const tags = tagsFromInput(input);
+          if ("error" in tags) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: tags.error }));
+          }
+
           const now = new Date();
           const updates: any = { updatedAt: now };
 
           if (input.name !== undefined) updates.name = input.name.trim() || null;
           if (input.bio !== undefined) updates.bio = input.bio.trim() || null;
-          if (input.skills !== undefined) updates.skills = serializeSkills(input.skills);
-          if (input.location !== undefined) updates.location = input.location.trim() || null;
+          if (tags.skills !== undefined) updates.skills = serializeSkills(tags.skills);
+          if (tags.location !== undefined) updates.location = tags.location;
           if (input.links !== undefined) updates.links = serializeLinks(input.links);
 
           yield* Effect.promise(() =>
@@ -650,6 +680,27 @@ export const BuilderServiceLive = Layer.effect(
       updateXNomination: (input) => Effect.promise(() => updateXNomination(db, input)),
 
       getXNominationMetrics: () => Effect.promise(() => getXNominationMetrics(db)),
+
+      backfillNormalizedTags: () =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.promise(() => db.select().from(builders));
+          const catalog = rows.flatMap((row) => parseSkills(row.skills));
+          for (const row of rows) {
+            const skills = normalizeSkills(parseSkills(row.skills), catalog);
+            const resolved = resolveLocation(row.location);
+            const location = resolved.ok ? resolved.value : row.location?.trim() || null;
+            const skillsJson = serializeSkills(skills);
+            if (skillsJson === (row.skills ?? "[]") && location === (row.location ?? null)) {
+              continue;
+            }
+            yield* Effect.promise(() =>
+              db
+                .update(builders)
+                .set({ skills: skillsJson, location })
+                .where(eq(builders.id, row.id)),
+            );
+          }
+        }),
 
       createTelegramNomination: (input) =>
         Effect.gen(function* () {
