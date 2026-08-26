@@ -1,17 +1,30 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { AlertCircle, CheckCircle2, Cloud, LoaderCircle } from "lucide-react";
 import { customAlphabet } from "nanoid";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
-import { clearDraft, getDraft, type ProjectKind, setDraft } from "@/lib/draft-store";
+import {
+  clearDraft,
+  getDraft,
+  type ProjectKind,
+  setDraft,
+  subscribeToDraftPersistence,
+} from "@/lib/draft-store";
+import {
+  getProjectFormValidation,
+  type ProjectFormValidation,
+} from "@/lib/project-form-validation";
+import { cn } from "@/lib/utils";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 const LAST_KIND_KEY = "projects:last-kind";
+type DraftStatus = "idle" | "restored" | "saving" | "saved" | "error";
 
 const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   kind,
@@ -94,7 +107,6 @@ function NewProjectPage() {
 
   const form = useForm({
     defaultValues: initialDraft as ProjectFormValues,
-    canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
       if (!canCreate) {
         toast.error("Link a NEAR account in settings before creating projects.");
@@ -174,15 +186,25 @@ function NewProjectPage() {
     void form.handleSubmit();
   }, [form]);
 
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>(draft ? "restored" : "idle");
+
   useEffect(() => {
+    const unsubscribeFromPersistence = subscribeToDraftPersistence(
+      routeKind as ProjectKind,
+      setDraftStatus,
+    );
     const subscription = form.store.subscribe(() => {
       setDraft(routeKind as ProjectKind, form.store.state.values);
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      unsubscribeFromPersistence();
+    };
   }, [form, routeKind]);
 
-  const title = useStore(form.store, (s) => s.values.title);
-  const slugPreview = generateSlug(title) || undefined;
+  const formValues = useStore(form.store, (s) => s.values as ProjectFormValues);
+  const validation = getProjectFormValidation(formValues);
+  const slugPreview = generateSlug(formValues.title) || undefined;
   const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
   const actionLabel =
     routeKind === "idea"
@@ -220,6 +242,9 @@ function NewProjectPage() {
             <h1 className="mt-1 truncate text-base font-semibold text-foreground sm:text-xl">
               Create a {kindLabel.toLowerCase()}
             </h1>
+            <div className="hidden sm:block">
+              <DraftStatusIndicator status={draftStatus} />
+            </div>
           </div>
 
           <div className="hidden w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:justify-end">
@@ -228,12 +253,15 @@ function NewProjectPage() {
                 Link a NEAR account to continue
               </span>
             )}
+            <ProjectFormValidationNotice validation={validation} />
             <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
               {({ isSubmitting }) => (
                 <Button
                   type="button"
                   onClick={submitForm}
-                  disabled={!canCreate || isSubmitting || createMutation.isPending}
+                  disabled={
+                    !canCreate || !validation.isValid || isSubmitting || createMutation.isPending
+                  }
                   size="sm"
                   className="h-10 flex-1 sm:h-8 sm:flex-none"
                 >
@@ -266,12 +294,18 @@ function NewProjectPage() {
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
         <div className="mx-auto max-w-7xl pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <DraftStatusIndicator status={draftStatus} compact />
+            <ProjectFormValidationNotice validation={validation} />
+          </div>
           <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
             {({ isSubmitting }) => (
               <Button
                 type="button"
                 onClick={submitForm}
-                disabled={!canCreate || isSubmitting || createMutation.isPending}
+                disabled={
+                  !canCreate || !validation.isValid || isSubmitting || createMutation.isPending
+                }
                 className="h-11 w-full"
               >
                 {createMutation.isPending ? "Creating…" : actionLabel}
@@ -281,5 +315,66 @@ function NewProjectPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ProjectFormValidationNotice({ validation }: { validation: ProjectFormValidation }) {
+  if (validation.invalidFieldCount === 0) return null;
+
+  const allInvalidFieldsAreMissing = validation.missingCount === validation.invalidFieldCount;
+  const count = validation.invalidFieldCount;
+
+  return (
+    <span className="text-xs font-semibold text-destructive" aria-live="polite">
+      {count} field{count === 1 ? "" : "s"}{" "}
+      {allInvalidFieldsAreMissing ? "missing" : "need attention"}
+    </span>
+  );
+}
+
+function DraftStatusIndicator({
+  status,
+  compact = false,
+}: {
+  status: DraftStatus;
+  compact?: boolean;
+}) {
+  const Icon =
+    status === "saving"
+      ? LoaderCircle
+      : status === "saved" || status === "restored"
+        ? CheckCircle2
+        : status === "error"
+          ? AlertCircle
+          : Cloud;
+  const label =
+    status === "saving"
+      ? "Saving draft…"
+      : status === "saved"
+        ? "Saved just now"
+        : status === "restored"
+          ? "Draft restored"
+          : status === "error"
+            ? "Draft couldn't be saved"
+            : "Draft autosaves in this browser";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs",
+        compact ? "mt-0" : "mt-1",
+        status === "error" ? "text-destructive" : "text-muted-foreground",
+      )}
+      aria-live="polite"
+    >
+      <Icon
+        className={cn(
+          "size-3.5 shrink-0",
+          status === "saving" && "animate-spin",
+          (status === "saved" || status === "restored") && "text-brand-accent",
+        )}
+      />
+      {label}
+    </span>
   );
 }
