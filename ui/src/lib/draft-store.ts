@@ -15,6 +15,8 @@ export type ProjectDraft = {
 };
 
 type DraftState = Record<ProjectKind, ProjectDraft | null>;
+export type DraftPersistenceStatus = "saving" | "saved" | "error";
+type DraftPersistenceListener = (status: DraftPersistenceStatus) => void;
 
 const STORAGE_PREFIX = "projects:new:";
 const KINDS: ProjectKind[] = ["project", "idea", "scope", "result"];
@@ -37,9 +39,15 @@ function loadInitialState(): DraftState {
 export const draftStore = new Store<DraftState>(loadInitialState());
 
 const debounceTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+const persistenceListeners = new Map<ProjectKind, Set<DraftPersistenceListener>>();
+
+function emitPersistenceStatus(kind: ProjectKind, status: DraftPersistenceStatus) {
+  for (const listener of persistenceListeners.get(kind) ?? []) listener(status);
+}
 
 function syncKindToLocalStorage(kind: ProjectKind, draft: ProjectDraft | null) {
   if (debounceTimers[kind]) clearTimeout(debounceTimers[kind]);
+  emitPersistenceStatus(kind, "saving");
   debounceTimers[kind] = setTimeout(() => {
     try {
       if (draft) {
@@ -47,7 +55,10 @@ function syncKindToLocalStorage(kind: ProjectKind, draft: ProjectDraft | null) {
       } else {
         localStorage.removeItem(storageKey(kind));
       }
-    } catch {}
+      emitPersistenceStatus(kind, "saved");
+    } catch {
+      emitPersistenceStatus(kind, "error");
+    }
   }, 300);
 }
 
@@ -62,4 +73,14 @@ export function setDraft(kind: ProjectKind, values: ProjectDraft | null) {
 
 export function clearDraft(kind: ProjectKind) {
   setDraft(kind, null);
+}
+
+export function subscribeToDraftPersistence(kind: ProjectKind, listener: DraftPersistenceListener) {
+  const listeners = persistenceListeners.get(kind) ?? new Set<DraftPersistenceListener>();
+  listeners.add(listener);
+  persistenceListeners.set(kind, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) persistenceListeners.delete(kind);
+  };
 }

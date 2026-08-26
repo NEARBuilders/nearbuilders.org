@@ -2,8 +2,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { sessionQueryOptions, useAuthClient } from "@/app";
+import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
+import { nearAccountsQueryKey, nearAccountsQueryOptions } from "@/lib/queries/near-accounts";
 
 type SearchParams = {
   redirect?: string;
@@ -51,11 +52,24 @@ function LoginPage() {
     });
   }, [auth.near]);
 
-  const handleSuccess = async (message: string) => {
+  const handleSuccess = async (
+    message: string,
+    signedInNearState: ReturnType<typeof auth.near.getState>,
+  ) => {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
+    const { data: freshSession } = await auth.getSession();
+    if (freshSession) {
+      queryClient.setQueryData(sessionQueryKey, freshSession);
+    }
+    await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+    await queryClient
+      .fetchQuery({ ...nearAccountsQueryOptions(auth), staleTime: 0 })
+      .catch(() => null);
+    if (signedInNearState) {
+      auth.$store.atoms.nearState.set(signedInNearState);
+    }
     toast.success(message);
-    queryClient.invalidateQueries({ queryKey: ["session"] });
-    navigate({ to: redirectTo, replace: true, search: {} });
+    await navigate({ to: redirectTo, replace: true, search: {} });
   };
 
   const handleError = (error: { code?: string; message?: string } | Error) => {
@@ -71,8 +85,13 @@ function LoginPage() {
     setNearPending(true);
     await auth.signIn.near({
       onSuccess: async () => {
+        const signedInNearState = auth.near.getState();
+        const nearAccountId = signedInNearState?.accountId;
+        if (nearAccountId) {
+          queryClient.setQueryData(nearAccountsQueryKey, nearAccountId);
+        }
         setNearPending(false);
-        await handleSuccess("Signed in with NEAR");
+        await handleSuccess("Signed in with NEAR", signedInNearState);
       },
       onError: (error: { code?: string; message?: string }) => {
         setNearPending(false);
