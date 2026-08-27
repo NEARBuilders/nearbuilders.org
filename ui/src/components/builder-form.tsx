@@ -1,5 +1,12 @@
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import {
+  countrySuggestions,
+  locationError,
+  normalizeSkills,
+  parseSkillList,
+  skillSuggestions,
+} from "@everything-dev/builders-plugin/builder-tags";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
@@ -7,13 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  countrySuggestions,
-  locationError,
-  normalizeSkills,
-  parseSkillList,
-  skillSuggestions,
-} from "@/lib/builder-tags";
 import { SOCIAL_LINKS, validateHandle } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 import { ErrorText, fieldError, HelperText, validateOptionalMaxLength } from "./project-form";

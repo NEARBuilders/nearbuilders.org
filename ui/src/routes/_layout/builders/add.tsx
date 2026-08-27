@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  countrySuggestions,
+  locationError,
+  normalizeLocation,
+  normalizeSkills,
+  parseSkillList,
+  skillSuggestions,
+} from "@everything-dev/builders-plugin/builder-tags";
 import { ArrowLeft, Check, Hammer, Loader2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -8,14 +16,6 @@ import { SuggestionInput } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  countrySuggestions,
-  locationError,
-  normalizeLocation,
-  normalizeSkills,
-  parseSkillList,
-  skillSuggestions,
-} from "@/lib/builder-tags";
 
 type SearchParams = {
   intent?: "self";

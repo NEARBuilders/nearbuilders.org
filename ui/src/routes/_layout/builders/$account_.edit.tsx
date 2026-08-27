@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -12,7 +13,6 @@ import {
   parseBuilderSkills,
 } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
-import { normalizeLocation } from "@/lib/builder-tags";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({

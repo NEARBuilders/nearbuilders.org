@@ -11,6 +11,10 @@
     "./contract": {
       "types": "./src/contract.ts",
       "default": "./src/contract.ts"
+    },
+    "./builder-tags": {
+      "types": "./src/lib/builder-tags.ts",
+      "default": "./src/lib/builder-tags.ts"
     }
   },
   "peerDependencies": {

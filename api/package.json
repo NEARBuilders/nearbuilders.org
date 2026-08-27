@@ -25,7 +25,8 @@
     "near-kit": "catalog:",
     "pg": "catalog:",
     "@electric-sql/pglite": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@everything-dev/builders-plugin": "workspace:*"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

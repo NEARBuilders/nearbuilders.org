@@ -18,8 +18,7 @@ describe("normalizeLocation", () => {
     expect(normalizeLocation("UK")).toBe("United Kingdom");
   });
 
-  it("maps cities and city-country pairs to a canonical country", () => {
-    expect(normalizeLocation("bangalore")).toBe("Bangalore, India");
+  it("keeps city, country pairs when the country is known", () => {
     expect(normalizeLocation("bangalore, india")).toBe("Bangalore, India");
     expect(normalizeLocation("Lisbon, Portugal")).toBe("Lisbon, Portugal");
   });
@@ -31,6 +30,7 @@ describe("normalizeLocation", () => {
 
   it("rejects non-geographic values", () => {
     expect(resolveLocation("asdf")).toEqual({ ok: false });
+    expect(resolveLocation("bangalore")).toEqual({ ok: false });
     expect(locationError("asdf")).toBeTruthy();
     expect(normalizeLocation("")).toBeNull();
   });

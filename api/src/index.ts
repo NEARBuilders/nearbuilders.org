@@ -1,15 +1,15 @@
+import {
+  LOCATION_ERROR,
+  locationError,
+  normalizeLocation,
+  normalizeSkills,
+} from "@everything-dev/builders-plugin/builder-tags";
 import { createPlugin } from "every-plugin";
 import { Effect } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
-import {
-  LOCATION_ERROR,
-  locationError,
-  normalizeLocation,
-  normalizeSkills,
-} from "./lib/builder-tags";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
 import { resolveBuilderStats } from "./services/builder-stats";
