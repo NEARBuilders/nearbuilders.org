@@ -131,7 +131,7 @@ describe("Builder profile submission", () => {
       name: "Alice",
       bio: "Builds useful things.",
       skills: ["TypeScript"],
-      location: "Lisbon",
+      location: "Lisbon, Portugal",
       links: { website: "https://alice.example.com" },
     });
 
