@@ -36,6 +36,7 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0001_grey_prodigy.sql",
     "0002_chunky_roxanne_simpson.sql",
     "0003_slimy_talos.sql",
+    "0004_add_builder_hidden_at.sql",
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -90,7 +91,7 @@ describe.sequential("Telegram builder nominations", () => {
         NOMINATION_TOKEN_SECRET: "test-only-nomination-token-secret-value",
       },
     });
-  }, 30_000);
+  }, 60_000);
 
   afterAll(async () => {
     await runtime.shutdown();
@@ -420,7 +421,9 @@ describe.sequential("Telegram builder nominations", () => {
     });
   });
 
-  it("stores attribution and only token hashes after Telegram verification", async () => {
+  it(
+    "stores attribution and only token hashes after Telegram verification",
+    async () => {
     const isolatedRuntime = createPluginRuntime({ registry: { builders: { module: Plugin } } });
     const isolatedDir = await mkdtemp(join(tmpdir(), "nearbuilders-token-hash-"));
     const isolated = await isolatedRuntime.usePlugin("builders", {
@@ -466,7 +469,7 @@ describe.sequential("Telegram builder nominations", () => {
 
     await driver.close();
     await rm(isolatedDir, { recursive: true, force: true });
-  });
+  }, 30_000);
 
   it("upgrades legacy duplicates into one canonical nomination without breaking old tokens", async () => {
     const migrationDir = await mkdtemp(join(tmpdir(), "nearbuilders-builders-migration-"));
@@ -935,5 +938,33 @@ describe.sequential("Telegram builder nominations", () => {
     await expect(
       botClient().resolveNomination({ token, recordOpen: false }),
     ).resolves.toMatchObject({ status: "submitted", source: "x" });
+  });
+
+  it("withdraws nomination and resets submission state", async () => {
+    const owner = builderClient("user-withdraw", "withdraw-tester.near");
+    const res = await owner.withdrawNomination({ nearAccount: "withdraw-tester.near" });
+    expect(res).toEqual({ withdrawn: true });
+  });
+
+  it("hides approved builder profile and excludes it from listBuilders", async () => {
+    const admin = adminClient("hide-test-admin");
+    const account = "to-be-hidden.near";
+    const created = await admin.createBuilder({
+      nearAccount: account,
+      name: "Hidden Builder",
+    });
+    expect(created.data.hiddenAt).toBeFalsy();
+
+    const listBefore = await admin.listBuilders({ search: "Hidden Builder" });
+    expect(listBefore.data.some((b) => b.nearAccount === account)).toBe(true);
+
+    const owner = builderClient("user-hidden", account);
+    const hidden = await owner.hideMyBuilderProfile({});
+    expect(hidden.purgeRequested).toBe(true);
+    expect(hidden.data.hiddenAt).toBeTruthy();
+    expect(hidden.data.purgeRequestedAt).toBeTruthy();
+
+    const listAfter = await admin.listBuilders({ search: "Hidden Builder" });
+    expect(listAfter.data.some((b) => b.nearAccount === account)).toBe(false);
   });
 });

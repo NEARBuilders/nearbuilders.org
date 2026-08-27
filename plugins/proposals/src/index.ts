@@ -174,6 +174,36 @@ export default createPlugin({
         return { data: result };
       }),
 
+      withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
+        const callerAccounts = [
+          context.near?.primaryAccountId,
+          ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+        ]
+          .filter((a): a is string => Boolean(a))
+          .map((a) => a.toLowerCase());
+
+        const isOwner =
+          callerAccounts.includes(input.entityId.toLowerCase()) ||
+          context.userId === input.entityId ||
+          context.user?.role === "admin";
+
+        if (!isOwner) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Only the proposal owner or an admin can withdraw this proposal",
+          });
+        }
+
+        const result = await runEffect(
+          services.proposal.withdraw({
+            ...input,
+            actorId: context.userId!,
+            actor: context.user ?? undefined,
+          }),
+        );
+        await publishProposalEvent("withdrawn", result);
+        return { data: result };
+      }),
+
       reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
         const result = await runEffect(
           services.proposal.reopen({

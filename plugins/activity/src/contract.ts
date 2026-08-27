@@ -75,6 +75,12 @@ export const contract = oc.router({
     .output(ActivityEventSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
+  hideActorActivity: oc
+    .route({ method: "POST", path: "/v1/internal/activity/hide-actor" })
+    .input(z.object({ actor: z.string().min(1), source: z.string().optional() }))
+    .output(z.object({ hiddenCount: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
   getActivityFeed: oc
     .route({ method: "GET", path: "/v1/activity" })
     .input(ActivityFeedInputSchema)

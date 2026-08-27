@@ -11,6 +11,8 @@ export const builders = pgTable(
     skills: text("skills"),
     location: text("location"),
     links: text("links"),
+    hiddenAt: timestamp("hidden_at"),
+    purgeRequestedAt: timestamp("purge_requested_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },

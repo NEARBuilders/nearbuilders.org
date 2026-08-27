@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { builderNominations, builders } from "../db/schema";
+import { builderNominations, builders, builderXIdentities } from "../db/schema";
 import {
   createNominationToken,
   createXNominationRecord,
@@ -88,6 +88,8 @@ export interface Builder {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  hiddenAt?: string | null;
+  purgeRequestedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +104,8 @@ function rowToBuilder(row: any): Builder {
     skills: parseSkills(row.skills),
     location: row.location ?? null,
     links: parseLinks(row.links),
+    hiddenAt: row.hiddenAt ? toIsoString(row.hiddenAt) : null,
+    purgeRequestedAt: row.purgeRequestedAt ? toIsoString(row.purgeRequestedAt) : null,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
   };
@@ -324,6 +328,15 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       nearAccount: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
+    withdrawNomination: (
+      nearAccount: string,
+    ) => Effect.Effect<{ withdrawn: boolean }, ORPCError<string, unknown>>;
+
+    hideMyBuilderProfile: (
+      userId?: string,
+      walletAddress?: string,
+    ) => Effect.Effect<{ data: Builder; purgeRequested: boolean }, ORPCError<string, unknown>>;
+
     createXNomination: (
       input: CreateXNominationInput,
     ) => Effect.Effect<CreatedXNomination, ORPCError<string, unknown>>;
@@ -398,7 +411,7 @@ export const BuilderServiceLive = Layer.effect(
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
-          const conditions: any[] = [];
+          const conditions: any[] = [isNull(builders.hiddenAt)];
 
           if (input.search) {
             const pattern = `%${input.search}%`;
@@ -621,11 +634,83 @@ export const BuilderServiceLive = Layer.effect(
             );
           }
 
-          yield* Effect.promise(() =>
-            db.delete(builders).where(eq(builders.nearAccount, nearAccount)),
-          );
+          yield* Effect.promise(async () => {
+            await db
+              .delete(builderXIdentities)
+              .where(eq(builderXIdentities.builderId, existing.id));
+            await db.delete(builders).where(eq(builders.nearAccount, nearAccount));
+          });
 
           return { deleted: true };
+        }),
+
+      withdrawNomination: (nearAccount) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            db
+              .update(builderNominations)
+              .set({
+                submittedNearAccount: null,
+                submittedUserId: null,
+                submittedAt: null,
+                proposalId: null,
+              })
+              .where(eq(builderNominations.submittedNearAccount, nearAccount)),
+          );
+          return { withdrawn: true };
+        }),
+
+      hideMyBuilderProfile: (userId, walletAddress) =>
+        Effect.gen(function* () {
+          const conditions: any[] = [];
+          if (walletAddress) conditions.push(eq(builders.nearAccount, walletAddress));
+          if (userId) conditions.push(eq(builders.userId, userId));
+
+          if (conditions.length === 0) {
+            return yield* Effect.fail(
+              new ORPCError("UNAUTHORIZED", { message: "Authentication required" }),
+            );
+          }
+
+          const [existing] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(builders)
+              .where(and(or(...conditions)))
+              .limit(1),
+          );
+
+          if (!existing) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", { message: "Builder profile not found" }),
+            );
+          }
+
+          const now = new Date();
+          yield* Effect.promise(() =>
+            db
+              .update(builders)
+              .set({
+                hiddenAt: now,
+                purgeRequestedAt: now,
+                updatedAt: now,
+              })
+              .where(eq(builders.id, existing.id)),
+          );
+
+          const [updated] = yield* Effect.promise(() =>
+            db.select().from(builders).where(eq(builders.id, existing.id)).limit(1),
+          );
+
+          if (!updated) {
+            return yield* Effect.fail(
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Builder profile disappeared after update",
+              }),
+            );
+          }
+
+          return { data: rowToBuilder(updated), purgeRequested: true };
         }),
 
       createXNomination: (input) => Effect.promise(() => createXNominationRecord(db, input)),

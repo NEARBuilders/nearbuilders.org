@@ -836,6 +836,97 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.plugins.builders(context).updateBuilderProfile(input);
         }),
 
+      withdrawBuilderNomination: builder.withdrawBuilderNomination
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const nearAccount =
+            input.nearAccount ||
+            context.near?.primaryAccountId ||
+            (context.near?.linkedAccounts?.[0]?.accountId ?? null);
+
+          if (!nearAccount) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "NEAR account is required to withdraw nomination",
+            });
+          }
+
+          const callerAccounts = [
+            context.near?.primaryAccountId,
+            ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+          ]
+            .filter((a): a is string => Boolean(a))
+            .map((a) => a.toLowerCase());
+
+          const isOwner =
+            callerAccounts.includes(nearAccount.toLowerCase()) ||
+            context.userId === nearAccount ||
+            context.user.role === "admin";
+
+          if (!isOwner) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the nomination owner or an admin can withdraw this nomination",
+            });
+          }
+
+          try {
+            await services.plugins.proposals(context).withdraw({
+              pluginId: "builders",
+              entityId: nearAccount.toLowerCase(),
+              reason: "Nomination withdrawn by user",
+            });
+          } catch (e: any) {
+            if (e?.code !== "NOT_FOUND") {
+              // best-effort if proposal already cleaned up
+            }
+          }
+
+          await services.plugins.builders(context).withdrawNomination({
+            nearAccount,
+          });
+
+          try {
+            await services.plugins.activity(context).hideActorActivity({
+              actor: nearAccount,
+              source: "builders",
+            });
+          } catch {
+            // best-effort
+          }
+
+          return { withdrawn: true };
+        }),
+
+      hideMyBuilderProfile: builder.hideMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const nearAccount = context.near?.primaryAccountId;
+
+          const result = await services.plugins.builders(context).hideMyBuilderProfile({});
+
+          if (nearAccount) {
+            try {
+              await services.plugins.proposals(context).withdraw({
+                pluginId: "builders",
+                entityId: nearAccount.toLowerCase(),
+                reason: "Purge requested by user",
+              });
+            } catch {
+              // best-effort
+            }
+
+            try {
+              await services.plugins.activity(context).hideActorActivity({
+                actor: nearAccount,
+                source: "builders",
+              });
+            } catch {
+              // best-effort
+            }
+          }
+
+          return result;
+        }),
+
       listRegistryApps: builder.listRegistryApps.handler(async ({ input }) => {
         return await services.plugins.apps().listRegistryApps(input);
       }),

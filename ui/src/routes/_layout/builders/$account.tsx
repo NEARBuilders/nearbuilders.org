@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   CircleAlert,
+  Loader2,
   MapPin,
   Pencil,
   Plus,
@@ -21,6 +22,14 @@ import { BuilderProfileStats } from "@/components/builder-profile-stats";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -251,6 +260,7 @@ function BuilderProfilePage() {
         onVote={() => handleVote((activeProposal ?? proposals[0]).id)}
         allProposals={proposals}
         counts={counts}
+        isOwner={isOwner}
       />
     );
   }
@@ -393,6 +403,12 @@ function LoadedProfile({
         </div>
 
         <div className="pt-14 px-6 sm:px-8 pb-8">
+          {builder.hiddenAt && (
+            <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive font-medium flex items-center gap-2">
+              <CircleAlert className="size-4 shrink-0" />
+              <span>This builder profile is currently hidden from the public directory. An admin request to permanently purge data is pending.</span>
+            </div>
+          )}
           {profileLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-8 w-48" />
@@ -655,6 +671,7 @@ function NominatedFallback({
   onVote,
   allProposals,
   counts,
+  isOwner = false,
 }: {
   account: string;
   profile: Profile | null | undefined;
@@ -679,7 +696,31 @@ function NominatedFallback({
     payload: unknown;
   }[];
   counts: Record<string, { entityId: string; totalCount: number }>;
+  isOwner?: boolean;
 }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+
+  const withdrawMutation = useMutation({
+    mutationFn: () => apiClient.withdrawBuilderNomination({ nearAccount: account }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["builder", account] }),
+        queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+      ]);
+      toast.success("Nomination withdrawn successfully");
+      setIsWithdrawOpen(false);
+      navigate({ to: "/builders" });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to withdraw nomination");
+    },
+  });
+
   const raw = proposal.payload;
   const payload: ProposalPayload =
     typeof raw === "object" && raw !== null ? (raw as ProposalPayload) : {};
@@ -774,6 +815,16 @@ function NominatedFallback({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {isOwner && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1.5 rounded-full text-xs h-8 px-3"
+                    onClick={() => setIsWithdrawOpen(true)}
+                  >
+                    Cancel nomination
+                  </Button>
+                )}
                 <motion.span
                   key={`count-${nominationCount}`}
                   initial={{ scale: 1.15 }}
@@ -895,6 +946,36 @@ function NominatedFallback({
           </div>
         </section>
       )}
+
+      <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel builder nomination?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to withdraw your builder nomination? You will be removed from the public builders directory and your pending submission will be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsWithdrawOpen(false)}
+              disabled={withdrawMutation.isPending}
+            >
+              Keep nomination
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => withdrawMutation.mutate()}
+              disabled={withdrawMutation.isPending}
+            >
+              {withdrawMutation.isPending && (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              )}
+              {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw nomination"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

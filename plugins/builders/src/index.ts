@@ -283,6 +283,40 @@ export default createPlugin({
       deleteBuilder: builder.deleteBuilder.use(requireAdmin).handler(async ({ input }) => {
         return await runEffect(services.builder.deleteBuilder(input.nearAccount));
       }),
+
+      withdrawNomination: builder.withdrawNomination
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const callerAccounts = [
+            context.near?.primaryAccountId,
+            ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+          ]
+            .filter((a): a is string => Boolean(a))
+            .map((a) => a.toLowerCase());
+
+          const isOwner =
+            callerAccounts.includes(input.nearAccount.toLowerCase()) ||
+            context.user.role === "admin";
+
+          if (!isOwner) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the nominee or an admin can withdraw this nomination",
+            });
+          }
+
+          return await runEffect(services.builder.withdrawNomination(input.nearAccount));
+        }),
+
+      hideMyBuilderProfile: builder.hideMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          return await runEffect(
+            services.builder.hideMyBuilderProfile(
+              context.userId,
+              context.near?.primaryAccountId ?? undefined,
+            ),
+          );
+        }),
     };
   },
 });

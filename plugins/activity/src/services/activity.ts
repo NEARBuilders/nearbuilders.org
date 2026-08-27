@@ -112,6 +112,27 @@ export function createActivityMethods(db: Database) {
         return rowToActivity(updated);
       }),
 
+    hideActorActivity: (input: { actor: string; source?: string }) =>
+      Effect.gen(function* () {
+        const conditions = [
+          eq(activityEvents.actor, input.actor),
+          isNull(activityEvents.hiddenAt),
+        ] as any[];
+        if (input.source) {
+          conditions.push(eq(activityEvents.source, input.source));
+        }
+
+        const updatedRows = yield* Effect.promise(() =>
+          db
+            .update(activityEvents)
+            .set({ hiddenAt: new Date() })
+            .where(and(...conditions))
+            .returning({ id: activityEvents.id }),
+        );
+
+        return { hiddenCount: updatedRows.length };
+      }),
+
     getActivityFeed: (input: ActivityFeedInput) =>
       Effect.gen(function* () {
         const limit = Math.min(input.limit ?? 50, 100);

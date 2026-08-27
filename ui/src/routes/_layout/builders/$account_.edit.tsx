@@ -3,11 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({
@@ -149,6 +157,23 @@ function EditForm({
     },
   });
 
+  const [isHideOpen, setIsHideOpen] = useState(false);
+
+  const hideMutation = useMutation({
+    mutationFn: () => apiClient.hideMyBuilderProfile({}),
+    onSuccess: async () => {
+      toast.success("Profile hidden and admin purge requested");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["builder", account] }),
+        queryClient.invalidateQueries({ queryKey: ["builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+      ]);
+      setIsHideOpen(false);
+      navigate({ to: "/builders/$account", params: { account } });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to hide profile"),
+  });
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
       <div className="mb-8">
@@ -197,6 +222,69 @@ function EditForm({
           </Button>
         </div>
       </form>
+
+      {/* Danger Zone */}
+      <div className="mt-8 rounded-2xl border border-destructive/20 bg-destructive/5 p-6 sm:p-8">
+        <h2 className="text-lg font-bold text-destructive">Danger Zone</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {builder.hiddenAt
+            ? "Your profile is currently hidden from the public directory. An admin purge request is pending."
+            : "Hide your builder profile from the public directory and request administrators to permanently delete your data."}
+        </p>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-destructive/10 pt-4">
+          <div>
+            <div className="text-sm font-semibold text-foreground">
+              {builder.hiddenAt ? "Profile is hidden" : "Hide profile & request purge"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {builder.hiddenAt
+                ? "Your profile is not listed in the public directory."
+                : "Soft-deletes your profile from public listings and queues an administrative purge."}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="rounded-full shrink-0"
+            disabled={Boolean(builder.hiddenAt) || hideMutation.isPending}
+            onClick={() => setIsHideOpen(true)}
+          >
+            {builder.hiddenAt ? "Hidden" : "Hide my profile"}
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={isHideOpen} onOpenChange={setIsHideOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hide builder profile & request purge?</DialogTitle>
+            <DialogDescription>
+              Your builder profile will immediately be hidden from the public builders directory. A formal request will also be sent to administrators to permanently purge your profile and associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsHideOpen(false)}
+              disabled={hideMutation.isPending}
+            >
+              Keep profile
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => hideMutation.mutate()}
+              disabled={hideMutation.isPending}
+            >
+              {hideMutation.isPending && (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              )}
+              {hideMutation.isPending ? "Hiding…" : "Hide profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

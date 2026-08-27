@@ -9,6 +9,14 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   initializeNominationToken,
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
@@ -228,6 +236,26 @@ function JoinPage() {
     );
   }
 
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+
+  const withdrawMutation = useMutation({
+    mutationFn: () => apiClient.withdrawBuilderNomination({ nearAccount: nearAccountId ?? undefined }),
+    onSuccess: async () => {
+      sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["builder", nearAccountId] }),
+        queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+      ]);
+      toast.success("Nomination withdrawn successfully");
+      setIsWithdrawOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to withdraw nomination");
+    },
+  });
+
   if ((pendingProposalQuery.data?.data.length ?? 0) > 0) {
     return (
       <JoinShell>
@@ -236,13 +264,53 @@ function JoinPage() {
           Your profile is under review
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          A builder profile for {nearAccountId} has already been submitted.
+          A builder profile for {nearAccountId} has already been submitted and is pending review.
         </p>
-        <Button asChild variant="outline" size="lg" className="mt-8 w-full rounded-full">
-          <Link to="/builders" search={undefined}>
-            Browse builders
-          </Link>
-        </Button>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button asChild variant="outline" size="lg" className="flex-1 rounded-full">
+            <Link to="/builders" search={undefined}>
+              Browse builders
+            </Link>
+          </Button>
+          <Button
+            variant="destructive"
+            size="lg"
+            className="flex-1 rounded-full"
+            onClick={() => setIsWithdrawOpen(true)}
+          >
+            Cancel nomination
+          </Button>
+        </div>
+
+        <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cancel builder nomination?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to withdraw your builder nomination? You will be removed from the public builders directory and your pending submission will be deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setIsWithdrawOpen(false)}
+                disabled={withdrawMutation.isPending}
+              >
+                Keep nomination
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => withdrawMutation.mutate()}
+                disabled={withdrawMutation.isPending}
+              >
+                {withdrawMutation.isPending && (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                )}
+                {withdrawMutation.isPending ? "Withdrawing…" : "Withdraw nomination"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </JoinShell>
     );
   }

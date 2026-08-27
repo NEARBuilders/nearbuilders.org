@@ -167,6 +167,32 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
+    hideActorActivity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        actor: z.ZodString;
+        source: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        hiddenCount: z.ZodNumber;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     getActivityFeed: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         source: z.ZodOptional<z.ZodString>;
         type: z.ZodOptional<z.ZodString>;

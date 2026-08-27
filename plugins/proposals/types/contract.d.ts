@@ -360,6 +360,86 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
+    withdraw: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+        pluginId: z.ZodString;
+        entityId: z.ZodString;
+        reason: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodObject<{
+            id: z.ZodString;
+            pluginId: z.ZodString;
+            entityId: z.ZodString;
+            operation: z.ZodLiteral<"create">;
+            payload: z.ZodUnknown;
+            schemaVersion: z.ZodString;
+            createdBy: z.ZodString;
+            reviewStatus: z.ZodEnum<{
+                pending: "pending";
+                approved: "approved";
+                rejected: "rejected";
+                removed: "removed";
+            }>;
+            applyStatus: z.ZodEnum<{
+                not_started: "not_started";
+                applying: "applying";
+                applied: "applied";
+                failed: "failed";
+            }>;
+            removeStatus: z.ZodEnum<{
+                removed: "removed";
+                not_started: "not_started";
+                failed: "failed";
+                removing: "removing";
+            }>;
+            rejectionReason: z.ZodNullable<z.ZodString>;
+            applyError: z.ZodNullable<z.ZodString>;
+            removeError: z.ZodNullable<z.ZodString>;
+            appliedResourceId: z.ZodNullable<z.ZodString>;
+            submissionCount: z.ZodNumber;
+            appliedAt: z.ZodNullable<z.ZodISODateTime>;
+            removedAt: z.ZodNullable<z.ZodISODateTime>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     reopen: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;

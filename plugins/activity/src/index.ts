@@ -100,6 +100,10 @@ export default createPlugin({
         return event;
       }),
 
+      hideActorActivity: builder.hideActorActivity.use(requireAdmin).handler(async ({ input }) => {
+        return await runEffect(services.activity.hideActorActivity(input));
+      }),
+
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
         return await runEffect(services.activity.getActivityFeed(input));
       }),

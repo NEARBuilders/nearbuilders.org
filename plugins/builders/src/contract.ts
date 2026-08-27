@@ -31,6 +31,8 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  hiddenAt: z.iso.datetime().nullable().optional(),
+  purgeRequestedAt: z.iso.datetime().nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -461,6 +463,18 @@ export const contract = oc.router({
     .input(z.object({ nearAccount: z.string() }))
     .output(z.object({ deleted: z.boolean() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  withdrawNomination: oc
+    .route({ method: "POST", path: "/v1/builders/nominations/withdraw" })
+    .input(z.object({ nearAccount: z.string() }))
+    .output(z.object({ withdrawn: z.boolean() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  hideMyBuilderProfile: oc
+    .route({ method: "POST", path: "/v1/builders/me/hide" })
+    .input(z.object({}))
+    .output(z.object({ data: BuilderOutput, purgeRequested: z.boolean() }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
 });
 
 export type ContractType = typeof contract;
