@@ -69,7 +69,10 @@ export const KNOWN_SKILLS = [
 ] as const;
 
 function lookupKey(value: string): string {
-  return value.trim().toLocaleLowerCase().replace(/[^a-z0-9]+/g, "");
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function titleCaseWords(value: string): string {

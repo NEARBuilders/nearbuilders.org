@@ -1,7 +1,7 @@
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import type { ReactNode } from "react";

@@ -1,7 +1,7 @@
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import type { Profile } from "better-near-auth";
 import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";

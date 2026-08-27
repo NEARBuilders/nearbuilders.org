@@ -1,5 +1,3 @@
-import { useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
 import {
   countrySuggestions,
   locationError,
@@ -7,6 +5,8 @@ import {
   parseSkillList,
   skillSuggestions,
 } from "@everything-dev/builders-plugin/builder-tags";
+import { useStore } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
