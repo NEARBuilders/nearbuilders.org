@@ -886,6 +886,34 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/upvotes/stream" })
     .output(eventIterator(VoteEventSchema)),
 
+  bookmark: oc
+    .route({ method: "POST", path: "/bookmarks" })
+    .input(z.object({ entityId: z.string() }))
+    .output(
+      z.object({
+        entityId: z.string(),
+        userId: z.string(),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
+
+  unbookmark: oc
+    .route({ method: "DELETE", path: "/bookmarks/{entityId}" })
+    .input(z.object({ entityId: z.string() }))
+    .output(z.object({ entityId: z.string() }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  getUserBookmark: oc
+    .route({ method: "GET", path: "/bookmarks/{entityId}/me" })
+    .input(z.object({ entityId: z.string() }))
+    .output(
+      z.object({
+        entityId: z.string(),
+        isBookmarked: z.boolean(),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
+
   searchCatalogProjects: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/search" })
     .input(

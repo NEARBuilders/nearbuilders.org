@@ -1,10 +1,23 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Clock, Lock, MapPin, Plus, Share2, Users, Video } from "lucide-react";
+import {
+  Bookmark,
+  CalendarDays,
+  CalendarPlus,
+  Clock,
+  Lock,
+  MapPin,
+  Plus,
+  Share2,
+  Users,
+  Video,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
+import { useBookmark } from "@/lib/bookmarks";
+import { downloadIcsFile } from "@/lib/ics";
 import { cn } from "@/lib/utils";
 import { CalendarFilters } from "./-calendar-filters";
 import { EventDayGroup, type EventDayGroupData } from "./-event-day-group";
@@ -334,6 +347,17 @@ function EventCard({
 }) {
   const isCancelled = event.status === "cancelled";
   const status = getEventCardStatus(event, proposalStatus);
+  const { isBookmarked, toggle: toggleBookmark, canBookmark } = useBookmark(event.id);
+  const apiClient = useApiClient();
+  const participantsQuery = useQuery({
+    queryKey: ["eventParticipants", event.id],
+    queryFn: () => apiClient.listEventParticipants({ eventId: event.id }),
+    enabled: event.participantCount > 0,
+    staleTime: 60_000,
+  });
+  const participants = participantsQuery.data?.data ?? [];
+  const visibleParticipants = participants.slice(0, 4);
+  const extraParticipantCount = Math.max(0, event.participantCount - visibleParticipants.length);
   return (
     <div className="group relative rounded-lg border border-border bg-card transition-all duration-200 hover:shadow-lg">
       <div className="absolute right-4 top-3 z-10 flex items-center gap-1 sm:right-5">
@@ -346,6 +370,44 @@ function EventCard({
           >
             {status.label}
           </span>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleBookmark();
+          }}
+          disabled={!canBookmark}
+          className={cn(
+            "shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground",
+            isBookmarked && "text-brand-accent opacity-100",
+          )}
+          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+          title={canBookmark ? undefined : "Sign in to bookmark"}
+        >
+          <Bookmark size={14} fill={isBookmarked ? "currentColor" : "none"} />
+        </button>
+        {!isCancelled && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              downloadIcsFile({
+                uid: `${event.id}@nearbuilders.org`,
+                title: event.title,
+                description: event.description,
+                location: event.location,
+                start: event.startAt,
+                end: event.endAt,
+              });
+            }}
+            className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+            aria-label="Add to calendar"
+          >
+            <CalendarPlus size={14} />
+          </button>
         )}
         <button
           type="button"
@@ -366,10 +428,10 @@ function EventCard({
       <Link
         to="/events/$slug"
         params={{ slug: event.slug }}
-        className="block px-4 py-3.5 sm:px-5 sm:py-4"
+        className="block px-4 pt-3.5 sm:px-5 sm:pt-4"
       >
         <div className="flex items-start gap-2">
-          <div className={cn("min-w-0 flex-1", showStatus ? "pr-28 sm:pr-32" : "pr-10")}>
+          <div className={cn("min-w-0 flex-1", showStatus ? "pr-40 sm:pr-44" : "pr-28 sm:pr-32")}>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock size={12} className="shrink-0" />
@@ -397,10 +459,6 @@ function EventCard({
               )}
               <span className="truncate">{event.location ?? "Virtual"}</span>
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <Users size={12} className="shrink-0" />
-              {event.participantCount}
-            </div>
             {event.description && (
               <p className="mt-1.5 line-clamp-2 break-words text-sm leading-relaxed text-muted-foreground">
                 {event.description}
@@ -409,7 +467,62 @@ function EventCard({
           </div>
         </div>
       </Link>
+      <div className="flex items-center gap-1.5 px-4 pb-3.5 pt-1.5 sm:px-5 sm:pb-4">
+        {visibleParticipants.length > 0 ? (
+          <>
+            <div className="flex -space-x-1.5">
+              {visibleParticipants.map((participant) => (
+                <AttendeeAvatar key={participant.id} participant={participant} />
+              ))}
+            </div>
+            {extraParticipantCount > 0 && (
+              <span className="text-xs text-muted-foreground">+{extraParticipantCount} more</span>
+            )}
+          </>
+        ) : (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Users size={12} className="shrink-0" />
+            {event.participantCount}
+          </span>
+        )}
+      </div>
     </div>
+  );
+}
+
+function AttendeeAvatar({
+  participant,
+}: {
+  participant: { id: string; walletAddress: string | null; displayName: string | null };
+}) {
+  const label = participant.displayName || participant.walletAddress || "Builder";
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  const avatar = (
+    <span
+      className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-card bg-brand-accent-light text-[10px] font-bold text-brand-accent"
+      title={label}
+    >
+      {initials || "?"}
+    </span>
+  );
+
+  if (!participant.walletAddress) return avatar;
+
+  return (
+    <Link
+      to="/builders/$account"
+      params={{ account: participant.walletAddress }}
+      onClick={(e) => e.stopPropagation()}
+      className="rounded-full transition-transform hover:z-10 hover:scale-110"
+    >
+      {avatar}
+    </Link>
   );
 }
 
