@@ -156,6 +156,13 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       actorId: string;
       actor?: { name?: string; email?: string };
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    withdraw: (input: {
+      pluginId: string;
+      entityId: string;
+      expectedUpdatedAt: string;
+      actorId: string;
+      actor?: { name?: string; email?: string };
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
     reopen: (input: {
       pluginId: string;
       entityId: string;
@@ -546,6 +553,75 @@ export const ProposalServiceLive = Layer.effect(
                 input.actorId,
                 actorLabel(input.actor),
                 { reason },
+              );
+              return true;
+            }),
+          );
+
+          if (!updated) return yield* Effect.fail(staleProposal());
+
+          return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
+        }),
+
+      withdraw: (input) =>
+        Effect.gen(function* () {
+          const [existing] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(proposals)
+              .where(
+                and(eq(proposals.pluginId, input.pluginId), eq(proposals.entityId, input.entityId)),
+              )
+              .limit(1),
+          );
+
+          if (!existing) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", { message: "Proposal not found" }),
+            );
+          }
+
+          if (toIsoString(existing.updatedAt) !== input.expectedUpdatedAt) {
+            return yield* Effect.fail(staleProposal());
+          }
+
+          // Idempotent: a proposal that is already withdrawn is a no-op.
+          if (existing.reviewStatus === "removed") {
+            return yield* Effect.promise(() => loadProposal(db, input.pluginId, input.entityId));
+          }
+
+          if (existing.reviewStatus !== "pending" || existing.applyStatus === "applying") {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", {
+                message: "Only a pending nomination can be withdrawn",
+              }),
+            );
+          }
+
+          const now = nextTimestamp(existing.updatedAt);
+          const updated = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const rows = await tx
+                .update(proposals)
+                .set({
+                  reviewStatus: "removed",
+                  applyStatus: "not_started",
+                  applyError: null,
+                  updatedAt: now,
+                })
+                .where(
+                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
+                )
+                .returning({ id: proposals.id });
+              if (!rows[0]) return false;
+              await appendAudit(
+                tx,
+                existing.id,
+                input.pluginId,
+                input.entityId,
+                "withdrawn",
+                input.actorId,
+                actorLabel(input.actor),
               );
               return true;
             }),

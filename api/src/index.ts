@@ -484,6 +484,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return rejected;
       }),
 
+      withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.proposals(context).withdraw(input);
+      }),
+
       reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).reopen(input);
       }),
@@ -828,6 +832,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           return await services.plugins.builders(context).getMyBuilderProfile(input);
+        }),
+
+      withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.builders(context).withdrawMyBuilderProfile(input);
+        }),
+
+      restoreMyBuilderProfile: builder.restoreMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.builders(context).restoreMyBuilderProfile(input);
         }),
 
       updateBuilderProfile: builder.updateBuilderProfile
