@@ -102,7 +102,7 @@ function LoginPage() {
             onClick={handleNear}
             disabled={nearPending}
             size="lg"
-            className="w-full rounded-full h-12 text-sm font-bold bg-brand-green hover:bg-brand-green/90 text-black shadow-md shadow-brand-green/20 hover:shadow-lg hover:shadow-brand-green/30 transition-all"
+            className="w-full rounded-full h-12 text-sm font-bold bg-brand-green hover:bg-brand-green/90 text-brand-on-accent shadow-md shadow-brand-green/20 hover:shadow-lg hover:shadow-brand-green/30 transition-all"
           >
             {nearPending
               ? "Connecting…"

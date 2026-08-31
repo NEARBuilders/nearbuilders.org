@@ -169,7 +169,7 @@ function Layout() {
                   to="/builders/add"
                   search={{ intent: "self" }}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-mint-foreground"
+                  className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-on-accent"
                 >
                   Join the builder network
                 </Link>

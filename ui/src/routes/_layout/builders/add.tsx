@@ -125,7 +125,7 @@ function NominateBuilderPage() {
             <Button
               asChild
               size="lg"
-              className="rounded-full px-8 h-12 bg-brand-green hover:bg-brand-green/90 text-black font-bold shadow-lg shadow-brand-green/20"
+              className="rounded-full px-8 h-12 bg-brand-green hover:bg-brand-green/90 text-brand-on-accent font-bold shadow-lg shadow-brand-green/20"
             >
               <Link to="/login" search={{ redirect: redirectPath }}>
                 Connect wallet to continue
@@ -160,7 +160,7 @@ function NominateBuilderPage() {
           <Button
             onClick={() => auth.signIn.near()}
             size="lg"
-            className="rounded-full px-8 h-12 bg-brand-cyan text-black font-bold"
+            className="rounded-full px-8 h-12 bg-brand-cyan text-brand-on-accent font-bold"
           >
             Connect NEAR wallet
           </Button>
@@ -346,7 +346,7 @@ function NominationForm({
         <div className="flex flex-col gap-2 items-center">
           <Button
             asChild
-            className="rounded-full px-8 bg-brand-green hover:bg-brand-green/90 text-black font-bold"
+            className="rounded-full px-8 bg-brand-green hover:bg-brand-green/90 text-brand-on-accent font-bold"
           >
             <Link to="/builders" search={undefined}>
               Browse builders

@@ -249,7 +249,7 @@ export function ProjectFormLayout({
                             className={cn(
                               "flex size-5 shrink-0 items-center justify-center rounded-md sm:size-7 sm:rounded-lg",
                               active
-                                ? "bg-brand-accent text-brand-mint-foreground"
+                                ? "bg-brand-accent text-brand-on-accent"
                                 : "bg-muted text-muted-foreground",
                             )}
                           >
