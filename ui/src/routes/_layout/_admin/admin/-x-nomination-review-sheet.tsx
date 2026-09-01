@@ -154,8 +154,9 @@ export function XNominationReviewSheet({
     >
       <SheetContent
         side="right"
+        size="wide"
         hideCloseButton
-        className="w-full max-w-none overflow-hidden rounded-none border-y-0 sm:max-w-2xl"
+        className="overflow-hidden rounded-none border-y-0"
       >
         <SheetHeader className="border-b border-border bg-secondary/30 px-5 py-6 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">

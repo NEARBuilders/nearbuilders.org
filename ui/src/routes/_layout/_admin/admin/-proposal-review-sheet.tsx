@@ -802,8 +802,9 @@ export function ProposalReviewSheet({
     >
       <SheetContent
         side="right"
+        size="wide"
         hideCloseButton
-        className="w-full max-w-none overflow-hidden rounded-none border-y-0 sm:max-w-2xl xl:max-w-3xl"
+        className="overflow-hidden rounded-none border-y-0"
       >
         {loading ? (
           <div className="flex h-full flex-col">
