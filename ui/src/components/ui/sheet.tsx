@@ -43,10 +43,12 @@ function SheetContent({
   className,
   children,
   side = "bottom",
+  size = "default",
   hideCloseButton = false,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  size?: "default" | "wide";
   hideCloseButton?: boolean;
 }) {
   return (
@@ -79,14 +81,18 @@ function SheetContent({
           ],
           side === "right" && [
             "inset-y-0 right-0",
-            "w-full max-w-sm",
+            "w-full",
+            size === "default" && "max-w-sm",
+            size === "wide" && "max-w-none sm:max-w-2xl xl:max-w-3xl",
             "border-r-0",
             "rounded-l-2xl",
             "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
           ],
           side === "left" && [
             "inset-y-0 left-0",
-            "w-full max-w-sm",
+            "w-full",
+            size === "default" && "max-w-sm",
+            size === "wide" && "max-w-none sm:max-w-2xl xl:max-w-3xl",
             "border-l-0",
             "rounded-r-2xl",
             "data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
