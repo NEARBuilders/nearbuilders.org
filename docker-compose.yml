@@ -122,6 +122,17 @@ services:
     volumes:
       - nearbuilding_near_postgres_votes_data:/var/lib/postgresql/data
 
+  postgres-bookmarks:
+    <<: *pg-common
+    container_name: nearbuilding.near-postgres-bookmarks
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: bookmarks_db
+    ports:
+      - "5452:5432"
+    volumes:
+      - nearbuilding_near_postgres_bookmarks_data:/var/lib/postgresql/data
+
 volumes:
   nearbuilding_near_postgres_activity_data:
     name: nearbuilding_near_postgres_activity_data
@@ -143,3 +154,5 @@ volumes:
     name: nearbuilding_near_postgres_proposals_data
   nearbuilding_near_postgres_votes_data:
     name: nearbuilding_near_postgres_votes_data
+  nearbuilding_near_postgres_bookmarks_data:
+    name: nearbuilding_near_postgres_bookmarks_data

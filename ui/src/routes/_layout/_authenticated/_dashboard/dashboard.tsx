@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useNearAccount } from "@/hooks";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboard")({
@@ -58,8 +59,8 @@ function Dashboard() {
   const auth = useAuthClient();
   const apiClient = useApiClient();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth, undefined));
-  const nearAccountId = auth.near.getAccountId();
   const user = session?.user;
+  const { accountId: nearAccountId, isLoading: nearAccountLoading } = useNearAccount(Boolean(user));
 
   const {
     data: projectsData,
@@ -157,7 +158,7 @@ function Dashboard() {
 
   const auditEntries = auditLogQuery.data?.pages.flatMap((page) => page.data) ?? [];
 
-  if (!user) {
+  if (!user || (!nearAccountId && nearAccountLoading)) {
     return (
       <DashboardPageFrame>
         <DashboardHeader />
