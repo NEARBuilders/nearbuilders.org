@@ -58,7 +58,7 @@ function SheetContent({
         data-slot="sheet-content"
         className={cn(
           "fixed z-50 flex flex-col",
-          "bg-card text-foreground",
+          "bg-elevated text-elevated-foreground",
           "border border-border",
           "shadow-[0_-8px_40px_rgba(0,0,0,0.18)]",
           "transition ease-in-out",
@@ -111,7 +111,7 @@ function SheetContent({
           <SheetPrimitive.Close
             className={cn(
               "absolute flex h-9 w-9 items-center justify-center rounded-xl",
-              "border border-border bg-card",
+              "border border-border bg-muted",
               "text-muted-foreground transition-colors hover:text-foreground",
               side === "bottom" ? "right-4 top-3" : "right-4 top-4",
             )}

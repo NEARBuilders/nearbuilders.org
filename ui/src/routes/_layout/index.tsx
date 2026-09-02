@@ -174,7 +174,7 @@ function HeroSection() {
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-brand-accent px-7 text-brand-mint-foreground shadow-lg shadow-brand-accent-border hover:opacity-90"
+              className="rounded-full bg-brand-accent px-7 text-brand-on-accent shadow-lg shadow-brand-accent-border hover:opacity-90"
             >
               <Link to="/builders" search={{ highlight: undefined }}>
                 Explore builders
@@ -217,7 +217,7 @@ function HeroSection() {
                 <Network className="size-4 text-brand-accent" />
                 Builder network
               </div>
-              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-brand-mint-foreground sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider">
+              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-brand-on-accent sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider">
                 Community curated
               </span>
             </div>
@@ -471,16 +471,16 @@ function ParticipationSection() {
     <section className="border-b border-brand-accent-border bg-brand-accent py-16 sm:py-20 lg:py-24">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:items-end lg:gap-20 lg:px-8">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-mint-foreground/65">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-on-accent/65">
             Your move
           </p>
-          <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight text-brand-mint-foreground sm:text-5xl lg:text-6xl">
+          <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight text-brand-on-accent sm:text-5xl lg:text-6xl">
             Bring what you're building into the open.
           </h2>
         </div>
 
         <div>
-          <p className="max-w-xl text-base leading-relaxed text-brand-mint-foreground/75 sm:text-lg">
+          <p className="max-w-xl text-base leading-relaxed text-brand-on-accent/75 sm:text-lg">
             Create a profile so collaborators can find you, or start a project and give the network
             a clear way to join.
           </p>
@@ -499,7 +499,7 @@ function ParticipationSection() {
               asChild
               size="lg"
               variant="outline"
-              className="rounded-full border-brand-mint-foreground/25 bg-transparent px-6 text-brand-mint-foreground hover:bg-brand-mint-foreground/10 hover:text-brand-mint-foreground"
+              className="rounded-full border-brand-on-accent/25 bg-transparent px-6 text-brand-on-accent hover:bg-brand-on-accent/10 hover:text-brand-on-accent"
             >
               <Link to="/projects/new">
                 Start a project

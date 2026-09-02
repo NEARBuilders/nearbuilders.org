@@ -189,7 +189,7 @@ export function BuilderOnboardingChecklist({
                     className={cn(
                       "relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
                       item.complete
-                        ? "border-brand-accent bg-brand-accent text-brand-mint-foreground"
+                        ? "border-brand-accent bg-brand-accent text-brand-on-accent"
                         : "border-border bg-card text-transparent",
                     )}
                   >
@@ -204,7 +204,7 @@ export function BuilderOnboardingChecklist({
                     {item.label}
                   </span>
                   {item.id === nextItemId && !item.complete && (
-                    <span className="rounded-full bg-brand-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-mint-foreground">
+                    <span className="rounded-full bg-brand-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-on-accent">
                       Next
                     </span>
                   )}

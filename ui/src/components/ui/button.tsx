@@ -12,7 +12,7 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground rounded-xl hover:opacity-90 active:opacity-80 disabled:opacity-50",
         destructive:
-          "bg-destructive text-destructive-foreground rounded-xl hover:bg-[#D21B14] active:bg-[#BA1F19] disabled:opacity-50",
+          "bg-destructive text-destructive-foreground rounded-xl hover:bg-destructive/90 active:bg-destructive/80 disabled:opacity-50",
         outline:
           "bg-card text-foreground border border-border rounded-xl hover:bg-secondary hover:border-border-strong active:bg-accent active:border-border-strong disabled:opacity-50",
         secondary:
