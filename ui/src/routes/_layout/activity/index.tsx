@@ -4,6 +4,8 @@ import { ArrowDownUp, Plus, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { ActivityFeed, type ActivitySort } from "@/components/activity-feed";
+import { NostrComments } from "@/components/nostr/comments";
+import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
 import { Button } from "@/components/ui/button";
 import { SegmentedFilter } from "@/components/ui/segmented-filter";
 import {
@@ -54,6 +56,7 @@ function ActivityPage() {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+  const nearAccountId = auth.near.getAccountId();
 
   const [source, setSource] = useState<SourceFilter>("all");
   const [type, setType] = useState<TypeFilter>("all");
@@ -133,6 +136,17 @@ function ActivityPage() {
       <TooltipProvider>
         <ActivityFeed filters={filters} sort={sort} />
       </TooltipProvider>
+
+      <section className="mt-12 space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Discussion</h2>
+          <p className="text-muted-foreground text-sm">
+            Decentralized comments on the activity feed, backed by Nostr.
+          </p>
+        </div>
+        {nearAccountId && <NostrIdentityCard nearAccountId={nearAccountId} />}
+        <NostrComments target={{ type: "page", id: "activity" }} />
+      </section>
     </div>
   );
 }

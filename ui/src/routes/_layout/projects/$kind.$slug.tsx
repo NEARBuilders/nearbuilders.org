@@ -20,6 +20,8 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { NostrComments } from "@/components/nostr/comments";
+import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -481,6 +483,17 @@ function ProjectDetailPage() {
                     </div>
                   )}
                 </div>
+              </section>
+
+              <section className="border-t border-border pt-6 space-y-6">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                    Comments
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold text-foreground">Discussion</h2>
+                </div>
+                {nearAccountId && <NostrIdentityCard nearAccountId={nearAccountId} />}
+                <NostrComments target={{ type: project.kind, id: project.slug }} />
               </section>
 
               {(project.kind === "scope" || project.kind === "result") && (
