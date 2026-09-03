@@ -47,7 +47,7 @@ export function UserNav({ className }: { className?: string }) {
         asChild
         size="sm"
         className={cn(
-          "rounded-full bg-brand-accent text-brand-mint-foreground hover:opacity-90",
+          "rounded-full bg-brand-accent text-brand-on-accent hover:opacity-90",
           className,
         )}
       >

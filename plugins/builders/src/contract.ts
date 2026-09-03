@@ -31,6 +31,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -424,6 +425,18 @@ export const contract = oc.router({
     .input(z.object({}))
     .output(z.object({ data: BuilderOutput.nullable() }))
     .errors({ UNAUTHORIZED }),
+
+  withdrawMyBuilderProfile: oc
+    .route({ method: "POST", path: "/v1/builders/me/withdraw" })
+    .input(z.object({}))
+    .output(z.object({ data: BuilderOutput }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  restoreMyBuilderProfile: oc
+    .route({ method: "POST", path: "/v1/builders/me/restore" })
+    .input(z.object({}))
+    .output(z.object({ data: BuilderOutput }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
 
   createBuilder: oc
     .route({ method: "POST", path: "/v1/builders" })

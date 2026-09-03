@@ -1629,7 +1629,7 @@ function ProjectsList() {
               if (!open) closePreview();
             }}
           >
-            <SheetContent side="right" hideCloseButton className="w-full max-w-xl p-0 sm:max-w-xl">
+            <SheetContent side="right" size="wide" hideCloseButton>
               {selectedProject && (
                 <>
                   <ProjectPreviewHeader title={selectedProject.title} />

@@ -502,6 +502,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return rejected;
       }),
 
+      withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.proposals(context).withdraw(input);
+      }),
+
       reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).reopen(input);
       }),
@@ -624,6 +628,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
           yield event;
         }
       }),
+
+      bookmark: builder.bookmark.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.bookmarks(context).bookmark(input);
+      }),
+
+      unbookmark: builder.unbookmark.use(requireAuth).handler(async ({ input, context }) => {
+        return await services.plugins.bookmarks(context).unbookmark(input);
+      }),
+
+      getUserBookmark: builder.getUserBookmark
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.bookmarks(context).getUserBookmark(input);
+        }),
 
       searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().searchCatalogProjects(input);
@@ -846,6 +864,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           return await services.plugins.builders(context).getMyBuilderProfile(input);
+        }),
+
+      withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.builders(context).withdrawMyBuilderProfile(input);
+        }),
+
+      restoreMyBuilderProfile: builder.restoreMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.builders(context).restoreMyBuilderProfile(input);
         }),
 
       updateBuilderProfile: builder.updateBuilderProfile

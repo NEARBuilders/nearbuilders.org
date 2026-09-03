@@ -174,6 +174,38 @@ export default createPlugin({
         return { data: result };
       }),
 
+      withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
+        const viewer = viewerId(context);
+        const existing = await runEffect(
+          services.proposal.getProposals({
+            pluginId: input.pluginId,
+            entityId: input.entityId,
+            limit: 1,
+            ...proposalScope(context),
+          }),
+        );
+        const proposal = existing.data[0];
+        if (!proposal) {
+          throw new ORPCError("NOT_FOUND", { message: "Proposal not found" });
+        }
+        const isSubject =
+          !!context.near?.primaryAccountId && input.entityId === context.near.primaryAccountId;
+        if (proposal.createdBy !== viewer && !isSubject) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "You can only withdraw a nomination you created or that is for your account",
+          });
+        }
+        const result = await runEffect(
+          services.proposal.withdraw({
+            ...input,
+            actorId: context.userId!,
+            actor: context.user ?? undefined,
+          }),
+        );
+        await publishProposalEvent("withdrawn", result);
+        return { data: result };
+      }),
+
       reopen: builder.reopen.use(requireAdmin).handler(async ({ input, context }) => {
         const result = await runEffect(
           services.proposal.reopen({

@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { GitFork, Menu, Send, X } from "lucide-react";
+import { GitFork, Menu, Search, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import builtOn from "@/assets/built_on.png";
 import builtOnRev from "@/assets/built_on_rev.png";
+import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ function Layout() {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
   const appName = "Near Builders";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const user = session?.user;
@@ -94,6 +96,18 @@ function Layout() {
               <span className="truncate">{appName}</span>
             </Link>
 
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="ml-2 hidden shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
+            >
+              <Search size={14} />
+              <kbd className="rounded border border-border px-1 py-0.5 text-[10px] font-medium">
+                ⌘K
+              </kbd>
+            </button>
+
             <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border bg-card p-1 md:flex">
               {navLinks.map((link) => (
                 <Link
@@ -113,6 +127,16 @@ function Layout() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2 md:hidden">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-10 rounded-full border border-border bg-card text-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setSearchOpen(true)}
+                aria-label="Search"
+              >
+                <Search size={18} />
+              </Button>
               {user && <NotificationBell />}
               <UserNav
                 className={
@@ -137,6 +161,8 @@ function Layout() {
           </div>
         </div>
       </header>
+
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
       {mobileOpen && (
         <div className="md:hidden">
@@ -169,7 +195,7 @@ function Layout() {
                   to="/builders/add"
                   search={{ intent: "self" }}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-mint-foreground"
+                  className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-on-accent"
                 >
                   Join the builder network
                 </Link>

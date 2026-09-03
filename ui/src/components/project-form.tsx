@@ -6,12 +6,15 @@ import {
   Bold,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
+  ChevronUp,
   Circle,
   Code2,
   ExternalLink,
   Eye,
   FileCode2,
   FileText,
+  GripVertical,
   Heading1,
   Italic,
   Layers,
@@ -21,7 +24,7 @@ import {
   Quote,
   ShieldCheck,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
@@ -35,62 +38,35 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
+import {
+  getProjectFormValidation,
+  type ProjectFormValues,
+  validateContent,
+  validateDescription,
+  validateOptionalMaxLength,
+  validateRepository,
+  validateTitle,
+} from "@/lib/project-form-validation";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
 
-export type ProjectFormValues = {
-  kind: "project" | "idea" | "scope" | "result";
-  title: string;
-  description?: string;
-  repository?: string;
-  content?: string;
-  visibility: "private" | "unlisted" | "public";
-  status?: "active" | "paused" | "archived";
-  ownerId?: string;
-  domain?: string;
-};
+export type { ProjectFormValues } from "@/lib/project-form-validation";
+export {
+  validateContent,
+  validateDescription,
+  validateOptionalMaxLength,
+  validateRepository,
+  validateTitle,
+} from "@/lib/project-form-validation";
 
-export const validateTitle = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return "Title is required";
-  if (trimmed.length > 200) return "Max 200 characters";
-  return undefined;
-};
+const EDITOR_SPLIT_STORAGE_KEY = "projects:creator:editor-split";
+const DEFAULT_EDITOR_SPLIT = 50;
+const MIN_EDITOR_SPLIT = 30;
+const MAX_EDITOR_SPLIT = 70;
 
-export const validateDescription = (value?: string) => {
-  if ((value ?? "").length > 1000) return "Max 1000 characters";
-  return undefined;
-};
-
-export const validateRepository = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
-  const trimmed = value?.trim() ?? "";
-  if (kind === "project" && !trimmed) return "Repository URL is required for projects";
-  if (!trimmed) return undefined;
-  if (trimmed.length > 500) return "Max 500 characters";
-  try {
-    new URL(trimmed);
-    return undefined;
-  } catch {
-    return "Must be a valid URL";
-  }
-};
-
-export const validateContent = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
-  const trimmed = value?.trim() ?? "";
-  if ((kind === "idea" || kind === "scope" || kind === "result") && !trimmed)
-    return `Markdown content is required for ${kind}s`;
-  if ((value ?? "").length > 50000) return "Max 50,000 characters";
-  return undefined;
-};
-
-export const validateOptionalMaxLength = (
-  value: string | undefined,
-  max: number,
-  message: string,
-) => {
-  if ((value ?? "").length > max) return message;
-  return undefined;
-};
+export function clampProjectEditorSplit(value: number) {
+  return Math.min(MAX_EDITOR_SPLIT, Math.max(MIN_EDITOR_SPLIT, value));
+}
 
 export function fieldError(error: unknown): string | undefined {
   if (!error) return undefined;
@@ -106,6 +82,19 @@ export function fieldError(error: unknown): string | undefined {
     return String((error as { message: unknown }).message);
   }
   return String(error);
+}
+
+function fieldStateClassName(
+  value: unknown,
+  error: string | undefined,
+  required: boolean,
+  enabled: boolean,
+) {
+  if (!enabled) return error ? "border-destructive" : "";
+  const filled = typeof value === "string" ? value.trim().length > 0 : Boolean(value);
+  if (error || (required && !filled)) return "border-destructive";
+  if (filled) return "border-brand-accent";
+  return "";
 }
 
 interface ProjectFormLayoutProps {
@@ -143,6 +132,46 @@ export function ProjectFormLayout({
   const content = useStore(form.store, (s: any) => s.values.content ?? "");
   const currentTitle = useStore(form.store, (s: any) => s.values.title ?? "");
   const currentDescription = useStore(form.store, (s: any) => s.values.description ?? "");
+  const formValues = useStore(form.store, (s: any) => s.values) as Partial<ProjectFormValues>;
+  const validation = getProjectFormValidation({
+    ...formValues,
+    kind: kind as ProjectFormValues["kind"],
+  });
+  const creatorMode = mode === "create";
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const [editorSplit, setEditorSplit] = useState(DEFAULT_EDITOR_SPLIT);
+  const [editorSplitReady, setEditorSplitReady] = useState(false);
+  const [resizingPointerId, setResizingPointerId] = useState<number>();
+  const [metadataCollapsed, setMetadataCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!creatorMode) return;
+    try {
+      const storedValue = sessionStorage.getItem(EDITOR_SPLIT_STORAGE_KEY);
+      if (storedValue !== null) {
+        const storedSplit = Number(storedValue);
+        if (Number.isFinite(storedSplit)) {
+          setEditorSplit(clampProjectEditorSplit(storedSplit));
+        }
+      }
+    } catch {}
+    setEditorSplitReady(true);
+  }, [creatorMode]);
+
+  useEffect(() => {
+    if (!creatorMode || !editorSplitReady) return;
+    try {
+      sessionStorage.setItem(EDITOR_SPLIT_STORAGE_KEY, String(Math.round(editorSplit)));
+    } catch {}
+  }, [creatorMode, editorSplit, editorSplitReady]);
+
+  const updateEditorSplit = (clientX: number) => {
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const { left, width } = container.getBoundingClientRect();
+    if (!width) return;
+    setEditorSplit(clampProjectEditorSplit(((clientX - left) / width) * 100));
+  };
 
   const titleClearedRef = useRef(false);
   const prevTitleRef = useRef(currentTitle);
@@ -208,33 +237,80 @@ export function ProjectFormLayout({
     },
   ];
   const kindLabel = kindOptions.find((option) => option.value === kind)?.label ?? "Entry";
-  const titleReady = Boolean(currentTitle.trim());
-  const sourceReady = kind === "project" ? Boolean(repositoryUrl.trim()) : Boolean(content.trim());
+  const titleReady = !validation.errors.title;
+  const metadataReady = titleReady && !validation.errors.description;
+  const sourceReady =
+    kind === "project" ? !validation.errors.repository : !validation.errors.content;
   const identityReady = Boolean(defaultOwnerId || isAdmin);
+
+  useEffect(() => {
+    if (!metadataReady && metadataCollapsed) setMetadataCollapsed(false);
+  }, [metadataCollapsed, metadataReady]);
 
   return (
     <div className={cn("flex-1 bg-muted/40", mode === "create" && "pb-24 sm:pb-0")}>
-      <div className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7 lg:px-8">
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:px-8",
+          creatorMode
+            ? "lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-5"
+            : "lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7",
+        )}
+      >
         <div className="min-w-0 space-y-5">
           <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
             <div className="border-b border-border px-4 py-4 sm:px-7 sm:py-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
-                    Step 1
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold text-foreground">Choose a format</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    Start with the format that best describes what you are sharing.
-                  </p>
+                {creatorMode && metadataCollapsed ? (
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                      Details complete
+                    </p>
+                    <h2 className="mt-1 truncate text-lg font-semibold text-foreground">
+                      {currentTitle}
+                    </h2>
+                    <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                      {currentDescription || "No short description added."}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                      Step 1
+                    </p>
+                    <h2 className="mt-1 text-lg font-semibold text-foreground">Choose a format</h2>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      Start with the format that best describes what you are sharing.
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                    {kindLabel}
+                  </span>
+                  {creatorMode && (
+                    <button
+                      type="button"
+                      onClick={() => setMetadataCollapsed((collapsed) => !collapsed)}
+                      disabled={!metadataReady}
+                      aria-controls="project-metadata-fields"
+                      aria-expanded={!metadataCollapsed}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border-strong hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {metadataCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                      {metadataCollapsed ? "Edit details" : "Collapse"}
+                    </button>
+                  )}
                 </div>
-                <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                  {kindLabel}
-                </span>
               </div>
               <form.Field name="kind">
                 {(field: any) => (
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 xl:grid-cols-4">
+                  <div
+                    className={cn(
+                      "mt-4 grid grid-cols-2 gap-2 sm:mt-5 xl:grid-cols-4",
+                      creatorMode && metadataCollapsed && "hidden",
+                    )}
+                  >
                     {kindOptions.map((option) => {
                       const active = kind === option.value;
                       const optionClass = cn(
@@ -249,7 +325,7 @@ export function ProjectFormLayout({
                             className={cn(
                               "flex size-5 shrink-0 items-center justify-center rounded-md sm:size-7 sm:rounded-lg",
                               active
-                                ? "bg-brand-accent text-brand-mint-foreground"
+                                ? "bg-brand-accent text-brand-on-accent"
                                 : "bg-muted text-muted-foreground",
                             )}
                           >
@@ -297,7 +373,13 @@ export function ProjectFormLayout({
               </form.Field>
             </div>
 
-            <div className="space-y-5 px-4 py-5 sm:space-y-6 sm:px-7 sm:py-6">
+            <div
+              id="project-metadata-fields"
+              className={cn(
+                "space-y-5 px-4 py-5 sm:space-y-6 sm:px-7 sm:py-6",
+                creatorMode && metadataCollapsed && "hidden",
+              )}
+            >
               <FormSectionHeading
                 eyebrow="Step 2"
                 title="Tell people what it is"
@@ -313,7 +395,9 @@ export function ProjectFormLayout({
                   }}
                 >
                   {(field: any) => {
-                    const err = fieldError(field.state.meta.errors[0]);
+                    const err =
+                      fieldError(field.state.meta.errors[0]) ??
+                      (creatorMode ? validation.errors.title : undefined);
                     return (
                       <div className="space-y-2">
                         <FieldLabel htmlFor="title" required>
@@ -333,10 +417,17 @@ export function ProjectFormLayout({
                                   : "Q1 builder growth"
                           }
                           maxLength={200}
-                          className={cn("h-12 text-base", err ? "border-destructive" : "")}
+                          className={cn(
+                            "h-12 text-base",
+                            fieldStateClassName(field.state.value, err, true, creatorMode),
+                          )}
                           aria-invalid={Boolean(err)}
+                          aria-describedby="title-feedback"
                         />
-                        <div className="flex items-center justify-between gap-3">
+                        <div
+                          id="title-feedback"
+                          className="flex items-center justify-between gap-3"
+                        >
                           {err ? (
                             <ErrorText>{err}</ErrorText>
                           ) : (
@@ -367,7 +458,9 @@ export function ProjectFormLayout({
                   }}
                 >
                   {(field: any) => {
-                    const err = fieldError(field.state.meta.errors[0]);
+                    const err =
+                      fieldError(field.state.meta.errors[0]) ??
+                      (creatorMode ? validation.errors.description : undefined);
                     return (
                       <div className="space-y-2">
                         <FieldLabel htmlFor="description">Short description</FieldLabel>
@@ -378,10 +471,17 @@ export function ProjectFormLayout({
                           placeholder="Summarize the problem, outcome, or opportunity in one or two sentences."
                           rows={4}
                           maxLength={1000}
-                          className={cn("resize-none", err ? "border-destructive" : "")}
+                          className={cn(
+                            "resize-none",
+                            fieldStateClassName(field.state.value, err, false, creatorMode),
+                          )}
                           aria-invalid={Boolean(err)}
+                          aria-describedby="description-feedback"
                         />
-                        <div className="flex items-center justify-between gap-3">
+                        <div
+                          id="description-feedback"
+                          className="flex items-center justify-between gap-3"
+                        >
                           {err ? (
                             <ErrorText>{err}</ErrorText>
                           ) : (
@@ -417,6 +517,8 @@ export function ProjectFormLayout({
                   form={form}
                   repositoryUrl={repositoryUrl}
                   readmeQuery={readmeQuery}
+                  validationError={creatorMode ? validation.errors.repository : undefined}
+                  showValidationState={creatorMode}
                 />
               ) : (
                 <form.Field
@@ -428,7 +530,9 @@ export function ProjectFormLayout({
                   }}
                 >
                   {(field: any) => {
-                    const err = fieldError(field.state.meta.errors[0]);
+                    const err =
+                      fieldError(field.state.meta.errors[0]) ??
+                      (creatorMode ? validation.errors.content : undefined);
                     const placeholder =
                       kind === "scope"
                         ? "# Scope\n\nDefine the work, success criteria, and references e.g. @alice.near/my-idea…"
@@ -436,17 +540,95 @@ export function ProjectFormLayout({
                           ? "# Results\n\nWhat was built, measured, and learned. Reference scopes with @alice.near/scope-slug…"
                           : "# My Idea\n\nDescribe the concept, motivation, and next steps…";
                     return (
-                      <div className="overflow-hidden rounded-xl border border-border">
-                        <div className="hidden min-h-[420px] lg:grid lg:grid-cols-2">
-                          <div className="min-h-0 border-r border-border">
+                      <div
+                        className={cn(
+                          "overflow-hidden rounded-xl border border-border",
+                          creatorMode &&
+                            (err
+                              ? "border-destructive"
+                              : content.trim()
+                                ? "border-brand-accent"
+                                : ""),
+                        )}
+                      >
+                        <div
+                          ref={splitContainerRef}
+                          className={cn(
+                            "hidden min-h-[420px] lg:grid",
+                            resizingPointerId !== undefined && "select-none",
+                          )}
+                          style={{
+                            gridTemplateColumns: creatorMode
+                              ? `minmax(0, ${editorSplit}fr) auto minmax(0, ${100 - editorSplit}fr)`
+                              : "minmax(0, 1fr) minmax(0, 1fr)",
+                          }}
+                        >
+                          <div
+                            className={cn(
+                              "min-h-0 min-w-0",
+                              !creatorMode && "border-r border-border",
+                            )}
+                          >
                             <ContentWriteTab
                               value={field.state.value ?? ""}
                               onChange={field.handleChange}
                               error={err}
                               placeholder={placeholder}
+                              errorId="content-feedback"
                             />
                           </div>
-                          <MarkdownPreviewPanel content={field.state.value ?? ""} />
+                          {creatorMode && (
+                            <div className="relative flex w-3 items-center justify-center">
+                              <hr
+                                tabIndex={0}
+                                aria-label="Resize editor and preview"
+                                aria-orientation="vertical"
+                                aria-valuemin={MIN_EDITOR_SPLIT}
+                                aria-valuemax={MAX_EDITOR_SPLIT}
+                                aria-valuenow={Math.round(editorSplit)}
+                                aria-valuetext={`${Math.round(editorSplit)}% editor, ${100 - Math.round(editorSplit)}% preview`}
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.currentTarget.setPointerCapture(event.pointerId);
+                                  setResizingPointerId(event.pointerId);
+                                  updateEditorSplit(event.clientX);
+                                }}
+                                onPointerMove={(event) => {
+                                  if (resizingPointerId === event.pointerId) {
+                                    updateEditorSplit(event.clientX);
+                                  }
+                                }}
+                                onPointerUp={(event) => {
+                                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                                    event.currentTarget.releasePointerCapture(event.pointerId);
+                                  }
+                                  setResizingPointerId(undefined);
+                                }}
+                                onPointerCancel={() => setResizingPointerId(undefined)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                                    event.preventDefault();
+                                    setEditorSplit((split) =>
+                                      clampProjectEditorSplit(
+                                        split + (event.key === "ArrowLeft" ? -5 : 5),
+                                      ),
+                                    );
+                                  }
+                                  if (event.key === "Home" || event.key === "End") {
+                                    event.preventDefault();
+                                    setEditorSplit(
+                                      event.key === "Home" ? MIN_EDITOR_SPLIT : MAX_EDITOR_SPLIT,
+                                    );
+                                  }
+                                }}
+                                className="peer absolute inset-0 m-0 h-full w-full cursor-col-resize border-x border-y-0 border-border bg-muted/30 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                              />
+                              <GripVertical className="pointer-events-none relative size-4 text-muted-foreground transition-colors peer-hover:text-foreground" />
+                            </div>
+                          )}
+                          <div className="min-h-0 min-w-0">
+                            <MarkdownPreviewPanel content={field.state.value ?? ""} />
+                          </div>
                         </div>
 
                         <Tabs value={tab} className="flex flex-col gap-0 lg:hidden">
@@ -472,6 +654,7 @@ export function ProjectFormLayout({
                               onChange={field.handleChange}
                               error={err}
                               placeholder={placeholder}
+                              errorId="content-feedback-mobile"
                             />
                           </TabsContent>
                           <TabsContent value="preview" className="m-0">
@@ -612,7 +795,9 @@ export function ProjectFormLayout({
                 }}
               >
                 {(field: any) => {
-                  const err = fieldError(field.state.meta.errors[0]);
+                  const err =
+                    fieldError(field.state.meta.errors[0]) ??
+                    (creatorMode ? validation.errors.domain : undefined);
                   return (
                     <>
                       <Input
@@ -620,10 +805,18 @@ export function ProjectFormLayout({
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
                         placeholder="example.com"
-                        className={cn("mt-3 font-mono text-sm", err ? "border-destructive" : "")}
+                        className={cn(
+                          "mt-3 font-mono text-sm",
+                          fieldStateClassName(field.state.value, err, false, creatorMode),
+                        )}
                         aria-invalid={Boolean(err)}
+                        aria-describedby={err ? "domain-feedback" : undefined}
                       />
-                      {err && <ErrorText>{err}</ErrorText>}
+                      {err && (
+                        <div id="domain-feedback">
+                          <ErrorText>{err}</ErrorText>
+                        </div>
+                      )}
                     </>
                   );
                 }}
@@ -647,7 +840,9 @@ export function ProjectFormLayout({
                 }}
               >
                 {(field: any) => {
-                  const err = fieldError(field.state.meta.errors[0]);
+                  const err =
+                    fieldError(field.state.meta.errors[0]) ??
+                    (creatorMode ? validation.errors.ownerId : undefined);
                   return (
                     <>
                       <Input
@@ -655,10 +850,18 @@ export function ProjectFormLayout({
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
                         placeholder={defaultOwnerId || "example.near"}
-                        className={cn("mt-3 font-mono text-sm", err ? "border-destructive" : "")}
+                        className={cn(
+                          "mt-3 font-mono text-sm",
+                          fieldStateClassName(field.state.value, err, false, creatorMode),
+                        )}
                         aria-invalid={Boolean(err)}
+                        aria-describedby={err ? "owner-feedback" : undefined}
                       />
-                      {err && <ErrorText>{err}</ErrorText>}
+                      {err && (
+                        <div id="owner-feedback">
+                          <ErrorText>{err}</ErrorText>
+                        </div>
+                      )}
                     </>
                   );
                 }}
@@ -741,10 +944,14 @@ function ProjectSourcePreview({
   form,
   repositoryUrl,
   readmeQuery,
+  validationError,
+  showValidationState,
 }: {
   form: any;
   repositoryUrl: string;
   readmeQuery: any;
+  validationError?: string;
+  showValidationState: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -757,7 +964,7 @@ function ProjectSourcePreview({
         }}
       >
         {(field: any) => {
-          const err = fieldError(field.state.meta.errors[0]);
+          const err = fieldError(field.state.meta.errors[0]) ?? validationError;
           return (
             <div className="space-y-2">
               <FieldLabel htmlFor="repository" required>
@@ -770,21 +977,27 @@ function ProjectSourcePreview({
                   value={field.state.value ?? ""}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder="https://github.com/near/example"
-                  className={cn("h-11 flex-1 font-mono text-sm", err ? "border-destructive" : "")}
+                  className={cn(
+                    "h-11 flex-1 font-mono text-sm",
+                    fieldStateClassName(field.state.value, err, true, showValidationState),
+                  )}
                   aria-invalid={Boolean(err)}
+                  aria-describedby="repository-feedback"
                 />
                 <span className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-semibold text-muted-foreground">
                   <FileCode2 size={14} />
                   README source
                 </span>
               </div>
-              {err ? (
-                <ErrorText>{err}</ErrorText>
-              ) : (
-                <HelperText>
-                  We fetch the README from the default branch when the page is viewed.
-                </HelperText>
-              )}
+              <div id="repository-feedback">
+                {err ? (
+                  <ErrorText>{err}</ErrorText>
+                ) : (
+                  <HelperText>
+                    We fetch the README from the default branch when the page is viewed.
+                  </HelperText>
+                )}
+              </div>
             </div>
           );
         }}
@@ -835,11 +1048,13 @@ function ContentWriteTab({
   onChange,
   error,
   placeholder,
+  errorId,
 }: {
   value: string;
   onChange: (v: string) => void;
   error?: string;
   placeholder?: string;
+  errorId?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -884,13 +1099,18 @@ function ContentWriteTab({
         placeholder={
           placeholder ?? "# My Idea\n\nDescribe the concept, motivation, and next steps…"
         }
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
         className={cn(
           "flex-1 w-full min-h-[280px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-4 sm:min-h-[320px] sm:p-5",
           error ? "border-t-2 border-destructive" : "",
         )}
       />
       {error && (
-        <div className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive sm:px-8">
+        <div
+          id={errorId}
+          className="shrink-0 border-t border-destructive/20 bg-destructive/5 px-4 py-2 text-xs text-destructive sm:px-8"
+        >
           {error}
         </div>
       )}

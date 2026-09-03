@@ -232,8 +232,14 @@ export default createPlugin({
         return await runEffect(services.builder.listBuilders(input));
       }),
 
-      getBuilder: builder.getBuilder.handler(async ({ input, errors }) => {
-        const result = await runEffect(services.builder.getBuilder(input.nearAccount));
+      getBuilder: builder.getBuilder.handler(async ({ input, context, errors }) => {
+        const result = await runEffect(
+          services.builder.getBuilder(input.nearAccount, {
+            userId: context.userId,
+            walletAddress: context.near?.primaryAccountId ?? undefined,
+            role: context.user?.role ?? undefined,
+          }),
+        );
         if (!result) {
           throw errors.NOT_FOUND({
             message: "Builder not found",
@@ -250,6 +256,36 @@ export default createPlugin({
             services.builder.getBuilderByUserId(
               context.userId,
               context.near?.primaryAccountId ?? undefined,
+            ),
+          );
+          return { data: result };
+        }),
+
+      withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const result = await runEffect(
+            services.builder.setBuilderWithdrawn(
+              {
+                userId: context.userId,
+                walletAddress: context.near?.primaryAccountId ?? undefined,
+              },
+              true,
+            ),
+          );
+          return { data: result };
+        }),
+
+      restoreMyBuilderProfile: builder.restoreMyBuilderProfile
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const result = await runEffect(
+            services.builder.setBuilderWithdrawn(
+              {
+                userId: context.userId,
+                walletAddress: context.near?.primaryAccountId ?? undefined,
+              },
+              false,
             ),
           );
           return { data: result };

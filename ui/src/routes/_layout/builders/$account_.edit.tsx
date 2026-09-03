@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import {
@@ -12,6 +12,7 @@ import {
   type BuilderFormValues,
   parseBuilderSkills,
 } from "@/components/builder-form";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
@@ -116,6 +117,24 @@ function EditForm({
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
+
+  const invalidateBuilderQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["builder", account] });
+    queryClient.invalidateQueries({ queryKey: ["builders"] });
+    queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
+  };
+
+  const withdrawMutation = useMutation({
+    mutationFn: (withdrawn: boolean) =>
+      withdrawn ? apiClient.withdrawMyBuilderProfile({}) : apiClient.restoreMyBuilderProfile({}),
+    onSuccess: (_result, withdrawn) => {
+      toast.success(withdrawn ? "Profile withdrawn" : "Profile is listed again");
+      setConfirmWithdrawOpen(false);
+      invalidateBuilderQueries();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to update your profile"),
+  });
 
   const updateMutation = useMutation({
     mutationFn: (values: BuilderFormValues) =>
@@ -129,9 +148,7 @@ function EditForm({
       }),
     onSuccess: () => {
       toast.success("Profile updated");
-      queryClient.invalidateQueries({ queryKey: ["builder", account] });
-      queryClient.invalidateQueries({ queryKey: ["builders"] });
-      queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
+      invalidateBuilderQueries();
       navigate({ to: "/builders/$account", params: { account } });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to save"),
@@ -202,6 +219,56 @@ function EditForm({
           </Button>
         </div>
       </form>
+
+      <section className="mt-8 rounded-2xl border border-border bg-card p-6 sm:p-8">
+        <h2 className="text-lg font-bold text-foreground">Withdraw your profile</h2>
+        {builder.withdrawnAt ? (
+          <>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Your profile is withdrawn. It doesn't appear in the public builders directory or
+              search, and its public page shows as not found. Nothing is deleted and you can list it
+              again at any time.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4 rounded-full"
+              onClick={() => withdrawMutation.mutate(false)}
+              disabled={withdrawMutation.isPending}
+            >
+              {withdrawMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+              List my profile again
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Take your profile out of the public builders directory and search. Nothing is deleted
+              and you can list it again at any time. To permanently delete your profile and
+              associated records, contact an admin.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setConfirmWithdrawOpen(true)}
+              disabled={withdrawMutation.isPending}
+            >
+              Withdraw my profile
+            </Button>
+          </>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={confirmWithdrawOpen}
+        onOpenChange={setConfirmWithdrawOpen}
+        title="Withdraw your builder profile?"
+        description="Your profile will be removed from the public directory and search immediately. You can list it again from this page at any time."
+        confirmLabel="Withdraw profile"
+        cancelLabel="Keep listed"
+        variant="destructive"
+        isPending={withdrawMutation.isPending}
+        onConfirm={() => withdrawMutation.mutate(true)}
+      />
     </div>
   );
 }

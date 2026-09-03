@@ -435,6 +435,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -663,6 +664,12 @@ export const contract = oc.router({
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
+  withdraw: oc
+    .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/withdraw" })
+    .input(ExpectedProposalVersion)
+    .output(z.object({ data: ProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
   reopen: oc
     .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/reopen" })
     .input(ExpectedProposalVersion)
@@ -885,6 +892,34 @@ export const contract = oc.router({
   subscribeUpvotes: oc
     .route({ method: "GET", path: "/upvotes/stream" })
     .output(eventIterator(VoteEventSchema)),
+
+  bookmark: oc
+    .route({ method: "POST", path: "/bookmarks" })
+    .input(z.object({ entityId: z.string() }))
+    .output(
+      z.object({
+        entityId: z.string(),
+        userId: z.string(),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
+
+  unbookmark: oc
+    .route({ method: "DELETE", path: "/bookmarks/{entityId}" })
+    .input(z.object({ entityId: z.string() }))
+    .output(z.object({ entityId: z.string() }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  getUserBookmark: oc
+    .route({ method: "GET", path: "/bookmarks/{entityId}/me" })
+    .input(z.object({ entityId: z.string() }))
+    .output(
+      z.object({
+        entityId: z.string(),
+        isBookmarked: z.boolean(),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
 
   searchCatalogProjects: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/search" })
@@ -1378,6 +1413,18 @@ export const contract = oc.router({
     .input(z.object({}))
     .output(z.object({ data: BuilderOutput.nullable() }))
     .errors({ UNAUTHORIZED }),
+
+  withdrawMyBuilderProfile: oc
+    .route({ method: "POST", path: "/v1/builders/me/withdraw" })
+    .input(z.object({}))
+    .output(z.object({ data: BuilderOutput }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
+
+  restoreMyBuilderProfile: oc
+    .route({ method: "POST", path: "/v1/builders/me/restore" })
+    .input(z.object({}))
+    .output(z.object({ data: BuilderOutput }))
+    .errors({ UNAUTHORIZED, NOT_FOUND }),
 
   updateBuilderProfile: oc
     .route({ method: "PATCH", path: "/v1/builders/{nearAccount}" })

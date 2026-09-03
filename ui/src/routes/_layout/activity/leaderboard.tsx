@@ -193,11 +193,11 @@ function RankBadge({ rank }: { rank: number }) {
       className={cn(
         "grid size-8 shrink-0 place-items-center rounded-full text-sm font-black tabular-nums",
         rank === 1
-          ? "bg-brand-accent text-black"
+          ? "bg-brand-accent text-brand-on-accent"
           : rank === 2
-            ? "bg-brand-cyan text-black"
+            ? "bg-brand-cyan text-brand-on-accent"
             : rank === 3
-              ? "bg-brand-green text-black"
+              ? "bg-brand-green text-brand-on-accent"
               : "bg-secondary text-muted-foreground",
       )}
     >

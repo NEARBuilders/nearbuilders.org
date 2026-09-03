@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   CircleAlert,
+  EyeOff,
   MapPin,
   Pencil,
   Plus,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
 import { BuilderProfileStats } from "@/components/builder-profile-stats";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -232,11 +234,20 @@ function BuilderProfilePage() {
   }
 
   if (proposals.length > 0) {
+    const fallbackProposal = activeProposal ?? proposals[0];
+    const canWithdraw =
+      isAuthenticated &&
+      fallbackProposal.reviewStatus === "pending" &&
+      (isOwner ||
+        fallbackProposal.createdBy === session?.user?.id ||
+        (nearAccountId !== null &&
+          fallbackProposal.createdBy.toLowerCase() === nearAccountId.toLowerCase()));
     return (
       <NominatedFallback
         account={account}
         profile={profile}
         profileLoading={profileLoading}
+        canWithdraw={canWithdraw}
         proposal={activeProposal ?? proposals[0]}
         nominationCount={
           activeProposal
@@ -328,6 +339,23 @@ function LoadedProfile({
           All builders
         </Link>
       </div>
+
+      {isOwner && builder.withdrawnAt && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-muted/50 p-4 text-sm">
+          <EyeOff size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+          <p className="leading-relaxed text-muted-foreground">
+            Your profile is withdrawn from the public builders directory and search, and its public
+            page shows as not found. Only you and admins can see it.{" "}
+            <Link
+              to="/builders/$account/edit"
+              params={{ account }}
+              className="font-medium text-foreground underline underline-offset-2"
+            >
+              List it again
+            </Link>
+          </p>
+        </div>
+      )}
 
       <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
         <div className="relative h-32 sm:h-40">
@@ -648,6 +676,7 @@ function NominatedFallback({
   account,
   profile,
   profileLoading,
+  canWithdraw,
   proposal,
   nominationCount,
   hasNominated,
@@ -659,12 +688,15 @@ function NominatedFallback({
   account: string;
   profile: Profile | null | undefined;
   profileLoading: boolean;
+  canWithdraw: boolean;
   proposal: {
     id: string;
+    pluginId: string;
     entityId: string;
     reviewStatus: string;
     submissionCount: number;
     createdAt: string;
+    updatedAt: string;
     payload: unknown;
   };
   nominationCount: number;
@@ -680,6 +712,28 @@ function NominatedFallback({
   }[];
   counts: Record<string, { entityId: string; totalCount: number }>;
 }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
+
+  const withdrawMutation = useMutation({
+    mutationFn: () =>
+      apiClient.withdraw({
+        pluginId: proposal.pluginId,
+        entityId: proposal.entityId,
+        expectedUpdatedAt: proposal.updatedAt,
+      }),
+    onSuccess: () => {
+      toast.success("Nomination withdrawn");
+      setConfirmWithdrawOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["proposals", "builders", account] });
+      queryClient.invalidateQueries({ queryKey: ["builders"] });
+      void navigate({ to: "/builders" });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to withdraw nomination"),
+  });
+
   const raw = proposal.payload;
   const payload: ProposalPayload =
     typeof raw === "object" && raw !== null ? (raw as ProposalPayload) : {};
@@ -845,9 +899,38 @@ function NominatedFallback({
               This builder has been nominated but hasn't been approved yet. Support their nomination
               to help them get recognized.
             </p>
+            {canWithdraw && (
+              <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  This is your pending nomination. You can withdraw it while it's still under
+                  review.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setConfirmWithdrawOpen(true)}
+                  disabled={withdrawMutation.isPending}
+                >
+                  Withdraw nomination
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmWithdrawOpen}
+        onOpenChange={setConfirmWithdrawOpen}
+        title="Withdraw this nomination?"
+        description="The nomination will be removed and won't be reviewed. If you're nominating yourself, you can start over from the builders page later."
+        confirmLabel="Withdraw"
+        cancelLabel="Keep nomination"
+        variant="destructive"
+        isPending={withdrawMutation.isPending}
+        onConfirm={() => withdrawMutation.mutate()}
+      />
 
       {allProposals.length > 1 && (
         <section>

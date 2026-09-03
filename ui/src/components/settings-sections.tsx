@@ -138,7 +138,7 @@ export function AuthMethodsPanel({
 
         <MethodCard title="near" status={nearAccountId ? "linked" : "missing"}>
           {nearAccountId ? (
-            <div className="border border-[rgb(51,51,51)] dark:border-[rgb(100,100,100)] bg-muted/30 p-3 font-mono text-xs break-all">
+            <div className="border border-border bg-muted p-3 font-mono text-xs break-all">
               {nearAccountId}
             </div>
           ) : (
@@ -162,7 +162,7 @@ export function AuthMethodsPanel({
               passkeys.map((passkey) => (
                 <div
                   key={passkey.id}
-                  className="border border-[rgb(51,51,51)] dark:border-[rgb(100,100,100)] bg-muted/30 p-3 flex items-center justify-between gap-3"
+                  className="border border-border bg-muted p-3 flex items-center justify-between gap-3"
                 >
                   <span className="text-sm truncate min-w-0 flex-1">
                     {passkey.name || "Passkey"}
