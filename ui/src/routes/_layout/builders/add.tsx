@@ -1,9 +1,18 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  countrySuggestions,
+  locationError,
+  normalizeLocation,
+  normalizeSkills,
+  parseSkillList,
+  skillSuggestions,
+} from "@everything-dev/builders-plugin/builder-tags";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, Hammer, Loader2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { SuggestionInput } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +41,8 @@ function NominateBuilderPage() {
   const { intent } = Route.useSearch();
   const auth = useAuthClient();
   const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const [nearPending, setNearPending] = useState(false);
   const { data: session, isLoading: sessionLoading } = useQuery(
     sessionQueryOptions(auth, undefined),
   );
@@ -96,6 +107,29 @@ function NominateBuilderPage() {
     : false;
   const redirectPath = requestedSelfRegistration ? "/builders/add?intent=self" : "/builders/add";
 
+  const connectNear = async () => {
+    setNearPending(true);
+    try {
+      await auth.near.link({
+        onSuccess: async () => {
+          const { data: freshSession } = await auth.getSession();
+          if (freshSession) {
+            queryClient.setQueryData(["session"], freshSession);
+          }
+          await queryClient.invalidateQueries({ queryKey: ["session"] });
+          toast.success("NEAR account connected");
+        },
+        onError: (error: { message?: string }) => {
+          toast.error(error.message || "Could not connect your NEAR account");
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not connect your NEAR account");
+    } finally {
+      setNearPending(false);
+    }
+  };
+
   if (sessionLoading) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
@@ -158,11 +192,12 @@ function NominateBuilderPage() {
               : "You need a linked NEAR account to nominate a builder."}
           </p>
           <Button
-            onClick={() => auth.signIn.near()}
+            onClick={() => void connectNear()}
+            disabled={nearPending}
             size="lg"
             className="rounded-full px-8 h-12 bg-brand-cyan text-brand-on-accent font-bold"
           >
-            Connect NEAR wallet
+            {nearPending ? "Connecting…" : "Connect NEAR wallet"}
           </Button>
         </div>
       </div>
@@ -280,10 +315,16 @@ function NominationForm({
   const [submissionOutcome, setSubmissionOutcome] = useState<
     "profile" | "nomination" | "already-nominated" | null
   >(null);
-  const skills = skillsRaw
-    .split(",")
-    .map((skill) => skill.trim())
-    .filter(Boolean);
+  const skills = normalizeSkills(skillsRaw);
+  const currentSkillToken = skillsRaw.split(",").pop()?.trim() ?? "";
+  const { data: existingSkills = [] } = useQuery({
+    queryKey: ["builder-skill-tags"],
+    queryFn: async () => {
+      const result = await apiClient.listBuilders({ limit: 100 });
+      return result.data.flatMap((builder) => builder.skills);
+    },
+    staleTime: 60_000,
+  });
 
   const nominateMutation = useMutation({
     mutationFn: async () => {
@@ -292,7 +333,7 @@ function NominationForm({
           name: name.trim(),
           bio: bio.trim(),
           skills,
-          location: location.trim() || undefined,
+          location: normalizeLocation(location) ?? undefined,
         });
         return "profile" as const;
       }
@@ -301,7 +342,7 @@ function NominationForm({
         name: name.trim() || undefined,
         bio: bio.trim() || undefined,
         skills,
-        location: location.trim() || undefined,
+        location: normalizeLocation(location) ?? undefined,
       });
       return result.data.alreadyNominated
         ? ("already-nominated" as const)
@@ -374,6 +415,10 @@ function NominationForm({
           toast.error("Display name, bio, and at least one skill are required");
           return;
         }
+        if (location.trim() && locationError(location)) {
+          toast.error(locationError(location));
+          return;
+        }
         nominateMutation.mutate();
       }}
       className="rounded-2xl border border-border bg-card p-6 sm:p-8 space-y-6"
@@ -424,12 +469,12 @@ function NominationForm({
           >
             Location
           </label>
-          <Input
+          <SuggestionInput
             id="field-location"
-            placeholder="City, Country or Remote"
+            placeholder="Country or City, Country"
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            maxLength={100}
+            onChange={setLocation}
+            suggestions={countrySuggestions(location)}
           />
         </div>
       </div>
@@ -455,11 +500,17 @@ function NominationForm({
         >
           Skills <span className="font-normal text-muted-foreground">(comma-separated)</span>
         </label>
-        <Input
+        <SuggestionInput
           id="field-skills"
           placeholder="React, Rust, Smart Contracts…"
           value={skillsRaw}
-          onChange={(e) => setSkillsRaw(e.target.value)}
+          onChange={setSkillsRaw}
+          suggestions={skillSuggestions(currentSkillToken, existingSkills)}
+          onPick={(suggestion) => {
+            const parts = parseSkillList(skillsRaw);
+            const next = normalizeSkills([...parts.slice(0, -1), suggestion], existingSkills);
+            setSkillsRaw(`${next.join(", ")}, `);
+          }}
         />
       </div>
 

@@ -1,3 +1,4 @@
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -6,7 +7,11 @@ import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
+import {
+  BuilderFormFields,
+  type BuilderFormValues,
+  parseBuilderSkills,
+} from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import {
   initializeNominationToken,
@@ -150,7 +155,7 @@ function JoinPage() {
   const connectNear = async () => {
     setNearPending(true);
     try {
-      await auth.signIn.near({
+      const options = {
         onSuccess: async () => {
           const { data: freshSession } = await auth.getSession();
           if (freshSession) {
@@ -162,7 +167,12 @@ function JoinPage() {
         onError: (error: { message?: string }) => {
           toast.error(error.message || "Could not connect your NEAR account");
         },
-      });
+      };
+      if (isSignedIn) {
+        await auth.near.link(options);
+      } else {
+        await auth.signIn.near(options);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not connect your NEAR account");
     } finally {
@@ -287,8 +297,8 @@ function BuilderProfileForm({
         nominationToken: nominationToken ?? undefined,
         name: values.name.trim(),
         bio: values.bio.trim(),
-        skills: parseSkills(values.skills),
-        location: values.location.trim() || undefined,
+        skills: parseBuilderSkills(values.skills),
+        location: normalizeLocation(values.location) ?? undefined,
         links: composeLinks(values.links),
       }),
     onSuccess: async () => {

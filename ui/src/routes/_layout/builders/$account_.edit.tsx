@@ -1,3 +1,4 @@
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -6,7 +7,11 @@ import { ArrowLeft, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { BuilderFormFields, type BuilderFormValues, parseSkills } from "@/components/builder-form";
+import {
+  BuilderFormFields,
+  type BuilderFormValues,
+  parseBuilderSkills,
+} from "@/components/builder-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
@@ -137,8 +142,8 @@ function EditForm({
         nearAccount: account,
         name: values.name.trim() || undefined,
         bio: values.bio,
-        location: values.location,
-        skills: parseSkills(values.skills),
+        location: normalizeLocation(values.location) ?? undefined,
+        skills: parseBuilderSkills(values.skills),
         links: composeLinks(values.links, builder.links),
       }),
     onSuccess: () => {

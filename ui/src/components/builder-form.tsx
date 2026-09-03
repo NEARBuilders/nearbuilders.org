@@ -1,4 +1,14 @@
+import {
+  countrySuggestions,
+  locationError,
+  normalizeSkills,
+  parseSkillList,
+  skillSuggestions,
+} from "@everything-dev/builders-plugin/builder-tags";
 import { useStore } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,23 +27,44 @@ export type BuilderFormValues = {
 };
 
 export function parseSkills(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return parseSkillList(raw);
+}
+
+export function parseBuilderSkills(raw: string, existing: readonly string[] = []): string[] {
+  return normalizeSkills(parseSkillList(raw), existing);
 }
 
 export const validateSkills = (value?: string, required = false) => {
-  const skills = parseSkills(value ?? "");
+  const skills = parseBuilderSkills(value ?? "");
   if (required && skills.length === 0) return "Add at least one skill";
   if (skills.length > 20) return "Max 20 skills";
   if (skills.some((s) => s.length > 50)) return "Each skill must be 50 characters or fewer";
   return undefined;
 };
 
+export const validateLocation = (value?: string) => {
+  const lengthError = validateOptionalMaxLength(value, 100, "Max 100 characters");
+  if (lengthError) return lengthError;
+  return locationError(value);
+};
+
+function useExistingSkillTags(): string[] {
+  const apiClient = useApiClient();
+  const { data } = useQuery({
+    queryKey: ["builder-skill-tags"],
+    queryFn: async () => {
+      const result = await apiClient.listBuilders({ limit: 100 });
+      return result.data.flatMap((builder) => builder.skills);
+    },
+    staleTime: 60_000,
+  });
+  return data ?? [];
+}
+
 export function BuilderFormFields({ form, required = false }: { form: any; required?: boolean }) {
   const skillsRaw = useStore(form.store, (s: any) => s.values.skills ?? "");
-  const skills = parseSkills(skillsRaw);
+  const skills = parseBuilderSkills(skillsRaw);
+  const existingSkills = useExistingSkillTags();
 
   return (
     <div className="space-y-6">
@@ -75,10 +106,8 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
         <form.Field
           name="location"
           validators={{
-            onChange: ({ value }: any) =>
-              validateOptionalMaxLength(value, 100, "Max 100 characters"),
-            onSubmit: ({ value }: any) =>
-              validateOptionalMaxLength(value, 100, "Max 100 characters"),
+            onChange: ({ value }: any) => validateLocation(value),
+            onSubmit: ({ value }: any) => validateLocation(value),
           }}
         >
           {(field: any) => {
@@ -86,12 +115,13 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
             return (
               <div className="space-y-1.5">
                 <Label htmlFor="location">Location</Label>
-                <Input
+                <SuggestionInput
                   id="location"
                   value={field.state.value ?? ""}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="City, Country or Remote"
-                  className={err ? "!border-destructive" : ""}
+                  onChange={(value) => field.handleChange(value)}
+                  placeholder="Country or City, Country"
+                  suggestions={countrySuggestions(field.state.value ?? "")}
+                  invalid={Boolean(err)}
                 />
                 {err && <ErrorText>{err}</ErrorText>}
               </div>
@@ -147,6 +177,7 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
       >
         {(field: any) => {
           const err = fieldError(field.state.meta.errors[0]);
+          const currentToken = (field.state.value ?? "").split(",").pop()?.trim() ?? "";
           return (
             <div className="space-y-1.5">
               <Label htmlFor="skills">
@@ -154,12 +185,18 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
                 {required && <span className="text-destructive"> *</span>}{" "}
                 <span className="font-normal text-muted-foreground">(comma-separated)</span>
               </Label>
-              <Input
+              <SuggestionInput
                 id="skills"
                 value={field.state.value ?? ""}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={(value) => field.handleChange(value)}
                 placeholder="React, Rust, Smart Contracts…"
-                className={err ? "!border-destructive" : ""}
+                suggestions={skillSuggestions(currentToken, existingSkills)}
+                onPick={(suggestion) => {
+                  const parts = parseSkillList(field.state.value ?? "");
+                  const next = normalizeSkills([...parts.slice(0, -1), suggestion], existingSkills);
+                  field.handleChange(`${next.join(", ")}, `);
+                }}
+                invalid={Boolean(err)}
               />
               {err && <ErrorText>{err}</ErrorText>}
               {skills.length > 0 ? (
@@ -234,6 +271,79 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function SuggestionInput({
+  id,
+  value,
+  onChange,
+  onPick,
+  placeholder,
+  suggestions,
+  invalid,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  onPick?: (value: string) => void;
+  placeholder: string;
+  suggestions: string[];
+  invalid?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const options = useMemo(
+    () =>
+      suggestions.filter(
+        (suggestion) => suggestion.toLocaleLowerCase() !== value.trim().toLocaleLowerCase(),
+      ),
+    [suggestions, value],
+  );
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        className={invalid ? "!border-destructive" : ""}
+      />
+      {open && options.length > 0 ? (
+        <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+          {options.map((option) => (
+            <li key={option}>
+              <button
+                type="button"
+                className="flex w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  if (onPick) onPick(option);
+                  else onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

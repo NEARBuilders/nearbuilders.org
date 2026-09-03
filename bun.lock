@@ -40,6 +40,7 @@
       "version": "2.6.0",
       "dependencies": {
         "@electric-sql/pglite": "catalog:",
+        "@everything-dev/builders-plugin": "workspace:*",
         "@orpc/contract": "catalog:",
         "@orpc/server": "catalog:",
         "drizzle-kit": "catalog:",
@@ -372,6 +373,7 @@
         "@better-auth/api-key": "catalog:",
         "@better-auth/core": "catalog:",
         "@better-auth/passkey": "catalog:",
+        "@everything-dev/builders-plugin": "workspace:*",
         "@hot-labs/near-connect": "0.11.2",
         "@orpc/client": "catalog:",
         "@orpc/contract": "catalog:",
