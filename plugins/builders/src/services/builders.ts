@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -88,8 +88,29 @@ export interface Builder {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  withdrawnAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Identity of whoever is asking, used to decide if a withdrawn profile may be returned. */
+export interface BuilderViewer {
+  userId?: string | null;
+  walletAddress?: string | null;
+  role?: string | null;
+}
+
+function isBuilderOwner(
+  row: { nearAccount: string; userId: string | null },
+  viewer?: BuilderViewer,
+) {
+  if (!viewer) return false;
+  if (viewer.role === "admin") return true;
+  return (
+    row.nearAccount === viewer.walletAddress ||
+    row.nearAccount === viewer.userId ||
+    (row.userId != null && row.userId === viewer.userId)
+  );
 }
 
 function rowToBuilder(row: any): Builder {
@@ -102,6 +123,7 @@ function rowToBuilder(row: any): Builder {
     skills: parseSkills(row.skills),
     location: row.location ?? null,
     links: parseLinks(row.links),
+    withdrawnAt: row.withdrawnAt ? toIsoString(row.withdrawnAt) : null,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
   };
@@ -289,12 +311,20 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       ORPCError<string, unknown>
     >;
 
-    getBuilder: (nearAccount: string) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
+    getBuilder: (
+      nearAccount: string,
+      viewer?: BuilderViewer,
+    ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
 
     getBuilderByUserId: (
       userId: string,
       walletAddress?: string,
     ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
+
+    setBuilderWithdrawn: (
+      viewer: { userId: string; walletAddress?: string },
+      withdrawn: boolean,
+    ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
     createBuilder: (input: {
       nearAccount: string;
@@ -398,7 +428,7 @@ export const BuilderServiceLive = Layer.effect(
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
-          const conditions: any[] = [];
+          const conditions: any[] = [isNull(builders.withdrawnAt)];
 
           if (input.search) {
             const pattern = `%${input.search}%`;
@@ -448,12 +478,15 @@ export const BuilderServiceLive = Layer.effect(
           };
         }),
 
-      getBuilder: (nearAccount) =>
+      getBuilder: (nearAccount, viewer) =>
         Effect.gen(function* () {
           const [row] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, nearAccount)).limit(1),
           );
-          return row ? rowToBuilder(row) : null;
+          if (!row) return null;
+          // A withdrawn profile is only visible to its owner (or an admin).
+          if (row.withdrawnAt && !isBuilderOwner(row, viewer)) return null;
+          return rowToBuilder(row);
         }),
 
       getBuilderByUserId: (userId, walletAddress) =>
@@ -549,6 +582,7 @@ export const BuilderServiceLive = Layer.effect(
             skills: input.skills ?? [],
             location: input.location?.trim() ?? null,
             links: input.links && Object.keys(input.links).length > 0 ? input.links : null,
+            withdrawnAt: null,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
           };
@@ -626,6 +660,45 @@ export const BuilderServiceLive = Layer.effect(
           );
 
           return { deleted: true };
+        }),
+
+      setBuilderWithdrawn: (viewer, withdrawn) =>
+        Effect.gen(function* () {
+          const conditions: any[] = [eq(builders.userId, viewer.userId)];
+          if (viewer.walletAddress) conditions.push(eq(builders.nearAccount, viewer.walletAddress));
+
+          const [existing] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(builders)
+              .where(or(...conditions))
+              .limit(1),
+          );
+
+          if (!existing) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", { message: "You do not have a builder profile" }),
+            );
+          }
+
+          yield* Effect.promise(() =>
+            db
+              .update(builders)
+              .set({ withdrawnAt: withdrawn ? new Date() : null, updatedAt: new Date() })
+              .where(eq(builders.id, existing.id)),
+          );
+
+          const [updated] = yield* Effect.promise(() =>
+            db.select().from(builders).where(eq(builders.id, existing.id)).limit(1),
+          );
+          if (!updated) {
+            return yield* Effect.fail(
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: "Builder profile disappeared after update",
+              }),
+            );
+          }
+          return rowToBuilder(updated);
         }),
 
       createXNomination: (input) => Effect.promise(() => createXNominationRecord(db, input)),

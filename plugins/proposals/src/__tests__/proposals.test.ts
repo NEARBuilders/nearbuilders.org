@@ -671,4 +671,85 @@ describe.sequential("Proposals plugin", () => {
       },
     });
   });
+
+  it("lets the creator withdraw a pending proposal, but not a stranger", async () => {
+    const input = {
+      pluginId: "builders",
+      entityId: "withdraw-mine.near",
+      payload: { name: "Withdraw Mine" },
+      idempotencyKey: "withdraw-mine",
+    };
+    const proposed = await aliceClient().propose(input);
+
+    await expect(
+      bobClient().withdraw({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: proposed.data.updatedAt,
+      }),
+    ).rejects.toThrow("withdraw a nomination you created");
+
+    const withdrawn = await aliceClient().withdraw({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    expect(withdrawn.data.reviewStatus).toBe("removed");
+
+    const audit = await adminClient().getAuditLog({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+    });
+    expect(audit.data.some((entry) => entry.action === "withdrawn")).toBe(true);
+  });
+
+  it("lets the nominee withdraw a proposal that is for their account", async () => {
+    const input = {
+      pluginId: "builders",
+      entityId: "bob.near",
+      payload: { name: "Bob" },
+      idempotencyKey: "withdraw-for-subject",
+    };
+    const proposed = await aliceClient().propose(input);
+
+    const withdrawn = await bobClient().withdraw({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    expect(withdrawn.data.reviewStatus).toBe("removed");
+  });
+
+  it("rejects withdrawing a proposal that is no longer pending", async () => {
+    const input = {
+      pluginId: "builders",
+      entityId: "withdraw-too-late.near",
+      payload: { name: "Too Late" },
+      idempotencyKey: "withdraw-too-late",
+    };
+    const proposed = await aliceClient().propose(input);
+    const approved = await adminClient().approve({
+      pluginId: input.pluginId,
+      entityId: input.entityId,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+
+    await expect(
+      aliceClient().withdraw({
+        pluginId: input.pluginId,
+        entityId: input.entityId,
+        expectedUpdatedAt: approved.data.updatedAt,
+      }),
+    ).rejects.toThrow("Only a pending nomination can be withdrawn");
+  });
+
+  it("requires authentication to withdraw", async () => {
+    await expect(
+      loaded.createClient().withdraw({
+        pluginId: "builders",
+        entityId: "withdraw-anon.near",
+        expectedUpdatedAt: new Date().toISOString(),
+      }),
+    ).rejects.toThrow("Authentication required");
+  });
 });
