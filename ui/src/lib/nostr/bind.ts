@@ -17,26 +17,21 @@ export type BindingWriteArgs = {
  * The server injects the kind when verifying, so only the six signed fields
  * minus `kind` are sent to `verifyBinding`.
  */
-export async function signBindingEvent(opts: {
+export function signBindingEvent(opts: {
   challenge: string;
   nearAccountId: string;
-  secretKey?: Uint8Array;
+  secretKey: Uint8Array;
 }) {
-  const template = {
-    kind: 27235 as const,
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [["p", opts.nearAccountId]],
-    content: opts.challenge,
-  };
-
-  if (opts.secretKey) {
-    const { finalizeEvent } = await import("nostr-tools/pure");
-    return finalizeEvent(template, opts.secretKey);
-  }
-  if (window.nostr) {
-    return window.nostr.signEvent(template);
-  }
-  throw new Error("No local key and no Nostr extension available");
+  const { finalizeEvent } = require("nostr-tools/pure") as typeof import("nostr-tools/pure");
+  return finalizeEvent(
+    {
+      kind: 27235,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [["p", opts.nearAccountId]],
+      content: opts.challenge,
+    },
+    opts.secretKey,
+  );
 }
 
 /**

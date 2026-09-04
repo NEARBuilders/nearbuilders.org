@@ -3,7 +3,6 @@ export { pollBinding, signBindingEvent, submitBindingWrite } from "./bind";
 export type { NostrSession } from "./keys";
 export {
   clearSession,
-  connectExtensionAndStore,
   generateAndStore,
   importAndStore,
   loadSession,

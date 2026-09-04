@@ -11,7 +11,7 @@ export type SignCommentEventOptions = {
   content: string;
   target: NearNostrTarget;
   nearAccountId: string;
-  secretKey?: Uint8Array;
+  secretKey: Uint8Array;
   parentEventId?: string;
 };
 
@@ -25,10 +25,11 @@ export type SignCommentEventOptions = {
  *   - `client` = clientName (NIP-24)
  *   - `e` reply marker -- NIP-10 parent link when present
  *
- * With a local secret key the event is signed here in the browser. In
- * extension mode the template is signed via window.nostr.signEvent.
+ * Signing locally keeps the user's secret key in the browser. The plugin
+ * then verifies the signature, re-asserts the near_target tag, and
+ * publishes via the nostr-tools SimplePool.
  */
-export async function signCommentEvent(opts: SignCommentEventOptions): Promise<SignedNostrEvent> {
+export function signCommentEvent(opts: SignCommentEventOptions): SignedNostrEvent {
   const tags: string[][] = [
     ["t", opts.target.type],
     ["t", CLIENT_NAME],
@@ -40,20 +41,15 @@ export async function signCommentEvent(opts: SignCommentEventOptions): Promise<S
     tags.push(["e", opts.parentEventId, "", "reply"]);
   }
 
-  const template = {
-    kind: 1 as const,
-    created_at: Math.floor(Date.now() / 1000),
-    tags,
-    content: opts.content,
-  };
-
-  if (opts.secretKey) {
-    return finalizeEvent(template, opts.secretKey);
-  }
-  if (window.nostr) {
-    return window.nostr.signEvent(template) as Promise<SignedNostrEvent>;
-  }
-  throw new Error("No local key and no Nostr extension available");
+  return finalizeEvent(
+    {
+      kind: 1,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: opts.content,
+    },
+    opts.secretKey,
+  );
 }
 
 export { CLIENT_NAME };

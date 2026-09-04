@@ -105,15 +105,14 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
     mutationFn: async (text: string) => {
       if (!nearAccountId) throw new Error("Not signed in");
       const local = loadSession(nearAccountId);
-      const hasLocal = local?.mode === "local" && local.secretKeyHex;
-      if (!hasLocal && !window.nostr) {
-        throw new Error("No Nostr key — set one up in settings first");
+      if (local?.mode !== "local" || !local.secretKeyHex) {
+        throw new Error("No local Nostr key — set one up in settings first");
       }
-      const event = await signCommentEvent({
+      const event = signCommentEvent({
         content: text,
         target: { type: targetType, id: target },
         nearAccountId,
-        ...(hasLocal ? { secretKey: secretKeyBytes(local) } : {}),
+        secretKey: secretKeyBytes(local),
       });
       const result = await apiClient.nostr.createComment({
         event,
@@ -144,7 +143,7 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
   );
 
   const comments = commentsData?.data ?? [];
-  const canPost = Boolean(nearAccountId && (nostrSession || window.nostr));
+  const canPost = Boolean(nearAccountId && nostrSession);
 
   return (
     <div className="space-y-3">

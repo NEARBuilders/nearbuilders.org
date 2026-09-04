@@ -4,7 +4,6 @@ import {
   Check,
   Copy,
   KeyRound,
-  Link2,
   Loader2,
   Pencil,
   RotateCcw,
@@ -18,7 +17,6 @@ import { Badge, Button } from "@/components";
 import { Input } from "@/components/ui/input";
 import {
   clearSession,
-  connectExtensionAndStore,
   generateAndStore,
   importAndStore,
   loadSession,
@@ -68,7 +66,6 @@ export function NostrLink() {
   }, []);
 
   const nostrSession = nearAccountId ? loadSession(nearAccountId) : null;
-  const hasExtension = typeof window !== "undefined" && !!window.nostr;
 
   const { data: binding, isLoading: isLoadingBinding } = useQuery({
     queryKey: ["nostr-binding", nearAccountId] as const,
@@ -100,15 +97,14 @@ export function NostrLink() {
     mutationFn: async (challengeText: string) => {
       if (!nearAccountId) throw new Error("Connect wallet first");
       const local = loadSession(nearAccountId);
-      const hasLocal = local?.mode === "local" && local.secretKeyHex;
-      if (!hasLocal && !window.nostr) {
-        throw new Error("No Nostr key — generate, import, or connect an extension first");
+      if (local?.mode !== "local" || !local.secretKeyHex) {
+        throw new Error("No local Nostr key — generate or import one first");
       }
       setStep("signing");
-      const event = await signBindingEvent({
+      const event = signBindingEvent({
         challenge: challengeText,
         nearAccountId,
-        ...(hasLocal ? { secretKey: secretKeyBytes(local) } : {}),
+        secretKey: secretKeyBytes(local),
       });
       setStep("wallet");
       const verify = await apiClient.nostr.verifyBinding({ event });
@@ -235,20 +231,6 @@ export function NostrLink() {
             >
               <Wand2 className="size-3.5" /> Generate key
             </Button>
-            {hasExtension ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => void connectExtensionAndStore(nearAccountId)}
-              >
-                <Link2 className="size-3.5" /> Extension
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" className="gap-2" disabled>
-                <Link2 className="size-3.5" /> No extension
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
