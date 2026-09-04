@@ -9,15 +9,87 @@
     "domain": "staging.dev.everything.dev"
   },
   "repository": "https://github.com/nearbuilders/everything-dev",
+  "ci": {
+    "railway": {
+      "service": "app"
+    }
+  },
   "app": {
+    "host": {
+      "development": "local:host",
+      "production": "https://elliot-braem-7606-host-everything-dev-nearbuilder-898606a7a-ze.zephyrcloud.app",
+      "integrity": "sha384-XDirkyVnVTW0xaAoGeWS2YtjzvHsBmWgSBLDxqROLAMZbq2gyxrUKjd+K2ixqB6H",
+      "secrets": [
+        "CORS_ORIGIN",
+        "TENANT_WHITELIST",
+        "ALLOW_OVERRIDE",
+        "ALLOW_UNTRUSTED_SSR",
+        "CSP_STRICT"
+      ]
+    },
     "ui": {
-      "development": "local:ui"
+      "development": "local:ui",
+      "production": "https://elliot-braem-7601-ui-everything-dev-nearbuilders-10675f4d3-ze.zephyrcloud.app",
+      "integrity": "sha384-Px7RaJw6XF5/DtNxM5efGxF6voOjJxWm5ly6tG16ECWcc2eYM6SIXryP/KOOp4Ho",
+      "ssr": "https://elliot-braem-7605-ui-everything-dev-nearbuilders-72cd38586-ze.zephyrcloud.app",
+      "ssrIntegrity": "sha384-+L5gUWnjDhP7bKyKQ6e8JNDpGOSUu0E9Z7UiFfRgm7WdZj6FK39zRiq4T2WIhY23"
     },
     "api": {
       "development": "local:api",
+      "production": "https://elliot-braem-7604-api-everything-dev-nearbuilders-296d74eec-ze.zephyrcloud.app",
+      "integrity": "sha384-g5kMC6dA5l7l9NBq2U5yWgntreOEqT4+ifIH7a6RMC2JSj6tIuGPG6Xq3ZIAPUAi",
       "secrets": [
         "API_DATABASE_URL"
       ]
+    },
+    "auth": {
+      "extends": "bos://auth.everything.near/auth.everything.dev#app.auth",
+      "secrets": [
+        "NEAR_SUB_ACCOUNT_PARENT_KEY_MAINNET",
+        "NEAR_SUB_ACCOUNT_PARENT_KEY_TESTNET",
+        "AUTH_DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "GITHUB_CLIENT_SECRET",
+        "GOOGLE_CLIENT_SECRET",
+        "FASTNEAR_API_KEY",
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_PHONE_NUMBER",
+        "RESEND_API_KEY",
+        "NEAR_RELAYER_PRIVATE_KEY_MAINNET",
+        "NEAR_RELAYER_PRIVATE_KEY_TESTNET"
+      ],
+      "variables": {
+        "passkey": {
+          "rpID": "everything.dev",
+          "rpName": "everything.dev"
+        },
+        "siwn": {
+          "recipients": {
+            "mainnet": "dev.everything.near",
+            "testnet": "dev.allthethings.testnet"
+          },
+          "subAccount": {
+            "mainnet": {
+              "parentAccount": "dev.everything.near",
+              "parentHasFullAccess": true,
+              "minDeposit": "0.1 NEAR"
+            },
+            "testnet": {
+              "parentAccount": "dev.allthethings.testnet",
+              "parentHasFullAccess": true,
+              "minDeposit": "0.1 NEAR"
+            }
+          }
+        },
+        "socialProviders": {
+          "github": {},
+          "google": {}
+        }
+      },
+      "name": "everything-dev_auth-plugin",
+      "production": "https://elliot-braem-7553-everything-dev-auth-plugin-bett-05dc4a83c-ze.zephyrcloud.app",
+      "integrity": "sha384-5PFfr4JQZMd0pU09YVbT40T6vnZe11uknYWkR6K22lRdykFvVang3XTHdreKdVsm"
     }
   },
   "plugins": {
@@ -93,6 +165,9 @@
       "secrets": [
         "NEARCATALOG_DATABASE_URL"
       ]
+    },
+    "nostr": {
+      "extends": "bos://nearbuilding.near/nostr.nearbuilders.org"
     }
   }
 }

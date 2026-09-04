@@ -20,6 +20,7 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { NostrFeed } from "@/components/nostr-feed";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -482,6 +483,8 @@ function ProjectDetailPage() {
                   )}
                 </div>
               </section>
+
+              <NostrFeed target={project.slug} targetType={project.kind} requireBound />
 
               {(project.kind === "scope" || project.kind === "result") && (
                 <MentionsSection projectId={project.id} />

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Badge, Button } from "@/components";
+import { NostrLink } from "@/components/nostr-link";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/profile")({
@@ -28,6 +29,7 @@ function AccountSettings() {
     <div className="space-y-5">
       <AccountSummary user={user} />
       <AccountDetailsCard user={user} />
+      <NostrIdentitySection />
       {user.isAnonymous && <TemporaryAccountNotice />}
     </div>
   );
@@ -222,6 +224,22 @@ function TemporaryAccountNotice() {
           <Link to="/settings/auth-methods">Review auth methods</Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function NostrIdentitySection() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+      <div className="flex flex-col gap-1 mb-4">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          Nostr identity
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Link your Nostr pubkey to comment on projects and participate in relay-based discussions.
+        </p>
+      </div>
+      <NostrLink />
     </div>
   );
 }
