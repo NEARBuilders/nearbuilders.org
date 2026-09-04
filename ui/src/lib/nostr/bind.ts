@@ -1,4 +1,6 @@
+import { type EventTemplate, finalizeEvent } from "nostr-tools/pure";
 import type { ApiClient } from "@/lib/api";
+import type { Signer } from "./relay";
 
 export type BindingWriteArgs = {
   contractId: string;
@@ -11,27 +13,31 @@ export type BindingWriteArgs = {
 };
 
 /**
- * Sign the kind-27235 binding proof event with the local Nostr key.
- * Content must be the server-issued challenge (`bind:<account>:<expiry>:<label>`);
- * the `p` tag names the NEAR account being bound (NEAR-nostr convention).
- * The server injects the kind when verifying, so only the six signed fields
- * minus `kind` are sent to `verifyBinding`.
+ * Sign the kind-27235 binding proof event. Content must be the server-issued
+ * challenge (`bind:<account>:<expiry>:<label>`); the `p` tag names the NEAR
+ * account being bound (NEAR-nostr convention). The server injects the kind
+ * when verifying, so only the six signed fields minus `kind` are sent to
+ * `verifyBinding`.
  */
-export function signBindingEvent(opts: {
+export async function signBindingEvent(opts: {
   challenge: string;
   nearAccountId: string;
-  secretKey: Uint8Array;
+  signer: Signer;
 }) {
-  const { finalizeEvent } = require("nostr-tools/pure") as typeof import("nostr-tools/pure");
-  return finalizeEvent(
-    {
-      kind: 27235,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [["p", opts.nearAccountId]],
-      content: opts.challenge,
-    },
-    opts.secretKey,
-  );
+  const template: EventTemplate = {
+    kind: 27235,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [["p", opts.nearAccountId]],
+    content: opts.challenge,
+  };
+
+  if (opts.signer.mode === "local") {
+    return finalizeEvent(template, opts.signer.secretKey);
+  }
+  if (window.nostr) {
+    return window.nostr.signEvent(template);
+  }
+  throw new Error("Extension signer requested but no Nostr extension is available");
 }
 
 /**

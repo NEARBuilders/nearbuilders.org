@@ -17,11 +17,14 @@ import { Badge, Button } from "@/components";
 import { Input } from "@/components/ui/input";
 import {
   clearSession,
+  connectExtensionAndStore,
+  detectNostrExtension,
   generateAndStore,
   importAndStore,
   loadSession,
   npubEncode,
   pollBinding,
+  type Signer,
   secretKeyBytes,
   signBindingEvent,
   submitBindingWrite,
@@ -66,6 +69,7 @@ export function NostrLink() {
   }, []);
 
   const nostrSession = nearAccountId ? loadSession(nearAccountId) : null;
+  const hasExtension = detectNostrExtension();
 
   const { data: binding, isLoading: isLoadingBinding } = useQuery({
     queryKey: ["nostr-binding", nearAccountId] as const,
@@ -96,15 +100,19 @@ export function NostrLink() {
   const { mutate: doSignAndSubmit, isPending: isSubmitting } = useMutation({
     mutationFn: async (challengeText: string) => {
       if (!nearAccountId) throw new Error("Connect wallet first");
-      const local = loadSession(nearAccountId);
-      if (local?.mode !== "local" || !local.secretKeyHex) {
-        throw new Error("No local Nostr key — generate or import one first");
+      const session = loadSession(nearAccountId);
+      if (!session) {
+        throw new Error("No Nostr key — generate, import, or connect an extension first");
       }
       setStep("signing");
-      const event = signBindingEvent({
+      const signer: Signer =
+        session.mode === "local"
+          ? { mode: "local", secretKey: secretKeyBytes(session) }
+          : { mode: "extension" };
+      const event = await signBindingEvent({
         challenge: challengeText,
         nearAccountId,
-        secretKey: secretKeyBytes(local),
+        signer,
       });
       setStep("wallet");
       const verify = await apiClient.nostr.verifyBinding({ event });
@@ -231,6 +239,16 @@ export function NostrLink() {
             >
               <Wand2 className="size-3.5" /> Generate key
             </Button>
+            {hasExtension && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => void connectExtensionAndStore(nearAccountId)}
+              >
+                Extension
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

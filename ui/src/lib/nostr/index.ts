@@ -3,6 +3,8 @@ export { pollBinding, signBindingEvent, submitBindingWrite } from "./bind";
 export type { NostrSession } from "./keys";
 export {
   clearSession,
+  connectExtensionAndStore,
+  detectNostrExtension,
   generateAndStore,
   importAndStore,
   loadSession,
@@ -11,7 +13,7 @@ export {
 } from "./keys";
 export type { Nip19DecodeResult } from "./nip19";
 export { nip19Decode, npubEncode } from "./nip19";
-export type { SignCommentEventOptions } from "./relay";
+export type { SignCommentEventOptions, Signer } from "./relay";
 export { CLIENT_NAME, signCommentEvent } from "./relay";
 export type {
   NearNostrTarget,

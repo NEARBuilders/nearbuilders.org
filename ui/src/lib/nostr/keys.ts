@@ -3,9 +3,9 @@ import { bytesToHex, hexToBytes } from "nostr-tools/utils";
 import { nip19Decode } from "./nip19";
 
 export type NostrSession = {
-  mode: "local";
+  mode: "extension" | "local";
   pubkey: string;
-  secretKeyHex: string;
+  secretKeyHex?: string;
 };
 
 const storageKeyFor = (nearAccountId: string): string => `nostr:session:${nearAccountId}`;
@@ -23,7 +23,9 @@ export function loadSession(nearAccountId: string): NostrSession | null {
     const raw = localStorage.getItem(storageKeyFor(nearAccountId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as NostrSession;
-    if (parsed?.mode !== "local" || typeof parsed.secretKeyHex !== "string") return null;
+    if (parsed?.mode !== "local" && parsed?.mode !== "extension") return null;
+    if (typeof parsed.pubkey !== "string") return null;
+    if (parsed.mode === "local" && typeof parsed.secretKeyHex !== "string") return null;
     return parsed;
   } catch {
     return null;
@@ -39,7 +41,26 @@ export function clearSession(nearAccountId: string): void {
 }
 
 export function secretKeyBytes(session: NostrSession): Uint8Array {
+  if (session.mode !== "local" || !session.secretKeyHex) {
+    throw new Error("Session has no local secret key");
+  }
   return hexToBytes(session.secretKeyHex);
+}
+
+export function detectNostrExtension(): boolean {
+  return typeof window !== "undefined" && typeof window.nostr?.signEvent === "function";
+}
+
+/**
+ * Connect via a NIP-07 browser extension (Alby, nos2x, ...). Only the public
+ * key is persisted; every signature is requested from the extension.
+ */
+export async function connectExtensionAndStore(nearAccountId: string): Promise<NostrSession> {
+  if (!window.nostr) throw new Error("No Nostr extension detected");
+  const pubkey = await window.nostr.getPublicKey();
+  const session: NostrSession = { mode: "extension", pubkey };
+  saveSession(nearAccountId, session);
+  return session;
 }
 
 /**

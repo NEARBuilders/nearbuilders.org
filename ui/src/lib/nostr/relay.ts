@@ -1,17 +1,17 @@
-import { finalizeEvent } from "nostr-tools/pure";
+import { type EventTemplate, finalizeEvent, type VerifiedEvent } from "nostr-tools/pure";
 import type { NearNostrTarget } from "./types";
-
-type SignedNostrEvent = ReturnType<typeof finalizeEvent>;
 
 const CLIENT_NAME = "nearbuilders.org";
 
 const nearTargetKey = (targetType: string, target: string): string => `${targetType}:${target}`;
 
+export type Signer = { mode: "local"; secretKey: Uint8Array } | { mode: "extension" };
+
 export type SignCommentEventOptions = {
   content: string;
   target: NearNostrTarget;
   nearAccountId: string;
-  secretKey: Uint8Array;
+  signer: Signer;
   parentEventId?: string;
 };
 
@@ -25,11 +25,11 @@ export type SignCommentEventOptions = {
  *   - `client` = clientName (NIP-24)
  *   - `e` reply marker -- NIP-10 parent link when present
  *
- * Signing locally keeps the user's secret key in the browser. The plugin
- * then verifies the signature, re-asserts the near_target tag, and
- * publishes via the nostr-tools SimplePool.
+ * `signer` selects local-key signing (secret stays in the browser) or a
+ * NIP-07 extension. The plugin verifies the signature, re-asserts the
+ * near_target tag, and publishes via nostr-tools SimplePool.
  */
-export function signCommentEvent(opts: SignCommentEventOptions): SignedNostrEvent {
+export async function signCommentEvent(opts: SignCommentEventOptions): Promise<VerifiedEvent> {
   const tags: string[][] = [
     ["t", opts.target.type],
     ["t", CLIENT_NAME],
@@ -41,15 +41,20 @@ export function signCommentEvent(opts: SignCommentEventOptions): SignedNostrEven
     tags.push(["e", opts.parentEventId, "", "reply"]);
   }
 
-  return finalizeEvent(
-    {
-      kind: 1,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: opts.content,
-    },
-    opts.secretKey,
-  );
+  const template: EventTemplate = {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: opts.content,
+  };
+
+  if (opts.signer.mode === "local") {
+    return finalizeEvent(template, opts.signer.secretKey);
+  }
+  if (window.nostr) {
+    return window.nostr.signEvent(template) as Promise<VerifiedEvent>;
+  }
+  throw new Error("Extension signer requested but no Nostr extension is available");
 }
 
 export { CLIENT_NAME };

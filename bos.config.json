@@ -167,7 +167,10 @@
       ]
     },
     "nostr": {
-      "extends": "bos://nearbuilding.near/nostr.nearbuilders.org"
+      "extends": "bos://nearbuilding.near/nostr.nearbuilders.org",
+      "variables": {
+        "clientName": "nearbuilders.org"
+      }
     }
   }
 }

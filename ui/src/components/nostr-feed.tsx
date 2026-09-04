@@ -6,7 +6,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { loadSession, secretKeyBytes, signCommentEvent } from "@/lib/nostr";
+import { loadSession, type Signer, secretKeyBytes, signCommentEvent } from "@/lib/nostr";
 
 type NostrFeedProps = {
   target: string;
@@ -104,15 +104,19 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
   const { mutate: postComment, isPending: isPosting } = useMutation({
     mutationFn: async (text: string) => {
       if (!nearAccountId) throw new Error("Not signed in");
-      const local = loadSession(nearAccountId);
-      if (local?.mode !== "local" || !local.secretKeyHex) {
-        throw new Error("No local Nostr key — set one up in settings first");
+      const session = loadSession(nearAccountId);
+      if (!session) {
+        throw new Error("No Nostr key — set one up in settings first");
       }
-      const event = signCommentEvent({
+      const signer: Signer =
+        session.mode === "local"
+          ? { mode: "local", secretKey: secretKeyBytes(session) }
+          : { mode: "extension" };
+      const event = await signCommentEvent({
         content: text,
         target: { type: targetType, id: target },
         nearAccountId,
-        secretKey: secretKeyBytes(local),
+        signer,
       });
       const result = await apiClient.nostr.createComment({
         event,
