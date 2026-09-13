@@ -109,7 +109,7 @@ function LoginPage() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <div className="w-full max-w-sm">
         <div className="text-center mb-4">
-          <img src="/logo.png" alt="Near Builders" className="h-12 w-auto mx-auto mb-4" />
+          <img src="/near-mark.svg" alt="Near Builders" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Connect your NEAR wallet to access your workspace

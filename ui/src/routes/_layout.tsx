@@ -9,6 +9,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { NearkatPeek } from "@/components/ui/nearkat-peek";
 import { UserNav } from "@/components/user-nav";
 
 export const Route = createFileRoute("/_layout")({
@@ -87,13 +88,16 @@ function Layout() {
 
       <header className="sticky top-0 z-40 w-full border-b border-border bg-background text-foreground backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="relative flex h-16 items-center justify-between">
+          <div className="relative flex h-28 items-center justify-between">
             <Link
               to="/"
-              className="flex min-w-0 items-center gap-2 text-base font-black tracking-tight text-foreground transition-opacity hover:opacity-75 sm:gap-2.5 sm:text-lg"
+              className="flex min-w-0 translate-y-4 items-center gap-2 text-base font-black tracking-tight text-foreground transition-opacity hover:opacity-75 sm:gap-2.5 sm:text-lg"
             >
-              <img src="/logo.png" alt={appName} className="h-8 w-auto shrink-0 sm:h-9" />
-              <span className="truncate">{appName}</span>
+              <img src="/near-mark.svg" alt={appName} className="h-8 w-auto shrink-0 sm:h-9" />
+              <span className="relative inline-block min-w-0">
+                <NearkatPeek />
+                <span className="relative z-10 block truncate">{appName}</span>
+              </span>
             </Link>
 
             <button
@@ -171,7 +175,7 @@ function Layout() {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto bg-background text-foreground animate-fade-in-up"
+            className="fixed inset-x-0 bottom-0 top-28 z-50 overflow-y-auto bg-background text-foreground animate-fade-in-up"
           >
             <div className="mx-auto flex min-h-full max-w-7xl flex-col px-4 py-8 sm:px-6">
               <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
@@ -221,7 +225,7 @@ function Layout() {
                 to="/"
                 className="inline-flex items-center gap-3 text-lg font-black tracking-tight text-foreground transition-opacity hover:opacity-75"
               >
-                <img src="/logo.png" alt={appName} className="h-12 w-auto" />
+                <img src="/near-mark.svg" alt={appName} className="h-12 w-auto" />
                 {appName}
               </Link>
               <h2 className="mt-8 max-w-xl text-3xl font-black leading-tight tracking-tight text-foreground sm:text-4xl">
