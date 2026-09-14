@@ -98,7 +98,7 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
   });
 
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const nearAccountId = session?.user?.id;
+  const nearAccountId = auth.near.getAccountId();
   const nostrSession = nearAccountId ? loadSession(nearAccountId) : null;
 
   const { mutate: postComment, isPending: isPosting } = useMutation({

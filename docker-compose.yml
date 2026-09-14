@@ -36,14 +36,25 @@ services:
 
   postgres-auth:
     <<: *pg-common
-    container_name: nearbuilding.near-postgres-auth
+    container_name: auth.everything.near-postgres-auth
     environment:
       <<: *pg-env
       POSTGRES_DB: auth_db
     ports:
       - "5433:5432"
     volumes:
-      - nearbuilding_near_postgres_auth_data:/var/lib/postgresql/data
+      - auth_everything_near_postgres_auth_data:/var/lib/postgresql/data
+
+  postgres-bookmarks:
+    <<: *pg-common
+    container_name: nearbuilding.near-postgres-bookmarks
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: bookmarks_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - nearbuilding_near_postgres_bookmarks_data:/var/lib/postgresql/data
 
   postgres-builders:
     <<: *pg-common
@@ -52,7 +63,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: builders_db
     ports:
-      - "5435:5432"
+      - "5436:5432"
     volumes:
       - nearbuilding_near_postgres_builders_data:/var/lib/postgresql/data
 
@@ -63,7 +74,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: events_db
     ports:
-      - "5436:5432"
+      - "5437:5432"
     volumes:
       - nearbuilding_near_postgres_events_data:/var/lib/postgresql/data
 
@@ -74,7 +85,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: nearcatalog_db
     ports:
-      - "5437:5432"
+      - "5438:5432"
     volumes:
       - nearbuilding_near_postgres_nearcatalog_data:/var/lib/postgresql/data
 
@@ -85,7 +96,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: notifications_db
     ports:
-      - "5438:5432"
+      - "5439:5432"
     volumes:
       - nearbuilding_near_postgres_notifications_data:/var/lib/postgresql/data
 
@@ -96,7 +107,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: projects_db
     ports:
-      - "5439:5432"
+      - "5440:5432"
     volumes:
       - nearbuilding_near_postgres_projects_data:/var/lib/postgresql/data
 
@@ -107,7 +118,7 @@ services:
       <<: *pg-env
       POSTGRES_DB: proposals_db
     ports:
-      - "5440:5432"
+      - "5441:5432"
     volumes:
       - nearbuilding_near_postgres_proposals_data:/var/lib/postgresql/data
 
@@ -118,28 +129,19 @@ services:
       <<: *pg-env
       POSTGRES_DB: votes_db
     ports:
-      - "5441:5432"
+      - "5442:5432"
     volumes:
       - nearbuilding_near_postgres_votes_data:/var/lib/postgresql/data
-
-  postgres-bookmarks:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-bookmarks
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: bookmarks_db
-    ports:
-      - "5452:5432"
-    volumes:
-      - nearbuilding_near_postgres_bookmarks_data:/var/lib/postgresql/data
 
 volumes:
   nearbuilding_near_postgres_activity_data:
     name: nearbuilding_near_postgres_activity_data
   nearbuilding_near_postgres_api_data:
     name: nearbuilding_near_postgres_api_data
-  nearbuilding_near_postgres_auth_data:
-    name: nearbuilding_near_postgres_auth_data
+  auth_everything_near_postgres_auth_data:
+    name: auth_everything_near_postgres_auth_data
+  nearbuilding_near_postgres_bookmarks_data:
+    name: nearbuilding_near_postgres_bookmarks_data
   nearbuilding_near_postgres_builders_data:
     name: nearbuilding_near_postgres_builders_data
   nearbuilding_near_postgres_events_data:
@@ -154,5 +156,3 @@ volumes:
     name: nearbuilding_near_postgres_proposals_data
   nearbuilding_near_postgres_votes_data:
     name: nearbuilding_near_postgres_votes_data
-  nearbuilding_near_postgres_bookmarks_data:
-    name: nearbuilding_near_postgres_bookmarks_data
