@@ -10,11 +10,12 @@ import {
   ShieldAlert,
   Wand2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button } from "@/components";
 import { Input } from "@/components/ui/input";
+import { useNearAccount } from "@/hooks";
 import {
   clearSession,
   connectExtensionAndStore,
@@ -22,6 +23,8 @@ import {
   generateAndStore,
   importAndStore,
   loadSession,
+  type NostrSession,
+  nip19Decode,
   npubEncode,
   pollBinding,
   type Signer,
@@ -31,6 +34,119 @@ import {
 } from "@/lib/nostr";
 
 type LinkStep = "idle" | "challenge" | "signing" | "wallet" | "done";
+
+function boundPubkeyHex(bound: string): string {
+  if (bound.startsWith("npub1")) {
+    try {
+      const decoded = nip19Decode(bound);
+      if (decoded.type === "npub" && typeof decoded.data === "string") {
+        return decoded.data.toLowerCase();
+      }
+    } catch {
+      return bound.toLowerCase();
+    }
+  }
+  return bound.toLowerCase();
+}
+
+function sessionMatchesBinding(session: NostrSession, bound: string): boolean {
+  return session.pubkey.toLowerCase() === boundPubkeyHex(bound);
+}
+
+function SigningKeySetup({
+  nearAccountId,
+  hasExtension,
+  expectedPubkey,
+  showImport,
+  importInput,
+  setShowImport,
+  setImportInput,
+  onStored,
+}: {
+  nearAccountId: string;
+  hasExtension: boolean;
+  expectedPubkey?: string | null;
+  showImport: boolean;
+  importInput: string;
+  setShowImport: (next: boolean) => void;
+  setImportInput: (next: string) => void;
+  onStored: () => void;
+}) {
+  const keepSession = (session: NostrSession, requireMatch: boolean) => {
+    if (requireMatch && expectedPubkey && !sessionMatchesBinding(session, expectedPubkey)) {
+      clearSession(nearAccountId);
+      toast.error("This key does not match the linked Nostr identity");
+      return;
+    }
+    onStored();
+  };
+
+  const handleImport = () => {
+    try {
+      keepSession(importAndStore(nearAccountId, importInput), true);
+      setImportInput("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid key");
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {expectedPubkey ? (
+        <p className="text-xs text-muted-foreground">Add a local signing key to comment.</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => keepSession(generateAndStore(nearAccountId), false)}
+        >
+          <Wand2 className="size-3.5" /> Generate key
+        </Button>
+        {hasExtension ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              void connectExtensionAndStore(nearAccountId).then((session) =>
+                keepSession(session, true),
+              );
+            }}
+          >
+            Extension
+          </Button>
+        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowImport(!showImport)}
+        >
+          <Pencil className="size-3.5" /> Import nsec
+        </Button>
+      </div>
+      {showImport ? (
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            value={importInput}
+            onChange={(e) => setImportInput(e.target.value)}
+            placeholder="nsec1..."
+            className="max-w-xs font-mono text-xs"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && importInput.trim()) handleImport();
+            }}
+          />
+          <Button variant="outline" size="sm" disabled={!importInput.trim()} onClick={handleImport}>
+            Import
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Nostr identity linking for nearbuilders.org.
@@ -46,6 +162,7 @@ export function NostrLink() {
   const [challenge, setChallenge] = useState("");
   const [importInput, setImportInput] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [sessionRev, setSessionRev] = useState(0);
   const connectorRef = useRef<NearConnector | null>(null);
 
   useEffect(() => {
@@ -54,21 +171,16 @@ export function NostrLink() {
   }, []);
 
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const account = session?.user?.id;
-  const [nearAccountId, setNearAccountId] = useState("");
-
-  useEffect(() => {
-    const c = connectorRef.current;
-    if (!c) return;
-    c.wallet()
-      .then((w) => w.getAccounts())
-      .then((accts) => {
-        if (accts[0]?.accountId) setNearAccountId(accts[0].accountId);
-      })
-      .catch(() => {});
+  const { accountId: nearAccountId, isLoading: nearAccountLoading } = useNearAccount(
+    Boolean(session?.user),
+  );
+  const nostrSession = useMemo(
+    () => (nearAccountId ? loadSession(nearAccountId) : null),
+    [nearAccountId, sessionRev],
+  );
+  const refreshNostrSession = useCallback(() => {
+    setSessionRev((n) => n + 1);
   }, []);
-
-  const nostrSession = nearAccountId ? loadSession(nearAccountId) : null;
   const hasExtension = detectNostrExtension();
 
   const { data: binding, isLoading: isLoadingBinding } = useQuery({
@@ -147,7 +259,7 @@ export function NostrLink() {
     setStep("idle");
   }, []);
 
-  if (!account || isLoadingBinding) return null;
+  if (!session?.user || nearAccountLoading || isLoadingBinding) return null;
 
   const npub = nostrSession ? npubEncode(nostrSession.pubkey) : "";
   const isBound = !!binding?.npub;
@@ -175,20 +287,33 @@ export function NostrLink() {
             <Copy className="h-3.5 w-3.5" />
           </Button>
         </div>
-        {nostrSession && (
+        {nostrSession ? (
           <Button
             variant="ghost"
             size="sm"
             className="gap-2 text-muted-foreground hover:text-foreground"
             onClick={() => {
+              if (!nearAccountId) return;
               clearSession(nearAccountId);
+              refreshNostrSession();
               invalidateBinding();
               toast.info("Local key cleared; on-chain binding remains");
             }}
           >
             <RotateCcw className="h-3.5 w-3.5" /> Clear local key
           </Button>
-        )}
+        ) : nearAccountId ? (
+          <SigningKeySetup
+            nearAccountId={nearAccountId}
+            hasExtension={hasExtension}
+            expectedPubkey={binding.npub}
+            showImport={showImport}
+            importInput={importInput}
+            setShowImport={setShowImport}
+            setImportInput={setImportInput}
+            onStored={refreshNostrSession}
+          />
+        ) : null}
       </div>
     );
   }
@@ -220,7 +345,9 @@ export function NostrLink() {
                 size="icon-sm"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={() => {
+                  if (!nearAccountId) return;
                   clearSession(nearAccountId);
+                  refreshNostrSession();
                   toast.info("Key removed");
                 }}
                 title="Remove key"
@@ -230,70 +357,15 @@ export function NostrLink() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => generateAndStore(nearAccountId)}
-            >
-              <Wand2 className="size-3.5" /> Generate key
-            </Button>
-            {hasExtension && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => void connectExtensionAndStore(nearAccountId)}
-              >
-                Extension
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setShowImport(!showImport)}
-            >
-              <Pencil className="size-3.5" /> Import nsec
-            </Button>
-          </div>
-        )}
-        {showImport && !nostrSession && (
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={importInput}
-              onChange={(e) => setImportInput(e.target.value)}
-              placeholder="nsec1..."
-              className="max-w-xs font-mono text-xs"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && importInput.trim()) {
-                  try {
-                    importAndStore(nearAccountId, importInput);
-                    setImportInput("");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Invalid key");
-                  }
-                }
-              }}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!importInput.trim()}
-              onClick={() => {
-                try {
-                  importAndStore(nearAccountId, importInput);
-                  setImportInput("");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Invalid key");
-                }
-              }}
-            >
-              Import
-            </Button>
-          </div>
+          <SigningKeySetup
+            nearAccountId={nearAccountId}
+            hasExtension={hasExtension}
+            showImport={showImport}
+            importInput={importInput}
+            setShowImport={setShowImport}
+            setImportInput={setImportInput}
+            onStored={refreshNostrSession}
+          />
         )}
       </div>
 

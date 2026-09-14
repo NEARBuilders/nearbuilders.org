@@ -6,6 +6,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNearAccount } from "@/hooks";
 import { loadSession, type Signer, secretKeyBytes, signCommentEvent } from "@/lib/nostr";
 
 type NostrFeedProps = {
@@ -98,7 +99,7 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
   });
 
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const nearAccountId = session?.user?.id;
+  const { accountId: nearAccountId } = useNearAccount(Boolean(session?.user));
   const nostrSession = nearAccountId ? loadSession(nearAccountId) : null;
 
   const { mutate: postComment, isPending: isPosting } = useMutation({
@@ -163,9 +164,9 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={
-            !session?.user
+            !nearAccountId
               ? "Connect wallet to comment"
-              : !canPost
+              : !nostrSession
                 ? "Set up a Nostr key in settings to comment"
                 : "Write a comment..."
           }
