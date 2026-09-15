@@ -56,6 +56,27 @@ export const ActivityLeaderboardInputSchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
 });
 
+export const ActivityGatewayModeSchema = z.enum(["legacy-only", "dual-write", "standalone-only"]);
+
+export const ActivityGatewayStatusSchema = z.object({
+  mode: ActivityGatewayModeSchema,
+  configured: z.boolean(),
+  counts: z.object({
+    pending: z.number().int().nonnegative(),
+    sent: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+  }),
+  oldestPendingAt: z.string().nullable(),
+  recentFailures: z.array(
+    z.object({
+      operation: z.string(),
+      idempotencyKey: z.string(),
+      attempts: z.number().int().nonnegative(),
+      lastError: z.string().nullable(),
+    }),
+  ),
+});
+
 export const contract = oc.router({
   emitActivity: oc
     .route({ method: "POST", path: "/v1/activity" })
@@ -89,6 +110,22 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/activity/leaderboard" })
     .input(ActivityLeaderboardInputSchema)
     .output(z.array(LeaderboardEntrySchema)),
+
+  getActivityGatewayStatus: oc
+    .route({ method: "GET", path: "/v1/internal/activity/gateway" })
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  setActivityGatewayMode: oc
+    .route({ method: "PUT", path: "/v1/internal/activity/gateway/mode" })
+    .input(z.object({ mode: ActivityGatewayModeSchema }))
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryActivityGateway: oc
+    .route({ method: "POST", path: "/v1/internal/activity/gateway/retry" })
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 });
 
 export type ContractType = typeof contract;
