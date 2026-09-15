@@ -154,7 +154,9 @@
     "activity": {
       "development": "local:plugins/activity",
       "secrets": [
-        "ACTIVITY_DATABASE_URL"
+        "ACTIVITY_DATABASE_URL",
+        "ACTIVITY_GATEWAY_URL",
+        "ACTIVITY_GATEWAY_API_KEY"
       ]
     },
     "nearcatalog": {
