@@ -122,7 +122,7 @@ function LoginPage() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <div className="w-full max-w-sm">
         <div className="text-center mb-4">
-          <NearkatPeek className="mx-auto mb-4 h-24 w-[8.75rem]" />
+          <NearkatPeek className="mx-auto mb-4 h-20 w-[7.25rem] sm:h-24 sm:w-[8.75rem]" />
           <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Connect your NEAR wallet to access your workspace

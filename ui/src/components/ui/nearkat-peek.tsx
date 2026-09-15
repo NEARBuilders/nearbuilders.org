@@ -147,13 +147,13 @@ export function NearkatPeek({ className }: { className?: string }) {
   }, []);
 
   return (
-    <span ref={rootRef} aria-hidden="true" className={cn("relative block h-12 w-20", className)}>
+    <span ref={rootRef} aria-hidden="true" className={cn("relative block", className)}>
       <img
         src={nearkatPeekRest}
         alt=""
         draggable={false}
         className={cn(
-          "absolute left-1/2 top-1/2 h-full w-auto -translate-x-1/2 -translate-y-1/2",
+          "absolute inset-0 size-full object-contain transition-opacity duration-300",
           isPlaying ? "opacity-0" : "opacity-100",
         )}
       />
@@ -162,7 +162,7 @@ export function NearkatPeek({ className }: { className?: string }) {
           src={animationUrl}
           alt=""
           draggable={false}
-          className="absolute left-1/2 top-1/2 h-full w-auto -translate-x-1/2 -translate-y-1/2"
+          className="absolute inset-0 size-full object-contain"
         />
       ) : null}
     </span>
