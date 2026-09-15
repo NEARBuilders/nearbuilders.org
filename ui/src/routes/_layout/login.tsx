@@ -43,6 +43,7 @@ function LoginPage() {
   const queryClient = useQueryClient();
 
   const [nearPending, setNearPending] = useState(false);
+  const [connectingDifferent, setConnectingDifferent] = useState(false);
   const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +102,17 @@ function LoginPage() {
     });
   };
 
+  const handleConnectDifferent = async () => {
+    setConnectingDifferent(true);
+    try {
+      await auth.near.disconnect();
+      queryClient.removeQueries({ queryKey: nearAccountsQueryKey });
+      setDetectedAccount(null);
+    } finally {
+      setConnectingDifferent(false);
+    }
+  };
+
   if (session?.user) {
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
     return <Navigate to={redirectTo} replace search={{}} />;
@@ -130,6 +142,18 @@ function LoginPage() {
                 ? `Continue as ${detectedAccount}`
                 : "Connect with NEAR"}
           </Button>
+          {detectedAccount && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleConnectDifferent}
+              disabled={nearPending || connectingDifferent}
+              className="mt-3 w-full text-muted-foreground hover:text-foreground"
+            >
+              {connectingDifferent ? "Clearing…" : "Connect a different account"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
