@@ -1,5 +1,6 @@
 import { type EventTemplate, finalizeEvent } from "nostr-tools/pure";
 import type { ApiClient } from "@/lib/api";
+import type { AuthClient } from "@/lib/auth";
 import type { Signer } from "./relay";
 
 export type BindingWriteArgs = {
@@ -41,43 +42,40 @@ export async function signBindingEvent(opts: {
 }
 
 /**
- * Submit the __fastdata_kv write through the user's wallet (HOT NearConnector).
+ * Submit the __fastdata_kv write through the signed-in SIWN wallet.
  * The user pays gas plus the attachedDeposit (storage on the KV contract);
  * the tx signer must be the same NEAR account the challenge was issued for,
  * since FastNear KV indexes bindings by tx predecessor.
  */
 export async function submitBindingWrite(
-  connector: {
-    wallet(): Promise<{
-      getAccounts(): Promise<Array<{ accountId: string }>>;
-      signAndSendTransaction(tx: unknown): Promise<unknown>;
-    }>;
-  },
+  auth: AuthClient,
   tx: BindingWriteArgs,
   accountId: string,
 ): Promise<boolean> {
-  const wallet = await connector.wallet();
-  const accts = await wallet.getAccounts();
-  if (!accts.length || accts[0].accountId !== accountId) {
-    throw new Error(`Wallet account ${accts[0]?.accountId ?? "none"} does not match ${accountId}`);
+  await auth.near.disconnect();
+  const connected = await auth.near.ensureConnected();
+  if (!connected) {
+    throw new Error("Connect wallet first");
   }
+  const signerId = auth.near.getAccountId();
+  if (!signerId || signerId !== accountId) {
+    throw new Error(`Wallet account ${signerId ?? "none"} does not match ${accountId}`);
+  }
+  if (!/^\d+$/.test(tx.gas)) {
+    throw new Error("Invalid transaction gas");
+  }
+  const gas = tx.gas as `${number}`;
 
-  const outcome = (await wallet.signAndSendTransaction({
-    receiverId: tx.contractId,
-    actions: [
-      {
-        type: "FunctionCall",
-        params: {
-          methodName: tx.methodName,
-          args: tx.args,
-          gas: tx.gas,
-          deposit: tx.attachedDeposit,
-        },
-      },
-    ],
-  })) as { status?: { SuccessValue?: unknown; Failure?: unknown } };
+  await auth.near
+    .getNearClient()
+    .transaction(accountId)
+    .functionCall(tx.contractId, tx.methodName, tx.args, {
+      gas,
+      attachedDeposit: BigInt(tx.attachedDeposit),
+    })
+    .send({ waitUntil: "FINAL" });
 
-  return outcome?.status?.SuccessValue !== undefined;
+  return true;
 }
 
 /**

@@ -1,4 +1,3 @@
-import { NearConnector } from "@hot-labs/near-connect";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
@@ -10,7 +9,7 @@ import {
   ShieldAlert,
   Wand2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Badge, Button } from "@/components";
@@ -151,7 +150,7 @@ function SigningKeySetup({
 /**
  * Nostr identity linking for nearbuilders.org.
  * Challenge/verify/prepare run against the remote nostr plugin; the KV write
- * goes through the user's HOT wallet. All Nostr signing is client-side.
+ * goes through the signed-in SIWN wallet. All Nostr signing is client-side.
  */
 export function NostrLink() {
   const apiClient = useApiClient();
@@ -163,12 +162,6 @@ export function NostrLink() {
   const [importInput, setImportInput] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [sessionRev, setSessionRev] = useState(0);
-  const connectorRef = useRef<NearConnector | null>(null);
-
-  useEffect(() => {
-    if (connectorRef.current) return;
-    connectorRef.current = new NearConnector({ network: "mainnet" });
-  }, []);
 
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const { accountId: nearAccountId, isLoading: nearAccountLoading } = useNearAccount(
@@ -230,14 +223,12 @@ export function NostrLink() {
       const verify = await apiClient.nostr.verifyBinding({ event });
       if (!verify.valid) throw new Error("Binding event failed verification");
       const relays = await apiClient.nostr.listRelays();
-      const connector = connectorRef.current;
-      if (!connector) throw new Error("Wallet not initialized");
       const tx = await apiClient.nostr.prepareBindingWrite({
         nostrPubkey: verify.nostrPubkey,
         relay: relays.relays[0] ?? "",
         proof: verify.proof,
       });
-      const ok = await submitBindingWrite(connector, tx, nearAccountId);
+      const ok = await submitBindingWrite(auth, tx, nearAccountId);
       if (!ok) throw new Error("Transaction failed on-chain");
       const found = await pollBinding(apiClient, nearAccountId);
       if (!found) {
