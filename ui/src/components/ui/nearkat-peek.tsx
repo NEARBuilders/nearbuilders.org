@@ -1,35 +1,95 @@
-import { type AnimationEvent, useEffect, useRef, useState } from "react";
-import nearkatPeek from "@/assets/nearkat-peek.png";
-import nearkatPeekAnimation from "@/assets/nearkat-peek.webp";
+import { useEffect, useRef, useState } from "react";
+import nearkatPeekRest from "@/assets/nearkat-peek.png";
+import { cn } from "@/lib/utils";
 import { FIRST_DELAY_RANGE, getRandomDelay, REPEAT_DELAY_RANGE } from "./nearkat-peek-schedule";
 
-export function NearkatPeek() {
-  const [isAnimating, setIsAnimating] = useState(false);
+const PLAYBACK_DURATION_MS = 8_050;
+
+let animationUrlPromise: Promise<string> | undefined;
+
+function loadAnimationUrl() {
+  animationUrlPromise ??= import("@/assets/nearkat-peek.webp")
+    .then((module) => module.default)
+    .catch((error: unknown) => {
+      animationUrlPromise = undefined;
+      throw error;
+    });
+  return animationUrlPromise;
+}
+
+export function NearkatPeek({ className }: { className?: string }) {
+  const [animationUrl, setAnimationUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
-  const isAnimatingRef = useRef(false);
+  const isPlayingRef = useRef(false);
+  const stopTimeoutRef = useRef<number | undefined>(undefined);
   const scheduleNextRef = useRef<() => void>(() => undefined);
+
+  const stopPlaying = () => {
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    if (stopTimeoutRef.current !== undefined) {
+      window.clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = undefined;
+    }
+  };
 
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const supportsIdleCallback = typeof window.requestIdleCallback === "function";
     let hasAppeared = false;
     let timeoutId: number | undefined;
     let waitingForVisibility = false;
+    let disposed = false;
+
+    const prefetch = () => {
+      void loadAnimationUrl().catch(() => undefined);
+    };
+
+    const prefetchId = reducedMotion.matches
+      ? undefined
+      : supportsIdleCallback
+        ? window.requestIdleCallback(prefetch)
+        : window.setTimeout(prefetch, 2_000);
 
     const clearTimer = () => {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       timeoutId = undefined;
     };
 
+    const startPlayback = (url: string) => {
+      setAnimationUrl(url);
+      setIsPlaying(true);
+      if (stopTimeoutRef.current !== undefined) {
+        window.clearTimeout(stopTimeoutRef.current);
+      }
+      stopTimeoutRef.current = window.setTimeout(() => {
+        stopTimeoutRef.current = undefined;
+        if (disposed) return;
+        stopPlaying();
+        scheduleNextRef.current();
+      }, PLAYBACK_DURATION_MS);
+    };
+
     const trigger = () => {
       waitingForVisibility = false;
       clearTimer();
-      if (reducedMotion.matches || isAnimatingRef.current) {
+      if (reducedMotion.matches || isPlayingRef.current) {
         return;
       }
 
       hasAppeared = true;
-      isAnimatingRef.current = true;
-      setIsAnimating(true);
+      isPlayingRef.current = true;
+      void loadAnimationUrl()
+        .then((url) => {
+          if (disposed || !isPlayingRef.current) return;
+          startPlayback(url);
+        })
+        .catch(() => {
+          if (disposed || !isPlayingRef.current) return;
+          stopPlaying();
+          scheduleNextRef.current();
+        });
     };
 
     const handleTimer = () => {
@@ -56,53 +116,55 @@ export function NearkatPeek() {
     const handleMotionPreferenceChange = () => {
       clearTimer();
       waitingForVisibility = false;
-      isAnimatingRef.current = false;
-      setIsAnimating(false);
+      stopPlaying();
       if (!reducedMotion.matches) scheduleNext();
     };
 
-    const handleLogoPointerEnter = (event: PointerEvent) => {
+    const handlePointerEnter = (event: PointerEvent) => {
       if (event.pointerType === "mouse") trigger();
     };
 
-    const logoLink = rootRef.current?.closest("a");
+    const root = rootRef.current;
     scheduleNextRef.current = scheduleNext;
     document.addEventListener("visibilitychange", handleVisibilityChange);
     reducedMotion.addEventListener("change", handleMotionPreferenceChange);
-    logoLink?.addEventListener("pointerenter", handleLogoPointerEnter);
+    root?.addEventListener("pointerenter", handlePointerEnter);
     scheduleNext();
 
     return () => {
+      disposed = true;
       clearTimer();
-      isAnimatingRef.current = false;
+      stopPlaying();
       scheduleNextRef.current = () => undefined;
+      if (prefetchId !== undefined) {
+        if (supportsIdleCallback) window.cancelIdleCallback(prefetchId);
+        else window.clearTimeout(prefetchId);
+      }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       reducedMotion.removeEventListener("change", handleMotionPreferenceChange);
-      logoLink?.removeEventListener("pointerenter", handleLogoPointerEnter);
+      root?.removeEventListener("pointerenter", handlePointerEnter);
     };
   }, []);
 
-  const handleAnimationEnd = (event: AnimationEvent<HTMLSpanElement>) => {
-    if (event.target !== event.currentTarget) return;
-    isAnimatingRef.current = false;
-    setIsAnimating(false);
-    scheduleNextRef.current();
-  };
-
   return (
-    <span ref={rootRef} className="nearkat-peek" aria-hidden="true">
-      <span
-        onAnimationEnd={handleAnimationEnd}
-        className={`nearkat-peek__figure${isAnimating ? " nearkat-peek__figure--animating" : ""}`}
-      >
+    <span ref={rootRef} aria-hidden="true" className={cn("relative block h-12 w-20", className)}>
+      <img
+        src={nearkatPeekRest}
+        alt=""
+        draggable={false}
+        className={cn(
+          "absolute left-1/2 top-1/2 h-full w-auto -translate-x-1/2 -translate-y-1/2",
+          isPlaying ? "opacity-0" : "opacity-100",
+        )}
+      />
+      {isPlaying && animationUrl ? (
         <img
-          key={isAnimating ? "animation" : "rest"}
-          src={isAnimating ? nearkatPeekAnimation : nearkatPeek}
+          src={animationUrl}
           alt=""
           draggable={false}
-          className="nearkat-peek__artwork"
+          className="absolute left-1/2 top-1/2 h-full w-auto -translate-x-1/2 -translate-y-1/2"
         />
-      </span>
+      ) : null}
     </span>
   );
 }

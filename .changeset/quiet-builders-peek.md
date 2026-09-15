@@ -2,4 +2,4 @@
 "ui": patch
 ---
 
-Restore the clean NEAR mark and add a subtle, occasionally animated NEARKAT header Easter egg.
+Add a self-contained NEARKAT peek easter egg to the login page logo.

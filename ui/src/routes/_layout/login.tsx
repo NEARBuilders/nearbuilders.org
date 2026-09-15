@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
+import { NearkatPeek } from "@/components/ui/nearkat-peek";
 import { nearAccountsQueryKey, nearAccountsQueryOptions } from "@/lib/queries/near-accounts";
 
 type SearchParams = {
@@ -109,7 +110,7 @@ function LoginPage() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <div className="w-full max-w-sm">
         <div className="text-center mb-4">
-          <img src="/near-mark.svg" alt="Near Builders" className="h-12 w-auto mx-auto mb-4" />
+          <NearkatPeek className="mx-auto mb-4 h-24 w-[8.75rem]" />
           <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
             Connect your NEAR wallet to access your workspace
