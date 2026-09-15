@@ -71,6 +71,20 @@ export async function getBinding(nearAccountId: string): Promise<NearNostrBindin
   }
 }
 
+export async function pollBinding(
+  nearAccountId: string,
+  opts?: { timeoutMs?: number; intervalMs?: number },
+): Promise<NearNostrBinding | null> {
+  const deadline = Date.now() + (opts?.timeoutMs ?? 45_000);
+  const intervalMs = opts?.intervalMs ?? 2_000;
+  while (Date.now() < deadline) {
+    const binding = await getBinding(nearAccountId);
+    if (binding?.nostrPubkey) return binding;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return null;
+}
+
 export function buildTxArgs(opts: {
   nearAccountId: string;
   nostrPubkey: string;

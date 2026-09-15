@@ -3,6 +3,7 @@ export {
   buildTxArgs,
   createBindingChallenge,
   getBinding,
+  pollBinding,
   type SignedBindingEvent,
   signBindingChallenge,
 } from "./binding";

@@ -12,6 +12,7 @@ import {
   generateAndStore,
   getBinding,
   loadSession,
+  pollBinding,
   secretKeyBytes,
   signBindingChallenge,
 } from "@/lib/nostr";
@@ -54,14 +55,26 @@ export function NostrIdentityCard({
         relay: DEFAULT_RELAYS[0],
       });
 
-      const payload = await auth.near.buildSignedDelegateAction(contract, (builder, receiverId) =>
-        builder.functionCall(receiverId, method, args, {
+      const connected = await auth.near.ensureConnected();
+      if (!connected) {
+        throw new Error("Wallet connection required to sign the binding transaction");
+      }
+
+      const client = auth.near.getNearClient();
+      await client
+        .transaction(nearAccountId)
+        .functionCall(contract, method, args, {
           gas: "300 Tgas",
           attachedDeposit: "0.01 NEAR",
-        }),
-      );
+        })
+        .send({ waitUntil: "FINAL" });
 
-      await auth.near.relayTransaction({ payload });
+      const linked = await pollBinding(nearAccountId);
+      if (!linked) {
+        toast.warning(
+          "Transaction confirmed but the binding is not indexed yet — refresh in a moment",
+        );
+      }
       await queryClient.invalidateQueries({ queryKey: ["nostr-binding", nearAccountId] });
       toast.success("Nostr identity linked");
     } catch (e) {
