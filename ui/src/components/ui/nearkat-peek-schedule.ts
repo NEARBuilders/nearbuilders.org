@@ -1,5 +1,5 @@
-export const FIRST_DELAY_RANGE = [10_000, 15_000] as const;
-export const REPEAT_DELAY_RANGE = [10_000, 15_000] as const;
+export const FIRST_DELAY_RANGE = [3_000, 7_000] as const;
+export const REPEAT_DELAY_RANGE = [5_000, 10_000] as const;
 
 export function getRandomDelay(
   [minimum, maximum]: readonly [number, number],
