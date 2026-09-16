@@ -77,6 +77,33 @@ export const ActivityGatewayStatusSchema = z.object({
   ),
 });
 
+export const ActivityImportPlanSchema = z.object({
+  dryRun: z.boolean(),
+  scanned: z.number().int().nonnegative(),
+  eligible: z.number().int().nonnegative(),
+  alreadyForwarded: z.number().int().nonnegative(),
+  toImport: z.number().int().nonnegative(),
+  hidden: z.number().int().nonnegative(),
+  synthesizedKeys: z.number().int().nonnegative(),
+  skippedByType: z.array(
+    z.object({
+      source: z.string(),
+      type: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
+  oldestOccurredAt: z.string().nullable(),
+  newestOccurredAt: z.string().nullable(),
+  timestamps: z.object({
+    preserved: z.boolean(),
+    note: z.string(),
+    olderThanCurrentWeek: z.number().int().nonnegative(),
+    olderThanCurrentMonth: z.number().int().nonnegative(),
+  }),
+  enqueued: z.number().int().nonnegative(),
+  enqueuedRetractions: z.number().int().nonnegative(),
+});
+
 export const contract = oc.router({
   emitActivity: oc
     .route({ method: "POST", path: "/v1/activity" })
@@ -125,6 +152,18 @@ export const contract = oc.router({
   retryActivityGateway: oc
     .route({ method: "POST", path: "/v1/internal/activity/gateway/retry" })
     .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  importActivityHistory: oc
+    .route({ method: "POST", path: "/v1/internal/activity/gateway/import" })
+    .input(
+      z.object({
+        dryRun: z.boolean().default(true),
+        since: z.iso.datetime().optional(),
+        limit: z.number().int().min(1).max(10_000).optional(),
+      }),
+    )
+    .output(ActivityImportPlanSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 });
 
