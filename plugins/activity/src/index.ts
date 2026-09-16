@@ -13,6 +13,7 @@ import {
   createHttpActivityGatewayClient,
   type GatewayMode,
 } from "./services/activity-gateway";
+import { createActivityImportMethods } from "./services/activity-import";
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 
@@ -84,9 +85,10 @@ export default createPlugin({
       const gateway = createActivityGatewayMethods(database, gatewayClient);
       const gatewayWorker = new ActivityGatewayWorker(gateway);
       if (gatewayClient) gatewayWorker.start();
+      const historyImport = createActivityImportMethods(database, gateway);
 
       console.log("[Activity] Services Initialized");
-      return { activity, publisher, gateway, gatewayWorker };
+      return { activity, publisher, gateway, gatewayWorker, historyImport };
     }),
 
   shutdown: (services) =>
@@ -203,6 +205,16 @@ export default createPlugin({
         await services.gateway.processDue(100);
         return services.gateway.status();
       }),
+
+      importActivityHistory: builder.importActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input }) =>
+          services.historyImport.plan({
+            dryRun: input.dryRun,
+            since: input.since ? new Date(input.since) : undefined,
+            limit: input.limit,
+          }),
+        ),
 
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
         return await runEffect(services.activity.getActivityFeed(input));

@@ -54,6 +54,31 @@ seconds with backoff.
 - A failed forward never fails the legacy write. The status endpoint is the signal that
   something needs attention.
 
+## Importing existing history
+
+`POST /api/plugins/activity/v1/internal/activity/gateway/import` (admin) walks the legacy table and
+reports what would be forwarded. It is a **dry run by default**:
+
+```jsonc
+{ "dryRun": true, "since": "2026-01-01T00:00:00Z", "limit": 500 }
+```
+
+The report gives how many rows were scanned, how many are eligible (mapped writers), how many were
+already forwarded, how many are hidden (published and then retracted, so their state matches), how
+many need a derived idempotency key (`legacy:<row id>` for rows that predate keys), which
+`source`/`type` pairs are being skipped, and the oldest and newest event times.
+
+Running with `"dryRun": false` enqueues through the same outbox as live dual-write, so it is
+idempotent: a second run reports the same rows as already forwarded and sends nothing. Use `limit`
+for a small first pass and `since` to resume.
+
+**Timestamps are not preserved.** Activity signs an event when it receives it and its API has no
+field for the original time, so imported events carry today's date. The original is kept in the
+payload as `occurredAt`, together with `legacyEventId`. The consequence is in the report as
+`timestamps.olderThanCurrentWeek` and `olderThanCurrentMonth`: each of those events lands in the
+**current** weekly and monthly leaderboard periods. Import only what you are willing to distort, or
+wait until Activity accepts an original timestamp.
+
 ## Deployment order
 
 1. Deploy this plugin with no gateway secrets. Everything stays `legacy-only`.
