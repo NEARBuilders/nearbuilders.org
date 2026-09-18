@@ -696,6 +696,30 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.activity().getLeaderboard(input);
       }),
 
+      getActivityGatewayStatus: builder.getActivityGatewayStatus
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          return await services.plugins.activity(context).getActivityGatewayStatus();
+        }),
+
+      setActivityGatewayMode: builder.setActivityGatewayMode
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.activity(context).setActivityGatewayMode(input);
+        }),
+
+      retryActivityGateway: builder.retryActivityGateway
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          return await services.plugins.activity(context).retryActivityGateway();
+        }),
+
+      importActivityHistory: builder.importActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.activity(context).importActivityHistory(input);
+        }),
+
       getMyNotifications: builder.getMyNotifications
         .use(requireAuth)
         .handler(async ({ input, context }) => {

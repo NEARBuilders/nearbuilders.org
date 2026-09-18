@@ -267,6 +267,54 @@ export const ActivityFiltersSchema = z.object({
   actor: z.string().optional(),
 });
 
+export const ActivityGatewayModeSchema = z.enum(["legacy-only", "dual-write", "standalone-only"]);
+
+export const ActivityGatewayStatusSchema = z.object({
+  mode: ActivityGatewayModeSchema,
+  configured: z.boolean(),
+  counts: z.object({
+    pending: z.number().int().nonnegative(),
+    sent: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+  }),
+  oldestPendingAt: z.string().nullable(),
+  recentFailures: z.array(
+    z.object({
+      operation: z.string(),
+      idempotencyKey: z.string(),
+      attempts: z.number().int().nonnegative(),
+      lastError: z.string().nullable(),
+    }),
+  ),
+});
+
+export const ActivityImportPlanSchema = z.object({
+  dryRun: z.boolean(),
+  scanned: z.number().int().nonnegative(),
+  eligible: z.number().int().nonnegative(),
+  alreadyForwarded: z.number().int().nonnegative(),
+  toImport: z.number().int().nonnegative(),
+  hidden: z.number().int().nonnegative(),
+  synthesizedKeys: z.number().int().nonnegative(),
+  skippedByType: z.array(
+    z.object({
+      source: z.string(),
+      type: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
+  oldestOccurredAt: z.string().nullable(),
+  newestOccurredAt: z.string().nullable(),
+  timestamps: z.object({
+    preserved: z.boolean(),
+    note: z.string(),
+    olderThanCurrentWeek: z.number().int().nonnegative(),
+    olderThanCurrentMonth: z.number().int().nonnegative(),
+  }),
+  enqueued: z.number().int().nonnegative(),
+  enqueuedRetractions: z.number().int().nonnegative(),
+});
+
 const CatalogProjectSlugPattern = /^(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/;
 const CatalogProjectSlugSchema = z.string().min(1).max(120).regex(CatalogProjectSlugPattern);
 const CatalogCursorSchema = z.string().regex(/^\d+$/);
@@ -1056,6 +1104,34 @@ export const contract = oc.router({
         }),
       ),
     ),
+
+  getActivityGatewayStatus: oc
+    .route({ method: "GET", path: "/v1/internal/activity/gateway" })
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  setActivityGatewayMode: oc
+    .route({ method: "PUT", path: "/v1/internal/activity/gateway/mode" })
+    .input(z.object({ mode: ActivityGatewayModeSchema }))
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryActivityGateway: oc
+    .route({ method: "POST", path: "/v1/internal/activity/gateway/retry" })
+    .output(ActivityGatewayStatusSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  importActivityHistory: oc
+    .route({ method: "POST", path: "/v1/internal/activity/gateway/import" })
+    .input(
+      z.object({
+        dryRun: z.boolean().default(true),
+        since: z.iso.datetime().optional(),
+        limit: z.number().int().min(1).max(10_000).optional(),
+      }),
+    )
+    .output(ActivityImportPlanSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   getMyNotifications: oc
     .route({ method: "GET", path: "/v1/notifications/me" })
