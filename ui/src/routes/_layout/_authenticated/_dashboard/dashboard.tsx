@@ -129,6 +129,19 @@ function Dashboard() {
   const builderProfile = builderResult?.data ?? null;
   const builderProposal = builderProposalResult?.data[0] ?? null;
 
+  const { data: collaborationsData } = useQuery({
+    queryKey: ["collaborations", "me", nearAccountId],
+    queryFn: () => apiClient.listMyCollaborations({ limit: 20 }),
+    enabled: Boolean(user && !user.isAnonymous && nearAccountId),
+  });
+
+  const pendingInvites = (collaborationsData?.data ?? []).filter(
+    (c) => c.collaboration.status === "pending",
+  );
+  const acceptedCollaborations = (collaborationsData?.data ?? []).filter(
+    (c) => c.collaboration.status === "accepted",
+  );
+
   const projects = projectsData?.data ?? [];
   const projectCount = projectsData?.meta.total ?? projects.length;
   const projectIds = projects.map((project) => project.id);
@@ -198,6 +211,11 @@ function Dashboard() {
         nearAccountId={nearAccountId}
         nearProfile={nearProfile}
         showPublicProfile={Boolean(builderProfile)}
+      />
+
+      <CollaborationsPanel
+        pendingInvites={pendingInvites}
+        acceptedCollaborations={acceptedCollaborations}
       />
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
@@ -918,6 +936,87 @@ interface Project {
   kind: ProjectKind;
   status: "active" | "paused" | "archived";
   visibility: "private" | "unlisted" | "public";
+}
+
+function CollaborationsPanel({
+  pendingInvites,
+  acceptedCollaborations,
+}: {
+  pendingInvites: Array<{ collaboration: { projectId: string }; project: Project }>;
+  acceptedCollaborations: Array<{ collaboration: { projectId: string }; project: Project }>;
+}) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+
+  const respondMutation = useMutation({
+    mutationFn: ({ projectId, action }: { projectId: string; action: "accept" | "decline" }) =>
+      apiClient.respondCollaborator({ projectId, action }),
+    onSuccess: () => {
+      toast.success("Invitation updated");
+      queryClient.invalidateQueries({ queryKey: ["collaborations"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to respond"),
+  });
+
+  if (pendingInvites.length === 0 && acceptedCollaborations.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card" aria-label="Collaborations">
+      <div className="border-b border-border px-4 py-3 sm:px-5">
+        <h2 className="text-sm font-bold text-foreground">Team collaborations</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Invites to co-own projects and accepted team work.
+        </p>
+      </div>
+      {pendingInvites.length > 0 && (
+        <div className="space-y-2 px-4 py-3 sm:px-5">
+          {pendingInvites.map(({ project }) => (
+            <div
+              key={project.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-accent/40 bg-brand-accent-light px-3 py-2"
+            >
+              <Link
+                to="/projects/$kind/$slug"
+                params={{ kind: project.kind, slug: project.slug }}
+                className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground hover:underline"
+              >
+                {project.title}
+              </Link>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  size="sm"
+                  disabled={respondMutation.isPending}
+                  onClick={() =>
+                    respondMutation.mutate({ projectId: project.id, action: "accept" })
+                  }
+                >
+                  <Check className="size-3" /> Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={respondMutation.isPending}
+                  onClick={() =>
+                    respondMutation.mutate({ projectId: project.id, action: "decline" })
+                  }
+                >
+                  <X className="size-3" /> Decline
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {acceptedCollaborations.length > 0 && (
+        <div className="divide-y divide-border">
+          {acceptedCollaborations.slice(0, 5).map(({ project }) => (
+            <ProjectRow key={project.id} project={project} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function ProjectRow({ project, voteCount }: { project: Project; voteCount?: number }) {

@@ -400,6 +400,121 @@ export default createPlugin({
 
         return { data: exit.value };
       }),
+
+      listCollaborators: builder.listCollaborators.handler(async ({ input, context }) => {
+        const exit = await Effect.runPromiseExit(
+          services.project.listCollaborators(
+            input.projectId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
+          ),
+        );
+
+        if (Exit.isFailure(exit)) {
+          const squashed = Cause.squash(exit.cause);
+          if (squashed instanceof ORPCError) throw squashed;
+          throw new ORPCError("INTERNAL_SERVER_ERROR", {
+            message: squashed instanceof Error ? squashed.message : String(squashed),
+          });
+        }
+
+        return { data: exit.value };
+      }),
+
+      inviteCollaborator: builder.inviteCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await Effect.runPromiseExit(
+            services.project.inviteCollaborator(
+              input.projectId,
+              input.collaboratorOwnerId,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
+              getAlternateOwnerId(context),
+            ),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return exit.value;
+        }),
+
+      respondCollaborator: builder.respondCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await Effect.runPromiseExit(
+            services.project.respondCollaborator(
+              input.projectId,
+              input.action,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              getAlternateOwnerId(context),
+            ),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return exit.value;
+        }),
+
+      removeCollaborator: builder.removeCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await Effect.runPromiseExit(
+            services.project.removeCollaborator(
+              input.projectId,
+              input.collaboratorOwnerId,
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              context.user.role ?? undefined,
+              getAlternateOwnerId(context),
+            ),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return exit.value;
+        }),
+
+      listMyCollaborations: builder.listMyCollaborations
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await Effect.runPromiseExit(
+            services.project.listMyCollaborations(
+              context.near?.primaryAccountId ?? context.userId ?? undefined,
+              getAlternateOwnerId(context),
+              input.status ?? undefined,
+              input.limit ?? undefined,
+            ),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return { data: exit.value };
+        }),
     };
   },
 });

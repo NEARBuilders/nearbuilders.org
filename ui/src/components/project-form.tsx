@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
+import { CollaboratorPicker } from "@/components/collaborator-picker";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
 import {
@@ -868,6 +869,24 @@ export function ProjectFormLayout({
               </form.Field>
             </section>
           )}
+
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <FieldLabel>Collaborators</FieldLabel>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Credit team members. They will be invited and can accept to co-own this entry.
+            </p>
+            <form.Field name="collaborators">
+              {(field: any) => (
+                <div className="mt-3">
+                  <CollaboratorPicker
+                    value={field.state.value ?? []}
+                    onChange={(next) => field.handleChange(next)}
+                    excludeOwnerId={defaultOwnerId}
+                  />
+                </div>
+              )}
+            </form.Field>
+          </section>
 
           <section className="hidden rounded-xl border border-border bg-card p-4 shadow-sm sm:block sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between gap-3">

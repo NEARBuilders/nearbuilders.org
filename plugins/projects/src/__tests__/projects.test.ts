@@ -30,10 +30,11 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0004_lively_hex.sql",
     "0005_scope_result_mentions.sql",
     "0006_global_project_slugs.sql",
+    "0007_project_collaborators.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000,
+    1781818000000, 1782000000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -173,5 +174,94 @@ describe("projects router visibility", () => {
     expect((await anonymous.getProjectBySlug({ slug: "public-project" })).data.visibility).toBe(
       "public",
     );
+  });
+});
+
+describe("project collaborators", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+  let projectId: string;
+
+  const ownerCtx = () => ({
+    userId: "owner-user",
+    near: testNear("owner.near"),
+    user: testUser("owner-user", "member"),
+  });
+  const collabCtx = () => ({
+    userId: "collab-user",
+    near: testNear("bob.near"),
+    user: testUser("collab-user", "member"),
+  });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-collab-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+    const owner = loaded.createClient(ownerCtx());
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Team idea",
+      slug: "team-idea",
+      content: "Team content",
+      visibility: "private",
+      collaborators: ["bob.near"],
+    });
+    projectId = created.id;
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("creates pending invites on create and hides private from others", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const collabs = await owner.listCollaborators({ projectId });
+    expect(collabs.data).toHaveLength(1);
+    expect(collabs.data[0]).toMatchObject({
+      collaboratorOwnerId: "bob.near",
+      status: "pending",
+    });
+
+    const stranger = loaded.createClient({
+      userId: "stranger",
+      near: testNear("stranger.near"),
+      user: testUser("stranger", "member"),
+    });
+    await expect(stranger.getProject({ id: projectId })).rejects.toThrow("Project not found");
+  });
+
+  it("lets invitees accept and then view/edit, and appear via collaborator filter", async () => {
+    const collab = loaded.createClient(collabCtx());
+    const accepted = await collab.respondCollaborator({ projectId, action: "accept" });
+    expect(accepted.status).toBe("accepted");
+
+    expect((await collab.getProject({ id: projectId })).data.id).toBe(projectId);
+
+    const updated = await collab.updateProject({ id: projectId, title: "Team idea v2" });
+    expect(updated.title).toBe("Team idea v2");
+
+    const listed = await collab.listProjects({ collaboratorId: "bob.near" });
+    expect(listed.data.map((p) => p.id)).toContain(projectId);
+
+    await expect(
+      collab.inviteCollaborator({ projectId, collaboratorOwnerId: "carol.near" }),
+    ).rejects.toThrow();
+  });
+
+  it("lets owner remove collaborators and blocks collaborator delete", async () => {
+    const collab = loaded.createClient(collabCtx());
+    await expect(collab.deleteProject({ id: projectId })).rejects.toThrow();
+
+    const owner = loaded.createClient(ownerCtx());
+    const removed = await owner.removeCollaborator({
+      projectId,
+      collaboratorOwnerId: "bob.near",
+    });
+    expect(removed.removed).toBe(true);
+    expect((await owner.listCollaborators({ projectId })).data).toHaveLength(0);
   });
 });
