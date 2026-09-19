@@ -313,6 +313,18 @@ function LoadedProfile({
 
   const projects = projectsResult?.data ?? [];
 
+  const { data: teamProjectsResult, isLoading: teamProjectsLoading } = useQuery({
+    queryKey: ["builder-team-projects", account],
+    queryFn: () =>
+      apiClient.listProjects({
+        collaboratorId: account,
+        visibility: "public",
+        limit: 6,
+      }),
+  });
+
+  const teamProjects = teamProjectsResult?.data ?? [];
+
   const displayName = builder.name || profile?.name || account;
   const bio = builder.bio || profile?.description || null;
 
@@ -553,6 +565,10 @@ function LoadedProfile({
                 projects={projects}
                 hasMore={projectsResult?.meta.hasMore ?? false}
               />
+              <TeamProjectsContent
+                loading={teamProjectsLoading}
+                projects={teamProjects}
+              />
               <ContributedProjects nearAccount={account} />
             </TabsContent>
             <TabsContent value="activity" className="mt-5">
@@ -604,6 +620,66 @@ function LoadedProfile({
         </aside>
       </div>
     </div>
+  );
+}
+
+function TeamProjectsContent({
+  loading,
+  projects,
+}: {
+  loading: boolean;
+  projects: ProjectSummary[];
+}) {
+  if (loading) {
+    return (
+      <section className="mt-8" aria-label="Team projects loading">
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-foreground">Team projects</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-secondary h-20 rounded-xl" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (projects.length === 0) return null;
+
+  return (
+    <section className="mt-8" aria-labelledby="team-projects-heading">
+      <div className="mb-3">
+        <h2 id="team-projects-heading" className="text-lg font-bold text-foreground">
+          Team projects
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Accepted collaborations where this builder shares credit.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {projects.map((project) => (
+          <Link
+            key={project.id}
+            to="/projects/$kind/$slug"
+            params={{ kind: project.kind, slug: project.slug }}
+            className="group bg-card border border-border rounded-xl px-5 py-4 hover:border-border/80 hover:shadow-md transition-all duration-150 flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
+                {project.title}
+              </span>
+              <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
+                {project.kind}
+              </span>
+            </div>
+            {project.description && (
+              <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

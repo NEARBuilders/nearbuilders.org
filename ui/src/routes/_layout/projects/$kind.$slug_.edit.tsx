@@ -21,6 +21,21 @@ function isCurrentUserOwner(
   return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
+function isCurrentUserCollaborator(
+  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
+  user:
+    | { id?: string | null; walletAddress?: string | null }
+    | null
+    | undefined,
+  nearAccountId?: string | null,
+) {
+  if (!collaborators) return false;
+  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
+  return collaborators.some(
+    (c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId),
+  );
+}
+
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
 };
@@ -74,7 +89,14 @@ function EditProjectPage() {
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
     "";
 
-  const canManage = isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
+  const canManage =
+    isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId) ||
+    isCurrentUserCollaborator(
+      (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+        ?.collaborators,
+      session?.user,
+      nearAccountId,
+    );
 
   const updateMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
@@ -101,6 +123,38 @@ function EditProjectPage() {
             ? values.ownerId?.trim() || undefined
             : undefined,
       });
+      const prevHandles = new Set(
+        (
+          (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+            ?.collaborators ?? []
+        )
+          .filter((c) => c.status === "pending" || c.status === "accepted")
+          .map((c) => c.collaboratorOwnerId.trim().toLowerCase()),
+      );
+      const nextHandles = new Set(
+        (values.collaborators ?? [])
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0)
+          .map((c) => c.toLowerCase()),
+      );
+      const toInvite = [...nextHandles].filter((h) => !prevHandles.has(h));
+      const toRemove = [...prevHandles].filter((h) => !nextHandles.has(h));
+      const handleToOriginal = new Map(
+        (values.collaborators ?? []).map((c) => [c.trim().toLowerCase(), c.trim()]),
+      );
+      await Promise.allSettled(
+        toInvite.map((h) =>
+          apiClient.inviteCollaborator({
+            projectId: projectId!,
+            collaboratorOwnerId: handleToOriginal.get(h) ?? h,
+          }),
+        ),
+      );
+      await Promise.allSettled(
+        toRemove.map((h) =>
+          apiClient.removeCollaborator({ projectId: projectId!, collaboratorOwnerId: h }),
+        ),
+      );
       if (submitForReview) {
         await apiClient.propose({
           pluginId: "projects",
@@ -257,6 +311,12 @@ function EditFormInner({
       status: (project.status ?? "active") as "active" | "paused" | "archived",
       ownerId: project.ownerId ?? "",
       domain: project.domain ?? "",
+      collaborators: (
+        (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+          .collaborators ?? []
+      )
+        .filter((c) => c.status === "pending" || c.status === "accepted")
+        .map((c) => c.collaboratorOwnerId),
     } satisfies ProjectFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {

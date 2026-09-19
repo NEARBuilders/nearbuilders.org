@@ -21,6 +21,19 @@ const projectSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+const collaboratorStatusEnum = z.enum(["pending", "accepted", "declined", "removed"]);
+
+const collaboratorSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  collaboratorOwnerId: z.string(),
+  role: z.string(),
+  status: collaboratorStatusEnum,
+  invitedByUserId: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
 export const contract = oc.router({
   listProjects: oc
     .route({ method: "GET", path: "/v1/projects" })
@@ -28,6 +41,7 @@ export const contract = oc.router({
       z.object({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
+        collaboratorId: z.string().optional(),
         kind: kindEnum.optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
@@ -65,6 +79,7 @@ export const contract = oc.router({
               createdAt: z.iso.datetime(),
             }),
           ),
+          collaborators: z.array(collaboratorSchema).optional(),
         }),
       }),
     )
@@ -86,6 +101,7 @@ export const contract = oc.router({
               createdAt: z.iso.datetime(),
             }),
           ),
+          collaborators: z.array(collaboratorSchema).optional(),
         }),
       }),
     )
@@ -110,9 +126,10 @@ export const contract = oc.router({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
+        collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
-    .output(projectSchema)
+    .output(projectSchema.extend({ collaborators: z.array(collaboratorSchema).optional() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   updateProject: oc
@@ -235,6 +252,63 @@ export const contract = oc.router({
       }),
     )
     .errors({ NOT_FOUND }),
+
+  listCollaborators: oc
+    .route({ method: "GET", path: "/v1/projects/{projectId}/collaborators" })
+    .input(z.object({ projectId: z.string() }))
+    .output(z.object({ data: z.array(collaboratorSchema) }))
+    .errors({ NOT_FOUND }),
+
+  inviteCollaborator: oc
+    .route({ method: "POST", path: "/v1/projects/{projectId}/collaborators" })
+    .input(
+      z.object({
+        projectId: z.string(),
+        collaboratorOwnerId: z.string().trim().min(1).max(255),
+      }),
+    )
+    .output(collaboratorSchema)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
+  respondCollaborator: oc
+    .route({ method: "POST", path: "/v1/projects/{projectId}/collaborators/respond" })
+    .input(
+      z.object({
+        projectId: z.string(),
+        action: z.enum(["accept", "decline"]),
+      }),
+    )
+    .output(collaboratorSchema)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
+  removeCollaborator: oc
+    .route({
+      method: "DELETE",
+      path: "/v1/projects/{projectId}/collaborators/{collaboratorOwnerId}",
+    })
+    .input(z.object({ projectId: z.string(), collaboratorOwnerId: z.string().min(1) }))
+    .output(z.object({ removed: z.boolean() }))
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN }),
+
+  listMyCollaborations: oc
+    .route({ method: "GET", path: "/v1/collaborations/me" })
+    .input(
+      z.object({
+        status: collaboratorStatusEnum.optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(
+          z.object({
+            collaboration: collaboratorSchema,
+            project: projectSchema,
+          }),
+        ),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
 });
 
 export type ContractType = typeof contract;
