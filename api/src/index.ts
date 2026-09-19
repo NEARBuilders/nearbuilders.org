@@ -68,6 +68,13 @@ function notificationContext(context: Context) {
   };
 }
 
+function serverNotificationContext(context: Context) {
+  return {
+    ...notificationContext(context),
+    serverNotification: true as const,
+  };
+}
+
 type ProposalLifecycle = {
   reviewStatus: "pending" | "approved" | "rejected" | "removed";
   applyStatus: "not_started" | "applying" | "applied" | "failed";
@@ -932,7 +939,31 @@ export default createPlugin.withPlugins<PluginsClient>()({
           context.near,
           input.visibility,
         );
-        return await services.plugins.projects(context).createProject({ ...input, visibility });
+        const created = await services.plugins
+          .projects(context)
+          .createProject({ ...input, visibility });
+        const invited =
+          (created as { collaborators?: Array<{ collaboratorOwnerId: string }> })?.collaborators ??
+          [];
+        if (invited.length > 0) {
+          const inviter =
+            context.near?.primaryAccountId ?? context.user?.name ?? context.userId ?? "A builder";
+          await Promise.allSettled(
+            invited.map((c) =>
+              services.plugins
+                .notifications(serverNotificationContext(context))
+                .createNotification({
+                  userId: c.collaboratorOwnerId,
+                  type: "project_collab_invite",
+                  source: "projects",
+                  subject: `${inviter} invited you to collaborate on ${created.title}`,
+                  body: `You were invited as a collaborator. Accept to have it appear on your profile and edit it together.`,
+                  link: `/projects/${created.kind}/${created.slug}`,
+                }),
+            ),
+          );
+        }
+        return created;
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
@@ -1007,6 +1038,59 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listMentionedBy(input);
       }),
+
+      listCollaborators: builder.listCollaborators.handler(async ({ input, context }) => {
+        return await services.plugins.projects(context).listCollaborators(input);
+      }),
+
+      inviteCollaborator: builder.inviteCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const collaboration = await services.plugins.projects(context).inviteCollaborator(input);
+          try {
+            const projectResult = await services.plugins
+              .projects(context)
+              .getProject({ id: input.projectId });
+            const project = (
+              projectResult as { data?: { title?: string; slug?: string; kind?: string } }
+            )?.data;
+            const inviter =
+              context.near?.primaryAccountId ?? context.user?.name ?? context.userId ?? "A builder";
+            await services.plugins
+              .notifications(serverNotificationContext(context))
+              .createNotification({
+                userId: collaboration.collaboratorOwnerId,
+                type: "project_collab_invite",
+                source: "projects",
+                subject: `${inviter} invited you to collaborate on ${project?.title ?? "a project"}`,
+                body: `You were invited as a collaborator. Accept to have it appear on your profile and edit it together.`,
+                link: project?.slug
+                  ? `/projects/${project?.kind ?? "project"}/${project.slug}`
+                  : "/dashboard",
+              });
+          } catch (error) {
+            console.error("[collaborators] failed to emit invite notification", error);
+          }
+          return collaboration;
+        }),
+
+      respondCollaborator: builder.respondCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).respondCollaborator(input);
+        }),
+
+      removeCollaborator: builder.removeCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).removeCollaborator(input);
+        }),
+
+      listMyCollaborations: builder.listMyCollaborations
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).listMyCollaborations(input);
+        }),
 
       listBuilders: builder.listBuilders.handler(async ({ input, context }) => {
         return await services.plugins.builders(context).listBuilders(input);
