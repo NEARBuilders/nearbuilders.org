@@ -65,6 +65,9 @@ jobs:
       - name: Run Biome lint and format check
         run: bun biome ci .
 
+      - name: Load shadcn lint plugin
+        run: bun run --cwd ui lint
+
       - name: Run typecheck
         run: bun typecheck
 

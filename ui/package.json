@@ -12,6 +12,7 @@
     "build:ssr": "BUILD_TARGET=server rsbuild build",
     "generate-metadata": "bun run ./scripts/generate-metadata.ts",
     "preview": "rsbuild preview",
+    "lint": "oxlint src",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist/types"
@@ -86,6 +87,7 @@
     "@module-federation/rsbuild-plugin": "catalog:",
     "@rsbuild/core": "catalog:",
     "@rsbuild/plugin-react": "catalog:",
+    "@shadcn/lint": "^0.2.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/router-plugin": "catalog:",
     "@testing-library/dom": "^10.4.1",
@@ -95,6 +97,7 @@
     "@types/react-dom": "catalog:",
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
+    "oxlint": "^1.85.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.17",
     "typescript": "catalog:",

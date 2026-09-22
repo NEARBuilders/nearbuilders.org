@@ -77,7 +77,7 @@
     "bos": "bos",
     "types:gen": "node node_modules/.bin/bos types gen",
     "typecheck": "bun run types:gen && if [ -d ui ]; then bun run --cwd ui typecheck; fi && if [ -d api ]; then bun run --cwd api typecheck; fi && if [ -d plugins ]; then for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then bun run --cwd \"$dir\" typecheck; fi; done; fi",
-    "lint": "biome check .",
+    "lint": "biome check . && bun run --cwd ui lint",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -142,6 +142,6 @@
     "zod": "catalog:"
   },
   "engines": {
-    "node": ">=20.11"
+    "node": ">=20.19"
   }
 }
