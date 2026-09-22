@@ -329,7 +329,7 @@ function AppDetailPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-                    app.status === "ready" ? "bg-green-500" : "bg-destructive"
+                    app.status === "ready" ? "bg-brand-green" : "bg-destructive"
                   }`}
                 />
                 {isTenant && (
@@ -364,7 +364,7 @@ function AppDetailPage() {
               >
                 <code className="text-xs">{bosUri}</code>
                 {copiedUri ? (
-                  <Check size={11} className="shrink-0 text-green-500" />
+                  <Check size={11} className="shrink-0 text-brand-green" />
                 ) : (
                   <Copy size={11} className="shrink-0 opacity-60" />
                 )}

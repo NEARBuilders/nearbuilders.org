@@ -130,7 +130,7 @@ function AccountAppsPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
                           className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                            app.status === "ready" ? "bg-green-500" : "bg-destructive"
+                            app.status === "ready" ? "bg-brand-green" : "bg-destructive"
                           }`}
                           title={app.status}
                         />

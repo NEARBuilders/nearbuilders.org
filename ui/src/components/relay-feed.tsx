@@ -29,7 +29,7 @@ function timeAgo(dateStr: string): string {
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      return <CheckCircle2 className="h-4 w-4 text-brand-green" />;
     case "failed":
       return <XCircle className="h-4 w-4 text-destructive" />;
     default:
@@ -41,7 +41,10 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "completed":
       return (
-        <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
+        <Badge
+          variant="secondary"
+          className="bg-brand-green/10 text-foreground border-brand-green/20"
+        >
           Completed
         </Badge>
       );
@@ -56,7 +59,10 @@ function StatusBadge({ status }: { status: string }) {
       );
     default:
       return (
-        <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+        <Badge
+          variant="secondary"
+          className="bg-brand-chartreuse/30 text-foreground border-brand-chartreuse/70"
+        >
           Pending
         </Badge>
       );
