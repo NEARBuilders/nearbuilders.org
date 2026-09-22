@@ -66,6 +66,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
 
 export type ProjectFormValidation = {
   errors: Partial<Record<keyof ProjectFormValues, string>>;
+  missingFieldKeys: (keyof ProjectFormValues)[];
   missingFields: string[];
   invalidFields: string[];
   missingCount: number;
@@ -99,6 +100,26 @@ export function getProjectFormValidation(
       (kind === "project" ? "repository" : "content"),
   ].filter(Boolean) as (keyof ProjectFormValues)[];
 
+  return buildValidation(errors, missingFieldKeys);
+}
+
+export function filterProjectFormValidation(
+  validation: ProjectFormValidation,
+  isVisible: (field: keyof ProjectFormValues) => boolean,
+): ProjectFormValidation {
+  const errors = Object.fromEntries(
+    Object.entries(validation.errors).filter(([field]) =>
+      isVisible(field as keyof ProjectFormValues),
+    ),
+  ) as ProjectFormValidation["errors"];
+  const missingFieldKeys = validation.missingFieldKeys.filter(isVisible);
+  return buildValidation(errors, missingFieldKeys);
+}
+
+function buildValidation(
+  errors: ProjectFormValidation["errors"],
+  missingFieldKeys: (keyof ProjectFormValues)[],
+): ProjectFormValidation {
   const missingFields = missingFieldKeys.map((field) => FIELD_LABELS[field]);
   const invalidFields = (Object.keys(errors) as (keyof ProjectFormValues)[]).map(
     (field) => FIELD_LABELS[field],
@@ -106,6 +127,7 @@ export function getProjectFormValidation(
 
   return {
     errors,
+    missingFieldKeys,
     missingFields,
     invalidFields,
     missingCount: missingFields.length,

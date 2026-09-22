@@ -9,7 +9,7 @@ const ideaDraft = {
 
 function createStorage() {
   return {
-    getItem: vi.fn(() => null),
+    getItem: vi.fn((_key: string): string | null => null),
     setItem: vi.fn(),
     removeItem: vi.fn(),
   };
@@ -40,7 +40,7 @@ describe("draft persistence", () => {
 
     await vi.advanceTimersByTimeAsync(300);
 
-    expect(storage.setItem).toHaveBeenCalledWith("projects:new:idea", JSON.stringify(ideaDraft));
+    expect(storage.setItem).toHaveBeenCalledWith("projects:new:v2:idea", JSON.stringify(ideaDraft));
     expect(statuses).toEqual(["saving", "saved"]);
     unsubscribe();
   });
@@ -62,6 +62,35 @@ describe("draft persistence", () => {
     unsubscribe();
   });
 
+  it("drops legacy drafts and ignores drafts saved for another kind", async () => {
+    const storage = createStorage();
+    storage.getItem.mockImplementation((key: string) =>
+      key === "projects:new:v2:idea" ? JSON.stringify({ ...ideaDraft, kind: "project" }) : null,
+    );
+    vi.stubGlobal("localStorage", storage);
+    const { getDraft } = await import("./draft-store");
+
+    expect(getDraft("idea")).toBeNull();
+    expect(storage.removeItem).toHaveBeenCalledWith("projects:new:idea");
+  });
+
+  it("restores a draft saved under the current key", async () => {
+    const storage = createStorage();
+    storage.getItem.mockImplementation((key: string) =>
+      key === "projects:new:v2:idea" ? JSON.stringify(ideaDraft) : null,
+    );
+    vi.stubGlobal("localStorage", storage);
+    const { getDraft } = await import("./draft-store");
+
+    expect(getDraft("idea")).toEqual(ideaDraft);
+  });
+
+  it("returns no draft when browser storage is unavailable during SSR", async () => {
+    const { getDraft } = await import("./draft-store");
+
+    expect(getDraft("idea")).toBeNull();
+  });
+
   it("persists only the latest draft during rapid edits", async () => {
     const storage = createStorage();
     vi.stubGlobal("localStorage", storage);
@@ -74,7 +103,7 @@ describe("draft persistence", () => {
 
     expect(storage.setItem).toHaveBeenCalledTimes(1);
     expect(storage.setItem).toHaveBeenCalledWith(
-      "projects:new:idea",
+      "projects:new:v2:idea",
       JSON.stringify({ ...ideaDraft, title: "Latest title" }),
     );
   });

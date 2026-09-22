@@ -84,6 +84,13 @@ export function fieldError(error: unknown): string | undefined {
   return String(error);
 }
 
+export function useFieldErrorVisibility(form: any) {
+  const submissionAttempts = useStore(form.store, (s: any) => s.submissionAttempts as number);
+  const fieldMeta = useStore(form.store, (s: any) => s.fieldMeta);
+  return (field: keyof ProjectFormValues) =>
+    submissionAttempts > 0 || Boolean(fieldMeta?.[field]?.isBlurred);
+}
+
 function fieldStateClassName(
   value: unknown,
   error: string | undefined,
@@ -138,6 +145,7 @@ export function ProjectFormLayout({
     kind: kind as ProjectFormValues["kind"],
   });
   const creatorMode = mode === "create";
+  const isFieldVisible = useFieldErrorVisibility(form);
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const [editorSplit, setEditorSplit] = useState(DEFAULT_EDITOR_SPLIT);
   const [editorSplitReady, setEditorSplitReady] = useState(false);
@@ -213,6 +221,11 @@ export function ProjectFormLayout({
       form.setFieldValue("description", parsedDescription);
     }
   }, [content, currentTitle, currentDescription, kind, form]);
+
+  const fieldErrorFor = (field: any, name: keyof ProjectFormValues) => {
+    if (!isFieldVisible(name)) return undefined;
+    return creatorMode ? validation.errors[name] : fieldError(field.state.meta.errors[0]);
+  };
 
   const kindOptions = [
     {
@@ -389,14 +402,12 @@ export function ProjectFormLayout({
                 <form.Field
                   name="title"
                   validators={{
-                    onChange: ({ value }: any) => validateTitle(value),
+                    onBlur: ({ value }: any) => validateTitle(value),
                     onSubmit: ({ value }: any) => validateTitle(value),
                   }}
                 >
                   {(field: any) => {
-                    const err =
-                      fieldError(field.state.meta.errors[0]) ??
-                      (creatorMode ? validation.errors.title : undefined);
+                    const err = fieldErrorFor(field, "title");
                     return (
                       <div className="space-y-2">
                         <FieldLabel htmlFor="title" required>
@@ -406,6 +417,7 @@ export function ProjectFormLayout({
                           id="title"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
                           placeholder={
                             kind === "project"
                               ? "NEAR analytics"
@@ -418,7 +430,12 @@ export function ProjectFormLayout({
                           maxLength={200}
                           className={cn(
                             "h-12 text-base",
-                            fieldStateClassName(field.state.value, err, true, creatorMode),
+                            fieldStateClassName(
+                              field.state.value,
+                              err,
+                              true,
+                              creatorMode && isFieldVisible("title"),
+                            ),
                           )}
                           aria-invalid={Boolean(err)}
                           aria-describedby="title-feedback"
@@ -452,14 +469,12 @@ export function ProjectFormLayout({
                 <form.Field
                   name="description"
                   validators={{
-                    onChange: ({ value }: any) => validateDescription(value),
+                    onBlur: ({ value }: any) => validateDescription(value),
                     onSubmit: ({ value }: any) => validateDescription(value),
                   }}
                 >
                   {(field: any) => {
-                    const err =
-                      fieldError(field.state.meta.errors[0]) ??
-                      (creatorMode ? validation.errors.description : undefined);
+                    const err = fieldErrorFor(field, "description");
                     return (
                       <div className="space-y-2">
                         <FieldLabel htmlFor="description">Short description</FieldLabel>
@@ -467,12 +482,18 @@ export function ProjectFormLayout({
                           id="description"
                           value={field.state.value ?? ""}
                           onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
                           placeholder="Summarize the problem, outcome, or opportunity in one or two sentences."
                           rows={4}
                           maxLength={1000}
                           className={cn(
                             "resize-none",
-                            fieldStateClassName(field.state.value, err, false, creatorMode),
+                            fieldStateClassName(
+                              field.state.value,
+                              err,
+                              false,
+                              creatorMode && isFieldVisible("description"),
+                            ),
                           )}
                           aria-invalid={Boolean(err)}
                           aria-describedby="description-feedback"
@@ -516,22 +537,20 @@ export function ProjectFormLayout({
                   form={form}
                   repositoryUrl={repositoryUrl}
                   readmeQuery={readmeQuery}
-                  validationError={creatorMode ? validation.errors.repository : undefined}
+                  validationError={validation.errors.repository}
                   showValidationState={creatorMode}
+                  showErrors={isFieldVisible("repository")}
                 />
               ) : (
                 <form.Field
                   name="content"
                   validators={{
-                    onChangeListenTo: ["kind"],
-                    onChange: ({ value }: any) => validateContent(value, kind),
+                    onBlur: ({ value }: any) => validateContent(value, kind),
                     onSubmit: ({ value }: any) => validateContent(value, kind),
                   }}
                 >
                   {(field: any) => {
-                    const err =
-                      fieldError(field.state.meta.errors[0]) ??
-                      (creatorMode ? validation.errors.content : undefined);
+                    const err = fieldErrorFor(field, "content");
                     const placeholder =
                       kind === "scope"
                         ? "# Scope\n\nDefine the work, success criteria, and references e.g. @alice.near/my-idea…"
@@ -571,6 +590,7 @@ export function ProjectFormLayout({
                             <ContentWriteTab
                               value={field.state.value ?? ""}
                               onChange={field.handleChange}
+                              onBlur={field.handleBlur}
                               error={err}
                               placeholder={placeholder}
                               errorId="content-feedback"
@@ -651,6 +671,7 @@ export function ProjectFormLayout({
                             <ContentWriteTab
                               value={field.state.value ?? ""}
                               onChange={field.handleChange}
+                              onBlur={field.handleBlur}
                               error={err}
                               placeholder={placeholder}
                               errorId="content-feedback-mobile"
@@ -787,26 +808,30 @@ export function ProjectFormLayout({
               <form.Field
                 name="domain"
                 validators={{
-                  onChange: ({ value }: any) =>
+                  onBlur: ({ value }: any) =>
                     validateOptionalMaxLength(value, 255, "Max 255 characters"),
                   onSubmit: ({ value }: any) =>
                     validateOptionalMaxLength(value, 255, "Max 255 characters"),
                 }}
               >
                 {(field: any) => {
-                  const err =
-                    fieldError(field.state.meta.errors[0]) ??
-                    (creatorMode ? validation.errors.domain : undefined);
+                  const err = fieldErrorFor(field, "domain");
                   return (
                     <>
                       <Input
                         id="domain"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
                         placeholder="example.com"
                         className={cn(
                           "mt-3 font-mono text-sm",
-                          fieldStateClassName(field.state.value, err, false, creatorMode),
+                          fieldStateClassName(
+                            field.state.value,
+                            err,
+                            false,
+                            creatorMode && isFieldVisible("domain"),
+                          ),
                         )}
                         aria-invalid={Boolean(err)}
                         aria-describedby={err ? "domain-feedback" : undefined}
@@ -832,26 +857,30 @@ export function ProjectFormLayout({
               <form.Field
                 name="ownerId"
                 validators={{
-                  onChange: ({ value }: any) =>
+                  onBlur: ({ value }: any) =>
                     validateOptionalMaxLength(value, 255, "Max 255 characters"),
                   onSubmit: ({ value }: any) =>
                     validateOptionalMaxLength(value, 255, "Max 255 characters"),
                 }}
               >
                 {(field: any) => {
-                  const err =
-                    fieldError(field.state.meta.errors[0]) ??
-                    (creatorMode ? validation.errors.ownerId : undefined);
+                  const err = fieldErrorFor(field, "ownerId");
                   return (
                     <>
                       <Input
                         id="ownerId"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
                         placeholder={defaultOwnerId || "example.near"}
                         className={cn(
                           "mt-3 font-mono text-sm",
-                          fieldStateClassName(field.state.value, err, false, creatorMode),
+                          fieldStateClassName(
+                            field.state.value,
+                            err,
+                            false,
+                            creatorMode && isFieldVisible("ownerId"),
+                          ),
                         )}
                         aria-invalid={Boolean(err)}
                         aria-describedby={err ? "owner-feedback" : undefined}
@@ -945,25 +974,30 @@ function ProjectSourcePreview({
   readmeQuery,
   validationError,
   showValidationState,
+  showErrors,
 }: {
   form: any;
   repositoryUrl: string;
   readmeQuery: any;
   validationError?: string;
   showValidationState: boolean;
+  showErrors: boolean;
 }) {
   return (
     <div className="space-y-4">
       <form.Field
         name="repository"
         validators={{
-          onChangeListenTo: ["kind"],
-          onChange: ({ value }: any) => validateRepository(value, "project"),
+          onBlur: ({ value }: any) => validateRepository(value, "project"),
           onSubmit: ({ value }: any) => validateRepository(value, "project"),
         }}
       >
         {(field: any) => {
-          const err = fieldError(field.state.meta.errors[0]) ?? validationError;
+          const err = !showErrors
+            ? undefined
+            : showValidationState
+              ? validationError
+              : fieldError(field.state.meta.errors[0]);
           return (
             <div className="space-y-2">
               <FieldLabel htmlFor="repository" required>
@@ -975,10 +1009,16 @@ function ProjectSourcePreview({
                   type="url"
                   value={field.state.value ?? ""}
                   onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
                   placeholder="https://github.com/near/example"
                   className={cn(
                     "h-11 flex-1 font-mono text-sm",
-                    fieldStateClassName(field.state.value, err, true, showValidationState),
+                    fieldStateClassName(
+                      field.state.value,
+                      err,
+                      true,
+                      showValidationState && showErrors,
+                    ),
                   )}
                   aria-invalid={Boolean(err)}
                   aria-describedby="repository-feedback"
@@ -1045,12 +1085,14 @@ function ProjectSourcePreview({
 function ContentWriteTab({
   value,
   onChange,
+  onBlur,
   error,
   placeholder,
   errorId,
 }: {
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   error?: string;
   placeholder?: string;
   errorId?: string;
@@ -1095,6 +1137,7 @@ function ContentWriteTab({
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={
           placeholder ?? "# My Idea\n\nDescribe the concept, motivation, and next steps…"
         }

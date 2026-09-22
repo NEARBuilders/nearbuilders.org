@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getProjectFormValidation } from "./project-form-validation";
+import { filterProjectFormValidation, getProjectFormValidation } from "./project-form-validation";
 
 describe("project form validation", () => {
   it("reports the required fields missing from an idea", () => {
@@ -69,5 +69,16 @@ describe("project form validation", () => {
     expect(validation.missingCount).toBe(0);
     expect(validation.invalidFieldCount).toBe(2);
     expect(validation.isValid).toBe(false);
+  });
+
+  it("reports only the fields the user has visited", () => {
+    const validation = filterProjectFormValidation(
+      getProjectFormValidation({ kind: "idea", visibility: "public" }),
+      (field) => field === "title",
+    );
+
+    expect(validation.errors).toEqual({ title: "Title is required" });
+    expect(validation.missingFields).toEqual(["Title"]);
+    expect(validation.invalidFieldCount).toBe(1);
   });
 });

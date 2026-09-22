@@ -1,12 +1,16 @@
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useHydrated, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2, Cloud, LoaderCircle } from "lucide-react";
 import { customAlphabet } from "nanoid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
+import {
+  ProjectFormLayout,
+  type ProjectFormValues,
+  useFieldErrorVisibility,
+} from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import {
@@ -17,6 +21,7 @@ import {
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
 import {
+  filterProjectFormValidation,
   getProjectFormValidation,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
@@ -63,11 +68,12 @@ export const Route = createFileRoute("/_layout/projects/new/$kind")({
   }),
   component: () => {
     const { kind } = Route.useParams();
-    return <NewProjectPage key={kind} />;
+    const hydrated = useHydrated();
+    return <NewProjectPage key={`${kind}:${hydrated}`} restoreDraft={hydrated} />;
   },
 });
 
-function NewProjectPage() {
+function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const { kind: routeKind } = Route.useParams();
   const navigate = useNavigate({ from: Route.fullPath });
   const apiClient = useApiClient();
@@ -101,9 +107,12 @@ function NewProjectPage() {
     [slugId],
   );
 
-  const draft = getDraft(routeKind as ProjectKind);
-  const initialDraft = (draft ??
-    defaultValuesForKind(routeKind as ProjectKind)) satisfies ProjectFormValues;
+  const draft = restoreDraft ? getDraft(routeKind as ProjectKind) : null;
+  const initialDraft = {
+    ...defaultValuesForKind(routeKind as ProjectKind),
+    ...draft,
+    kind: routeKind as ProjectKind,
+  } satisfies ProjectFormValues;
 
   const form = useForm({
     defaultValues: initialDraft as ProjectFormValues,
@@ -189,6 +198,7 @@ function NewProjectPage() {
   const [draftStatus, setDraftStatus] = useState<DraftStatus>(draft ? "restored" : "idle");
 
   useEffect(() => {
+    if (!restoreDraft) return;
     const unsubscribeFromPersistence = subscribeToDraftPersistence(
       routeKind as ProjectKind,
       setDraftStatus,
@@ -200,13 +210,15 @@ function NewProjectPage() {
       subscription.unsubscribe();
       unsubscribeFromPersistence();
     };
-  }, [form, routeKind]);
+  }, [form, routeKind, restoreDraft]);
 
   const formValues = useStore(form.store, (s) => s.values as ProjectFormValues);
   const validation = getProjectFormValidation({
     ...formValues,
     kind: routeKind as ProjectFormValues["kind"],
   });
+  const isFieldVisible = useFieldErrorVisibility(form);
+  const visibleValidation = filterProjectFormValidation(validation, isFieldVisible);
   const slugPreview = generateSlug(formValues.title) || undefined;
   const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
   const actionLabel =
@@ -256,15 +268,13 @@ function NewProjectPage() {
                 Link a NEAR account to continue
               </span>
             )}
-            <ProjectFormValidationNotice validation={validation} />
+            <ProjectFormValidationNotice validation={visibleValidation} />
             <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
               {({ isSubmitting }) => (
                 <Button
                   type="button"
                   onClick={submitForm}
-                  disabled={
-                    !canCreate || !validation.isValid || isSubmitting || createMutation.isPending
-                  }
+                  disabled={!canCreate || isSubmitting || createMutation.isPending}
                   size="sm"
                   className="h-10 flex-1 sm:h-8 sm:flex-none"
                 >
@@ -299,16 +309,14 @@ function NewProjectPage() {
         <div className="mx-auto max-w-7xl pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <DraftStatusIndicator status={draftStatus} compact />
-            <ProjectFormValidationNotice validation={validation} />
+            <ProjectFormValidationNotice validation={visibleValidation} />
           </div>
           <form.Subscribe selector={(s) => ({ isSubmitting: s.isSubmitting })}>
             {({ isSubmitting }) => (
               <Button
                 type="button"
                 onClick={submitForm}
-                disabled={
-                  !canCreate || !validation.isValid || isSubmitting || createMutation.isPending
-                }
+                disabled={!canCreate || isSubmitting || createMutation.isPending}
                 className="h-11 w-full"
               >
                 {createMutation.isPending ? "Creating…" : actionLabel}
