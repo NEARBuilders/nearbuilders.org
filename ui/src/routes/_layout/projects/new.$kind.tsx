@@ -203,7 +203,10 @@ function NewProjectPage() {
   }, [form, routeKind]);
 
   const formValues = useStore(form.store, (s) => s.values as ProjectFormValues);
-  const validation = getProjectFormValidation(formValues);
+  const validation = getProjectFormValidation({
+    ...formValues,
+    kind: routeKind as ProjectFormValues["kind"],
+  });
   const slugPreview = generateSlug(formValues.title) || undefined;
   const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
   const actionLabel =

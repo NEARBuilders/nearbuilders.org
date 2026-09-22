@@ -347,7 +347,6 @@ export function ProjectFormLayout({
                             params={{ kind: option.value }}
                             search={(prev) => ({ ...prev, tab: "write" })}
                             replace
-                            onClick={() => field.handleChange(option.value)}
                             className={optionClass}
                             aria-current={active ? "page" : undefined}
                           >
