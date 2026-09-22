@@ -322,12 +322,18 @@ function ProjectFormValidationNotice({ validation }: { validation: ProjectFormVa
   if (validation.invalidFieldCount === 0) return null;
 
   const allInvalidFieldsAreMissing = validation.missingCount === validation.invalidFieldCount;
-  const count = validation.invalidFieldCount;
+  const fieldNames = (allInvalidFieldsAreMissing ? validation.missingFields : validation.invalidFields).join(
+    ", ",
+  );
 
   return (
-    <span className="text-xs font-semibold text-destructive" aria-live="polite">
-      {count} field{count === 1 ? "" : "s"}{" "}
-      {allInvalidFieldsAreMissing ? "missing" : "need attention"}
+    <span
+      className="text-xs font-semibold text-destructive"
+      aria-live="polite"
+      title={fieldNames}
+    >
+      {allInvalidFieldsAreMissing ? "Missing: " : "Needs attention: "}
+      {fieldNames}
     </span>
   );
 }
