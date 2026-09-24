@@ -6,6 +6,7 @@
   },
   "rules": {
     "shadcn/no-raw-colors": ["error", { "allow": ["fill-none", "border-outset"] }],
-    "shadcn/no-unknown-classes": ["error", { "allow": ["toaster"] }]
+    "shadcn/no-unknown-classes": ["error", { "allow": ["toaster"] }],
+    "shadcn/no-arbitrary-values": "error"
   }
 }
