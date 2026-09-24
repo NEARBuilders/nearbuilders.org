@@ -238,6 +238,7 @@ function ProjectDetailPage() {
         </div>
         <div className="flex flex-1 flex-col gap-4 p-6">
           <div className="h-8 w-60 rounded-md animate-pulse bg-secondary" />
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- skeleton line width varies for visual texture; 70% isn't one of Tailwind's default fraction steps */}
           <div className="h-4 w-[70%] rounded animate-pulse bg-secondary" />
           <div className="h-4 w-1/2 rounded animate-pulse bg-secondary" />
         </div>
@@ -247,7 +248,7 @@ function ProjectDetailPage() {
 
   if (projectQuery.isError || !project) {
     return (
-      <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-page-compact flex-col items-center justify-center gap-4 p-6">
         <p className="text-base font-semibold text-foreground">Project not found.</p>
         <Link
           to="/projects"
@@ -295,7 +296,7 @@ function ProjectDetailPage() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-[calc(100dvh-4rem)] bg-muted/30">
+      <div className="min-h-page bg-muted/30">
         {/* top bar */}
         <div className="border-b border-border bg-background">
           <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
@@ -324,7 +325,7 @@ function ProjectDetailPage() {
                   </TooltipTrigger>
                   <TooltipContent>Endorse this entry</TooltipContent>
                 </Tooltip>
-                <span className="min-w-5 text-center text-[13px] font-bold text-foreground">
+                <span className="min-w-5 text-center text-13 font-bold text-foreground">
                   {voteCountAvailable ? voteCount : "—"}
                 </span>
                 <Tooltip>
@@ -395,6 +396,7 @@ function ProjectDetailPage() {
           </div>
         </div>
         {/* body */}
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
         <div className="mx-auto grid w-full max-w-7xl gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-9 lg:px-8">
           {/* main content */}
           <div className="min-w-0">
@@ -430,7 +432,7 @@ function ProjectDetailPage() {
                       ) : (
                         <Globe size={13} />
                       )}
-                      <span className="max-w-[220px] truncate">
+                      <span className="max-w-55 truncate">
                         {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
                       </span>
                       <ExternalLink size={11} className="text-muted-foreground shrink-0" />
@@ -442,7 +444,7 @@ function ProjectDetailPage() {
               <section className="border-t border-border pt-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                    <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
                       {project.kind === "project" ? "README" : "Entry details"}
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-foreground">
@@ -588,7 +590,7 @@ function MentionsSection({ projectId }: { projectId: string }) {
       <div className="h-px bg-border" />
       {mentioned.length > 0 && (
         <div className="space-y-2">
-          <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">
             Mentions
           </div>
           <div className="flex flex-wrap gap-2">
@@ -600,7 +602,7 @@ function MentionsSection({ projectId }: { projectId: string }) {
       )}
       {mentioners.length > 0 && (
         <div className="space-y-2">
-          <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+          <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">
             Referenced by
           </div>
           <div className="flex flex-wrap gap-2">
@@ -654,17 +656,15 @@ function StatusChip({ status }: { status: string }) {
 
 function MetaSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
-      {children}
-    </div>
+    <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">{children}</div>
   );
 }
 
 function MetaItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="space-y-0.5">
-      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
-      <div className={`break-words text-[13px] text-foreground ${mono ? "font-mono" : ""}`}>
+      <div className="text-2xs font-semibold text-muted-foreground">{label}</div>
+      <div className={`break-words text-13 text-foreground ${mono ? "font-mono" : ""}`}>
         {value}
       </div>
     </div>
@@ -686,11 +686,11 @@ function MetaLinkItem({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="text-[11px] font-semibold text-muted-foreground">{label}</div>
+      <div className="text-2xs font-semibold text-muted-foreground">{label}</div>
       <Link
         to={to}
         params={params}
-        className={`break-words text-[13px] text-brand-cyan hover:underline ${mono ? "font-mono" : ""}`}
+        className={`break-words text-13 text-brand-cyan hover:underline ${mono ? "font-mono" : ""}`}
       >
         {value}
       </Link>

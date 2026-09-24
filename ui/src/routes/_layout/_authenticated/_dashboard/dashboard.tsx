@@ -200,6 +200,7 @@ function Dashboard() {
         showPublicProfile={Boolean(builderProfile)}
       />
 
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
         <div className="order-2 min-w-0 lg:order-none">
           <NearProfile
@@ -250,7 +251,7 @@ function Dashboard() {
         <div className="min-w-0 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-2xs font-bold uppercase tracking-18 text-muted-foreground">
                 Workspace
               </p>
               <div className="flex items-center gap-2.5">
@@ -260,7 +261,7 @@ function Dashboard() {
                 {projectsLoading ? (
                   <Skeleton className="h-5 w-8 rounded-full" />
                 ) : (
-                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted-foreground">
+                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-2xs font-bold tabular-nums text-muted-foreground">
                     {projectCount}
                   </span>
                 )}
@@ -304,12 +305,12 @@ function Dashboard() {
           ) : projectsLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-[76px] w-full rounded-xl" />
+                <Skeleton key={i} className="h-19 w-full rounded-xl" />
               ))}
             </div>
           ) : projects.length === 0 ? (
             <Card className="border-dashed">
-              <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-4 px-5 py-10 text-center sm:min-h-[236px]">
+              <CardContent className="flex min-h-55 flex-col items-center justify-center gap-4 px-5 py-10 text-center sm:min-h-59">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-muted">
                   <FolderOpen className="h-5 w-5 text-muted-foreground" />
                 </div>
@@ -417,7 +418,7 @@ function DashboardPageFrame({ children }: { children: ReactNode }) {
 function DashboardErrorCard({ message }: { message: string }) {
   return (
     <Card className="border-destructive/30 bg-destructive/5">
-      <CardContent className="flex min-h-[116px] items-center gap-3 p-5">
+      <CardContent className="flex min-h-29 items-center gap-3 p-5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10">
           <AlertCircle className="h-4 w-4 text-destructive" />
         </div>
@@ -451,7 +452,7 @@ function ReviewActivityCard({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <FileCheck2 className="h-4 w-4 text-muted-foreground" />
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Review activity
             </p>
           </div>
@@ -570,8 +571,8 @@ function BuilderProfileCard({
 
   if (isLoading) {
     return (
-      <Card className={`${profileCardClassName} min-h-[168px]`}>
-        <CardContent className="flex h-full min-h-[168px] items-center">
+      <Card className={`${profileCardClassName} min-h-42`}>
+        <CardContent className="flex h-full min-h-42 items-center">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Loader2 size={14} className="animate-spin" />
             Checking builder profile...
@@ -589,7 +590,7 @@ function BuilderProfileCard({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted">
               <Hammer size={14} className="text-brand-cyan" />
             </span>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Builder Profile
             </p>
             <BuilderStatusPill status="not-listed" />
@@ -705,7 +706,7 @@ function BuilderProfileCard({
               <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted">
                 <Hammer size={14} className="text-brand-cyan" />
               </span>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                 Builder application
               </p>
             </div>
@@ -805,7 +806,7 @@ function BuilderProfileCard({
 function BuilderStatusPill({ status }: { status: ProposalStatus | "not-listed" }) {
   if (status === "rejected") {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive">
+      <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive">
         <X size={9} />
         not approved
       </span>
@@ -813,13 +814,13 @@ function BuilderStatusPill({ status }: { status: ProposalStatus | "not-listed" }
   }
   if (status === "not-listed") {
     return (
-      <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+      <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-2xs font-semibold text-muted-foreground">
         not listed
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-secondary border border-border text-muted-foreground">
+    <span className="inline-flex items-center text-2xs font-semibold px-2 py-0.5 rounded-full bg-secondary border border-border text-muted-foreground">
       pending review
     </span>
   );
@@ -839,10 +840,12 @@ function DashboardHeader({
   return (
     <div className="relative overflow-hidden rounded-2xl border border-brand-accent-border bg-gradient-to-br from-brand-accent-light via-card to-muted shadow-sm">
       <div
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- decorative thick ring behind the card content; border-width is a design value, not on Tailwind's built-in scale (0/1/2/4/8)
         className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full border-[24px] border-brand-accent-border/40"
         aria-hidden="true"
       />
       <div
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- decorative thick ring behind the card content; border-width is a design value, not on Tailwind's built-in scale (0/1/2/4/8)
         className="pointer-events-none absolute -bottom-28 left-1/2 h-48 w-48 rounded-full border-[18px] border-brand-accent-border/25"
         aria-hidden="true"
       />
@@ -850,11 +853,11 @@ function DashboardHeader({
       <div className="relative flex flex-col gap-5 p-5 sm:p-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/75">
+            <p className="text-2xs font-bold uppercase tracking-18 text-foreground/75">
               Builder workspace
             </p>
             {nearAccountId && (
-              <span className="max-w-full truncate rounded-full border border-border bg-background/80 px-2 py-0.5 font-mono text-[10px] font-semibold text-foreground">
+              <span className="max-w-full truncate rounded-full border border-border bg-background/80 px-2 py-0.5 font-mono text-3xs font-semibold text-foreground">
                 {nearAccountId}
               </span>
             )}
@@ -939,7 +942,7 @@ function ProjectRow({ project, voteCount }: { project: Project; voteCount?: numb
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {typeof voteCount === "number" && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
               <ThumbsUp className="h-3 w-3" />
               {voteCount}
             </span>
@@ -967,7 +970,7 @@ const KIND_STYLES: Record<Project["kind"], string> = {
 function KindChip({ kind }: { kind: Project["kind"] }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold capitalize ${KIND_STYLES[kind]}`}
+      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-3xs font-semibold capitalize ${KIND_STYLES[kind]}`}
     >
       {kind}
     </span>
@@ -977,7 +980,7 @@ function KindChip({ kind }: { kind: Project["kind"] }) {
 function StatusChip({ status }: { status: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[status] ?? STATUS_STYLES.archived}`}
+      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-3xs font-semibold ${STATUS_STYLES[status] ?? STATUS_STYLES.archived}`}
     >
       {status}
     </span>
