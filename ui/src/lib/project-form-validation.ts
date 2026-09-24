@@ -8,7 +8,19 @@ export type ProjectFormValues = {
   status?: "active" | "paused" | "archived";
   ownerId?: string;
   domain?: string;
+  collaborators?: string[];
 };
+
+export function validateCollaborators(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) return "Invalid collaborators";
+  if (value.length > 20) return "Max 20 collaborators";
+  for (const entry of value) {
+    if (typeof entry !== "string" || !entry.trim()) return "Invalid collaborator handle";
+    if (entry.trim().length > 255) return "Max 255 characters per handle";
+  }
+  return undefined;
+}
 
 export const validateTitle = (value: string) => {
   const trimmed = value.trim();

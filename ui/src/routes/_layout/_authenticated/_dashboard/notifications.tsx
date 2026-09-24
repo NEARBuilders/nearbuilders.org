@@ -1,7 +1,8 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bell, Check } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { NotificationSourceIcon } from "@/components/notification-source-icon";
 import { Badge } from "@/components/ui/badge";
@@ -175,6 +176,9 @@ function NotificationCard({
           {notification.body && (
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{notification.body}</p>
           )}
+          {notification.type === "project_collab_invite" && (
+            <CollabInviteActions link={notification.link} />
+          )}
         </div>
         {!notification.read && (
           <Button
@@ -194,5 +198,67 @@ function NotificationCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function CollabInviteActions({ link }: { link: string }) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const slug = link.split("/").filter(Boolean).pop() ?? "";
+
+  const projectQuery = useQuery({
+    queryKey: ["collab-invite-project", slug],
+    queryFn: () => apiClient.getProjectBySlug({ slug }),
+    enabled: Boolean(slug),
+    retry: false,
+  });
+
+  const projectId = projectQuery.data?.data?.id;
+
+  const respondMutation = useMutation({
+    mutationFn: (action: "accept" | "decline") => {
+      if (!projectId) throw new Error("Project not available yet");
+      return apiClient.respondCollaborator({ projectId, action });
+    },
+    onSuccess: () => {
+      toast.success("Invitation updated");
+      queryClient.invalidateQueries({ queryKey: ["collaborations"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to respond"),
+  });
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        disabled={!projectId || respondMutation.isPending}
+        onClick={(e) => {
+          e.stopPropagation();
+          respondMutation.mutate("accept");
+        }}
+      >
+        Accept
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!projectId || respondMutation.isPending}
+        onClick={(e) => {
+          e.stopPropagation();
+          respondMutation.mutate("decline");
+        }}
+      >
+        Decline
+      </Button>
+      <Button type="button" size="sm" variant="ghost" asChild>
+        <Link to="/dashboard" onClick={(e) => e.stopPropagation()}>
+          Review in dashboard
+        </Link>
+      </Button>
+    </div>
   );
 }
