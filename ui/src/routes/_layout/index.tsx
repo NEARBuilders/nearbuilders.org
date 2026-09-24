@@ -154,6 +154,7 @@ function HeroSection() {
 
   return (
     <section className="overflow-hidden border-b border-border bg-muted/20">
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- hero grid split with deliberate uneven column proportions; grid-template-columns has no scale equivalent */}
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:items-center lg:gap-14 lg:px-8 lg:py-24">
         <div className="relative z-10 max-w-xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-xs">
@@ -162,7 +163,7 @@ function HeroSection() {
             </span>
             Open network for builders
           </div>
-          <h1 className="text-balance text-5xl font-black leading-[1.1] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+          <h1 className="text-balance text-5xl font-black leading-tighter tracking-tight text-foreground sm:text-6xl lg:text-7xl">
             Build what's <span className="block">next, </span>
             <span className="block text-brand-accent">together.</span>
           </h1>
@@ -217,7 +218,7 @@ function HeroSection() {
                 <Network className="size-4 text-brand-accent" />
                 Builder network
               </div>
-              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-brand-on-accent sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider">
+              <span className="whitespace-nowrap rounded-full border border-brand-accent bg-brand-accent px-2 py-0.5 text-4xs font-bold uppercase tracking-wide text-brand-on-accent sm:px-3 sm:py-1 sm:text-3xs sm:tracking-wider">
                 Community curated
               </span>
             </div>
@@ -231,7 +232,7 @@ function HeroSection() {
                 <p className="mt-4 text-4xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-5xl">
                   {networkStats?.builders ?? "—"}
                 </p>
-                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <p className="mt-3 text-3xs font-bold uppercase tracking-widest text-muted-foreground">
                   Builders
                 </p>
               </Link>
@@ -242,14 +243,14 @@ function HeroSection() {
                 <p className="mt-4 text-4xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-5xl">
                   {networkStats?.projects ?? "—"}
                 </p>
-                <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <p className="mt-3 text-3xs font-bold uppercase tracking-widest text-muted-foreground">
                   Projects
                 </p>
               </Link>
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              <span className="text-3xs font-bold uppercase tracking-widest text-muted-foreground">
                 Connected across NEAR
               </span>
               <div className="h-px flex-1 bg-border" />
@@ -318,7 +319,7 @@ function EcosystemNetworkCard({ item, className }: { item: EcosystemLink; classN
       <LogoImage item={item} className="size-8 sm:size-10" />
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-foreground">{item.label}</p>
-        <p className="truncate text-[10px] text-muted-foreground">{item.tagline}</p>
+        <p className="truncate text-3xs text-muted-foreground">{item.tagline}</p>
       </div>
       <ExternalLink className="ml-auto hidden size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-brand-accent sm:block" />
     </a>
@@ -332,6 +333,7 @@ function LogoImage({ item, className }: { item: EcosystemLink; className?: strin
     return (
       <span
         className={cn(
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- renders the logo as a CSS mask so it can be recolored via bg-foreground; no Tailwind utility covers these mask properties
           "block shrink-0 bg-foreground [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]",
           className,
         )}
@@ -371,6 +373,7 @@ function LogoImage({ item, className }: { item: EcosystemLink; className?: strin
 function PeopleBuildingSection() {
   return (
     <section className="border-y border-border bg-foreground py-16 text-background sm:py-20 lg:py-24">
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- section grid split with deliberate uneven column proportions; grid-template-columns has no scale equivalent */}
       <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-20 lg:px-8">
         <div className="lg:sticky lg:top-24 lg:self-start">
           <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
@@ -399,6 +402,7 @@ function PeopleBuildingSection() {
           <Link
             to="/builders"
             search={{ highlight: undefined }}
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- icon/text/arrow row grid; grid-template-columns has no scale equivalent
             className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-b border-background/20 py-8 sm:items-center sm:gap-6"
           >
             <div className="flex flex-col items-center gap-3">
@@ -421,6 +425,7 @@ function PeopleBuildingSection() {
 
           <Link
             to="/projects"
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- icon/text/arrow row grid; grid-template-columns has no scale equivalent
             className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-b border-background/20 py-8 sm:items-center sm:gap-6"
           >
             <div className="flex flex-col items-center gap-3">
@@ -443,6 +448,7 @@ function PeopleBuildingSection() {
 
           <Link
             to="/activity"
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- icon/text/arrow row grid; grid-template-columns has no scale equivalent
             className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 py-8 sm:items-center sm:gap-6"
           >
             <div className="flex flex-col items-center gap-3">
@@ -469,6 +475,7 @@ function PeopleBuildingSection() {
 function ParticipationSection() {
   return (
     <section className="border-b border-brand-accent-border bg-brand-accent py-16 sm:py-20 lg:py-24">
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- section grid split with deliberate uneven column proportions; grid-template-columns has no scale equivalent */}
       <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:items-end lg:gap-20 lg:px-8">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-on-accent/65">
