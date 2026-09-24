@@ -215,7 +215,7 @@ function SecurityOverview({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
       {children}

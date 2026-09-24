@@ -21,7 +21,8 @@ const VoteButton = forwardRef<HTMLButtonElement, VoteButtonProps>(function VoteB
       disabled={disabled}
       aria-label={label}
       className={cn(
-        "flex items-center justify-center transition-all duration-[120ms] border border-transparent [webkit-tap-highlight-color:transparent]",
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- disables the mobile tap-highlight flash; no Tailwind utility covers this CSS property
+        "flex items-center justify-center transition-all duration-120 border border-transparent [webkit-tap-highlight-color:transparent]",
         size === "compact" ? "size-7 rounded-md" : "size-10 rounded-lg",
         disabled
           ? "text-muted-foreground/40 cursor-not-allowed bg-transparent"

@@ -45,7 +45,7 @@ export function EventDayGroup({
         )}
       />
 
-      <div className="sticky top-[76px] z-20 mb-3 ml-6 h-8">
+      <div className="sticky top-19 z-20 mb-3 ml-6 h-8">
         <h2
           className={cn(
             "inline-flex h-8 items-center gap-1.5 rounded-full px-1 text-sm transition-all duration-150",

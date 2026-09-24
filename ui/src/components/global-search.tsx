@@ -137,6 +137,7 @@ export function GlobalSearch({
             event.preventDefault();
             inputRef.current?.focus();
           }}
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- command palette is positioned relative to the viewport (12vh from top) and clamped to the viewport width minus a fixed margin; not expressible as fixed scale values
           className="fixed left-1/2 top-[12vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-lg data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
         >
           <DialogPrimitive.Title className="sr-only">Search NEAR Builders</DialogPrimitive.Title>
@@ -166,7 +167,7 @@ export function GlobalSearch({
             {isFetching && !tooShort ? (
               <Loader2 size={14} className="shrink-0 animate-spin text-muted-foreground" />
             ) : (
-              <kbd className="hidden shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:block">
+              <kbd className="hidden shrink-0 rounded border border-border px-1.5 py-0.5 text-3xs font-medium text-muted-foreground sm:block">
                 esc
               </kbd>
             )}
@@ -176,6 +177,7 @@ export function GlobalSearch({
             id={listId}
             role="listbox"
             aria-label="Search results"
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- results list is clamped to a fraction of the viewport height, not a fixed scale value
             className="max-h-[60vh] overflow-y-auto p-2"
           >
             {tooShort ? (

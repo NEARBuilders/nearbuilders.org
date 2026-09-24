@@ -18,6 +18,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- rounded-[inherit] takes the parent's radius (a CSS keyword, not a scale value); ring/transition are shadcn/ui's standard focus treatment, not on Tailwind's built-in scale
         className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1 overflow-y-auto overscroll-y-contain"
       >
         {children}

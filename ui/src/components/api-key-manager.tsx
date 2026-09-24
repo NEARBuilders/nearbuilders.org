@@ -40,9 +40,10 @@ export function ApiKeyForm({ onCreate, isPending }: ApiKeyFormProps) {
 
   return (
     <div className="space-y-4">
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- flexible-input/fixed-button grid split; grid-template-columns has no scale equivalent */}
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div className="space-y-2">
-          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <Label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Key name
           </Label>
           <Input
@@ -66,7 +67,7 @@ export function ApiKeyForm({ onCreate, isPending }: ApiKeyFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <Label className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Expiration
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -134,6 +135,7 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
           </Button>
         </div>
 
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- flexible-input/fixed-button grid split; grid-template-columns has no scale equivalent */}
         <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
           <Input
             readOnly
@@ -160,8 +162,9 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
 
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- fixed-label/flexible-value grid split; grid-template-columns has no scale equivalent
     <div className="grid gap-1 rounded-md border border-border bg-muted px-3.5 py-3 sm:grid-cols-[80px_minmax(0,1fr)] sm:gap-3">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
       <div

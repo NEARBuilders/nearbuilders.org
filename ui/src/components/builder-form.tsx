@@ -244,6 +244,7 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
                     <div className="space-y-1.5">
                       <div
                         className={cn(
+                          // oxlint-disable-next-line shadcn/no-arbitrary-values -- shadcn/ui's standard 3px focus ring and border/shadow transition; not on Tailwind's built-in ring scale (0/1/2/4/8) or named transition utilities
                           "flex h-10 w-full items-center overflow-hidden rounded-md border bg-input text-sm transition-[border-color,box-shadow] focus-within:ring-[3px] focus-within:ring-ring/20",
                           err
                             ? "border-destructive focus-within:border-destructive"

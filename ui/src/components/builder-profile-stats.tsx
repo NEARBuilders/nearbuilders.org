@@ -54,7 +54,7 @@ export function BuilderProfileStats({
                   {unavailable ? "—" : value}
                 </span>
               )}
-              <span className="flex min-h-7 items-center justify-center text-[10px] font-bold uppercase leading-tight tracking-wide text-muted-foreground">
+              <span className="flex min-h-7 items-center justify-center text-3xs font-bold uppercase leading-tight tracking-wide text-muted-foreground">
                 <span className="sm:hidden">{mobileLabel}</span>
                 <span className="hidden sm:inline">{label}</span>
               </span>

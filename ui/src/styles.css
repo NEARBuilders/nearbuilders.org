@@ -52,17 +52,40 @@
   --color-brand-chartreuse: var(--brand-chartreuse);
   --color-brand-cobalt: var(--brand-cobalt);
 
+  --radius-2xs: 0.25rem; /* 4px, between stock rounded-xs (2px) and this theme's rounded-sm (8px) */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.25rem;
   --radius-2xl: 1.5rem;
 
+  --text-13: 0.8125rem; /* 13px, secondary/code text between text-xs and text-sm */
+  --text-2xs: 0.6875rem; /* 11px, compact UI text (badges, timestamps) */
+  --text-3xs: 0.625rem; /* 10px, compact UI text (badges, timestamps) */
+  --text-4xs: 0.5rem; /* 8px, smallest step of the responsive accent badge in routes/_layout/index.tsx */
+
+  --tracking-6: 0.06em; /* eyebrow/uppercase label letter-spacing, step beyond tracking-wider */
+  --tracking-12: 0.12em; /* eyebrow/uppercase label letter-spacing, step beyond tracking-widest */
+  --tracking-18: 0.18em; /* eyebrow/uppercase label letter-spacing, step beyond tracking-widest */
+  --leading-tighter: 1.1; /* large display headings, tighter than leading-none's implicit 1 but distinct from leading-tight (1.25) */
+
+  --duration-120: 120ms; /* hover/tap micro-interaction duration, between stock duration-100 and duration-150 */
+
   --animate-progress-bar: progress-bar 1.5s ease-in-out infinite;
   --animate-fade-in: fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
   --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
   --animate-slide-in-up: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-settings-panel-in: settings-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Full viewport height minus the sticky header, repeated verbatim across route pages. */
+@utility min-h-page {
+  min-height: calc(100dvh - 4rem);
+}
+
+/* Same as min-h-page but for pages with a shorter sticky header (project/event edit forms). */
+@utility min-h-page-compact {
+  min-height: calc(100dvh - 48px);
 }
 
 @keyframes progress-bar {

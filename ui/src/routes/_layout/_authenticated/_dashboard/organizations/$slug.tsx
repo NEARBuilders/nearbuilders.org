@@ -336,7 +336,7 @@ function OrganizationDetail() {
 
   if (isLoadingOrgs) {
     return (
-      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex min-h-page flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
           <div className="h-6 w-32 animate-pulse rounded bg-muted" />
         </div>
@@ -349,7 +349,7 @@ function OrganizationDetail() {
 
   if (!org) {
     return (
-      <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex min-h-page flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
           <h1 className="text-xl font-semibold text-foreground">Organization</h1>
           <Button asChild variant="outline" size="sm">
@@ -371,7 +371,7 @@ function OrganizationDetail() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
         <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground min-w-0">
           <Link to="/organizations" className="hover:text-foreground transition-colors shrink-0">
@@ -464,7 +464,7 @@ function OrganizationDetail() {
 
           {isEditing && isOwner && (
             <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                 Edit Organization
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -537,9 +537,10 @@ function OrganizationDetail() {
             <TabsContent value="invitations" className="space-y-6 pt-4">
               {canManageMembers && !isPersonal && (
                 <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                     Invite member
                   </div>
+                  {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- flexible-input/fixed-select grid split; grid-template-columns has no scale equivalent */}
                   <div className="grid gap-4 md:grid-cols-[1fr_180px]">
                     <Input
                       type="email"
@@ -550,6 +551,7 @@ function OrganizationDetail() {
                     <select
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
+                      // oxlint-disable-next-line shadcn/no-arbitrary-values -- shadcn/ui's standard 3px focus ring and border/shadow transition; not on Tailwind's built-in ring scale (0/1/2/4/8) or named transition utilities
                       className="w-full h-10 px-3 py-2 text-sm bg-card text-foreground border border-border rounded-md outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 transition-[border-color,box-shadow]"
                     >
                       <option value="member">Member</option>
@@ -667,11 +669,12 @@ function OrganizationDetail() {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- fixed-label/flexible-value grid split; grid-template-columns has no scale equivalent
     <div className="grid grid-cols-[100px_1fr] gap-4 rounded-md border border-border bg-muted px-3.5 py-2.5 items-center">
-      <span className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
+      <span className="text-muted-foreground text-2xs font-bold uppercase tracking-wider">
         {label}
       </span>
-      <span className="text-foreground text-[13px] break-all">{value}</span>
+      <span className="text-foreground text-13 break-all">{value}</span>
     </div>
   );
 }
@@ -679,7 +682,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function Chip({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center rounded px-2.5 py-0.5 text-[11px] font-semibold border ${accent ? "bg-brand-accent-light border-brand-accent-border" : "bg-secondary border-border"} text-foreground`}
+      className={`inline-flex items-center rounded px-2.5 py-0.5 text-2xs font-semibold border ${accent ? "bg-brand-accent-light border-brand-accent-border" : "bg-secondary border-border"} text-foreground`}
     >
       {children}
     </span>

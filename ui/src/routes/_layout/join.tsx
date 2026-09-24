@@ -457,6 +457,7 @@ function NominationNotice({
 
 function LoadingState() {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- panel height is a fraction of the viewport, not a fixed scale value
     <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center px-4">
       <Loader2 className="size-6 animate-spin text-muted-foreground" />
     </div>
@@ -465,6 +466,7 @@ function LoadingState() {
 
 function JoinShell({ children }: { children: ReactNode }) {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- panel height is a fraction of the viewport, not a fixed scale value
     <div className="mx-auto flex min-h-[60vh] max-w-xl items-center px-4 py-12 sm:px-6">
       <div className="w-full rounded-2xl border border-border bg-card p-7 text-center sm:p-10">
         {children}

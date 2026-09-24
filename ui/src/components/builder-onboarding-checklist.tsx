@@ -132,6 +132,7 @@ export function BuilderOnboardingChecklist({
               strokeWidth="4"
             />
             <circle
+              // oxlint-disable-next-line shadcn/no-arbitrary-values -- SVG progress ring only needs to transition stroke-dashoffset; no named Tailwind transition utility covers this SVG-specific property
               className="fill-none stroke-brand-accent transition-[stroke-dashoffset] duration-300"
               cx="24"
               cy="24"
@@ -142,7 +143,7 @@ export function BuilderOnboardingChecklist({
               strokeDashoffset={progressOffset}
             />
           </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-foreground">
+          <span className="absolute inset-0 flex items-center justify-center text-3xs font-bold tabular-nums text-foreground">
             {progress}%
           </span>
         </div>
@@ -204,6 +205,7 @@ export function BuilderOnboardingChecklist({
                     {item.label}
                   </span>
                   {item.id === nextItemId && !item.complete && (
+                    // oxlint-disable-next-line shadcn/no-arbitrary-values -- 9px "Next" pill tag sits deliberately below text-3xs (10px); the smaller size is intentional for this micro-label
                     <span className="rounded-full bg-brand-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-on-accent">
                       Next
                     </span>
@@ -215,7 +217,8 @@ export function BuilderOnboardingChecklist({
                 {index < items.length - 1 && (
                   <span
                     className={cn(
-                      "absolute left-[22px] top-5 h-[calc(100%+0.375rem)] w-px",
+                      // oxlint-disable-next-line shadcn/no-arbitrary-values -- connector line spans the gap between checklist items plus a fixed nudge; height is relative to its own parent, not a fixed scale value
+                      "absolute left-5.5 top-5 h-[calc(100%+0.375rem)] w-px",
                       item.complete ? "bg-brand-accent" : "bg-border",
                     )}
                     aria-hidden="true"

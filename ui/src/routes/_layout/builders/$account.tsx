@@ -536,6 +536,7 @@ function LoadedProfile({
         isError={statsError}
       />
 
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main>
           <Tabs
@@ -648,7 +649,7 @@ function ProjectsTabContent({
               <span className="text-sm font-semibold text-foreground truncate flex-1 group-hover:text-brand-cyan transition-colors">
                 {project.title}
               </span>
-              <span className="text-[10px] font-semibold border border-border rounded-[4px] px-1.5 py-0.5 text-muted-foreground shrink-0">
+              <span className="text-3xs font-semibold border border-border rounded-2xs px-1.5 py-0.5 text-muted-foreground shrink-0">
                 {project.kind}
               </span>
             </div>
@@ -814,7 +815,7 @@ function NominatedFallback({
                   </h1>
                   <Badge
                     variant="secondary"
-                    className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-brand-accent-light text-brand-accent border-brand-accent/20"
+                    className="text-3xs px-2 py-0.5 rounded-full font-medium bg-brand-accent-light text-brand-accent border-brand-accent/20"
                   >
                     Nominated
                   </Badge>
@@ -965,7 +966,7 @@ function NominatedFallback({
                           : "secondary"
                     }
                     className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      "rounded-full px-2 py-0.5 text-3xs font-medium",
                       p.reviewStatus === "pending" &&
                         "border-brand-accent-border bg-brand-accent-light text-brand-accent",
                     )}

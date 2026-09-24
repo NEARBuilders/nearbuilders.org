@@ -75,7 +75,7 @@ function AccountSummary({
         </div>
 
         <div className="min-w-0 rounded-lg border border-border bg-muted px-3.5 py-3 sm:w-64">
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="mb-1 flex items-center gap-2 text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             Primary email
           </div>
@@ -108,7 +108,7 @@ function AccountDetailsCard({
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex flex-col gap-1">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Account identity
         </div>
         <p className="text-sm text-muted-foreground">
@@ -125,7 +125,7 @@ function AccountDetailsCard({
         />
       </div>
       <div className="space-y-2">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Display name
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -178,12 +178,13 @@ function InfoRow({
   };
 
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- fixed-label/flexible-value/fixed-action grid split; grid-template-columns has no scale equivalent
     <div className="grid gap-2 rounded-md border border-border bg-muted px-3.5 py-3 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <span
-        className={`min-w-0 truncate text-[13px] text-foreground ${mono ? "font-mono text-xs" : ""}`}
+        className={`min-w-0 truncate text-13 text-foreground ${mono ? "font-mono text-xs" : ""}`}
         title={value}
       >
         {value}
@@ -232,7 +233,7 @@ function NostrIdentitySection() {
   return (
     <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
       <div className="flex flex-col gap-1 mb-4">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Nostr identity
         </div>
         <p className="text-sm text-muted-foreground">

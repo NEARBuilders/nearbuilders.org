@@ -179,6 +179,7 @@ function NewEventPage() {
       </div>
 
       <form onSubmit={onSubmit} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- fixed-sidebar/flexible-content grid split; grid-template-columns has no scale equivalent */}
         <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-5">
             <div className="space-y-1.5">
@@ -283,7 +284,7 @@ function NewEventPage() {
               placeholder="Agenda, speakers, registration notes, and anything attendees should know."
               rows={18}
               maxLength={50000}
-              className="min-h-[340px]"
+              className="min-h-85"
             />
           </div>
         </div>

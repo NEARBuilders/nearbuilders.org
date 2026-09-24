@@ -237,7 +237,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   }, [routeKind]);
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <div className="shrink-0 border-b border-border bg-background sm:sticky sm:top-16 sm:z-30 sm:bg-background/95 sm:backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div className="min-w-0">
@@ -306,6 +306,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
       </form>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- adds the device's safe-area inset (notch/home-indicator) on top of the base padding; not expressible as a fixed scale value */}
         <div className="mx-auto max-w-7xl pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <DraftStatusIndicator status={draftStatus} compact />

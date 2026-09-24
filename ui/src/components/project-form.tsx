@@ -266,8 +266,10 @@ export function ProjectFormLayout({
         className={cn(
           "mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:px-8",
           creatorMode
-            ? "lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-5"
-            : "lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7",
+            ? // oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent
+              "lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-5"
+            : // oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent
+              "lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7",
         )}
       >
         <div className="min-w-0 space-y-5">
@@ -276,7 +278,7 @@ export function ProjectFormLayout({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 {creatorMode && metadataCollapsed ? (
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                    <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
                       Details complete
                     </p>
                     <h2 className="mt-1 truncate text-lg font-semibold text-foreground">
@@ -288,7 +290,7 @@ export function ProjectFormLayout({
                   </div>
                 ) : (
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">
+                    <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
                       Step 1
                     </p>
                     <h2 className="mt-1 text-lg font-semibold text-foreground">Choose a format</h2>
@@ -572,7 +574,7 @@ export function ProjectFormLayout({
                         <div
                           ref={splitContainerRef}
                           className={cn(
-                            "hidden min-h-[420px] lg:grid",
+                            "hidden min-h-105 lg:grid",
                             resizingPointerId !== undefined && "select-none",
                           )}
                           style={{
@@ -658,7 +660,7 @@ export function ProjectFormLayout({
                                   key={t}
                                   value={t}
                                   asChild
-                                  className="rounded-none border-b-2 border-l-0 border-r-0 border-t-0 px-4 py-3 text-[13px] font-semibold data-[state=active]:border-primary data-[state=inactive]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                                  className="rounded-none border-b-2 border-l-0 border-r-0 border-t-0 px-4 py-3 text-13 font-semibold data-[state=active]:border-primary data-[state=inactive]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                                 >
                                   <Link to="." search={(prev) => ({ ...prev, tab: t })} replace>
                                     {t === "write" ? "Write" : "Preview"}
@@ -935,7 +937,7 @@ function FormSectionHeading({
 }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-accent">{eyebrow}</p>
+      <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">{eyebrow}</p>
       <h2 className="mt-1 text-lg font-semibold text-foreground">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
     </div>
@@ -1050,7 +1052,7 @@ function ProjectSourcePreview({
           </div>
           {readmeQuery.isLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
         </div>
-        <div className="max-h-[430px] overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        <div className="max-h-107.5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           {repositoryUrl.trim() ? (
             readmeQuery.isLoading ? (
               <div className="space-y-3">
@@ -1116,6 +1118,7 @@ function ContentWriteTab({
   };
 
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- editor pane height is a fraction of the viewport, not a fixed scale value
     <div className="flex min-h-[50vh] flex-col sm:min-h-[55vh] lg:h-full lg:min-h-0">
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-border bg-card px-3 py-2.5 sm:px-4">
         {MARKDOWN_TOOLS.map((tool) => {
@@ -1126,6 +1129,7 @@ function ContentWriteTab({
               type="button"
               onClick={() => applyMarkdown(tool)}
               title={tool.label}
+              // oxlint-disable-next-line shadcn/no-arbitrary-values -- disables the mobile tap-highlight flash; no Tailwind utility covers this CSS property
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground active:scale-95 [webkit-tap-highlight-color:transparent]"
             >
               <Icon size={14} />
@@ -1144,7 +1148,7 @@ function ContentWriteTab({
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
         className={cn(
-          "flex-1 w-full min-h-[280px] bg-muted text-foreground border-none outline-none resize-none font-mono text-[13px] leading-relaxed p-4 sm:min-h-[320px] sm:p-5",
+          "flex-1 w-full min-h-70 bg-muted text-foreground border-none outline-none resize-none font-mono text-13 leading-relaxed p-4 sm:min-h-80 sm:p-5",
           error ? "border-t-2 border-destructive" : "",
         )}
       />
@@ -1162,6 +1166,7 @@ function ContentWriteTab({
 
 function MarkdownPreviewPanel({ content, compact }: { content: string; compact?: boolean }) {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- preview pane height is a fraction of the viewport, not a fixed scale value
     <div className="flex min-h-[50vh] flex-col overflow-visible sm:min-h-[55vh] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-3 sm:px-6">
         <FileText size={14} className="text-muted-foreground" />

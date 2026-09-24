@@ -174,10 +174,10 @@ function AppsIndex() {
               onSubmit={handleAddressNavigate}
               className="flex min-w-0 flex-1 items-center gap-2"
             >
-              <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-[12px] border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 ease-out focus-within:shadow-md">
+              <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-md border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 ease-out focus-within:shadow-md">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex h-full shrink-0 items-center border-r-2 border-border-strong bg-muted px-3 text-[11px] font-bold font-mono text-muted-foreground select-none">
+                    <span className="flex h-full shrink-0 items-center border-r-2 border-border-strong bg-muted px-3 text-2xs font-bold font-mono text-muted-foreground select-none">
                       bos://
                     </span>
                   </TooltipTrigger>
@@ -204,6 +204,7 @@ function AppsIndex() {
                 size="icon-sm"
                 disabled={!addressInput.trim()}
                 aria-label="Navigate"
+                // oxlint-disable-next-line shadcn/no-arbitrary-values -- 10px sits deliberately between rounded-sm (8px) and rounded-md (12px); neither scale step matches
                 className="shrink-0 rounded-[10px] border-2 border-outset border-border-strong shadow-sm hover:shadow-md"
               >
                 <ArrowRight size={14} />
@@ -213,7 +214,7 @@ function AppsIndex() {
         </div>
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex flex-col overflow-hidden border-r border-border w-full lg:w-[360px] lg:shrink-0">
+          <div className="flex flex-col overflow-hidden border-r border-border w-full lg:w-90 lg:shrink-0">
             <AppList
               apps={apps}
               isLoading={isLoading}
@@ -300,7 +301,7 @@ function AppList({
     return (
       <div className="flex flex-col gap-2 p-3">
         {Array.from({ length: 7 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full rounded-[12px]" />
+          <Skeleton key={i} className="h-14 w-full rounded-md" />
         ))}
       </div>
     );
@@ -334,7 +335,8 @@ function AppList({
                 onMobileTap(app.accountId, app.gatewayId);
               }
             }}
-            className={`w-full text-left border-b border-border transition-colors duration-[120ms] group px-3.5 py-2.5 border-l-[3px] ${
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- 3px left accent border for the selected-row indicator; not on Tailwind's built-in border-width scale (0/1/2/4/8)
+            className={`w-full text-left border-b border-border transition-colors duration-120 group px-3.5 py-2.5 border-l-[3px] ${
               isSelected
                 ? "bg-brand-accent-light border-l-brand-accent"
                 : "border-l-transparent hover:bg-muted/50"
@@ -350,12 +352,12 @@ function AppList({
                     title={app.status}
                   />
                   {isTenant && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                    <Badge variant="outline" className="text-3xs px-1.5 py-0 h-4">
                       tenant
                     </Badge>
                   )}
                   {app.domain && (
-                    <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-4">
+                    <Badge variant="secondary" className="text-3xs font-mono px-1.5 py-0 h-4">
                       {app.domain}
                     </Badge>
                   )}
@@ -364,7 +366,7 @@ function AppList({
                   {title ?? `${app.accountId} / ${app.gatewayId}`}
                 </div>
                 {title && (
-                  <div className="font-mono text-muted-foreground truncate text-[11px]">
+                  <div className="font-mono text-muted-foreground truncate text-2xs">
                     {app.accountId} / {app.gatewayId}
                   </div>
                 )}
@@ -454,7 +456,7 @@ function AppPreview({
             onClick={handleCopyBosUri}
             className="font-mono"
           >
-            <span className="text-[11px]">{bosUri}</span>
+            <span className="text-2xs">{bosUri}</span>
             <Copy size={10} className="shrink-0 opacity-60" />
           </Button>
         </div>
@@ -466,8 +468,8 @@ function AppPreview({
         )}
 
         {isTenant && (
-          <div className="rounded-[8px] border border-border bg-muted/30 px-3 py-2">
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <div className="rounded-sm border border-border bg-muted/30 px-3 py-2">
+            <p className="text-2xs text-muted-foreground leading-relaxed">
               <span className="font-semibold text-foreground">Tenant runtime</span> — extends{" "}
               <code className="font-mono">bos://dev.everything.near/everything.dev</code>. Served
               via the shared host with a custom UI.
@@ -529,7 +531,7 @@ function AppPreview({
                   href={detail.canonicalConfigUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors duration-150 underline"
+                  className="text-2xs text-muted-foreground hover:text-foreground transition-colors duration-150 underline"
                 >
                   FastKV config
                 </a>
@@ -537,7 +539,7 @@ function AppPreview({
               <Link
                 to="/apps/$accountId"
                 params={{ accountId: app.accountId }}
-                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors duration-150 underline"
+                className="text-2xs text-muted-foreground hover:text-foreground transition-colors duration-150 underline"
               >
                 all from {app.accountId}
               </Link>
@@ -551,7 +553,7 @@ function AppPreview({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
       {children}
     </div>
   );
@@ -572,8 +574,8 @@ function RuntimeRow({
   const looksLikeUrl = isUrl && /^https?:\/\//.test(value);
 
   return (
-    <div className="flex items-start gap-2 rounded-[8px] border border-border bg-muted/10 px-2.5 py-1.5 text-[11px]">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0 pt-px min-w-[52px]">
+    <div className="flex items-start gap-2 rounded-sm border border-border bg-muted/10 px-2.5 py-1.5 text-2xs">
+      <span className="text-3xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0 pt-px min-w-13">
         {label}
       </span>
       {looksLikeUrl ? (

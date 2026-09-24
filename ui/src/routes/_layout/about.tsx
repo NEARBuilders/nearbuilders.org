@@ -56,7 +56,7 @@ function About() {
   const githubRepo = repository && isGithubUrl(repository) ? parseGithubRepo(repository) : null;
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <div className="flex-1">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-4 animate-fade-in">
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -124,7 +124,7 @@ function About() {
 
             {repository && (
               <div className="rounded-md border border-border bg-muted px-3.5 py-2.5 flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground shrink-0 min-w-[64px]">
+                <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground shrink-0 min-w-16">
                   repo
                 </span>
                 <a
@@ -140,7 +140,7 @@ function About() {
 
             <div className="rounded-md border border-border bg-muted px-3.5 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                   for agents and builders
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">

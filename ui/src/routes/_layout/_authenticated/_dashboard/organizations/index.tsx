@@ -130,7 +130,7 @@ function OrganizationsList() {
   const orgs = organizations || [];
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
         <h1 className="text-xl font-semibold text-foreground">Organizations</h1>
         <Link
@@ -146,7 +146,7 @@ function OrganizationsList() {
         <div className="space-y-6">
           {pendingInvitations.length > 0 && (
             <section className="space-y-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
                 Pending Invitations ({pendingInvitations.length})
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -211,8 +211,8 @@ function OrganizationsList() {
                   <div className="flex items-start gap-4">
                     <div className="h-14 w-14 rounded-lg animate-pulse bg-muted shrink-0" />
                     <div className="space-y-2 flex-1 pt-1">
-                      <div className="h-5 w-3/4 rounded-[4px] animate-pulse bg-muted" />
-                      <div className="h-4 w-1/2 rounded-[4px] animate-pulse bg-muted" />
+                      <div className="h-5 w-3/4 rounded-2xs animate-pulse bg-muted" />
+                      <div className="h-4 w-1/2 rounded-2xs animate-pulse bg-muted" />
                     </div>
                   </div>
                   <div className="h-10 w-full rounded-md animate-pulse bg-muted" />
@@ -312,7 +312,7 @@ function OrganizationsList() {
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold border bg-secondary border-border text-foreground">
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-3xs font-semibold border bg-secondary border-border text-foreground">
       {children}
     </span>
   );

@@ -315,7 +315,7 @@ export function NostrLink() {
       {/* Step 1: Connect NEAR + pick Nostr key */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground">
+          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-3xs text-muted-foreground">
             1
           </span>
           <span>Connect identity</span>
@@ -363,7 +363,7 @@ export function NostrLink() {
       {/* Step 2: Challenge */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground">
+          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-3xs text-muted-foreground">
             2
           </span>
           <span>Challenge</span>
@@ -387,7 +387,7 @@ export function NostrLink() {
         )}
         {challenge && (
           <div className="rounded-md border border-border bg-muted px-3.5 py-2 space-y-1">
-            <div className="text-[10px] text-muted-foreground">kind 27235</div>
+            <div className="text-3xs text-muted-foreground">kind 27235</div>
             <code className="block break-all text-xs font-mono text-foreground">{challenge}</code>
           </div>
         )}
@@ -396,7 +396,7 @@ export function NostrLink() {
       {/* Step 3: Sign + submit */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground">
+          <span className="inline-flex size-5 items-center justify-center rounded-full border border-border text-3xs text-muted-foreground">
             3
           </span>
           <span>Sign &amp; submit</span>

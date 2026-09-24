@@ -84,7 +84,7 @@ function LumaEventDetailPage() {
 
   if (eventQuery.isError || !event) {
     return (
-      <div className="flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-page flex-col items-center justify-center gap-4 p-6">
         <p className="text-base font-semibold text-foreground">Event not found.</p>
         <Link to="/events" className="text-sm font-bold text-brand-accent hover:underline">
           Back to events
@@ -142,7 +142,7 @@ function LumaEventDetailPage() {
               >
                 <Avatar className="size-6">
                   {host.avatarUrl && <AvatarImage src={host.avatarUrl} alt="" />}
-                  <AvatarFallback className="text-[10px]">{getInitials(host.name)}</AvatarFallback>
+                  <AvatarFallback className="text-3xs">{getInitials(host.name)}</AvatarFallback>
                 </Avatar>
                 {host.name}
               </span>

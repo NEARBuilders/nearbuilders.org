@@ -63,7 +63,7 @@ export function Markdown({ content, className }: MarkdownProps) {
       className={cn(
         "max-w-none",
         /* headings */
-        "[&_h1]:mt-10 [&_h1]:mb-4 [&_h1]:text-[1.875rem] [&_h1]:font-semibold [&_h1]:tracking-tight [&_h1]:text-foreground first:[&>h1]:mt-0",
+        "[&_h1]:mt-10 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h1]:text-foreground first:[&>h1]:mt-0",
         "[&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground [&_h2]:pb-2 [&_h2]:border-b [&_h2]:border-border",
         "[&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground",
         "[&_h4]:mt-5 [&_h4]:mb-2 [&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-foreground",
@@ -114,6 +114,7 @@ const markdownComponents: Components = {
     if (!isBlock) {
       return (
         <code
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- intentionally relative (0.85em) to scale with surrounding prose font size, not a fixed step on the type scale
           className="bg-secondary border border-border rounded px-1.5 py-0.5 text-foreground font-mono text-[0.85em]"
           {...props}
         >
@@ -123,7 +124,7 @@ const markdownComponents: Components = {
     }
 
     return (
-      <code className={cn(className, "block min-w-full font-mono text-[13px]")} {...props}>
+      <code className={cn(className, "block min-w-full font-mono text-13")} {...props}>
         {children}
       </code>
     );
@@ -168,7 +169,7 @@ const markdownComponents: Components = {
   thead: ({ children }) => <thead className="bg-muted border-b-2 border-border">{children}</thead>,
 
   th: ({ children }) => (
-    <th className="px-4 py-2.5 font-bold text-[13px] text-foreground border-b border-border whitespace-nowrap">
+    <th className="px-4 py-2.5 font-bold text-13 text-foreground border-b border-border whitespace-nowrap">
       {children}
     </th>
   ),

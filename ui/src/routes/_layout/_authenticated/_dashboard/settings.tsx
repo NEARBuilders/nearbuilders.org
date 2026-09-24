@@ -41,6 +41,7 @@ function SettingsLayout() {
         </div>
 
         <Tabs value={activeTab} className="w-full min-w-0">
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- hides the scrollbar cross-browser (IE/Edge, Firefox); no Tailwind utility covers these CSS properties */}
           <div className="overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="w-max min-w-full justify-start overflow-visible">
               {tabs.map((tab) => (

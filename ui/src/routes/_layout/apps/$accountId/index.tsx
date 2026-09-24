@@ -87,7 +87,7 @@ function AccountAppsPage() {
                 await navigator.clipboard.writeText(bosUri);
                 toast.success("Copied bos:// address");
               }}
-              className="font-mono text-[11px] h-auto py-0"
+              className="font-mono text-2xs h-auto py-0"
             >
               {bosUri}
             </Button>
@@ -135,15 +135,12 @@ function AccountAppsPage() {
                           title={app.status}
                         />
                         {isTenant && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                          <Badge variant="outline" className="text-3xs px-1.5 py-0 h-4">
                             tenant
                           </Badge>
                         )}
                         {app.domain && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] font-mono px-1.5 py-0 h-4"
-                          >
+                          <Badge variant="secondary" className="text-3xs font-mono px-1.5 py-0 h-4">
                             {app.domain}
                           </Badge>
                         )}
@@ -152,7 +149,7 @@ function AccountAppsPage() {
                         {title ?? app.gatewayId}
                       </div>
                       {title && (
-                        <div className="font-mono text-[11px] text-muted-foreground truncate">
+                        <div className="font-mono text-2xs text-muted-foreground truncate">
                           {app.gatewayId}
                         </div>
                       )}
