@@ -36,7 +36,7 @@ export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitche
         <Button
           variant="ghost"
           size="sm"
-          className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground max-w-[180px]"
+          className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground max-w-45"
         >
           <Building2 className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate min-w-0">{activeOrg?.name ?? "workspace"}</span>

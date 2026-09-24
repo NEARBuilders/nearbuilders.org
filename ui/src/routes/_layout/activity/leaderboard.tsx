@@ -108,7 +108,7 @@ function LeaderboardPage() {
             <Trophy size={22} />
           </div>
           <p className="text-lg font-semibold text-foreground mb-1">No activity recorded</p>
-          <p className="text-sm text-muted-foreground max-w-[280px]">
+          <p className="text-sm text-muted-foreground max-w-70">
             Rankings will appear here as builders contribute across the ecosystem.
           </p>
         </div>
@@ -169,7 +169,7 @@ function LeaderboardRow({ entry, rank }: { entry: LeaderboardEntry; rank: number
                 <Badge
                   key={source}
                   variant="secondary"
-                  className="rounded-full px-2 py-0 text-[10px] font-semibold capitalize"
+                  className="rounded-full px-2 py-0 text-3xs font-semibold capitalize"
                 >
                   {source}
                 </Badge>
@@ -213,7 +213,7 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: number; label: s
         <span className="text-muted-foreground">{icon}</span>
         {value}
       </span>
-      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="text-3xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
     </div>

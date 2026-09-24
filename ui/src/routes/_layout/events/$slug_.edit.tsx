@@ -102,7 +102,7 @@ function EditEventPage() {
 
   if (eventQuery.isError || !event) {
     return (
-      <div className="flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-page flex-col items-center justify-center gap-4 p-6">
         <p className="text-base font-semibold text-foreground">Event not found.</p>
         <Link to="/events" className="text-sm font-bold text-brand-accent hover:underline">
           Back to events
@@ -113,7 +113,7 @@ function EditEventPage() {
 
   if (!canManage) {
     return (
-      <div className="flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-page flex-col items-center justify-center gap-4 p-6">
         <p className="text-base font-semibold text-foreground">
           You don't have permission to edit this event.
         </p>
@@ -232,6 +232,7 @@ function EditEventForm({ event, isAdmin }: { event: EventRecord; isAdmin: boolea
       </div>
 
       <form onSubmit={onSubmit} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- fixed-sidebar/flexible-content grid split; grid-template-columns has no scale equivalent */}
         <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-5">
             <div className="space-y-1.5">
@@ -351,7 +352,7 @@ function EditEventForm({ event, isAdmin }: { event: EventRecord; isAdmin: boolea
               placeholder="Agenda, speakers, registration notes, and anything attendees should know."
               rows={18}
               maxLength={50000}
-              className="min-h-[340px]"
+              className="min-h-85"
             />
           </div>
         </div>

@@ -203,7 +203,7 @@ export function ActivityFeed({
           <Activity size={22} />
         </div>
         <p className="text-lg font-semibold text-foreground mb-1">No activity yet</p>
-        <p className="text-sm text-muted-foreground max-w-[280px]">{emptyHint}</p>
+        <p className="text-sm text-muted-foreground max-w-70">{emptyHint}</p>
       </div>
     );
   }

@@ -119,9 +119,11 @@ function LoginPage() {
   }
 
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- page height is a fraction of the viewport, not a fixed scale value
     <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
       <div className="w-full max-w-sm">
         <div className="text-center mb-4">
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- exact width preserves the mascot image's aspect ratio at its fixed height; not a value on the spacing scale */}
           <NearkatPeek className="mx-auto mb-4 h-20 w-[7.25rem] sm:h-24 sm:w-[8.75rem]" />
           <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
           <p className="text-sm text-muted-foreground">

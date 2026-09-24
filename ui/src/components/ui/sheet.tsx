@@ -28,6 +28,7 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- deliberately subtle 2px overlay blur; Tailwind's smallest named step (blur-sm, 4px) would visibly double it
         "fixed inset-0 z-50 bg-overlay/50 backdrop-blur-[2px]",
         "data-[state=open]:animate-in data-[state=open]:fade-in-0",
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
@@ -60,6 +61,7 @@ function SheetContent({
           "fixed z-50 flex flex-col",
           "bg-elevated text-elevated-foreground",
           "border border-border",
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- custom soft upward shadow for a bottom sheet; no entry in Tailwind's default shadow scale matches this offset/blur/color combination
           "shadow-[0_-8px_40px_rgba(0,0,0,0.18)]",
           "transition ease-in-out",
           "data-[state=closed]:duration-250 data-[state=open]:duration-350",
@@ -67,6 +69,7 @@ function SheetContent({
 
           side === "bottom" && [
             "inset-x-0 bottom-0",
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- sheet height clamps are viewport-relative (svh); no fixed scale token expresses that
             "max-h-[92svh] min-h-[40svh]",
             "rounded-t-2xl",
             "border-b-0",
@@ -74,6 +77,7 @@ function SheetContent({
           ],
           side === "top" && [
             "inset-x-0 top-0",
+            // oxlint-disable-next-line shadcn/no-arbitrary-values -- sheet height clamp is viewport-relative (svh); no fixed scale token expresses that
             "max-h-[85svh]",
             "rounded-b-2xl",
             "border-t-0",
@@ -140,6 +144,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       className={cn(
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- adds the device's safe-area inset (notch/home-indicator) on top of the base padding; not expressible as a fixed scale value
         "mt-auto flex shrink-0 flex-col gap-2 px-5 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3",
         className,
       )}

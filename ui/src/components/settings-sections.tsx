@@ -402,6 +402,7 @@ function ApiKeyListRow({
   const isEnabled = apiKey.enabled !== false;
 
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- flexible-content/fixed-action grid split; grid-template-columns has no scale equivalent
     <div className="grid gap-4 rounded-lg border border-border bg-muted px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">

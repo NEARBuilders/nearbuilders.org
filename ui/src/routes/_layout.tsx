@@ -103,7 +103,7 @@ function Layout() {
               className="ml-2 hidden shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
             >
               <Search size={14} />
-              <kbd className="rounded border border-border px-1 py-0.5 text-[10px] font-medium">
+              <kbd className="rounded border border-border px-1 py-0.5 text-3xs font-medium">
                 ⌘K
               </kbd>
             </button>
@@ -215,6 +215,7 @@ function Layout() {
 
       <footer className="border-t border-border bg-background text-foreground">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- footer grid split with deliberate uneven column proportions; grid-template-columns has no scale equivalent */}
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-20">
             <div>
               <BrandLogoLink
@@ -331,7 +332,7 @@ function Layout() {
                 href="https://near.dev"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative ml-2 h-5 w-[84px] shrink-0"
+                className="relative ml-2 h-5 w-21 shrink-0"
               >
                 <img
                   src={builtOn}

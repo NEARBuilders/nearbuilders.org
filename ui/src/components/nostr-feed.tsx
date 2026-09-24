@@ -60,7 +60,7 @@ function CommentRow({
     <div className="flex gap-3 py-3">
       <Avatar className="size-7 shrink-0">
         {comment.profile?.picture ? <AvatarImage src={comment.profile.picture} alt="" /> : null}
-        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+        <AvatarFallback className="text-3xs">{initials}</AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ function CommentRow({
           <PubkeyBadge pubkey={comment.pubkey} nearAccountId={comment.nearAccountId} />
         </div>
         <p className="text-sm text-foreground/90 break-words">{comment.content}</p>
-        <span className="text-[10px] text-muted-foreground">{timeAgo(comment.createdAt)}</span>
+        <span className="text-3xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
       </div>
     </div>
   );
@@ -187,7 +187,7 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
         </Button>
       </form>
 
-      <ScrollArea className="max-h-[400px]">
+      <ScrollArea className="max-h-100">
         {isLoading ? (
           <div className="space-y-3 py-2">
             {[1, 2, 3].map((i) => (

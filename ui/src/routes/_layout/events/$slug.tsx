@@ -194,7 +194,7 @@ function EventDetailPage() {
 
   if (eventQuery.isError || !event) {
     return (
-      <div className="flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-page flex-col items-center justify-center gap-4 p-6">
         <p className="text-base font-semibold text-foreground">Event not found.</p>
         <Link to="/events" className="text-sm font-bold text-brand-accent hover:underline">
           Back to events
@@ -376,7 +376,7 @@ function ParticipantBadge({ participant }: { participant: EventParticipantRecord
     <>
       <Avatar className="size-5">
         {avatarUrl && <AvatarImage src={avatarUrl} alt={`${label} avatar`} />}
-        <AvatarFallback className="text-[10px]">
+        <AvatarFallback className="text-3xs">
           {accountId ? label.slice(0, 1).toUpperCase() : <Users size={11} />}
         </AvatarFallback>
       </Avatar>

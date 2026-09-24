@@ -364,7 +364,7 @@ function EventCard({
         {showStatus && (
           <span
             className={cn(
-              "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium leading-5",
+              "shrink-0 rounded-md border px-2 py-0.5 text-2xs font-medium leading-5",
               status.className,
             )}
           >
@@ -505,7 +505,7 @@ function AttendeeAvatar({
 
   const avatar = (
     <span
-      className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-card bg-brand-accent-light text-[10px] font-bold text-brand-accent"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-card bg-brand-accent-light text-3xs font-bold text-brand-accent"
       title={label}
     >
       {initials || "?"}
@@ -573,7 +573,7 @@ function EmptyState({ tab }: { tab: EventTab }) {
         <p className="text-base font-semibold text-foreground">
           {tab === "upcoming" ? "No upcoming events" : "No past events"}
         </p>
-        <p className="mx-auto max-w-[280px] text-sm text-muted-foreground">
+        <p className="mx-auto max-w-70 text-sm text-muted-foreground">
           {tab === "upcoming"
             ? "New events will appear here once they are scheduled."
             : "Events that have already happened will show up here."}

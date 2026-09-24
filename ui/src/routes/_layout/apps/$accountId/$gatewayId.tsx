@@ -254,7 +254,7 @@ function AppDetailPage() {
       </MetaRow>
       <div className="pt-1 space-y-1.5">
         <MetaSectionLabel>FastKV key</MetaSectionLabel>
-        <code className="block font-mono text-[10px] text-muted-foreground break-all bg-muted/30 rounded px-2 py-1.5">
+        <code className="block font-mono text-3xs text-muted-foreground break-all bg-muted/30 rounded px-2 py-1.5">
           {app.canonicalKey}
         </code>
       </div>
@@ -323,6 +323,7 @@ function AppDetailPage() {
           </div>
         </div>
 
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
           <div className="space-y-6 min-w-0">
             <div className="space-y-2">
@@ -474,7 +475,7 @@ function AppDetailPage() {
                 <SectionLabel>Resolved bos.config.json</SectionLabel>
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="bg-muted/30 px-3 py-2 border-b border-border flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-muted-foreground">
+                    <span className="text-2xs font-mono text-muted-foreground">
                       apps/{accountId}/{gatewayId}/bos.config.json
                     </span>
                     <Button
@@ -482,7 +483,7 @@ function AppDetailPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setConfigExpanded((v) => !v)}
-                      className="text-[11px] h-auto py-0"
+                      className="text-2xs h-auto py-0"
                     >
                       {configExpanded ? "collapse" : "expand"}
                     </Button>
@@ -497,7 +498,7 @@ function AppDetailPage() {
                       return (
                         <div key={key} className="flex items-start gap-2 px-3 py-2 text-xs">
                           <span
-                            className="font-mono text-muted-foreground shrink-0 uppercase font-semibold min-w-[36px]"
+                            className="font-mono text-muted-foreground shrink-0 uppercase font-semibold min-w-9"
                             style={{ fontSize: 10 }}
                           >
                             {key}
@@ -516,7 +517,7 @@ function AppDetailPage() {
 
                     {configPlugins && Object.keys(configPlugins).length > 0 && (
                       <div className="px-3 py-2">
-                        <div className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">
+                        <div className="text-3xs font-semibold uppercase text-muted-foreground mb-1.5">
                           plugins
                         </div>
                         <div className="space-y-1">
@@ -700,7 +701,7 @@ function AppDetailPage() {
                   {delegatePayload && (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">
+                        <span className="text-3xs uppercase tracking-wide font-semibold text-muted-foreground">
                           Signed delegate payload
                         </span>
                         <Button
@@ -738,7 +739,7 @@ function AppDetailPage() {
           <div className="hidden sm:block">
             <div className="sticky top-4 space-y-0 border border-border rounded-lg overflow-hidden bg-card">
               <div className="px-4 py-3 border-b border-border bg-muted/20">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Details
                 </span>
               </div>
@@ -749,6 +750,7 @@ function AppDetailPage() {
       </div>
 
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- sheet height clamp is viewport-relative (dvh), not a fixed scale value */}
         <SheetContent side="bottom" className="max-h-[70dvh] overflow-y-auto">
           <SheetHeader className="mb-4">
             <SheetTitle className="text-sm">Details</SheetTitle>
@@ -763,7 +765,7 @@ function AppDetailPage() {
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">
+    <div className="text-3xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1">
       {children}
     </div>
   );
@@ -771,7 +773,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 function MetaSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
       {children}
     </div>
   );
@@ -780,7 +782,7 @@ function MetaSectionLabel({ children }: { children: ReactNode }) {
 function MetaRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="text-3xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className="text-foreground">{children}</div>
@@ -804,7 +806,7 @@ function RuntimeRow({
   return (
     <div className="flex items-start gap-2 rounded border border-border bg-muted/10 px-2.5 py-1.5 text-xs">
       <span
-        className="text-muted-foreground uppercase tracking-wide shrink-0 pt-px font-semibold min-w-[40px]"
+        className="text-muted-foreground uppercase tracking-wide shrink-0 pt-px font-semibold min-w-10"
         style={{ fontSize: 10 }}
       >
         {label}

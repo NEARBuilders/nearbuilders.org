@@ -75,6 +75,16 @@
   --animate-settings-panel-in: settings-panel-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Full viewport height minus the sticky header, repeated verbatim across route pages. */
+@utility min-h-page {
+  min-height: calc(100dvh - 4rem);
+}
+
+/* Same as min-h-page but for pages with a shorter sticky header (project/event edit forms). */
+@utility min-h-page-compact {
+  min-height: calc(100dvh - 48px);
+}
+
 @keyframes progress-bar {
   0% { transform: translate(-100%); }
   50% { transform: translate(-10%); }

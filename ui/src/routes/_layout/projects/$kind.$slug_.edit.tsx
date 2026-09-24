@@ -166,7 +166,7 @@ function EditProjectPage() {
           <div className="h-5 w-30 rounded animate-pulse bg-secondary" />
         </div>
         <div className="flex flex-1 flex-col gap-4 p-8">
-          <div className="h-8 w-[300px] rounded-md animate-pulse bg-secondary" />
+          <div className="h-8 w-75 rounded-md animate-pulse bg-secondary" />
         </div>
       </div>
     );
@@ -174,7 +174,7 @@ function EditProjectPage() {
 
   if (projectQuery.isError || !project) {
     return (
-      <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center gap-4">
+      <div className="flex min-h-page-compact flex-col items-center justify-center gap-4">
         <p className="text-base font-semibold text-foreground">Project not found.</p>
         <Link
           to="/projects"
@@ -195,7 +195,7 @@ function EditProjectPage() {
 
   if (!canManage) {
     return (
-      <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center gap-4">
+      <div className="flex min-h-page-compact flex-col items-center justify-center gap-4">
         <p className="text-base font-semibold text-foreground">
           You don't have permission to edit this project.
         </p>
@@ -270,7 +270,7 @@ function EditFormInner({
   const kindLabel = project.kind.charAt(0).toUpperCase() + project.kind.slice(1);
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <div className="shrink-0 border-b border-border bg-background">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div className="min-w-0">

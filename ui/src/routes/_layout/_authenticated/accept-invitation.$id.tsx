@@ -85,6 +85,7 @@ function AcceptInvitation() {
 
   if (isLoading) {
     return (
+      // oxlint-disable-next-line shadcn/no-arbitrary-values -- loading state height is a fraction of the viewport, not a fixed scale value
       <div className="flex items-center justify-center min-h-[40vh]">
         <p className="text-sm text-muted-foreground">Loading invitation...</p>
       </div>

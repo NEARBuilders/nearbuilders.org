@@ -25,7 +25,7 @@ function SourceBadge({ source }: { source: string }) {
     <Badge
       variant="outline"
       className={cn(
-        "rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize",
+        "rounded-full px-2.5 py-0.5 text-2xs font-semibold capitalize",
         SOURCE_BADGE_CLASS[key] ?? "border-border bg-muted text-foreground",
       )}
     >
@@ -84,7 +84,7 @@ export function ActivityCard({
           </TooltipTrigger>
           <TooltipContent>Endorse this contribution</TooltipContent>
         </Tooltip>
-        <span className="min-w-[24px] text-center text-xs font-bold leading-none text-foreground tabular-nums">
+        <span className="min-w-6 text-center text-xs font-bold leading-none text-foreground tabular-nums">
           {count}
         </span>
         <Tooltip>
@@ -108,14 +108,14 @@ export function ActivityCard({
           <SourceBadge source={event.source} />
           <Badge
             variant="secondary"
-            className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
+            className="rounded-full px-2.5 py-0.5 text-2xs font-semibold capitalize"
           >
             {event.type}
           </Badge>
           {event.verified && (
             <Badge
               variant="success"
-              className="gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              className="gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold"
             >
               <CheckCircle2 size={11} />
               Verified
@@ -164,7 +164,7 @@ export function ActivityCard({
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="rounded-full px-1.5 py-0 text-[10px] font-medium"
+                    className="rounded-full px-1.5 py-0 text-3xs font-medium"
                   >
                     {tag}
                   </Badge>
@@ -172,7 +172,7 @@ export function ActivityCard({
                 {payload.tags.length > 6 && (
                   <Badge
                     variant="secondary"
-                    className="rounded-full px-1.5 py-0 text-[10px] font-medium"
+                    className="rounded-full px-1.5 py-0 text-3xs font-medium"
                   >
                     +{payload.tags.length - 6}
                   </Badge>

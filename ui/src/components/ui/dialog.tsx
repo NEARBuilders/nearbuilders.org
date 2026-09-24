@@ -50,7 +50,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-elevated text-elevated-foreground fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border rounded-xl p-6 shadow-lg sm:max-w-lg",
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- max-w clamps to the viewport minus a fixed margin; no scale token expresses "100% minus 2rem"
+          "bg-elevated text-elevated-foreground fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-border rounded-xl p-6 shadow-lg sm:max-w-lg",
           className,
         )}
         {...props}

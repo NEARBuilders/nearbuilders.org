@@ -300,7 +300,7 @@ function ProjectTags({ project }: { project: RankedProject }) {
       </span>
       {project.source === "nearcatalog" && (
         <span className="shrink-0">
-          <Badge variant="outline" className="rounded-full border px-2 py-0.5 text-[11px]">
+          <Badge variant="outline" className="rounded-full border px-2 py-0.5 text-2xs">
             Catalog
           </Badge>
         </span>
@@ -342,6 +342,7 @@ function ProjectCard({
         type="button"
         onClick={onOpen}
         aria-label={`Preview ${project.title}. ${project.kind}, ${project.status}. ${endorsementLabel}.`}
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- icon/content/action row grid; grid-template-columns has no scale equivalent
         className="grid w-full min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-start gap-x-3 px-4 py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-x-4 sm:px-5"
       >
         <ProjectVisual project={project} className="self-center size-10 rounded-xl" />
@@ -372,6 +373,7 @@ function ProjectCard({
 
 function ProjectCardSkeleton() {
   return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- icon/content/action row grid, matching the loaded card's layout; grid-template-columns has no scale equivalent
     <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-start gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5">
       <div className="size-10 animate-pulse rounded-xl bg-secondary" />
       <div className="min-w-0 space-y-2">
@@ -440,7 +442,7 @@ function ProjectCount({ total, loaded }: { total: number; loaded: number }) {
   return (
     <span
       role="status"
-      className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold tabular-nums text-muted-foreground"
+      className="rounded-full bg-secondary px-2 py-0.5 text-3xs font-bold tabular-nums text-muted-foreground"
       aria-label={`${total} entries${hasUnloadedEntries ? `, ${loaded} loaded` : ""}`}
     >
       {hasUnloadedEntries ? `${total} total` : total}
@@ -507,7 +509,7 @@ function ProjectPreviewHeader({ title }: { title: string }) {
   return (
     <SheetHeader className="flex-row items-center justify-between gap-4 border-b border-border px-5 py-4">
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-brand-accent">
+        <p className="text-3xs font-bold uppercase tracking-widest text-brand-accent">
           Entry details
         </p>
         <SheetTitle className="mt-1 truncate text-sm font-bold">Entry preview</SheetTitle>
@@ -718,10 +720,10 @@ function ProjectDetailPanel({
                     params={{ account: contributor.nearAccount }}
                     className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="size-5 rounded-full bg-secondary text-center text-[10px] leading-5 text-muted-foreground">
+                    <span className="size-5 rounded-full bg-secondary text-center text-3xs leading-5 text-muted-foreground">
                       {contributor.nearAccount.charAt(0).toUpperCase()}
                     </span>
-                    <span className="max-w-[145px] truncate">{contributor.nearAccount}</span>
+                    <span className="max-w-36.25 truncate">{contributor.nearAccount}</span>
                   </Link>
                 ))}
               </div>
