@@ -107,7 +107,8 @@ export function ProjectDirectoryListRow({
 
   return (
     <div
-      className={`group border-b border-border flex items-center gap-2.5 px-3.5 py-3 transition-all duration-[120ms] ${isSelected ? "lg:bg-brand-accent-light lg:border-l-[3px] lg:border-l-brand-accent" : "border-l-[3px] border-l-transparent hover:bg-muted/60"}`}
+      // oxlint-disable-next-line shadcn/no-arbitrary-values -- 3px left accent border for the selected-row indicator; not on Tailwind's built-in border-width scale (0/1/2/4/8)
+      className={`group border-b border-border flex items-center gap-2.5 px-3.5 py-3 transition-all duration-120 ${isSelected ? "lg:bg-brand-accent-light lg:border-l-[3px] lg:border-l-brand-accent" : "border-l-[3px] border-l-transparent hover:bg-muted/60"}`}
     >
       <span
         className={`hidden lg:block w-6 text-xs font-bold text-center shrink-0 ${isSelected ? "text-brand-accent" : "text-muted-foreground/40"}`}
@@ -119,7 +120,7 @@ export function ProjectDirectoryListRow({
         onClick={onMobileTap}
         className="flex flex-1 min-w-0 items-center gap-3 text-left bg-transparent border-none p-0 cursor-pointer lg:hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <span className="w-5 text-[11px] font-bold text-center text-muted-foreground/40 shrink-0">
+        <span className="w-5 text-2xs font-bold text-center text-muted-foreground/40 shrink-0">
           {rank}
         </span>
         <ProjectImage project={project} />
@@ -177,7 +178,7 @@ export function ProjectDirectoryListRow({
           </TooltipTrigger>
           <TooltipContent>Endorse this entry</TooltipContent>
         </Tooltip>
-        <span className="min-w-[20px] text-center text-[11px] font-bold leading-none text-foreground">
+        <span className="min-w-5 text-center text-2xs font-bold leading-none text-foreground">
           {project.upvoteCount}
         </span>
         <Tooltip>
@@ -221,7 +222,7 @@ function ProjectDirectoryRowContent({
       <div className="flex items-center gap-1.5 mb-0.5">
         <KindBadge kind={project.kind} compact={compact} size={compact ? "default" : "sidebar"} />
         {project.source === "nearcatalog" && (
-          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+          <Badge variant="outline" className="px-1.5 py-0 text-3xs">
             Catalog
           </Badge>
         )}
@@ -237,7 +238,7 @@ function ProjectDirectoryRowContent({
             rel="noopener noreferrer"
             title={project.repository}
             onClick={(event) => event.stopPropagation()}
-            className="text-muted-foreground/40 hover:text-foreground inline-flex items-center shrink-0 transition-colors duration-[120ms]"
+            className="text-muted-foreground/40 hover:text-foreground inline-flex items-center shrink-0 transition-colors duration-120"
           >
             {isGithubUrl(project.repository) ? <GithubIcon size={12} /> : <Globe size={12} />}
           </a>
@@ -281,13 +282,13 @@ export function KindBadge({
     <Badge
       variant="secondary"
       className={cn(
-        "shrink-0 rounded-[4px] border-border text-foreground",
+        "shrink-0 rounded-2xs border-border text-foreground",
         kind === "idea" || kind === "scope" || kind === "result" ? "bg-muted" : "bg-secondary",
         size === "sidebar"
-          ? "gap-1 px-2 py-0.5 text-[11px] [&>svg]:size-2.5"
+          ? "gap-1 px-2 py-0.5 text-2xs [&>svg]:size-2.5"
           : isCompact
-            ? "gap-0.5 px-1.5 py-0 text-[10px] [&>svg]:size-[9px]"
-            : "gap-1 px-2 py-0.5 text-[11px] [&>svg]:size-2.5",
+            ? "gap-0.5 px-1.5 py-0 text-3xs [&>svg]:size-2.25"
+            : "gap-1 px-2 py-0.5 text-2xs [&>svg]:size-2.5",
         className,
       )}
     >
@@ -312,7 +313,7 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("rounded-[4px] px-2 py-0.5 text-[11px]", statusClasses[status], className)}
+      className={cn("rounded-2xs px-2 py-0.5 text-2xs", statusClasses[status], className)}
     >
       {status}
     </Badge>

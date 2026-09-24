@@ -69,6 +69,8 @@
   --tracking-18: 0.18em; /* eyebrow/uppercase label letter-spacing, step beyond tracking-widest */
   --leading-tighter: 1.1; /* large display headings, tighter than leading-none's implicit 1 but distinct from leading-tight (1.25) */
 
+  --duration-120: 120ms; /* hover/tap micro-interaction duration, between stock duration-100 and duration-150 */
+
   --animate-progress-bar: progress-bar 1.5s ease-in-out infinite;
   --animate-fade-in: fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
   --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
