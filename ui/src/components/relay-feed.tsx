@@ -125,7 +125,7 @@ export default function RelayFeed() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={tx.status} />
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <span className="text-3xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-2.5 w-2.5" />
               {timeAgo(tx.createdAt)}
             </span>

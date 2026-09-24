@@ -55,7 +55,7 @@ export function NotificationBell() {
           {unreadCount > 0 && (
             <span
               aria-hidden
-              className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-destructive px-1 text-[10px] font-bold leading-4 text-destructive-foreground"
+              className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-destructive px-1 text-3xs font-bold leading-4 text-destructive-foreground"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
@@ -66,13 +66,14 @@ export function NotificationBell() {
         align="end"
         sideOffset={8}
         collisionPadding={8}
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- clamps the panel to a max width or the viewport minus a margin, whichever is smaller; not expressible as a fixed scale value
         className="w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-xl p-0 shadow-xl"
       >
         <DropdownMenuLabel className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="flex min-w-0 items-center gap-2">
             <span className="font-semibold text-foreground">Notifications</span>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-2xs font-semibold text-secondary-foreground">
                 {unreadCount} unread
               </span>
             )}
@@ -112,6 +113,7 @@ export function NotificationBell() {
             <p className="mt-1 text-xs text-muted-foreground">Please try again in a moment.</p>
           </div>
         ) : recentQuery.data?.data.length ? (
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- clamps the list to a max height or the viewport minus surrounding chrome, whichever is smaller; not expressible as a fixed scale value
           <div className="max-h-[min(26rem,calc(100vh-9rem))] space-y-1 overflow-y-auto p-2">
             {recentQuery.data.data.map((notification) => (
               <DropdownMenuItem

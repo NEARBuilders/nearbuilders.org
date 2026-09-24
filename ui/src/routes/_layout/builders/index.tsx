@@ -589,6 +589,7 @@ function BuildersPage() {
         </div>
       </div>
 
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
       <div className="mt-9 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main>
           <div className="mb-4 flex items-start justify-between gap-4">
@@ -929,7 +930,7 @@ function BuilderCard({
         <Badge
           variant="secondary"
           className={cn(
-            "gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            "gap-1.5 rounded-full px-2.5 py-1 text-2xs font-semibold",
             layout === "list" && "sm:absolute sm:right-4 sm:top-4",
             isNominated
               ? "border-brand-accent-border bg-brand-accent-light text-brand-accent"
@@ -996,12 +997,12 @@ function BuilderCard({
               )}
             >
               {resolvedSkills.slice(0, 3).map((skill) => (
-                <Badge key={skill} variant="secondary" className="rounded-full text-[10px]">
+                <Badge key={skill} variant="secondary" className="rounded-full text-3xs">
                   {skill}
                 </Badge>
               ))}
               {resolvedSkills.length > 3 && (
-                <Badge variant="secondary" className="rounded-full text-[10px]">
+                <Badge variant="secondary" className="rounded-full text-3xs">
                   +{resolvedSkills.length - 3}
                 </Badge>
               )}

@@ -133,7 +133,7 @@ function MetadataItem({
 }) {
   return (
     <div className="min-w-0 bg-card px-4 py-3.5">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div
@@ -484,7 +484,7 @@ function AuditTimeline({ proposal }: { proposal: ProposalRecord }) {
                         {formatAuditAction(entry, proposal.pluginId as ProposalPluginId)}
                       </span>
                       {isLatest && (
-                        <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px]">
+                        <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-3xs">
                           Latest
                         </Badge>
                       )}

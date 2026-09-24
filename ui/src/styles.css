@@ -58,6 +58,11 @@
   --radius-xl: 1.25rem;
   --radius-2xl: 1.5rem;
 
+  --text-13: 0.8125rem; /* 13px, secondary/code text between text-xs and text-sm */
+  --text-2xs: 0.6875rem; /* 11px, compact UI text (badges, timestamps) */
+  --text-3xs: 0.625rem; /* 10px, compact UI text (badges, timestamps) */
+  --text-4xs: 0.5rem; /* 8px, smallest step of the responsive accent badge in routes/_layout/index.tsx */
+
   --animate-progress-bar: progress-bar 1.5s ease-in-out infinite;
   --animate-fade-in: fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
   --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
