@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 
 const backButtonClass =
+  // oxlint-disable-next-line shadcn/no-arbitrary-values -- 10px sits deliberately between rounded-sm (8px) and rounded-md (12px); neither scale step matches
   "flex items-center justify-center h-9 w-9 shrink-0 rounded-[10px] border-2 border-outset border-border-strong bg-card shadow-sm transition-all duration-200 ease-out hover:bg-muted hover:shadow-md text-foreground";
 
 function BackButton({

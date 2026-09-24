@@ -127,10 +127,12 @@ export function NearProfile({
             {!hasBackgroundImage && (
               <>
                 <div
+                  // oxlint-disable-next-line shadcn/no-arbitrary-values -- decorative thick ring behind the avatar; border-width is a design value, not on Tailwind's built-in scale (0/1/2/4/8)
                   className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full border-[18px] border-brand-accent-border/40"
                   aria-hidden="true"
                 />
                 <div
+                  // oxlint-disable-next-line shadcn/no-arbitrary-values -- decorative thick ring behind the avatar; border-width is a design value, not on Tailwind's built-in scale (0/1/2/4/8)
                   className="pointer-events-none absolute -bottom-24 left-1/2 h-40 w-40 rounded-full border-[16px] border-brand-accent-border/25"
                   aria-hidden="true"
                 />
@@ -186,7 +188,7 @@ export function NearProfile({
 
           {bio && (
             <div className="mt-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <p className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
                 Bio
               </p>
               <div className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -197,7 +199,7 @@ export function NearProfile({
 
           {extendedProfile && extendedProfile.skills.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <p className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
                 Skills
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -212,7 +214,7 @@ export function NearProfile({
 
           {Object.keys(socialLinks).length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <p className="text-3xs font-bold uppercase tracking-wider text-muted-foreground">
                 Social links
               </p>
               <div className="flex flex-wrap gap-1.5">

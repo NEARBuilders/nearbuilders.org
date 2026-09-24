@@ -52,6 +52,7 @@
   --color-brand-chartreuse: var(--brand-chartreuse);
   --color-brand-cobalt: var(--brand-cobalt);
 
+  --radius-2xs: 0.25rem; /* 4px, between stock rounded-xs (2px) and this theme's rounded-sm (8px) */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
