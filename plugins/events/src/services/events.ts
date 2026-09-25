@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, or } from "drizzle-orm";
+import { and, count, desc, eq, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -280,13 +280,22 @@ const participantOwnerConditions = (userId: string, alternateUserId?: string) =>
     alternateUserId ? eq(eventParticipants.userId, alternateUserId) : undefined,
   ].filter(Boolean);
 
-const viewableEventConditions = (userId?: string, alternateUserId?: string) => {
-  const visibleConditions: any[] = [inArray(events.visibility, ["public", "unlisted"])];
+const viewableEventConditions = (
+  userId?: string,
+  alternateUserId?: string,
+  includeOwnedUnlisted = false,
+) => {
   const ownerConditions = [
     userId ? eq(events.ownerId, userId) : undefined,
     alternateUserId ? eq(events.ownerId, alternateUserId) : undefined,
   ].filter(Boolean);
-  if (ownerConditions.length > 0) visibleConditions.push(or(...ownerConditions));
+  const visibleConditions: any[] = [eq(events.visibility, "public")];
+  if (ownerConditions.length > 0) {
+    visibleConditions.push(and(or(...ownerConditions), eq(events.visibility, "private")));
+    if (includeOwnedUnlisted) {
+      visibleConditions.push(and(or(...ownerConditions), eq(events.visibility, "unlisted")));
+    }
+  }
   return or(...visibleConditions);
 };
 
@@ -307,7 +316,7 @@ export const EventServiceLive = Layer.effect(
 
           if (input.visibility) conditions.push(eq(events.visibility, input.visibility));
           if (userRole !== "admin") {
-            conditions.push(viewableEventConditions(userId, alternateUserId));
+            conditions.push(viewableEventConditions(userId, alternateUserId, Boolean(input.ownerId)));
           }
 
           const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
