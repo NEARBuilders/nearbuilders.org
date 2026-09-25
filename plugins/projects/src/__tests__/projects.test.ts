@@ -174,4 +174,42 @@ describe("projects router visibility", () => {
       "public",
     );
   });
+
+  it("keeps unlisted projects off the directory but readable by link", async () => {
+    const owner = loaded.createClient({
+      userId: "owner-user",
+      near: testNear("owner.near"),
+      user: testUser("owner-user", "member"),
+    });
+    const member = loaded.createClient({
+      userId: "member-user",
+      near: testNear("member.near"),
+      user: testUser("member-user", "member"),
+    });
+    const anonymous = loaded.createClient();
+    const unlisted = await owner.createProject({
+      kind: "project",
+      title: "Unlisted project",
+      slug: "unlisted-project",
+      content: "Direct link only",
+      repository: "https://github.com/example/unlisted",
+      visibility: "unlisted",
+    });
+
+    expect((await anonymous.getProjectBySlug({ slug: "unlisted-project" })).data.id).toBe(
+      unlisted.id,
+    );
+    expect((await anonymous.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect((await member.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect((await owner.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect(
+      (await owner.listProjects({ ownerId: "owner.near" })).data.map((project) => project.id),
+    ).toContain(unlisted.id);
+  });
 });
