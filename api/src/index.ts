@@ -21,6 +21,26 @@ import {
   createProposalOrchestration,
 } from "./services/proposal-orchestration";
 
+function builderNominationPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return {};
+  }
+  const input = payload as Record<string, unknown>;
+  const sanitized: {
+    name?: string;
+    bio?: string;
+    skills?: string[];
+    location?: string;
+  } = {};
+  if (typeof input.name === "string") sanitized.name = input.name;
+  if (typeof input.bio === "string") sanitized.bio = input.bio;
+  if (Array.isArray(input.skills)) {
+    sanitized.skills = input.skills.filter((skill): skill is string => typeof skill === "string");
+  }
+  if (typeof input.location === "string") sanitized.location = input.location;
+  return sanitized;
+}
+
 function normalizedBuilderProfile(input: { skills?: string[]; location?: string }) {
   if (input.location?.trim() && locationError(input.location)) {
     throw new ORPCError("BAD_REQUEST", { message: LOCATION_ERROR });
@@ -205,7 +225,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         const proposed = await proposalsClient.propose({
           pluginId: "builders",
           entityId: nearAccount,
-          payload: input.payload,
+          payload: builderNominationPayload(input.payload),
           source: input.source ?? "web",
           metadata: input.metadata,
           idempotencyKey: `builder-nomination:${context.userId}:${nearAccount}`,
