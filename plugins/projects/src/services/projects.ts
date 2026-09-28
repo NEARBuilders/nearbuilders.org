@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
@@ -395,7 +395,10 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.visibility) {
             conditions.push(eq(projects.visibility, input.visibility));
-            if (input.visibility === "private" && userRole !== "admin") {
+            if (
+              (input.visibility === "private" || input.visibility === "unlisted") &&
+              userRole !== "admin"
+            ) {
               const ownerConditions = [
                 userId ? eq(projects.ownerId, userId) : undefined,
                 alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
@@ -403,14 +406,17 @@ export const ProjectServiceLive = Layer.effect(
               conditions.push(ownerConditions.length > 0 ? or(...ownerConditions) : sql`false`);
             }
           } else {
-            const visibleConditions: any[] = [inArray(projects.visibility, ["public", "unlisted"])];
-            if (userId || alternateUserId) {
-              const ownerConditions = [
-                userId ? eq(projects.ownerId, userId) : undefined,
-                alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
-              ].filter(Boolean);
-              if (ownerConditions.length > 0) {
-                visibleConditions.push(or(...ownerConditions));
+            const ownerConditions = [
+              userId ? eq(projects.ownerId, userId) : undefined,
+              alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+            ].filter(Boolean);
+            const visibleConditions: any[] = [eq(projects.visibility, "public")];
+            if (ownerConditions.length > 0) {
+              visibleConditions.push(and(or(...ownerConditions), eq(projects.visibility, "private")));
+              if (input.ownerId) {
+                visibleConditions.push(
+                  and(or(...ownerConditions), eq(projects.visibility, "unlisted")),
+                );
               }
             }
             conditions.push(or(...visibleConditions));
