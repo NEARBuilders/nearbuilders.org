@@ -99,9 +99,11 @@ const createCallbacks: Record<string, CreateCallback> = {
     }
 
     const payload = requireObjectPayload(proposal.payload);
+    const isSelfProfileSubmission =
+      proposal.entityId.trim().toLowerCase() === proposal.createdBy.trim().toLowerCase();
     const result = await plugins.builders(context).createBuilder({
       nearAccount: proposal.entityId,
-      userId: readString(payload.userId),
+      userId: isSelfProfileSubmission ? readString(payload.userId) : undefined,
       name: readString(payload.name),
       bio: readString(payload.bio),
       skills: readStringArray(payload.skills),

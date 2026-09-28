@@ -8,7 +8,7 @@ export default {
   port: Number(process.env.PORT) || 3013,
   config: {
     variables: {
-      privatePluginIds: ["nearcatalog"],
+      privatePluginIds: ["nearcatalog", "projects", "events"],
     },
     secrets: {
       PROPOSALS_DATABASE_URL:

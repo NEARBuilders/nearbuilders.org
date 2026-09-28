@@ -126,7 +126,9 @@
       "development": "local:plugins/proposals",
       "variables": {
         "privatePluginIds": [
-          "nearcatalog"
+          "nearcatalog",
+          "projects",
+          "events"
         ]
       },
       "secrets": [

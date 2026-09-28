@@ -48,7 +48,7 @@ describe.sequential("Proposals plugin", () => {
   beforeAll(async () => {
     dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-proposals-plugin-"));
     loaded = await runtime.usePlugin("proposals", {
-      variables: { privatePluginIds: ["nearcatalog"] },
+      variables: { privatePluginIds: ["nearcatalog", "projects", "events"] },
       secrets: { PROPOSALS_DATABASE_URL: `pglite:${dataDir}` },
     });
 
@@ -79,6 +79,23 @@ describe.sequential("Proposals plugin", () => {
         entityId: "claim:bob.near:ref-finance",
         payload: { roles: ["Designer"] },
         idempotencyKey: "bob-private-base",
+      });
+    await loaded
+      .createClient({
+        userId: "user-alice",
+        near: testNear("alice.near"),
+        user: testUser("user-alice", "member"),
+        allowPrivateSubmission: true,
+      })
+      .propose({
+        pluginId: "projects",
+        entityId: "proj_alice_private",
+        payload: {
+          title: "Secret Draft",
+          description: "should not leak",
+          ownerId: "alice.near",
+        },
+        idempotencyKey: "alice-project-private",
       });
     await loaded
       .createClient({
@@ -146,12 +163,18 @@ describe.sequential("Proposals plugin", () => {
     const bobPrivate = await bobClient().getProposals(privateInput);
     const adminPrivate = await adminClient().getProposals(privateInput);
     const anonymousAll = await anonymous.getProposals({ limit: 100 });
+    const anonymousProjects = await anonymous.getProposals({ pluginId: "projects", limit: 100 });
+    const aliceProjects = await aliceClient().getProposals({ pluginId: "projects", limit: 100 });
+    const bobProjects = await bobClient().getProposals({ pluginId: "projects", limit: 100 });
 
     expect(anonymousPrivate.data).toEqual([]);
     expect(alicePrivate.data.map((proposal) => proposal.createdBy)).toEqual(["alice.near"]);
     expect(bobPrivate.data.map((proposal) => proposal.createdBy)).toEqual(["bob.near"]);
     expect(adminPrivate.data).toHaveLength(2);
     expect(anonymousAll.data.map((proposal) => proposal.pluginId)).toEqual(["builders"]);
+    expect(anonymousProjects.data).toEqual([]);
+    expect(aliceProjects.data.map((proposal) => proposal.entityId)).toEqual(["proj_alice_private"]);
+    expect(bobProjects.data).toEqual([]);
 
     const entityId = "claim:alice.near:ref-finance";
     const anonymousAudit = await anonymous.getAuditLog({ pluginId: "nearcatalog", entityId });

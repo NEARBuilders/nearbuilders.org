@@ -600,6 +600,56 @@ describe("Builder profile submission", () => {
     expect(upvote).toHaveBeenCalledTimes(1);
   });
 
+  it("strips client-controlled userId from builder nomination proposals", async () => {
+    const propose = vi.fn(async (input: Record<string, unknown>) =>
+      proposalResult({
+        pluginId: "builders",
+        entityId: "nominee.near",
+        payload: input.payload,
+      }),
+    );
+    const loaded = await loadApi(
+      {},
+      {
+        getProposals: async () => ({ data: [] }),
+        getMySubmission: async () => ({ hasSubmitted: false }),
+        propose,
+      },
+      {
+        getUserVote: async () => ({ entityId: "proposal-nominee.near", hasUpvote: false }),
+        getUpvoteCount: async () => ({ entityId: "proposal-nominee.near", totalCount: 0 }),
+        upvote: vi.fn(),
+      },
+    );
+    const client = loaded.createClient(userContext("attacker-user", "attacker.near") as never);
+
+    await client.propose({
+      pluginId: "builders",
+      entityId: "nominee.near",
+      payload: {
+        userId: "attacker-user",
+        name: "Hijack",
+        bio: "should not bind ownership",
+        skills: ["pwn"],
+        location: "Remote",
+      },
+    });
+
+    expect(propose).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pluginId: "builders",
+        entityId: "nominee.near",
+        payload: {
+          name: "Hijack",
+          bio: "should not bind ownership",
+          skills: ["pwn"],
+          location: "Remote",
+        },
+      }),
+    );
+    expect(propose.mock.calls[0]?.[0]?.payload).not.toHaveProperty("userId");
+  });
+
   it.each([
     "approved",
     "rejected",

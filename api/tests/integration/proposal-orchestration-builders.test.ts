@@ -20,7 +20,13 @@ function testUser(id: string, role: string) {
   };
 }
 
-function makeRecord(entityId: string) {
+function makeRecord(
+  entityId: string,
+  overrides: {
+    createdBy?: string;
+    payload?: Record<string, unknown>;
+  } = {},
+) {
   return {
     id: `proposal-${entityId}`,
     pluginId: "builders",
@@ -31,9 +37,10 @@ function makeRecord(entityId: string) {
       bio: "Building on NEAR",
       skills: ["rust"],
       location: "Remote",
+      ...overrides.payload,
     },
     schemaVersion: "1",
-    createdBy: entityId,
+    createdBy: overrides.createdBy ?? entityId,
     reviewStatus: "pending" as "pending" | "approved",
     applyStatus: "not_started" as "not_started" | "applying" | "applied",
     removeStatus: "not_started" as const,
@@ -142,5 +149,63 @@ describe("builder proposal approval avoids the throwing existence check", () => 
 
     expect(listBuilders).toHaveBeenCalledWith({ search: "existing.near", limit: 1 });
     expect(createBuilder).not.toHaveBeenCalled();
+  });
+
+  it("ignores nomination payload userId when the nominee is not the submitter", async () => {
+    records.set(
+      "nominee.near",
+      makeRecord("nominee.near", {
+        createdBy: "attacker.near",
+        payload: { userId: "attacker-user-id" },
+      }),
+    );
+    createBuilder.mockClear();
+    const client = loaded.createClient({
+      userId: "admin",
+      near: testNear("admin.near"),
+      user: testUser("admin", "admin"),
+    });
+
+    await client.approve({
+      pluginId: "builders",
+      entityId: "nominee.near",
+      expectedUpdatedAt: timestamp,
+    });
+
+    expect(createBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nearAccount: "nominee.near",
+        userId: undefined,
+      }),
+    );
+  });
+
+  it("keeps payload userId for self-submitted builder profiles", async () => {
+    records.set(
+      "alice.near",
+      makeRecord("alice.near", {
+        createdBy: "alice.near",
+        payload: { userId: "alice-user-id" },
+      }),
+    );
+    createBuilder.mockClear();
+    const client = loaded.createClient({
+      userId: "admin",
+      near: testNear("admin.near"),
+      user: testUser("admin", "admin"),
+    });
+
+    await client.approve({
+      pluginId: "builders",
+      entityId: "alice.near",
+      expectedUpdatedAt: timestamp,
+    });
+
+    expect(createBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nearAccount: "alice.near",
+        userId: "alice-user-id",
+      }),
+    );
   });
 });
