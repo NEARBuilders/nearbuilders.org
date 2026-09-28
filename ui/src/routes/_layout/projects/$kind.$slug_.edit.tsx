@@ -21,6 +21,16 @@ function isCurrentUserOwner(
   return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
+function isCurrentUserCollaborator(
+  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
+  user: { id?: string | null; walletAddress?: string | null } | null | undefined,
+  nearAccountId?: string | null,
+) {
+  if (!collaborators) return false;
+  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
+  return collaborators.some((c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId));
+}
+
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
 };
@@ -74,7 +84,16 @@ function EditProjectPage() {
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
     "";
 
-  const canManage = isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
+  const isOwner = isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
+
+  const canManage =
+    isOwner ||
+    isCurrentUserCollaborator(
+      (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+        ?.collaborators,
+      session?.user,
+      nearAccountId,
+    );
 
   const updateMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
@@ -101,6 +120,49 @@ function EditProjectPage() {
             ? values.ownerId?.trim() || undefined
             : undefined,
       });
+      const prevHandles = new Set(
+        (
+          (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+            ?.collaborators ?? []
+        )
+          .filter((c) => c.status === "pending" || c.status === "accepted")
+          .map((c) => c.collaboratorOwnerId.trim().toLowerCase()),
+      );
+      const nextHandles = new Set(
+        (values.collaborators ?? [])
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0)
+          .map((c) => c.toLowerCase()),
+      );
+      const toInvite = [...nextHandles].filter((h) => !prevHandles.has(h));
+      const toRemove = [...prevHandles].filter((h) => !nextHandles.has(h));
+      const handleToOriginal = new Map(
+        (values.collaborators ?? []).map((c) => [c.trim().toLowerCase(), c.trim()]),
+      );
+      const inviteResults = await Promise.allSettled(
+        toInvite.map((h) =>
+          apiClient.inviteCollaborator({
+            projectId: projectId!,
+            collaboratorOwnerId: handleToOriginal.get(h) ?? h,
+          }),
+        ),
+      );
+      const removeResults = await Promise.allSettled(
+        toRemove.map((h) =>
+          apiClient.removeCollaborator({ projectId: projectId!, collaboratorOwnerId: h }),
+        ),
+      );
+      const failures = [...inviteResults, ...removeResults].filter(
+        (r): r is PromiseRejectedResult => r.status === "rejected",
+      );
+      if (failures.length > 0) {
+        const reasons = failures.map(
+          (f) => (f.reason as Error)?.message || "Collaborator update failed",
+        );
+        toast.error(`Saved, but ${failures.length} collaborator change(s) failed`, {
+          description: Array.from(new Set(reasons)).slice(0, 3).join(" "),
+        });
+      }
       if (submitForReview) {
         await apiClient.propose({
           pluginId: "projects",
@@ -220,6 +282,7 @@ function EditProjectPage() {
     <EditFormInner
       project={project}
       isAdmin={isAdmin}
+      isOwner={isOwner}
       defaultOwnerId={defaultOwnerId}
       search={search}
       tab={tab}
@@ -232,6 +295,7 @@ function EditProjectPage() {
 function EditFormInner({
   project,
   isAdmin,
+  isOwner,
   defaultOwnerId,
   search,
   tab,
@@ -240,6 +304,7 @@ function EditFormInner({
 }: {
   project: any;
   isAdmin: boolean;
+  isOwner: boolean;
   defaultOwnerId: string;
   search: SearchParams;
   tab: "write" | "preview";
@@ -257,6 +322,12 @@ function EditFormInner({
       status: (project.status ?? "active") as "active" | "paused" | "archived",
       ownerId: project.ownerId ?? "",
       domain: project.domain ?? "",
+      collaborators: (
+        (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+          .collaborators ?? []
+      )
+        .filter((c) => c.status === "pending" || c.status === "accepted")
+        .map((c) => c.collaboratorOwnerId),
     } satisfies ProjectFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
@@ -306,18 +377,20 @@ function EditFormInner({
               )}
             </form.Subscribe>
 
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-              }}
-              disabled={deleteMutation.isPending}
-            >
-              <Trash2 size={13} />
-              <span className="hidden sm:inline">Delete</span>
-            </Button>
+            {(isOwner || isAdmin) && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  if (confirm("Delete this project permanently?")) deleteMutation.mutate();
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 size={13} />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            )}
 
             <Button asChild size="sm" variant="outline">
               <Link
@@ -352,6 +425,7 @@ function EditFormInner({
           isAdmin={isAdmin}
           defaultOwnerId={defaultOwnerId}
           tab={tab}
+          collaboratorsLocked={!isOwner}
         />
       </form>
     </div>

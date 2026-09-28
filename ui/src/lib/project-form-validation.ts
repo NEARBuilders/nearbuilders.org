@@ -8,6 +8,7 @@ export type ProjectFormValues = {
   status?: "active" | "paused" | "archived";
   ownerId?: string;
   domain?: string;
+  collaborators?: string[];
 };
 
 export const validateTitle = (value: string) => {
@@ -62,6 +63,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   status: "Status",
   ownerId: "Owner",
   domain: "Domain",
+  collaborators: "Collaborators",
 };
 
 export type ProjectFormValidation = {

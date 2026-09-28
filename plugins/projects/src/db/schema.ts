@@ -39,6 +39,28 @@ export const projectApps = pgTable(
   (table) => [uniqueIndex("project_app_unique").on(table.projectId, table.accountId, table.domain)],
 );
 
+export const projectCollaborators = pgTable(
+  "project_collaborators",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    collaboratorOwnerId: text("collaborator_owner_id").notNull(),
+    role: text("role").notNull().default("collaborator"),
+    status: text("status").notNull().default("pending"),
+    invitedByUserId: text("invited_by_user_id").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_collaborator_unique").on(table.projectId, table.collaboratorOwnerId),
+  ],
+);
+
 export const projectMentions = pgTable(
   "project_mentions",
   {
