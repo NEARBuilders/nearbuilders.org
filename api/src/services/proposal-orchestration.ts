@@ -163,7 +163,7 @@ const createCallbacks: Record<string, CreateCallback> = {
   },
   events: async (plugins, proposal, context) => {
     const payload = requireObjectPayload(proposal.payload);
-    const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
+    const ownerId = resolveProjectProposalOwner(payload, proposal.createdBy);
     const eventsClient = plugins.events(context);
     const visibility =
       payload.visibility === "private" || payload.visibility === "unlisted"
@@ -183,15 +183,14 @@ const createCallbacks: Record<string, CreateCallback> = {
         endAt: readString(payload.endAt),
         location: readString(payload.location),
       });
-      if (updated.ownerId !== ownerId) {
-        throw new ORPCError("FORBIDDEN", { message: "Event proposal owner mismatch" });
-      }
+      assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
     }
 
-    const result = await plugins.events(context).createEvent({
+    const proposalOwnerContext = createProjectProposalOwnerContext(context, ownerId);
+    const result = await plugins.events(proposalOwnerContext).createEvent({
       id: proposal.entityId,
       title: readString(payload.title) ?? proposal.entityId,
       slug: readString(payload.slug) ?? proposal.entityId,
@@ -204,6 +203,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       location: readString(payload.location),
       ownerId,
     });
+    assertProjectProposalOwner(result.ownerId, ownerId);
     return result.id;
   },
   [CATALOG_CLAIM_PLUGIN_ID]: applyCatalogClaimProposal,
@@ -232,7 +232,7 @@ const removeCallbacks: Record<string, RemoveCallback> = {
   events: async (plugins, proposal, context) => {
     const eventId = proposal.appliedResourceId ?? proposal.entityId;
     const payload = requireObjectPayload(proposal.payload);
-    const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
+    const ownerId = resolveProjectProposalOwner(payload, proposal.createdBy);
     try {
       await plugins.events(context).applyReviewedEvent({
         id: eventId,
