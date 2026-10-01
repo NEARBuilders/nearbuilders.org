@@ -16,6 +16,9 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@electric-sql/pglite": "catalog:",
+    "@everything-dev/builders-plugin": "workspace:*",
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "drizzle-kit": "catalog:",
@@ -24,9 +27,7 @@
     "every-plugin": "catalog:",
     "near-kit": "catalog:",
     "pg": "catalog:",
-    "@electric-sql/pglite": "catalog:",
-    "zod": "catalog:",
-    "@everything-dev/builders-plugin": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

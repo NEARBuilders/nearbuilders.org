@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { REVIEW_EVALUATOR } from "../contract";
 import Plugin from "../index";
 
 function testNear(primaryAccountId: string) {
@@ -23,20 +24,23 @@ function testUser(id: string, role: string) {
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
-  const source = await readFile(
-    new URL("../db/migrations/0000_concerned_blade.sql", import.meta.url),
-    "utf8",
+  const files = [
+    "0000_concerned_blade.sql",
+    "0001_proposal_evaluations.sql",
+    "0002_review_leases_and_source.sql",
+    "0003_telegram_reviewers.sql",
+  ];
+  const sources = await Promise.all(
+    files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
   return {
-    default: [
-      {
-        idx: 0,
-        when: 1780344361156,
-        hash: "proposals-private-test",
-        tag: "proposals-private-test",
-        sql: source.split("--> statement-breakpoint").map((statement) => statement.trim()),
-      },
-    ],
+    default: sources.map((source, idx) => ({
+      idx,
+      when: 1780344361156 + idx,
+      hash: `proposals-private-test-${idx}`,
+      tag: `proposals-private-test-${idx}`,
+      sql: source.split("--> statement-breakpoint").map((statement) => statement.trim()),
+    })),
   };
 });
 
@@ -227,6 +231,211 @@ describe.sequential("Proposals plugin", () => {
 
     expect(rejected.data.reviewStatus).toBe("rejected");
     expect(rejected.data.rejectionReason).toBe("Add another role");
+  });
+
+  it("lets review-read API keys see private queues without moderation rights", async () => {
+    const reviewer = loaded.createClient({
+      apiKey: { id: "key-reviewer", permissions: { reviews: ["read"] } },
+    } as never);
+    const otherKey = loaded.createClient({
+      apiKey: { id: "key-other", permissions: {} },
+    } as never);
+    const privateInput = { pluginId: "nearcatalog", limit: 100 };
+
+    const reviewerPrivate = await reviewer.getProposals(privateInput);
+    const adminPrivate = await adminClient().getProposals(privateInput);
+    const otherPrivate = await otherKey.getProposals(privateInput);
+    const reviewerAudit = await reviewer.getAuditLog({
+      pluginId: "nearcatalog",
+      entityId: "claim:alice.near:ref-finance",
+    });
+
+    expect(reviewerPrivate.data).toHaveLength(adminPrivate.data.length);
+    await expect(reviewer.getReviewHistory({ limit: 10 })).resolves.toMatchObject({
+      data: expect.any(Array),
+    });
+    await expect(otherKey.getReviewHistory({ limit: 10 })).rejects.toThrow(
+      "Authentication required",
+    );
+    expect(otherPrivate.data).toEqual([]);
+    expect(reviewerAudit.data).toHaveLength(1);
+
+    const [pending] = reviewerPrivate.data.filter(
+      (proposal) => proposal.reviewStatus === "pending",
+    );
+    await expect(
+      reviewer.reject({
+        pluginId: "nearcatalog",
+        entityId: pending!.entityId,
+        expectedUpdatedAt: pending!.updatedAt,
+      }),
+    ).rejects.toThrow("Authentication required");
+  });
+
+  it("stores review evaluations for the in-process evaluator only", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    const forged = loaded.createClient(
+      JSON.parse(JSON.stringify({ reviewEvaluator: true, [REVIEW_EVALUATOR]: true })) as never,
+    );
+    const reviewer = loaded.createClient({
+      apiKey: { id: "key-reviewer", permissions: { reviews: ["read"] } },
+    } as never);
+    const [target] = (await adminClient().getProposals({ pluginId: "builders", limit: 1 })).data;
+    const input = {
+      pluginId: target!.pluginId,
+      entityId: target!.entityId,
+      submissionCount: target!.submissionCount,
+      verdict: "review" as const,
+      score: 40,
+      summary: "Bio is short; no links.",
+      flags: ["short_bio"],
+      checks: [{ id: "bio", label: "Bio length", status: "warn" as const, detail: "12 chars" }],
+      model: null,
+      promptVersion: "v1",
+    };
+
+    await expect(reviewer.recordEvaluation(input)).rejects.toThrow(
+      "Review evaluator access required",
+    );
+    await expect(adminClient().recordEvaluation(input)).rejects.toThrow(
+      "Review evaluator access required",
+    );
+    await expect(forged.recordEvaluation(input)).rejects.toThrow(
+      "Review evaluator access required",
+    );
+
+    await evaluator.recordEvaluation(input);
+    const updated = await evaluator.recordEvaluation({
+      ...input,
+      verdict: "ready",
+      score: 85,
+      summary: "Complete profile.",
+    });
+    expect(updated.data).toMatchObject({ verdict: "ready", score: 85 });
+
+    const readByReviewer = await reviewer.getEvaluations({ proposalIds: [target!.id] });
+    const readByAdmin = await adminClient().getEvaluations({ proposalIds: [target!.id] });
+    expect(readByReviewer.data).toHaveLength(1);
+    expect(readByReviewer.data[0]).toMatchObject({
+      proposalId: target!.id,
+      verdict: "ready",
+      checks: input.checks,
+    });
+    expect(readByAdmin.data).toEqual(readByReviewer.data);
+    await expect(aliceClient().getEvaluations({ proposalIds: [target!.id] })).rejects.toThrow(
+      "Admin access required",
+    );
+    await expect(
+      evaluator.recordEvaluation({ ...input, entityId: "missing.near" }),
+    ).rejects.toThrow("Proposal not found");
+  });
+
+  it("grants the evaluation lease to one holder at a time", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    const lease = (holder: string, ttlMs = 60_000) =>
+      evaluator.acquireReviewLease({ name: "evaluation-sweep", holder, ttlMs });
+
+    await expect(lease("instance-a")).resolves.toEqual({ acquired: true });
+    await expect(lease("instance-b")).resolves.toEqual({ acquired: false });
+    await expect(lease("instance-a")).resolves.toEqual({ acquired: true });
+
+    await lease("instance-a", 1_000);
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    await expect(lease("instance-b")).resolves.toEqual({ acquired: true });
+
+    await expect(
+      adminClient().acquireReviewLease({ name: "evaluation-sweep", holder: "x", ttlMs: 60_000 }),
+    ).rejects.toThrow("Review evaluator access required");
+  });
+
+  it("links a Telegram account through a one-time code", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    const code = (codeHash: string, telegramId: number, ttlMs = 600_000) =>
+      evaluator.createTelegramLinkCode({
+        codeHash,
+        telegramId,
+        telegramUsername: "saad",
+        telegramName: "Saad",
+        ttlMs,
+      });
+
+    await code("hash-first-0000000", 111);
+    await code("hash-second-000000", 111);
+    await expect(
+      evaluator.getTelegramLinkCode({ codeHash: "hash-first-0000000" }),
+    ).resolves.toEqual({ data: null });
+    await expect(
+      evaluator.getTelegramLinkCode({ codeHash: "hash-second-000000" }),
+    ).resolves.toMatchObject({ data: { telegramId: 111, telegramUsername: "saad" } });
+
+    const linked = await evaluator.linkTelegramReviewer({
+      codeHash: "hash-second-000000",
+      userId: "user-admin",
+      userLabel: "admin.near",
+    });
+    expect(linked.data).toMatchObject({
+      telegramId: 111,
+      userId: "user-admin",
+      userLabel: "admin.near",
+    });
+    await expect(
+      evaluator.linkTelegramReviewer({
+        codeHash: "hash-second-000000",
+        userId: "user-admin",
+        userLabel: "admin.near",
+      }),
+    ).rejects.toThrow("expired");
+    await expect(evaluator.getTelegramReviewer({ telegramId: 111 })).resolves.toMatchObject({
+      data: { userId: "user-admin" },
+    });
+
+    await code("hash-relink-000000", 222);
+    await evaluator.linkTelegramReviewer({
+      codeHash: "hash-relink-000000",
+      userId: "user-admin",
+      userLabel: "admin.near",
+    });
+    await expect(evaluator.getTelegramReviewer({ telegramId: 111 })).resolves.toEqual({
+      data: null,
+    });
+    const listed = await evaluator.listTelegramReviewers({});
+    expect(listed.data.map((entry) => entry.telegramId)).toEqual([222]);
+
+    await code("hash-expired-00000", 333, 60_000);
+    vi.useFakeTimers({ now: Date.now() + 61_000, toFake: ["Date"] });
+    try {
+      await expect(
+        evaluator.linkTelegramReviewer({
+          codeHash: "hash-expired-00000",
+          userId: "user-other",
+          userLabel: "other.near",
+        }),
+      ).rejects.toThrow("expired");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await expect(evaluator.removeTelegramReviewer({ telegramId: 222 })).resolves.toEqual({
+      removed: true,
+    });
+    await expect(evaluator.removeTelegramReviewer({ telegramId: 222 })).resolves.toEqual({
+      removed: false,
+    });
+    await expect(adminClient().listTelegramReviewers({})).rejects.toThrow(
+      "Review evaluator access required",
+    );
+  });
+
+  it("lets the evaluator read submission sources", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    const submissions = await evaluator.getSubmissions({
+      pluginId: "builders",
+      entityId: "public-builder.near",
+    });
+    expect(submissions.data.length).toBeGreaterThan(0);
+    await expect(
+      aliceClient().getSubmissions({ pluginId: "builders", entityId: "public-builder.near" }),
+    ).rejects.toThrow("Admin access required");
   });
 
   it("recognizes authenticated submission aliases without exposing submissions", async () => {

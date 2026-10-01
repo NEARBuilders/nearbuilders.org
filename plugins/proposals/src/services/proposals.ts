@@ -1,8 +1,16 @@
-import { and, count, desc, eq, ilike, inArray, lte, notInArray, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { proposalAuditLog, proposalSubmissions, proposals } from "../db/schema";
+import {
+  proposalAuditLog,
+  proposalEvaluations,
+  proposalSubmissions,
+  proposals,
+  reviewLeases,
+  telegramLinkCodes,
+  telegramReviewers,
+} from "../db/schema";
 
 type ReviewStatus = "pending" | "approved" | "rejected" | "removed";
 type ApplyStatus = "not_started" | "applying" | "applied" | "failed";
@@ -24,6 +32,10 @@ function toIsoString(value: Date | string | null | undefined): string | null {
 function nextTimestamp(previous?: Date | string | null): Date {
   const previousTime = previous ? new Date(previous).getTime() : 0;
   return new Date(Math.max(Date.now(), previousTime + 1));
+}
+
+export function sameVersion(updatedAt: Date) {
+  return sql`date_trunc('milliseconds', ${proposals.updatedAt}) = ${updatedAt}`;
 }
 
 function lifecycleTimedOut(updatedAt: Date | string): boolean {
@@ -238,8 +250,81 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       limit?: number;
       cursor?: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    recordEvaluation: (input: {
+      pluginId: string;
+      entityId: string;
+      submissionCount: number;
+      verdict: "ready" | "review" | "spam";
+      score: number | null;
+      summary: string;
+      flags: string[];
+      checks: unknown[];
+      model: string | null;
+      source?: string | null;
+      promptVersion: string;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    acquireReviewLease: (input: {
+      name: string;
+      holder: string;
+      ttlMs: number;
+    }) => Effect.Effect<{ acquired: boolean }, ORPCError<string, unknown>>;
+    getEvaluations: (input: {
+      proposalIds: string[];
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    createTelegramLinkCode: (input: {
+      codeHash: string;
+      telegramId: number;
+      telegramUsername: string | null;
+      telegramName: string | null;
+      ttlMs: number;
+    }) => Effect.Effect<{ expiresAt: string }, ORPCError<string, unknown>>;
+    getTelegramLinkCode: (input: {
+      codeHash: string;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    linkTelegramReviewer: (input: {
+      codeHash: string;
+      userId: string;
+      userLabel: string;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    getTelegramReviewer: (input: {
+      telegramId: number;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    listTelegramReviewers: () => Effect.Effect<any, ORPCError<string, unknown>>;
+    removeTelegramReviewer: (input: {
+      telegramId: number;
+    }) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
   }
 >() {}
+
+function telegramReviewerRecord(row: any) {
+  return {
+    telegramId: Number(row.telegramId),
+    telegramUsername: row.telegramUsername ?? null,
+    telegramName: row.telegramName ?? null,
+    userId: row.userId,
+    userLabel: row.userLabel,
+    linkedAt: toIsoString(row.linkedAt)!,
+  };
+}
+
+function evaluationRecord(row: any) {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    pluginId: row.pluginId,
+    entityId: row.entityId,
+    submissionCount: row.submissionCount,
+    verdict: row.verdict,
+    score: row.score ?? null,
+    summary: row.summary,
+    flags: (parseJson(row.flags) as string[] | null) ?? [],
+    checks: (parseJson(row.checks) as unknown[] | null) ?? [],
+    model: row.model ?? null,
+    source: row.source ?? null,
+    promptVersion: row.promptVersion,
+    evaluatedAt: toIsoString(row.evaluatedAt)!,
+  };
+}
 
 export const ProposalServiceLive = Layer.effect(
   ProposalService,
@@ -382,9 +467,7 @@ export const ProposalServiceLive = Layer.effect(
                     removedAt: null,
                     updatedAt: now,
                   })
-                  .where(
-                    and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                  )
+                  .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                   .returning({ id: proposals.id });
                 if (!updated[0]) return false;
               }
@@ -475,9 +558,7 @@ export const ProposalServiceLive = Layer.effect(
                   applyError: null,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -539,9 +620,7 @@ export const ProposalServiceLive = Layer.effect(
                   applyError: null,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -609,9 +688,7 @@ export const ProposalServiceLive = Layer.effect(
                   applyError: null,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -673,9 +750,7 @@ export const ProposalServiceLive = Layer.effect(
                   applyError: null,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -743,9 +818,7 @@ export const ProposalServiceLive = Layer.effect(
               const rows = await tx
                 .update(proposals)
                 .set({ removeStatus: "removing", removeError: null, updatedAt: now })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -803,9 +876,7 @@ export const ProposalServiceLive = Layer.effect(
                   appliedAt: now,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -864,9 +935,7 @@ export const ProposalServiceLive = Layer.effect(
                   applyError: input.error,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -925,9 +994,7 @@ export const ProposalServiceLive = Layer.effect(
                   removedAt: now,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -983,9 +1050,7 @@ export const ProposalServiceLive = Layer.effect(
                   removeError: input.error,
                   updatedAt: now,
                 })
-                .where(
-                  and(eq(proposals.id, existing.id), eq(proposals.updatedAt, existing.updatedAt)),
-                )
+                .where(and(eq(proposals.id, existing.id), sameVersion(existing.updatedAt)))
                 .returning({ id: proposals.id });
               if (!rows[0]) return false;
               await appendAudit(
@@ -1219,6 +1284,214 @@ export const ProposalServiceLive = Layer.effect(
               .limit(1),
           );
           return { hasSubmitted: Boolean(submission) };
+        }),
+
+      recordEvaluation: (input) =>
+        Effect.gen(function* () {
+          const [proposal] = yield* Effect.promise(() =>
+            db
+              .select({ id: proposals.id })
+              .from(proposals)
+              .where(
+                and(eq(proposals.pluginId, input.pluginId), eq(proposals.entityId, input.entityId)),
+              )
+              .limit(1),
+          );
+          if (!proposal) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", { message: "Proposal not found" }),
+            );
+          }
+          const values = {
+            id: generateId("eval"),
+            proposalId: proposal.id,
+            pluginId: input.pluginId,
+            entityId: input.entityId,
+            submissionCount: input.submissionCount,
+            verdict: input.verdict,
+            score: input.score,
+            summary: input.summary,
+            flags: JSON.stringify(input.flags),
+            checks: JSON.stringify(input.checks),
+            model: input.model,
+            source: input.source ?? null,
+            promptVersion: input.promptVersion,
+            evaluatedAt: new Date(),
+          };
+          const [row] = yield* Effect.promise(() =>
+            db
+              .insert(proposalEvaluations)
+              .values(values)
+              .onConflictDoUpdate({
+                target: [proposalEvaluations.proposalId, proposalEvaluations.submissionCount],
+                set: {
+                  verdict: values.verdict,
+                  score: values.score,
+                  summary: values.summary,
+                  flags: values.flags,
+                  checks: values.checks,
+                  model: values.model,
+                  source: values.source,
+                  promptVersion: values.promptVersion,
+                  evaluatedAt: values.evaluatedAt,
+                },
+              })
+              .returning(),
+          );
+          return { data: evaluationRecord(row) };
+        }),
+
+      acquireReviewLease: (input) =>
+        Effect.gen(function* () {
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + input.ttlMs);
+          const rows = yield* Effect.promise(() =>
+            db
+              .insert(reviewLeases)
+              .values({ name: input.name, holder: input.holder, expiresAt })
+              .onConflictDoUpdate({
+                target: reviewLeases.name,
+                set: { holder: input.holder, expiresAt },
+                setWhere: sql`${reviewLeases.expiresAt} < ${now} or ${reviewLeases.holder} = ${input.holder}`,
+              })
+              .returning({ holder: reviewLeases.holder }),
+          );
+          return { acquired: rows[0]?.holder === input.holder };
+        }),
+
+      getEvaluations: (input) =>
+        Effect.gen(function* () {
+          if (input.proposalIds.length === 0) return { data: [] };
+          const rows = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(proposalEvaluations)
+              .where(inArray(proposalEvaluations.proposalId, input.proposalIds))
+              .orderBy(desc(proposalEvaluations.submissionCount)),
+          );
+          const latest = new Map<string, any>();
+          for (const row of rows) {
+            if (!latest.has(row.proposalId)) latest.set(row.proposalId, row);
+          }
+          return { data: Array.from(latest.values()).map(evaluationRecord) };
+        }),
+
+      createTelegramLinkCode: (input) =>
+        Effect.gen(function* () {
+          const now = new Date();
+          const expiresAt = new Date(now.getTime() + input.ttlMs);
+          yield* Effect.promise(() =>
+            db
+              .delete(telegramLinkCodes)
+              .where(
+                or(
+                  lte(telegramLinkCodes.expiresAt, now),
+                  eq(telegramLinkCodes.telegramId, input.telegramId),
+                ),
+              ),
+          );
+          yield* Effect.promise(() =>
+            db.insert(telegramLinkCodes).values({
+              codeHash: input.codeHash,
+              telegramId: input.telegramId,
+              telegramUsername: input.telegramUsername,
+              telegramName: input.telegramName,
+              expiresAt,
+            }),
+          );
+          return { expiresAt: expiresAt.toISOString() };
+        }),
+
+      getTelegramLinkCode: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(telegramLinkCodes)
+              .where(eq(telegramLinkCodes.codeHash, input.codeHash))
+              .limit(1),
+          );
+          if (!row || row.expiresAt.getTime() <= Date.now()) return { data: null };
+          return {
+            data: {
+              telegramId: Number(row.telegramId),
+              telegramUsername: row.telegramUsername ?? null,
+              telegramName: row.telegramName ?? null,
+              expiresAt: row.expiresAt.toISOString(),
+            },
+          };
+        }),
+
+      linkTelegramReviewer: (input) =>
+        Effect.gen(function* () {
+          const row = yield* Effect.promise(() =>
+            db.transaction(async (tx) => {
+              const [code] = await tx
+                .delete(telegramLinkCodes)
+                .where(eq(telegramLinkCodes.codeHash, input.codeHash))
+                .returning();
+              if (!code || code.expiresAt.getTime() <= Date.now()) return null;
+              await tx
+                .delete(telegramReviewers)
+                .where(
+                  or(
+                    eq(telegramReviewers.userId, input.userId),
+                    eq(telegramReviewers.telegramId, code.telegramId),
+                  ),
+                );
+              const [linked] = await tx
+                .insert(telegramReviewers)
+                .values({
+                  telegramId: code.telegramId,
+                  telegramUsername: code.telegramUsername,
+                  telegramName: code.telegramName,
+                  userId: input.userId,
+                  userLabel: input.userLabel,
+                  linkedAt: new Date(),
+                })
+                .returning();
+              return linked;
+            }),
+          );
+          if (!row) {
+            return yield* Effect.fail(
+              new ORPCError("NOT_FOUND", {
+                message: "This link has expired. Send /link to Chief again.",
+              }),
+            );
+          }
+          return { data: telegramReviewerRecord(row) };
+        }),
+
+      getTelegramReviewer: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(telegramReviewers)
+              .where(eq(telegramReviewers.telegramId, input.telegramId))
+              .limit(1),
+          );
+          return { data: row ? telegramReviewerRecord(row) : null };
+        }),
+
+      listTelegramReviewers: () =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.promise(() =>
+            db.select().from(telegramReviewers).orderBy(desc(telegramReviewers.linkedAt)),
+          );
+          return { data: rows.map(telegramReviewerRecord) };
+        }),
+
+      removeTelegramReviewer: (input) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.promise(() =>
+            db
+              .delete(telegramReviewers)
+              .where(eq(telegramReviewers.telegramId, input.telegramId))
+              .returning({ telegramId: telegramReviewers.telegramId }),
+          );
+          return { removed: rows.length > 0 };
         }),
 
       getReviewHistory: (input) =>

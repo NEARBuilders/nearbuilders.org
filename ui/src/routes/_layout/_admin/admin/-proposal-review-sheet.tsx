@@ -14,6 +14,7 @@ import {
   Loader2,
   RotateCcw,
   Send,
+  Sparkles,
   UserRound,
   X,
   XCircle,
@@ -52,6 +53,7 @@ import {
   readString,
   readStringArray,
 } from "./-proposal-dashboard";
+import { EvaluationPanel } from "./-proposal-evaluation";
 import { ProposalStatusBadge } from "./-proposal-table";
 
 type CatalogProject = Awaited<ReturnType<ApiClient["getCatalogProject"]>>["data"];
@@ -920,6 +922,16 @@ export function ProposalReviewSheet({
                     </p>
                   </div>
                 </div>
+              )}
+
+              {proposal.reviewStatus === "pending" && (
+                <DetailSection
+                  icon={<Sparkles className="size-4" />}
+                  title="Automatic evaluation"
+                  description="Advisory checks and an AI assessment. Decisions stay with admins."
+                >
+                  <EvaluationPanel proposal={proposal} />
+                </DetailSection>
               )}
 
               <DetailSection

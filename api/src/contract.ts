@@ -211,6 +211,93 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
+const ReviewDigestPluginId = z.enum(["builders", "projects", "events", "nearcatalog"]);
+
+export const ReviewEvaluationSchema = z.object({
+  id: z.string(),
+  proposalId: z.string(),
+  pluginId: z.string(),
+  entityId: z.string(),
+  submissionCount: z.number().int().nonnegative(),
+  verdict: z.enum(["ready", "review", "spam"]),
+  score: z.number().int().min(0).max(100).nullable(),
+  summary: z.string(),
+  flags: z.array(z.string()),
+  checks: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      status: z.enum(["pass", "warn", "fail", "skip"]),
+      detail: z.string().nullable(),
+    }),
+  ),
+  model: z.string().nullable(),
+  source: z.string().nullable(),
+  promptVersion: z.string(),
+  evaluatedAt: z.iso.datetime(),
+});
+
+export const TelegramReviewerSchema = z.object({
+  telegramId: z.number().int().positive(),
+  telegramUsername: z.string().nullable(),
+  telegramName: z.string().nullable(),
+  userId: z.string(),
+  userLabel: z.string(),
+  linkedAt: z.iso.datetime(),
+});
+
+const ReviewDigestWindow = z.object({
+  reviewed: z.number().int().nonnegative(),
+  medianWaitDays: z.number().nonnegative().nullable(),
+});
+
+export const ReviewDigestSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  staleAfterDays: z.number().int().positive(),
+  totals: z.object({
+    pending: z.number().int().nonnegative(),
+    newLast24h: z.number().int().nonnegative(),
+    stale: z.number().int().nonnegative(),
+    needsAttention: z.number().int().nonnegative(),
+    oldestPendingDays: z.number().int().nonnegative().nullable(),
+  }),
+  byPlugin: z.record(ReviewDigestPluginId, z.number().int().nonnegative()),
+  activity: z.object({
+    last24h: z.object({
+      approved: z.number().int().nonnegative(),
+      rejected: z.number().int().nonnegative(),
+    }),
+    last7d: ReviewDigestWindow,
+    previous7d: ReviewDigestWindow,
+  }),
+  items: z.array(
+    z.object({
+      id: z.string(),
+      pluginId: ReviewDigestPluginId,
+      entityId: z.string(),
+      title: z.string(),
+      submittedBy: z.string(),
+      detail: z.string().nullable(),
+      submissionCount: z.number().int().nonnegative(),
+      evaluation: z
+        .object({
+          verdict: z.enum(["ready", "review", "spam"]),
+          score: z.number().int().min(0).max(100).nullable(),
+          summary: z.string(),
+          flags: z.array(z.string()),
+          source: z.string().nullable(),
+        })
+        .nullable(),
+      state: z.enum(["pending", "apply_failed", "remove_failed", "stalled"]),
+      createdAt: z.iso.datetime(),
+      ageDays: z.number().int().nonnegative(),
+      isNew: z.boolean(),
+      isStale: z.boolean(),
+      dashboardPath: z.string(),
+    }),
+  ),
+});
+
 export const ProposalSubmissionSchema = z.object({
   id: z.string(),
   pluginId: z.string(),
@@ -785,6 +872,116 @@ export const contract = oc.router({
         }),
       }),
     ),
+
+  getReviewEvaluations: oc
+    .route({ method: "GET", path: "/reviews/evaluations" })
+    .input(z.object({ proposalIds: z.array(z.string().min(1)).max(200) }))
+    .output(z.object({ data: z.array(ReviewEvaluationSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  reevaluateProposal: oc
+    .route({ method: "POST", path: "/reviews/{pluginId}/{entityId}/evaluate" })
+    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .output(z.object({ data: ReviewEvaluationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  runReviewEvaluation: oc
+    .route({ method: "POST", path: "/reviews/evaluate" })
+    .input(z.object({}))
+    .output(
+      z.object({
+        evaluated: z.number().int().nonnegative(),
+        failed: z.number().int().nonnegative(),
+        pending: z.number().int().nonnegative(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  decideTelegramReview: oc
+    .route({ method: "POST", path: "/reviews/telegram-decision" })
+    .input(
+      z.object({
+        proposalId: z.string().min(1).max(100),
+        submissionCount: z.number().int().nonnegative(),
+        decision: z.enum(["approve", "reject"]),
+        reason: z.enum(["incomplete", "not_near", "spam", "duplicate"]).optional(),
+        customReason: z.string().trim().min(3).max(500).optional(),
+        dryRun: z.boolean().optional(),
+        actor: z.object({
+          telegramId: z.number().int().positive(),
+          username: z.string().max(64).nullable().optional(),
+        }),
+      }),
+    )
+    .output(
+      z.object({
+        decision: z.enum(["approved", "rejected", "allowed"]),
+        title: z.string(),
+        verdict: z.enum(["ready", "review", "spam"]).nullable(),
+        summary: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  createTelegramLink: oc
+    .route({ method: "POST", path: "/reviews/telegram-links" })
+    .input(
+      z.object({
+        telegramId: z.number().int().positive(),
+        username: z.string().max(64).nullable().optional(),
+        name: z.string().max(200).nullable().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        path: z.string(),
+        expiresAt: z.iso.datetime(),
+        linkedAs: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  getTelegramLink: oc
+    .route({ method: "GET", path: "/reviews/telegram-links/{code}" })
+    .input(z.object({ code: z.string().min(20).max(100) }))
+    .output(
+      z.object({
+        telegramId: z.number().int().positive(),
+        telegramUsername: z.string().nullable(),
+        telegramName: z.string().nullable(),
+        expiresAt: z.iso.datetime(),
+        linkedAs: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  confirmTelegramLink: oc
+    .route({ method: "POST", path: "/reviews/telegram-links/{code}/confirm" })
+    .input(z.object({ code: z.string().min(20).max(100) }))
+    .output(z.object({ data: TelegramReviewerSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  listTelegramReviewers: oc
+    .route({ method: "GET", path: "/reviews/telegram-reviewers" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(TelegramReviewerSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  removeTelegramReviewer: oc
+    .route({ method: "DELETE", path: "/reviews/telegram-reviewers/{telegramId}" })
+    .input(z.object({ telegramId: z.coerce.number().int().positive() }))
+    .output(z.object({ removed: z.boolean() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  getReviewDigest: oc
+    .route({ method: "GET", path: "/reviews/digest" })
+    .input(
+      z.object({
+        staleAfterDays: z.coerce.number().int().min(1).max(90).optional(),
+      }),
+    )
+    .output(ReviewDigestSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   getProposalSubmissions: oc
     .route({ method: "GET", path: "/proposals/{pluginId}/{entityId}/submissions" })

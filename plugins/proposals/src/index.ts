@@ -2,7 +2,7 @@ import { createPlugin } from "every-plugin";
 import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
 import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { contract, type ProposalEventSchema } from "./contract";
+import { contract, type ProposalEventSchema, REVIEW_EVALUATOR } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
 import { ProposalService, ProposalServiceLive } from "./services/proposals";
@@ -15,6 +15,7 @@ type ProposalEvents = {
 
 type ProposalContext = AuthContext & {
   allowPrivateSubmission?: boolean;
+  [REVIEW_EVALUATOR]?: true;
   resubmissionPolicy?: "rejected-only" | "rejected-or-removed";
 };
 
@@ -80,6 +81,37 @@ export default createPlugin({
       return next({ context });
     });
 
+    const requireReviewEvaluator = builder.middleware(async ({ context, next }) => {
+      if (context[REVIEW_EVALUATOR] !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Review evaluator access required" });
+      }
+      return next({ context });
+    });
+
+    const requireAdminOrEvaluator = builder.middleware(async ({ context, next }) => {
+      if (context[REVIEW_EVALUATOR] === true) return next({ context });
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context });
+    });
+
+    const requireReviewReader = builder.middleware(async ({ context, next }) => {
+      const reviewKey =
+        context[REVIEW_EVALUATOR] === true ||
+        Boolean(context.apiKey?.permissions?.reviews?.includes("read"));
+      if (!reviewKey && (!context.user || !context.userId)) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (!reviewKey && context.user?.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context });
+    });
+
     const requireAuthOrApiKey = builder.middleware(async ({ context, next }) => {
       if (!context.user && !context.userId && !context.apiKey) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -93,10 +125,15 @@ export default createPlugin({
     const viewerId = (context: ProposalContext) =>
       context.near?.primaryAccountId ?? context.userId ?? context.apiKey?.id;
 
+    const canReadAllProposals = (context: ProposalContext) =>
+      context[REVIEW_EVALUATOR] === true ||
+      context.user?.role === "admin" ||
+      Boolean(context.apiKey?.permissions?.reviews?.includes("read"));
+
     const proposalScope = (context: ProposalContext) => ({
       privatePluginIds: Array.from(services.privatePluginIds),
       viewerId: viewerId(context),
-      isAdmin: context.user?.role === "admin",
+      isAdmin: canReadAllProposals(context),
     });
 
     const canReadProposal = async (
@@ -104,7 +141,7 @@ export default createPlugin({
       pluginId: string,
       entityId: string,
     ) => {
-      if (!services.privatePluginIds.has(pluginId) || context.user?.role === "admin") return true;
+      if (!services.privatePluginIds.has(pluginId) || canReadAllProposals(context)) return true;
       const scoped = await runEffect(
         services.proposal.getProposals({
           pluginId,
@@ -277,9 +314,11 @@ export default createPlugin({
         return await runEffect(services.proposal.getAuditLog(input));
       }),
 
-      getSubmissions: builder.getSubmissions.use(requireAdmin).handler(async ({ input }) => {
-        return await runEffect(services.proposal.getSubmissions(input));
-      }),
+      getSubmissions: builder.getSubmissions
+        .use(requireAdminOrEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getSubmissions(input));
+        }),
 
       getMySubmission: builder.getMySubmission
         .use(requireAuth)
@@ -305,9 +344,63 @@ export default createPlugin({
           );
         }),
 
-      getReviewHistory: builder.getReviewHistory.use(requireAdmin).handler(async ({ input }) => {
-        return await runEffect(services.proposal.getReviewHistory(input));
+      getReviewHistory: builder.getReviewHistory
+        .use(requireReviewReader)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getReviewHistory(input));
+        }),
+
+      recordEvaluation: builder.recordEvaluation
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.recordEvaluation(input));
+        }),
+
+      acquireReviewLease: builder.acquireReviewLease
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.acquireReviewLease(input));
+        }),
+
+      getEvaluations: builder.getEvaluations.use(requireReviewReader).handler(async ({ input }) => {
+        return await runEffect(services.proposal.getEvaluations(input));
       }),
+
+      createTelegramLinkCode: builder.createTelegramLinkCode
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.createTelegramLinkCode(input));
+        }),
+
+      getTelegramLinkCode: builder.getTelegramLinkCode
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getTelegramLinkCode(input));
+        }),
+
+      linkTelegramReviewer: builder.linkTelegramReviewer
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.linkTelegramReviewer(input));
+        }),
+
+      getTelegramReviewer: builder.getTelegramReviewer
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getTelegramReviewer(input));
+        }),
+
+      listTelegramReviewers: builder.listTelegramReviewers
+        .use(requireReviewEvaluator)
+        .handler(async () => {
+          return await runEffect(services.proposal.listTelegramReviewers());
+        }),
+
+      removeTelegramReviewer: builder.removeTelegramReviewer
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.removeTelegramReviewer(input));
+        }),
 
       subscribe: builder.subscribe.handler(async function* ({
         input,
