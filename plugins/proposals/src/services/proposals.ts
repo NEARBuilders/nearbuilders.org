@@ -271,6 +271,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     getEvaluations: (input: {
       proposalIds: string[];
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    getProposalById: (input: { id: string }) => Effect.Effect<any, ORPCError<string, unknown>>;
     createTelegramLinkCode: (input: {
       codeHash: string;
       telegramId: number;
@@ -288,6 +289,9 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getTelegramReviewer: (input: {
       telegramId: number;
+    }) => Effect.Effect<any, ORPCError<string, unknown>>;
+    getTelegramReviewerByUser: (input: {
+      userId: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     listTelegramReviewers: () => Effect.Effect<any, ORPCError<string, unknown>>;
     removeTelegramReviewer: (input: {
@@ -1376,6 +1380,22 @@ export const ProposalServiceLive = Layer.effect(
           return { data: Array.from(latest.values()).map(evaluationRecord) };
         }),
 
+      getProposalById: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .select({ pluginId: proposals.pluginId, entityId: proposals.entityId })
+              .from(proposals)
+              .where(eq(proposals.id, input.id))
+              .limit(1),
+          );
+          if (!row) return { data: null };
+          const proposal = yield* Effect.promise(() =>
+            loadProposal(db, row.pluginId, row.entityId),
+          );
+          return { data: proposal };
+        }),
+
       createTelegramLinkCode: (input) =>
         Effect.gen(function* () {
           const now = new Date();
@@ -1470,6 +1490,18 @@ export const ProposalServiceLive = Layer.effect(
               .select()
               .from(telegramReviewers)
               .where(eq(telegramReviewers.telegramId, input.telegramId))
+              .limit(1),
+          );
+          return { data: row ? telegramReviewerRecord(row) : null };
+        }),
+
+      getTelegramReviewerByUser: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(telegramReviewers)
+              .where(eq(telegramReviewers.userId, input.userId))
               .limit(1),
           );
           return { data: row ? telegramReviewerRecord(row) : null };

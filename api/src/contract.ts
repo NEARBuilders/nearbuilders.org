@@ -936,7 +936,7 @@ export const contract = oc.router({
       z.object({
         path: z.string(),
         expiresAt: z.iso.datetime(),
-        linkedAs: z.string().nullable(),
+        alreadyLinked: z.boolean(),
       }),
     )
     .errors({ UNAUTHORIZED, FORBIDDEN }),
@@ -951,6 +951,13 @@ export const contract = oc.router({
         telegramName: z.string().nullable(),
         expiresAt: z.iso.datetime(),
         linkedAs: z.string().nullable(),
+        replaces: z
+          .object({
+            telegramId: z.number().int().positive(),
+            telegramUsername: z.string().nullable(),
+            telegramName: z.string().nullable(),
+          })
+          .nullable(),
       }),
     )
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),

@@ -8,6 +8,8 @@ import {
   TELEGRAM_LINK_PATH,
 } from "../../src/services/telegram-link";
 
+const ADMIN = { userId: "user-admin", user: { name: "Admin" } } as never;
+
 const REVIEWER = {
   telegramId: 111,
   telegramUsername: "saad",
@@ -17,7 +19,9 @@ const REVIEWER = {
   linkedAt: "2026-09-30T08:00:00.000Z",
 };
 
-function setup(options: { pendingCode?: boolean; linked?: boolean } = {}) {
+function setup(
+  options: { pendingCode?: boolean; linked?: boolean; ownLink?: typeof REVIEWER | null } = {},
+) {
   const client = {
     createTelegramLinkCode: vi.fn(async () => ({ expiresAt: "2026-09-30T08:10:00.000Z" })),
     getTelegramLinkCode: vi.fn(async () => ({
@@ -32,6 +36,7 @@ function setup(options: { pendingCode?: boolean; linked?: boolean } = {}) {
             },
     })),
     getTelegramReviewer: vi.fn(async () => ({ data: options.linked ? REVIEWER : null })),
+    getTelegramReviewerByUser: vi.fn(async () => ({ data: options.ownLink ?? null })),
     linkTelegramReviewer: vi.fn(async () => ({ data: REVIEWER })),
   };
   return { client, plugins: { proposals: () => client } as never };
@@ -56,25 +61,32 @@ describe("createTelegramLink", () => {
       telegramName: "Saad",
       ttlMs: 600_000,
     });
-    expect(result).toMatchObject({ expiresAt: "2026-09-30T08:10:00.000Z", linkedAs: null });
+    expect(result).toEqual({
+      path: result.path,
+      expiresAt: "2026-09-30T08:10:00.000Z",
+      alreadyLinked: false,
+    });
   });
 
-  it("reports an existing link so the bot can say who it belongs to", async () => {
+  it("reports an existing link without revealing which admin it belongs to", async () => {
     const { plugins } = setup({ linked: true });
     const result = await createTelegramLink(plugins, { telegramId: 111 });
-    expect(result.linkedAs).toBe("admin.near");
+    expect(result.alreadyLinked).toBe(true);
+    expect(JSON.stringify(result)).not.toContain("admin.near");
   });
 });
 
 describe("previewTelegramLink", () => {
   it("describes the Telegram account behind a valid code", async () => {
     const { client, plugins } = setup({ linked: true });
-    await expect(previewTelegramLink(plugins, "plain-code")).resolves.toEqual({
+    const otherAdmin = { userId: "user-other", user: { name: "Other" } } as never;
+    await expect(previewTelegramLink(plugins, "plain-code", otherAdmin)).resolves.toEqual({
       telegramId: 111,
       telegramUsername: "saad",
       telegramName: "Saad",
       expiresAt: "2026-09-30T08:10:00.000Z",
       linkedAs: "admin.near",
+      replaces: null,
     });
     expect(client.getTelegramLinkCode).toHaveBeenCalledWith({
       codeHash: hashLinkCode("plain-code"),
@@ -83,7 +95,27 @@ describe("previewTelegramLink", () => {
 
   it("refuses an unknown or expired code", async () => {
     const { plugins } = setup({ pendingCode: false });
-    await expect(previewTelegramLink(plugins, "plain-code")).rejects.toThrow("expired");
+    await expect(previewTelegramLink(plugins, "plain-code", ADMIN)).rejects.toThrow("expired");
+  });
+
+  it("warns when confirming would replace the admin's link to another Telegram account", async () => {
+    const { client, plugins } = setup({
+      ownLink: { ...REVIEWER, telegramId: 999, telegramUsername: "old_phone" },
+    });
+    const preview = await previewTelegramLink(plugins, "plain-code", ADMIN);
+    expect(preview.replaces).toEqual({
+      telegramId: 999,
+      telegramUsername: "old_phone",
+      telegramName: "Saad",
+    });
+    expect(client.getTelegramReviewerByUser).toHaveBeenCalledWith({ userId: "user-admin" });
+  });
+
+  it("does not warn when the admin is re-linking the same Telegram account", async () => {
+    const { plugins } = setup({ linked: true, ownLink: REVIEWER });
+    const preview = await previewTelegramLink(plugins, "plain-code", ADMIN);
+    expect(preview.replaces).toBeNull();
+    expect(preview.linkedAs).toBeNull();
   });
 });
 

@@ -6,6 +6,7 @@ import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { type CheckDependencies, runReviewChecks } from "./review-checks";
+import { evaluatorContext } from "./review-context";
 import { type Assessor, combineEvaluation, EVALUATION_PROMPT_VERSION } from "./review-evaluation";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
@@ -60,10 +61,6 @@ export function needsEvaluation(
 }
 const MAX_PAGES = 5;
 const FIRST_RUN_DELAY_MS = 15_000;
-
-export const REVIEW_EVALUATOR = Symbol.for("nearbuilders.proposals.reviewEvaluator");
-
-export const evaluatorContext = { [REVIEW_EVALUATOR]: true } as unknown as Context;
 
 function sameText(a: string | null | undefined, b: string | null | undefined): boolean {
   return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());

@@ -7,6 +7,7 @@ import {
   parseGithubRepository,
   runReviewChecks,
 } from "../../src/services/review-checks";
+import { REVIEW_EVALUATOR } from "../../src/services/review-context";
 import {
   buildAssessmentPrompt,
   combineEvaluation,
@@ -16,7 +17,6 @@ import {
 import {
   createReviewEvaluationSweep,
   needsEvaluation,
-  REVIEW_EVALUATOR,
 } from "../../src/services/review-evaluation-sweep";
 
 const NOW = Date.parse("2026-09-26T09:00:00.000Z");

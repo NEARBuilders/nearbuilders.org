@@ -99,19 +99,6 @@ export default createPlugin({
       return next({ context });
     });
 
-    const requireReviewReader = builder.middleware(async ({ context, next }) => {
-      const reviewKey =
-        context[REVIEW_EVALUATOR] === true ||
-        Boolean(context.apiKey?.permissions?.reviews?.includes("read"));
-      if (!reviewKey && (!context.user || !context.userId)) {
-        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
-      }
-      if (!reviewKey && context.user?.role !== "admin") {
-        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
-      }
-      return next({ context });
-    });
-
     const requireAuthOrApiKey = builder.middleware(async ({ context, next }) => {
       if (!context.user && !context.userId && !context.apiKey) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -126,9 +113,7 @@ export default createPlugin({
       context.near?.primaryAccountId ?? context.userId ?? context.apiKey?.id;
 
     const canReadAllProposals = (context: ProposalContext) =>
-      context[REVIEW_EVALUATOR] === true ||
-      context.user?.role === "admin" ||
-      Boolean(context.apiKey?.permissions?.reviews?.includes("read"));
+      context[REVIEW_EVALUATOR] === true || context.user?.role === "admin";
 
     const proposalScope = (context: ProposalContext) => ({
       privatePluginIds: Array.from(services.privatePluginIds),
@@ -345,7 +330,7 @@ export default createPlugin({
         }),
 
       getReviewHistory: builder.getReviewHistory
-        .use(requireReviewReader)
+        .use(requireAdminOrEvaluator)
         .handler(async ({ input }) => {
           return await runEffect(services.proposal.getReviewHistory(input));
         }),
@@ -362,9 +347,17 @@ export default createPlugin({
           return await runEffect(services.proposal.acquireReviewLease(input));
         }),
 
-      getEvaluations: builder.getEvaluations.use(requireReviewReader).handler(async ({ input }) => {
-        return await runEffect(services.proposal.getEvaluations(input));
-      }),
+      getEvaluations: builder.getEvaluations
+        .use(requireAdminOrEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getEvaluations(input));
+        }),
+
+      getProposalById: builder.getProposalById
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getProposalById(input));
+        }),
 
       createTelegramLinkCode: builder.createTelegramLinkCode
         .use(requireReviewEvaluator)
@@ -388,6 +381,12 @@ export default createPlugin({
         .use(requireReviewEvaluator)
         .handler(async ({ input }) => {
           return await runEffect(services.proposal.getTelegramReviewer(input));
+        }),
+
+      getTelegramReviewerByUser: builder.getTelegramReviewerByUser
+        .use(requireReviewEvaluator)
+        .handler(async ({ input }) => {
+          return await runEffect(services.proposal.getTelegramReviewerByUser(input));
         }),
 
       listTelegramReviewers: builder.listTelegramReviewers

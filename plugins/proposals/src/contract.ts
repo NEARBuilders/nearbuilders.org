@@ -355,6 +355,12 @@ export const contract = oc.router({
     .output(z.object({ data: z.array(ProposalEvaluationSchema) }))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
+  getProposalById: oc
+    .route({ method: "GET", path: "/v1/proposals/by-id/{id}" })
+    .input(z.object({ id: z.string().min(1).max(100) }))
+    .output(z.object({ data: ProposalSchema.nullable() }))
+    .errors({ FORBIDDEN }),
+
   createTelegramLinkCode: oc
     .route({ method: "POST", path: "/v1/proposals/telegram-link-codes" })
     .input(
@@ -401,6 +407,12 @@ export const contract = oc.router({
   getTelegramReviewer: oc
     .route({ method: "GET", path: "/v1/proposals/telegram-reviewers/{telegramId}" })
     .input(z.object({ telegramId: z.coerce.number().int().positive() }))
+    .output(z.object({ data: TelegramReviewerSchema.nullable() }))
+    .errors({ FORBIDDEN }),
+
+  getTelegramReviewerByUser: oc
+    .route({ method: "GET", path: "/v1/proposals/telegram-reviewers/by-user/{userId}" })
+    .input(z.object({ userId: z.string().min(1) }))
     .output(z.object({ data: TelegramReviewerSchema.nullable() }))
     .errors({ FORBIDDEN }),
 

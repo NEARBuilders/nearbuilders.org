@@ -1,8 +1,8 @@
 import type { z } from "every-plugin/zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
-import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { readString, readStringArray } from "../lib/utils";
+import { evaluatorContext } from "./review-context";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
 
@@ -255,10 +255,9 @@ export function buildReviewDigest(
 
 export async function loadReviewDigest(
   plugins: Pick<PluginsClient, "proposals">,
-  context: Context,
   options: { now?: number; staleAfterDays: number },
 ): Promise<ReviewDigest> {
-  const proposalsClient = plugins.proposals(context);
+  const proposalsClient = plugins.proposals(evaluatorContext);
   const proposals: ProposalRecord[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES; page += 1) {

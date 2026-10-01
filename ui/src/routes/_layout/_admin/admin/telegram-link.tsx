@@ -117,6 +117,14 @@ function TelegramLinkBody({ code }: { code: string }) {
           Only confirm if this is <span className="font-semibold text-foreground">your own</span>{" "}
           Telegram account. If someone sent you this link, don't confirm it.
         </p>
+        {account.replaces ? (
+          <p className="text-sm text-foreground">
+            <span className="font-semibold">
+              This replaces your current link to {telegramHandle(account.replaces)}.
+            </span>{" "}
+            That account will no longer be able to review from Telegram.
+          </p>
+        ) : null}
         {account.linkedAs ? (
           <p className="text-sm text-muted-foreground">
             This Telegram account is currently linked to {account.linkedAs}. Confirming moves it to

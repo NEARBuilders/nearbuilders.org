@@ -3,8 +3,8 @@ import type { z } from "every-plugin/zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
+import { evaluatorContext } from "./review-context";
 import { reviewDigestTitle } from "./review-digest";
-import { evaluatorContext } from "./review-evaluation-sweep";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
 
@@ -31,8 +31,6 @@ type DecisionAction = (
   input: { pluginId: string; entityId: string; expectedUpdatedAt: string; reason?: string },
   context: Context,
 ) => Promise<unknown>;
-
-const MAX_PAGES = 5;
 
 export type LinkedReviewer = {
   userId: string;
@@ -63,16 +61,8 @@ async function findPendingProposal(
   plugins: Pick<PluginsClient, "proposals">,
   proposalId: string,
 ): Promise<ProposalRecord | null> {
-  const client = plugins.proposals(evaluatorContext);
-  let cursor: string | undefined;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await client.getProposals({ reviewStatus: "pending", limit: 100, cursor });
-    const match = result.data.find((proposal) => proposal.id === proposalId);
-    if (match) return match;
-    if (!result.meta.hasMore || !result.meta.nextCursor) break;
-    cursor = result.meta.nextCursor;
-  }
-  return null;
+  const result = await plugins.proposals(evaluatorContext).getProposalById({ id: proposalId });
+  return result.data?.reviewStatus === "pending" ? result.data : null;
 }
 
 export type TelegramDecisionResult = {

@@ -11,6 +11,7 @@ const PROPOSAL = {
   entityId: "project-1",
   payload: { title: "NEAR Rust SDK" },
   submissionCount: 2,
+  reviewStatus: "pending",
   updatedAt: "2026-09-26T08:00:00.000Z",
 };
 
@@ -33,9 +34,8 @@ function setup(
       : options.evaluation;
   const plugins = {
     proposals: () => ({
-      getProposals: vi.fn(async () => ({
-        data: options.proposals ?? [PROPOSAL],
-        meta: { total: 1, hasMore: false, nextCursor: null },
+      getProposalById: vi.fn(async ({ id }: { id: string }) => ({
+        data: (options.proposals ?? [PROPOSAL]).find((proposal) => proposal.id === id) ?? null,
       })),
       getEvaluations: vi.fn(async () => ({
         data: evaluation
@@ -223,7 +223,12 @@ describe("decideTelegramReview", () => {
   it.each([
     ["the Telegram account is not linked", { unlinked: true }, "Link your Telegram account first"],
     ["reject without a reason", { decision: "reject" as const }, "A rejection reason is required"],
-    ["item no longer pending", { proposals: [] }, "This item is no longer pending"],
+    ["item no longer exists", { proposals: [] }, "This item is no longer pending"],
+    [
+      "item already decided",
+      { proposals: [{ ...PROPOSAL, reviewStatus: "approved" }] },
+      "This item is no longer pending",
+    ],
     ["item resubmitted", { submissionCount: 1 }, "This item was resubmitted since the digest"],
     [
       "approving an item flagged as spam",

@@ -208,7 +208,7 @@ describe("loadReviewDigest", () => {
       proposals: () => ({ getProposals, getReviewHistory, getEvaluations }),
     } as never;
 
-    const digest = await loadReviewDigest(plugins, {} as never, { now: NOW, staleAfterDays: 7 });
+    const digest = await loadReviewDigest(plugins, { now: NOW, staleAfterDays: 7 });
 
     expect(getProposals).toHaveBeenNthCalledWith(1, {
       lifecycleStatus: "actionable",
@@ -245,7 +245,7 @@ describe("loadReviewDigest", () => {
       proposals: () => ({ getProposals, getReviewHistory, getEvaluations }),
     } as never;
 
-    await loadReviewDigest(plugins, {} as never, { now: NOW, staleAfterDays: 7 });
+    await loadReviewDigest(plugins, { now: NOW, staleAfterDays: 7 });
 
     expect(getReviewHistory).toHaveBeenCalledTimes(1);
   });

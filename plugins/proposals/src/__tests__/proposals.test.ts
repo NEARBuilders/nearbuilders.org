@@ -233,43 +233,34 @@ describe.sequential("Proposals plugin", () => {
     expect(rejected.data.rejectionReason).toBe("Add another role");
   });
 
-  it("lets review-read API keys see private queues without moderation rights", async () => {
+  it("keeps private queues and review history from review API keys", async () => {
     const reviewer = loaded.createClient({
-      apiKey: { id: "key-reviewer", permissions: { reviews: ["read"] } },
+      apiKey: { id: "key-reviewer", permissions: { reviews: ["read", "write"] } },
     } as never);
-    const otherKey = loaded.createClient({
-      apiKey: { id: "key-other", permissions: {} },
-    } as never);
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
     const privateInput = { pluginId: "nearcatalog", limit: 100 };
 
-    const reviewerPrivate = await reviewer.getProposals(privateInput);
     const adminPrivate = await adminClient().getProposals(privateInput);
-    const otherPrivate = await otherKey.getProposals(privateInput);
+    const evaluatorPrivate = await evaluator.getProposals(privateInput);
+    const reviewerPrivate = await reviewer.getProposals(privateInput);
     const reviewerAudit = await reviewer.getAuditLog({
       pluginId: "nearcatalog",
       entityId: "claim:alice.near:ref-finance",
     });
 
-    expect(reviewerPrivate.data).toHaveLength(adminPrivate.data.length);
-    await expect(reviewer.getReviewHistory({ limit: 10 })).resolves.toMatchObject({
+    expect(adminPrivate.data.length).toBeGreaterThan(0);
+    expect(evaluatorPrivate.data).toHaveLength(adminPrivate.data.length);
+    expect(reviewerPrivate.data).toEqual([]);
+    expect(reviewerAudit.data).toEqual([]);
+    await expect(evaluator.getReviewHistory({ limit: 10 })).resolves.toMatchObject({
       data: expect.any(Array),
     });
-    await expect(otherKey.getReviewHistory({ limit: 10 })).rejects.toThrow(
+    await expect(reviewer.getReviewHistory({ limit: 10 })).rejects.toThrow(
       "Authentication required",
     );
-    expect(otherPrivate.data).toEqual([]);
-    expect(reviewerAudit.data).toHaveLength(1);
-
-    const [pending] = reviewerPrivate.data.filter(
-      (proposal) => proposal.reviewStatus === "pending",
+    await expect(reviewer.getEvaluations({ proposalIds: ["x"] })).rejects.toThrow(
+      "Authentication required",
     );
-    await expect(
-      reviewer.reject({
-        pluginId: "nearcatalog",
-        entityId: pending!.entityId,
-        expectedUpdatedAt: pending!.updatedAt,
-      }),
-    ).rejects.toThrow("Authentication required");
   });
 
   it("stores review evaluations for the in-process evaluator only", async () => {
@@ -313,15 +304,18 @@ describe.sequential("Proposals plugin", () => {
     });
     expect(updated.data).toMatchObject({ verdict: "ready", score: 85 });
 
-    const readByReviewer = await reviewer.getEvaluations({ proposalIds: [target!.id] });
+    const readByEvaluator = await evaluator.getEvaluations({ proposalIds: [target!.id] });
     const readByAdmin = await adminClient().getEvaluations({ proposalIds: [target!.id] });
-    expect(readByReviewer.data).toHaveLength(1);
-    expect(readByReviewer.data[0]).toMatchObject({
+    expect(readByEvaluator.data).toHaveLength(1);
+    expect(readByEvaluator.data[0]).toMatchObject({
       proposalId: target!.id,
       verdict: "ready",
       checks: input.checks,
     });
-    expect(readByAdmin.data).toEqual(readByReviewer.data);
+    expect(readByAdmin.data).toEqual(readByEvaluator.data);
+    await expect(reviewer.getEvaluations({ proposalIds: [target!.id] })).rejects.toThrow(
+      "Authentication required",
+    );
     await expect(aliceClient().getEvaluations({ proposalIds: [target!.id] })).rejects.toThrow(
       "Admin access required",
     );
@@ -346,6 +340,22 @@ describe.sequential("Proposals plugin", () => {
     await expect(
       adminClient().acquireReviewLease({ name: "evaluation-sweep", holder: "x", ttlMs: 60_000 }),
     ).rejects.toThrow("Review evaluator access required");
+  });
+
+  it("looks up a proposal by id for the evaluator only", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    const [target] = (await adminClient().getProposals({ pluginId: "builders", limit: 1 })).data;
+
+    const found = await evaluator.getProposalById({ id: target!.id });
+    expect(found.data).toMatchObject({
+      id: target!.id,
+      entityId: target!.entityId,
+      submissionCount: target!.submissionCount,
+    });
+    await expect(evaluator.getProposalById({ id: "missing" })).resolves.toEqual({ data: null });
+    await expect(adminClient().getProposalById({ id: target!.id })).rejects.toThrow(
+      "Review evaluator access required",
+    );
   });
 
   it("links a Telegram account through a one-time code", async () => {

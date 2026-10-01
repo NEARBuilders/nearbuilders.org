@@ -699,9 +699,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await createTelegramLink(services.plugins, input);
         }),
 
-      getTelegramLink: builder.getTelegramLink.use(requireAdmin).handler(async ({ input }) => {
-        return await previewTelegramLink(services.plugins, input.code);
-      }),
+      getTelegramLink: builder.getTelegramLink
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await previewTelegramLink(services.plugins, input.code, context);
+        }),
 
       confirmTelegramLink: builder.confirmTelegramLink
         .use(requireAdmin)
@@ -721,8 +723,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       getReviewDigest: builder.getReviewDigest
         .use(requireApiKey({ reviews: ["read"] }))
-        .handler(async ({ input, context }) => {
-          return await loadReviewDigest(services.plugins, context, {
+        .handler(async ({ input }) => {
+          return await loadReviewDigest(services.plugins, {
             staleAfterDays: input.staleAfterDays ?? 7,
           });
         }),
