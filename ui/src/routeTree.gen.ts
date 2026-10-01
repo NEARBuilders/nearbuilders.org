@@ -17,6 +17,7 @@ import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
 import { Route as LayoutJoinRouteImport } from './routes/_layout/join'
 import { Route as LayoutIronclawRouteImport } from './routes/_layout/ironclaw'
 import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
+import { Route as LayoutDesignSystemRouteImport } from './routes/_layout/design-system'
 import { Route as LayoutBrandRouteImport } from './routes/_layout/brand'
 import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
@@ -106,6 +107,11 @@ const LayoutIronclawRoute = LayoutIronclawRouteImport.update({
 const LayoutEventsRoute = LayoutEventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDesignSystemRoute = LayoutDesignSystemRouteImport.update({
+  id: '/design-system',
+  path: '/design-system',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutBrandRoute = LayoutBrandRouteImport.update({
@@ -396,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
   '/brand': typeof LayoutBrandRoute
+  '/design-system': typeof LayoutDesignSystemRoute
   '/events': typeof LayoutEventsRouteWithChildren
   '/ironclaw': typeof LayoutIronclawRoute
   '/join': typeof LayoutJoinRoute
@@ -453,6 +460,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
   '/brand': typeof LayoutBrandRoute
+  '/design-system': typeof LayoutDesignSystemRoute
   '/ironclaw': typeof LayoutIronclawRoute
   '/join': typeof LayoutJoinRoute
   '/login': typeof LayoutLoginRoute
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated': typeof LayoutAuthenticatedRouteWithChildren
   '/_layout/about': typeof LayoutAboutRoute
   '/_layout/brand': typeof LayoutBrandRoute
+  '/_layout/design-system': typeof LayoutDesignSystemRoute
   '/_layout/events': typeof LayoutEventsRouteWithChildren
   '/_layout/ironclaw': typeof LayoutIronclawRoute
   '/_layout/join': typeof LayoutJoinRoute
@@ -569,6 +578,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/brand'
+    | '/design-system'
     | '/events'
     | '/ironclaw'
     | '/join'
@@ -626,6 +636,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/brand'
+    | '/design-system'
     | '/ironclaw'
     | '/join'
     | '/login'
@@ -680,6 +691,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated'
     | '/_layout/about'
     | '/_layout/brand'
+    | '/_layout/design-system'
     | '/_layout/events'
     | '/_layout/ironclaw'
     | '/_layout/join'
@@ -796,6 +808,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof LayoutEventsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/design-system': {
+      id: '/_layout/design-system'
+      path: '/design-system'
+      fullPath: '/design-system'
+      preLoaderRoute: typeof LayoutDesignSystemRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/brand': {
@@ -1346,6 +1365,7 @@ interface LayoutRouteChildren {
   LayoutAuthenticatedRoute: typeof LayoutAuthenticatedRouteWithChildren
   LayoutAboutRoute: typeof LayoutAboutRoute
   LayoutBrandRoute: typeof LayoutBrandRoute
+  LayoutDesignSystemRoute: typeof LayoutDesignSystemRoute
   LayoutEventsRoute: typeof LayoutEventsRouteWithChildren
   LayoutIronclawRoute: typeof LayoutIronclawRoute
   LayoutJoinRoute: typeof LayoutJoinRoute
@@ -1369,6 +1389,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAuthenticatedRoute: LayoutAuthenticatedRouteWithChildren,
   LayoutAboutRoute: LayoutAboutRoute,
   LayoutBrandRoute: LayoutBrandRoute,
+  LayoutDesignSystemRoute: LayoutDesignSystemRoute,
   LayoutEventsRoute: LayoutEventsRouteWithChildren,
   LayoutIronclawRoute: LayoutIronclawRoute,
   LayoutJoinRoute: LayoutJoinRoute,
