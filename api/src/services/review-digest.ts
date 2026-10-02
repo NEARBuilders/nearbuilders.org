@@ -29,6 +29,26 @@ export type ReviewHistoryEntry = {
 
 type Page<T> = { data: T[]; meta: { hasMore: boolean; nextCursor?: string | null } };
 
+const EVALUATION_BATCH_SIZE = 500;
+
+type ProposalEvaluation = Awaited<
+  ReturnType<ReturnType<PluginsClient["proposals"]>["getEvaluations"]>
+>["data"][number];
+
+export async function loadEvaluations(
+  plugins: Pick<PluginsClient, "proposals">,
+  proposalIds: string[],
+): Promise<ProposalEvaluation[]> {
+  const client = plugins.proposals(evaluatorContext);
+  const evaluations: ProposalEvaluation[] = [];
+  for (let start = 0; start < proposalIds.length; start += EVALUATION_BATCH_SIZE) {
+    const batch = proposalIds.slice(start, start + EVALUATION_BATCH_SIZE);
+    const result = await client.getEvaluations({ proposalIds: batch });
+    evaluations.push(...result.data);
+  }
+  return evaluations;
+}
+
 export async function collectPages<T>(
   fetchPage: (cursor: string | undefined) => Promise<Page<T>>,
   maxPages: number,
@@ -244,9 +264,11 @@ export async function loadReviewDigest(
       return Boolean(oldest && now - new Date(oldest.createdAt).getTime() >= 14 * DAY_MS);
     },
   );
-  const evaluations = await proposalsClient
-    .getEvaluations({ proposalIds: proposals.map((proposal) => proposal.id) })
-    .then((result) => result.data as StoredEvaluation[])
+  const evaluations = await loadEvaluations(
+    plugins,
+    proposals.map((proposal) => proposal.id),
+  )
+    .then((data) => data as StoredEvaluation[])
     .catch((error: unknown) => {
       console.error("[ReviewDigest] Could not load evaluations:", error);
       return [];

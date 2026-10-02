@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildReviewActivity,
   buildReviewDigest,
+  loadEvaluations,
   loadReviewDigest,
   reviewDigestDetail,
   reviewDigestState,
@@ -297,5 +298,22 @@ describe("buildReviewActivity", () => {
       last7d: { reviewed: 3, medianWaitDays: 2 },
       previous7d: { reviewed: 2, medianWaitDays: 5 },
     });
+  });
+});
+
+describe("loadEvaluations", () => {
+  it("requests evaluations in batches the plugin accepts", async () => {
+    const getEvaluations = vi.fn(async ({ proposalIds }: { proposalIds: string[] }) => ({
+      data: proposalIds.map((proposalId) => ({ proposalId })),
+    }));
+    const plugins = { proposals: () => ({ getEvaluations }) } as never;
+    const ids = Array.from({ length: 1_200 }, (_, index) => `p${index}`);
+
+    const evaluations = await loadEvaluations(plugins, ids);
+
+    expect(getEvaluations.mock.calls.map(([input]) => input.proposalIds.length)).toEqual([
+      500, 500, 200,
+    ]);
+    expect(evaluations).toHaveLength(1_200);
   });
 });

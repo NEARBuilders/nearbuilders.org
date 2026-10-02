@@ -1,5 +1,5 @@
 {
-  "id": "42f348a8-e2a3-44f2-9c5a-53f3c3b97cef",
+  "id": "69d5d1e5-88e2-439f-bb0c-c295def4d040",
   "prevId": "5ac86063-6012-40ab-b64a-4ad631e59f89",
   "version": "7",
   "dialect": "postgresql",
@@ -651,23 +651,17 @@
           "primaryKey": true,
           "notNull": true
         },
-        "telegram_id": {
-          "name": "telegram_id",
-          "type": "bigint",
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "telegram_username": {
-          "name": "telegram_username",
+        "user_label": {
+          "name": "user_label",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "telegram_name": {
-          "name": "telegram_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "expires_at": {
           "name": "expires_at",

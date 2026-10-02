@@ -136,7 +136,8 @@ export function createClaudeAssessor(options: {
   model: string;
   client?: Pick<Anthropic, "beta">;
 }): Assessor {
-  const client = options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 2 });
+  const client =
+    options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 2, timeout: 60_000 });
   return {
     model: options.model,
     assess: async ({ subject, checks }) => {

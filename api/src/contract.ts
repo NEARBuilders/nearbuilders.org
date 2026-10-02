@@ -885,18 +885,6 @@ export const contract = oc.router({
     .output(z.object({ data: ReviewEvaluationSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
-  runReviewEvaluation: oc
-    .route({ method: "POST", path: "/reviews/evaluate" })
-    .input(z.object({}))
-    .output(
-      z.object({
-        evaluated: z.number().int().nonnegative(),
-        failed: z.number().int().nonnegative(),
-        pending: z.number().int().nonnegative(),
-      }),
-    )
-    .errors({ UNAUTHORIZED, FORBIDDEN }),
-
   decideTelegramReview: oc
     .route({ method: "POST", path: "/reviews/telegram-decision" })
     .input(
@@ -925,47 +913,28 @@ export const contract = oc.router({
 
   createTelegramLink: oc
     .route({ method: "POST", path: "/reviews/telegram-links" })
+    .input(z.object({}))
+    .output(
+      z.object({
+        code: z.string(),
+        command: z.string(),
+        expiresAt: z.iso.datetime(),
+        openUrl: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  claimTelegramLink: oc
+    .route({ method: "POST", path: "/reviews/telegram-links/claim" })
     .input(
       z.object({
+        code: z.string().min(20).max(100),
         telegramId: z.number().int().positive(),
         username: z.string().max(64).nullable().optional(),
         name: z.string().max(200).nullable().optional(),
       }),
     )
-    .output(
-      z.object({
-        path: z.string(),
-        expiresAt: z.iso.datetime(),
-        alreadyLinked: z.boolean(),
-      }),
-    )
-    .errors({ UNAUTHORIZED, FORBIDDEN }),
-
-  getTelegramLink: oc
-    .route({ method: "GET", path: "/reviews/telegram-links/{code}" })
-    .input(z.object({ code: z.string().min(20).max(100) }))
-    .output(
-      z.object({
-        telegramId: z.number().int().positive(),
-        telegramUsername: z.string().nullable(),
-        telegramName: z.string().nullable(),
-        expiresAt: z.iso.datetime(),
-        linkedAs: z.string().nullable(),
-        replaces: z
-          .object({
-            telegramId: z.number().int().positive(),
-            telegramUsername: z.string().nullable(),
-            telegramName: z.string().nullable(),
-          })
-          .nullable(),
-      }),
-    )
-    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
-
-  confirmTelegramLink: oc
-    .route({ method: "POST", path: "/reviews/telegram-links/{code}/confirm" })
-    .input(z.object({ code: z.string().min(20).max(100) }))
-    .output(z.object({ data: TelegramReviewerSchema }))
+    .output(z.object({ userLabel: z.string() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
 
   listTelegramReviewers: oc

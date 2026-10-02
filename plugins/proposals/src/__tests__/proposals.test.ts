@@ -353,69 +353,51 @@ describe.sequential("Proposals plugin", () => {
     );
   });
 
-  it("links a Telegram account through a one-time code", async () => {
+  it("links a Telegram account through a one-time code issued to an admin", async () => {
     const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
-    const code = (codeHash: string, telegramId: number, ttlMs = 600_000) =>
-      evaluator.createTelegramLinkCode({
+    const code = (codeHash: string, userId: string, ttlMs = 600_000) =>
+      evaluator.createTelegramLinkCode({ codeHash, userId, userLabel: `${userId}.near`, ttlMs });
+    const claim = (codeHash: string, telegramId: number) =>
+      evaluator.linkTelegramReviewer({
         codeHash,
         telegramId,
-        telegramUsername: "saad",
-        telegramName: "Saad",
-        ttlMs,
+        telegramUsername: `tg${telegramId}`,
+        telegramName: null,
       });
 
-    await code("hash-first-0000000", 111);
-    await code("hash-second-000000", 111);
-    await expect(
-      evaluator.getTelegramLinkCode({ codeHash: "hash-first-0000000" }),
-    ).resolves.toEqual({ data: null });
-    await expect(
-      evaluator.getTelegramLinkCode({ codeHash: "hash-second-000000" }),
-    ).resolves.toMatchObject({ data: { telegramId: 111, telegramUsername: "saad" } });
+    await code("hash-first-0000000", "admin-a");
+    await code("hash-second-000000", "admin-a");
+    await expect(claim("hash-first-0000000", 111)).rejects.toThrow("expired or was already used");
 
-    const linked = await evaluator.linkTelegramReviewer({
-      codeHash: "hash-second-000000",
-      userId: "user-admin",
-      userLabel: "admin.near",
-    });
+    const linked = await claim("hash-second-000000", 111);
     expect(linked.data).toMatchObject({
       telegramId: 111,
-      userId: "user-admin",
-      userLabel: "admin.near",
+      telegramUsername: "tg111",
+      userId: "admin-a",
+      userLabel: "admin-a.near",
     });
-    await expect(
-      evaluator.linkTelegramReviewer({
-        codeHash: "hash-second-000000",
-        userId: "user-admin",
-        userLabel: "admin.near",
-      }),
-    ).rejects.toThrow("expired");
-    await expect(evaluator.getTelegramReviewer({ telegramId: 111 })).resolves.toMatchObject({
-      data: { userId: "user-admin" },
-    });
+    await expect(claim("hash-second-000000", 111)).rejects.toThrow("expired or was already used");
 
-    await code("hash-relink-000000", 222);
-    await evaluator.linkTelegramReviewer({
-      codeHash: "hash-relink-000000",
-      userId: "user-admin",
-      userLabel: "admin.near",
-    });
+    await code("hash-relink-000000", "admin-a");
+    await claim("hash-relink-000000", 222);
     await expect(evaluator.getTelegramReviewer({ telegramId: 111 })).resolves.toEqual({
       data: null,
     });
-    const listed = await evaluator.listTelegramReviewers({});
-    expect(listed.data.map((entry) => entry.telegramId)).toEqual([222]);
+    await expect(evaluator.getTelegramReviewer({ telegramId: 222 })).resolves.toMatchObject({
+      data: { userId: "admin-a" },
+    });
 
-    await code("hash-expired-00000", 333, 60_000);
+    await code("hash-takeover-0000", "admin-b");
+    await claim("hash-takeover-0000", 222);
+    const listed = await evaluator.listTelegramReviewers({});
+    expect(listed.data.map((entry) => [entry.telegramId, entry.userId])).toEqual([
+      [222, "admin-b"],
+    ]);
+
+    await code("hash-expired-00000", "admin-c", 60_000);
     vi.useFakeTimers({ now: Date.now() + 61_000, toFake: ["Date"] });
     try {
-      await expect(
-        evaluator.linkTelegramReviewer({
-          codeHash: "hash-expired-00000",
-          userId: "user-other",
-          userLabel: "other.near",
-        }),
-      ).rejects.toThrow("expired");
+      await expect(claim("hash-expired-00000", 333)).rejects.toThrow("expired or was already used");
     } finally {
       vi.useRealTimers();
     }
@@ -429,6 +411,39 @@ describe.sequential("Proposals plugin", () => {
     await expect(adminClient().listTelegramReviewers({})).rejects.toThrow(
       "Review evaluator access required",
     );
+  });
+
+  it("answers concurrent links for the same admin with a clear error", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    await evaluator.createTelegramLinkCode({
+      codeHash: "hash-race-a-000000",
+      userId: "admin-race",
+      userLabel: "race.near",
+      ttlMs: 600_000,
+    });
+    const results = await Promise.allSettled(
+      [444, 555].map((telegramId) =>
+        evaluator.linkTelegramReviewer({
+          codeHash: "hash-race-a-000000",
+          telegramId,
+          telegramUsername: null,
+          telegramName: null,
+        }),
+      ),
+    );
+    const failures = results.filter((result) => result.status === "rejected");
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+    expect(String((failures[0] as PromiseRejectedResult).reason)).toMatch(
+      /expired or was already used|being linked right now/,
+    );
+    await evaluator.removeTelegramReviewer({
+      telegramId: (
+        results.find((result) => result.status === "fulfilled") as PromiseFulfilledResult<{
+          data: { telegramId: number };
+        }>
+      ).value.data.telegramId,
+    });
   });
 
   it("lets the evaluator read submission sources", async () => {

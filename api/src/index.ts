@@ -25,9 +25,9 @@ import { loadReviewDigest } from "./services/review-digest";
 import { createClaudeAssessor } from "./services/review-evaluation";
 import { createReviewEvaluationSweep } from "./services/review-evaluation-sweep";
 import {
-  confirmTelegramLink,
-  createTelegramLink,
-  previewTelegramLink,
+  claimTelegramLink,
+  createTelegramLinkCode,
+  requireAdminKeyOwner,
 } from "./services/telegram-link";
 import { decideTelegramReview } from "./services/telegram-review";
 
@@ -116,6 +116,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
     reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
     reviewEvaluationBatchSize: z.number().int().min(1).max(50).default(5),
     reviewEvaluationModel: z.string().min(1).default("claude-opus-5"),
+    chiefBotUsername: z
+      .string()
+      .regex(/^[A-Za-z0-9_]*$/)
+      .default(""),
   }),
 
   secrets: z.object({
@@ -164,6 +168,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         orchestration,
         catalogClaims,
         reviewEvaluation,
+        chiefBotUsername: config.variables.chiefBotUsername,
       };
     }),
 
@@ -673,13 +678,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.reviewEvaluation.evaluateOne(input);
         }),
 
-      runReviewEvaluation: builder.runReviewEvaluation.use(requireAdmin).handler(async () => {
-        return await services.reviewEvaluation.runOnce();
-      }),
-
       decideTelegramReview: builder.decideTelegramReview
         .use(requireApiKey({ reviews: ["write"] }))
         .handler(async ({ input, context }) => {
+          requireAdminKeyOwner(context);
           return await decideTelegramReview({
             input,
             context,
@@ -690,21 +692,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       createTelegramLink: builder.createTelegramLink
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          return await createTelegramLinkCode(services.plugins, context, {
+            botUsername: services.chiefBotUsername,
+          });
+        }),
+
+      claimTelegramLink: builder.claimTelegramLink
         .use(requireApiKey({ reviews: ["write"] }))
-        .handler(async ({ input }) => {
-          return await createTelegramLink(services.plugins, input);
-        }),
-
-      getTelegramLink: builder.getTelegramLink
-        .use(requireAdmin)
         .handler(async ({ input, context }) => {
-          return await previewTelegramLink(services.plugins, input.code, context);
-        }),
-
-      confirmTelegramLink: builder.confirmTelegramLink
-        .use(requireAdmin)
-        .handler(async ({ input, context }) => {
-          return await confirmTelegramLink(services.plugins, input.code, context);
+          requireAdminKeyOwner(context);
+          return await claimTelegramLink(services.plugins, input);
         }),
 
       listTelegramReviewers: builder.listTelegramReviewers.use(requireAdmin).handler(async () => {

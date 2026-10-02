@@ -68,7 +68,7 @@ function check(
   status: CheckStatus,
   detail: string | null = null,
 ): EvaluationCheck {
-  return { id, label, status, detail };
+  return { id, label: label.slice(0, 200), status, detail: detail?.slice(0, 500) ?? null };
 }
 
 function textLengthCheck(id: string, label: string, value: string | undefined): EvaluationCheck {

@@ -330,7 +330,7 @@ export const contract = oc.router({
         flags: z.array(z.string().min(1).max(80)).max(10),
         checks: z.array(EvaluationCheckSchema).max(30),
         model: z.string().max(100).nullable(),
-        source: z.string().max(40).nullable().optional(),
+        source: z.string().max(100).nullable().optional(),
         promptVersion: z.string().min(1).max(40),
       }),
     )
@@ -366,30 +366,12 @@ export const contract = oc.router({
     .input(
       z.object({
         codeHash: z.string().min(16).max(128),
-        telegramId: z.number().int().positive(),
-        telegramUsername: z.string().max(64).nullable(),
-        telegramName: z.string().max(200).nullable(),
+        userId: z.string().min(1),
+        userLabel: z.string().min(1).max(200),
         ttlMs: z.number().int().min(60_000).max(3_600_000),
       }),
     )
     .output(z.object({ expiresAt: z.iso.datetime() }))
-    .errors({ FORBIDDEN }),
-
-  getTelegramLinkCode: oc
-    .route({ method: "GET", path: "/v1/proposals/telegram-link-codes/{codeHash}" })
-    .input(z.object({ codeHash: z.string().min(16).max(128) }))
-    .output(
-      z.object({
-        data: z
-          .object({
-            telegramId: z.number().int().positive(),
-            telegramUsername: z.string().nullable(),
-            telegramName: z.string().nullable(),
-            expiresAt: z.iso.datetime(),
-          })
-          .nullable(),
-      }),
-    )
     .errors({ FORBIDDEN }),
 
   linkTelegramReviewer: oc
@@ -397,8 +379,9 @@ export const contract = oc.router({
     .input(
       z.object({
         codeHash: z.string().min(16).max(128),
-        userId: z.string().min(1),
-        userLabel: z.string().min(1).max(200),
+        telegramId: z.number().int().positive(),
+        telegramUsername: z.string().max(64).nullable(),
+        telegramName: z.string().max(200).nullable(),
       }),
     )
     .output(z.object({ data: TelegramReviewerSchema }))
@@ -407,12 +390,6 @@ export const contract = oc.router({
   getTelegramReviewer: oc
     .route({ method: "GET", path: "/v1/proposals/telegram-reviewers/{telegramId}" })
     .input(z.object({ telegramId: z.coerce.number().int().positive() }))
-    .output(z.object({ data: TelegramReviewerSchema.nullable() }))
-    .errors({ FORBIDDEN }),
-
-  getTelegramReviewerByUser: oc
-    .route({ method: "GET", path: "/v1/proposals/telegram-reviewers/by-user/{userId}" })
-    .input(z.object({ userId: z.string().min(1) }))
     .output(z.object({ data: TelegramReviewerSchema.nullable() }))
     .errors({ FORBIDDEN }),
 

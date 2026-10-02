@@ -16,6 +16,7 @@ import {
 } from "../../src/services/review-evaluation";
 import {
   createReviewEvaluationSweep,
+  MAX_EVALUATION_ATTEMPTS,
   needsEvaluation,
 } from "../../src/services/review-evaluation-sweep";
 
@@ -233,6 +234,21 @@ describe("runReviewChecks", () => {
       deps(),
     );
     expect(statuses(claim)).toEqual({ source: "skip", roles: "fail", claimant_builder: "pass" });
+  });
+
+  it("keeps check details within the stored length limit", async () => {
+    const claim = await runReviewChecks(
+      {
+        pluginId: "nearcatalog",
+        entityId: "claim:a.near:ref",
+        createdBy: "a.near",
+        payload: { roles: Array.from({ length: 80 }, (_, index) => `Role number ${index}`) },
+      },
+      deps(),
+    );
+    const roles = claim.find((entry) => entry.id === "roles");
+    expect(roles?.status).toBe("pass");
+    expect(roles?.detail?.length).toBe(500);
   });
 });
 
@@ -501,6 +517,51 @@ describe("createReviewEvaluationSweep", () => {
       model: null,
       score: null,
     });
+  });
+
+  it("backs off after failed saves and gives up after five attempts", async () => {
+    const { plugins: sweepPlugins, recordEvaluation } = plugins([proposal("stuck", 3)], []);
+    recordEvaluation.mockRejectedValue(new Error("db down"));
+    let now = NOW;
+    const log = vi.fn();
+    const sweep = makeSweep(sweepPlugins, { now: () => now, log });
+
+    await expect(sweep.runOnce()).resolves.toMatchObject({ failed: 1 });
+    await expect(sweep.runOnce()).resolves.toMatchObject({ evaluated: 0, failed: 0 });
+    expect(recordEvaluation).toHaveBeenCalledTimes(1);
+
+    for (const waitMinutes of [10, 20, 40, 80]) {
+      now += waitMinutes * 60 * 1000;
+      await sweep.runOnce();
+    }
+    expect(recordEvaluation).toHaveBeenCalledTimes(MAX_EVALUATION_ATTEMPTS);
+
+    now += 7 * DAY;
+    await sweep.runOnce();
+    expect(recordEvaluation).toHaveBeenCalledTimes(MAX_EVALUATION_ATTEMPTS);
+    expect(log).toHaveBeenCalledWith("[ReviewEvaluation] Giving up after repeated failures", {
+      proposalId: "stuck",
+      attempts: MAX_EVALUATION_ATTEMPTS,
+    });
+  });
+
+  it("stops asking Claude about an item it keeps refusing", async () => {
+    const { plugins: sweepPlugins, recordEvaluation } = plugins([proposal("refused", 3)], []);
+    recordEvaluation.mockImplementation(async (input: Record<string, unknown>) => ({
+      data: { model: input.model },
+    }));
+    const assess = vi.fn(async () => null);
+    let now = NOW;
+    const sweep = makeSweep(sweepPlugins, {
+      assessor: { model: "claude-opus-5", assess },
+      now: () => now,
+    });
+
+    for (let run = 0; run < 10; run += 1) {
+      await sweep.runOnce();
+      now += DAY;
+    }
+    expect(assess).toHaveBeenCalledTimes(MAX_EVALUATION_ATTEMPTS);
   });
 
   it("does not start without the proposals plugin", () => {

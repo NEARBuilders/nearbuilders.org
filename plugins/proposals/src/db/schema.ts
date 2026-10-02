@@ -116,9 +116,8 @@ export const reviewLeases = pgTable("review_leases", {
 
 export const telegramLinkCodes = pgTable("telegram_link_codes", {
   codeHash: text("code_hash").primaryKey(),
-  telegramId: bigint("telegram_id", { mode: "number" }).notNull(),
-  telegramUsername: text("telegram_username"),
-  telegramName: text("telegram_name"),
+  userId: text("user_id").notNull(),
+  userLabel: text("user_label").notNull(),
   expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });

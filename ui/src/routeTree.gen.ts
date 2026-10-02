@@ -48,7 +48,6 @@ import { Route as LayoutAuthenticatedDashboardSettingsRouteImport } from './rout
 import { Route as LayoutAuthenticatedDashboardProfileRouteImport } from './routes/_layout/_authenticated/_dashboard/profile'
 import { Route as LayoutAuthenticatedDashboardNotificationsRouteImport } from './routes/_layout/_authenticated/_dashboard/notifications'
 import { Route as LayoutAuthenticatedDashboardDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard/dashboard'
-import { Route as LayoutAdminAdminTelegramLinkRouteImport } from './routes/_layout/_admin/admin/telegram-link'
 import { Route as LayoutAdminAdminDashboardRouteImport } from './routes/_layout/_admin/admin/dashboard'
 import { Route as LayoutAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/settings/index'
 import { Route as LayoutAuthenticatedDashboardScopesIndexRouteImport } from './routes/_layout/_authenticated/_dashboard/scopes.index'
@@ -273,12 +272,6 @@ const LayoutAuthenticatedDashboardDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => LayoutAuthenticatedDashboardRoute,
   } as any)
-const LayoutAdminAdminTelegramLinkRoute =
-  LayoutAdminAdminTelegramLinkRouteImport.update({
-    id: '/admin/telegram-link',
-    path: '/admin/telegram-link',
-    getParentRoute: () => LayoutAdminRoute,
-  } as any)
 const LayoutAdminAdminDashboardRoute =
   LayoutAdminAdminDashboardRouteImport.update({
     id: '/admin/dashboard',
@@ -428,7 +421,6 @@ export interface FileRoutesByFullPath {
   '/events/': typeof LayoutEventsIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
   '/admin/dashboard': typeof LayoutAdminAdminDashboardRouteWithChildren
-  '/admin/telegram-link': typeof LayoutAdminAdminTelegramLinkRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -483,7 +475,6 @@ export interface FileRoutesByTo {
   '/builders': typeof LayoutBuildersIndexRoute
   '/events': typeof LayoutEventsIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
-  '/admin/telegram-link': typeof LayoutAdminAdminTelegramLinkRoute
   '/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -546,7 +537,6 @@ export interface FileRoutesById {
   '/_layout/events/': typeof LayoutEventsIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
   '/_layout/_admin/admin/dashboard': typeof LayoutAdminAdminDashboardRouteWithChildren
-  '/_layout/_admin/admin/telegram-link': typeof LayoutAdminAdminTelegramLinkRoute
   '/_layout/_authenticated/_dashboard/dashboard': typeof LayoutAuthenticatedDashboardDashboardRoute
   '/_layout/_authenticated/_dashboard/notifications': typeof LayoutAuthenticatedDashboardNotificationsRoute
   '/_layout/_authenticated/_dashboard/profile': typeof LayoutAuthenticatedDashboardProfileRoute
@@ -607,7 +597,6 @@ export interface FileRouteTypes {
     | '/events/'
     | '/projects/'
     | '/admin/dashboard'
-    | '/admin/telegram-link'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -662,7 +651,6 @@ export interface FileRouteTypes {
     | '/builders'
     | '/events'
     | '/projects'
-    | '/admin/telegram-link'
     | '/dashboard'
     | '/notifications'
     | '/profile'
@@ -724,7 +712,6 @@ export interface FileRouteTypes {
     | '/_layout/events/'
     | '/_layout/projects/'
     | '/_layout/_admin/admin/dashboard'
-    | '/_layout/_admin/admin/telegram-link'
     | '/_layout/_authenticated/_dashboard/dashboard'
     | '/_layout/_authenticated/_dashboard/notifications'
     | '/_layout/_authenticated/_dashboard/profile'
@@ -1041,13 +1028,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAuthenticatedDashboardDashboardRouteImport
       parentRoute: typeof LayoutAuthenticatedDashboardRoute
     }
-    '/_layout/_admin/admin/telegram-link': {
-      id: '/_layout/_admin/admin/telegram-link'
-      path: '/admin/telegram-link'
-      fullPath: '/admin/telegram-link'
-      preLoaderRoute: typeof LayoutAdminAdminTelegramLinkRouteImport
-      parentRoute: typeof LayoutAdminRoute
-    }
     '/_layout/_admin/admin/dashboard': {
       id: '/_layout/_admin/admin/dashboard'
       path: '/admin/dashboard'
@@ -1231,13 +1211,11 @@ const LayoutAdminAdminDashboardRouteWithChildren =
 
 interface LayoutAdminRouteChildren {
   LayoutAdminAdminDashboardRoute: typeof LayoutAdminAdminDashboardRouteWithChildren
-  LayoutAdminAdminTelegramLinkRoute: typeof LayoutAdminAdminTelegramLinkRoute
   LayoutAdminAdminIndexRoute: typeof LayoutAdminAdminIndexRoute
 }
 
 const LayoutAdminRouteChildren: LayoutAdminRouteChildren = {
   LayoutAdminAdminDashboardRoute: LayoutAdminAdminDashboardRouteWithChildren,
-  LayoutAdminAdminTelegramLinkRoute: LayoutAdminAdminTelegramLinkRoute,
   LayoutAdminAdminIndexRoute: LayoutAdminAdminIndexRoute,
 }
 

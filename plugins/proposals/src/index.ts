@@ -365,12 +365,6 @@ export default createPlugin({
           return await runEffect(services.proposal.createTelegramLinkCode(input));
         }),
 
-      getTelegramLinkCode: builder.getTelegramLinkCode
-        .use(requireReviewEvaluator)
-        .handler(async ({ input }) => {
-          return await runEffect(services.proposal.getTelegramLinkCode(input));
-        }),
-
       linkTelegramReviewer: builder.linkTelegramReviewer
         .use(requireReviewEvaluator)
         .handler(async ({ input }) => {
@@ -381,12 +375,6 @@ export default createPlugin({
         .use(requireReviewEvaluator)
         .handler(async ({ input }) => {
           return await runEffect(services.proposal.getTelegramReviewer(input));
-        }),
-
-      getTelegramReviewerByUser: builder.getTelegramReviewerByUser
-        .use(requireReviewEvaluator)
-        .handler(async ({ input }) => {
-          return await runEffect(services.proposal.getTelegramReviewerByUser(input));
         }),
 
       listTelegramReviewers: builder.listTelegramReviewers

@@ -274,24 +274,18 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     getProposalById: (input: { id: string }) => Effect.Effect<any, ORPCError<string, unknown>>;
     createTelegramLinkCode: (input: {
       codeHash: string;
+      userId: string;
+      userLabel: string;
+      ttlMs: number;
+    }) => Effect.Effect<{ expiresAt: string }, ORPCError<string, unknown>>;
+    linkTelegramReviewer: (input: {
+      codeHash: string;
       telegramId: number;
       telegramUsername: string | null;
       telegramName: string | null;
-      ttlMs: number;
-    }) => Effect.Effect<{ expiresAt: string }, ORPCError<string, unknown>>;
-    getTelegramLinkCode: (input: {
-      codeHash: string;
-    }) => Effect.Effect<any, ORPCError<string, unknown>>;
-    linkTelegramReviewer: (input: {
-      codeHash: string;
-      userId: string;
-      userLabel: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getTelegramReviewer: (input: {
       telegramId: number;
-    }) => Effect.Effect<any, ORPCError<string, unknown>>;
-    getTelegramReviewerByUser: (input: {
-      userId: string;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     listTelegramReviewers: () => Effect.Effect<any, ORPCError<string, unknown>>;
     removeTelegramReviewer: (input: {
@@ -299,6 +293,15 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     }) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
   }
 >() {}
+
+function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error;
+  while (current && typeof current === "object") {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
 
 function telegramReviewerRecord(row: any) {
   return {
@@ -1401,82 +1404,71 @@ export const ProposalServiceLive = Layer.effect(
           const now = new Date();
           const expiresAt = new Date(now.getTime() + input.ttlMs);
           yield* Effect.promise(() =>
-            db
-              .delete(telegramLinkCodes)
-              .where(
-                or(
-                  lte(telegramLinkCodes.expiresAt, now),
-                  eq(telegramLinkCodes.telegramId, input.telegramId),
-                ),
-              ),
-          );
-          yield* Effect.promise(() =>
-            db.insert(telegramLinkCodes).values({
-              codeHash: input.codeHash,
-              telegramId: input.telegramId,
-              telegramUsername: input.telegramUsername,
-              telegramName: input.telegramName,
-              expiresAt,
+            db.transaction(async (tx) => {
+              await tx
+                .delete(telegramLinkCodes)
+                .where(
+                  or(
+                    lte(telegramLinkCodes.expiresAt, now),
+                    eq(telegramLinkCodes.userId, input.userId),
+                  ),
+                );
+              await tx.insert(telegramLinkCodes).values({
+                codeHash: input.codeHash,
+                userId: input.userId,
+                userLabel: input.userLabel,
+                expiresAt,
+              });
             }),
           );
           return { expiresAt: expiresAt.toISOString() };
         }),
 
-      getTelegramLinkCode: (input) =>
-        Effect.gen(function* () {
-          const [row] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(telegramLinkCodes)
-              .where(eq(telegramLinkCodes.codeHash, input.codeHash))
-              .limit(1),
-          );
-          if (!row || row.expiresAt.getTime() <= Date.now()) return { data: null };
-          return {
-            data: {
-              telegramId: Number(row.telegramId),
-              telegramUsername: row.telegramUsername ?? null,
-              telegramName: row.telegramName ?? null,
-              expiresAt: row.expiresAt.toISOString(),
-            },
-          };
-        }),
-
       linkTelegramReviewer: (input) =>
         Effect.gen(function* () {
           const row = yield* Effect.promise(() =>
-            db.transaction(async (tx) => {
-              const [code] = await tx
-                .delete(telegramLinkCodes)
-                .where(eq(telegramLinkCodes.codeHash, input.codeHash))
-                .returning();
-              if (!code || code.expiresAt.getTime() <= Date.now()) return null;
-              await tx
-                .delete(telegramReviewers)
-                .where(
-                  or(
-                    eq(telegramReviewers.userId, input.userId),
-                    eq(telegramReviewers.telegramId, code.telegramId),
-                  ),
-                );
-              const [linked] = await tx
-                .insert(telegramReviewers)
-                .values({
-                  telegramId: code.telegramId,
-                  telegramUsername: code.telegramUsername,
-                  telegramName: code.telegramName,
-                  userId: input.userId,
-                  userLabel: input.userLabel,
-                  linkedAt: new Date(),
-                })
-                .returning();
-              return linked;
-            }),
+            db
+              .transaction(async (tx) => {
+                const [code] = await tx
+                  .delete(telegramLinkCodes)
+                  .where(eq(telegramLinkCodes.codeHash, input.codeHash))
+                  .returning();
+                if (!code || code.expiresAt.getTime() <= Date.now()) return null;
+                await tx
+                  .delete(telegramReviewers)
+                  .where(
+                    or(
+                      eq(telegramReviewers.userId, code.userId),
+                      eq(telegramReviewers.telegramId, input.telegramId),
+                    ),
+                  );
+                const [linked] = await tx
+                  .insert(telegramReviewers)
+                  .values({
+                    telegramId: input.telegramId,
+                    telegramUsername: input.telegramUsername,
+                    telegramName: input.telegramName,
+                    userId: code.userId,
+                    userLabel: code.userLabel,
+                    linkedAt: new Date(),
+                  })
+                  .returning();
+                return linked;
+              })
+              .catch((error: unknown) => {
+                if (isUniqueViolation(error)) {
+                  throw new ORPCError("CONFLICT", {
+                    message: "This account is being linked right now. Try again in a moment.",
+                  });
+                }
+                throw error;
+              }),
           );
           if (!row) {
             return yield* Effect.fail(
               new ORPCError("NOT_FOUND", {
-                message: "This link has expired. Send /link to Chief again.",
+                message:
+                  "This code has expired or was already used. Create a new one in the admin dashboard.",
               }),
             );
           }
@@ -1490,18 +1482,6 @@ export const ProposalServiceLive = Layer.effect(
               .select()
               .from(telegramReviewers)
               .where(eq(telegramReviewers.telegramId, input.telegramId))
-              .limit(1),
-          );
-          return { data: row ? telegramReviewerRecord(row) : null };
-        }),
-
-      getTelegramReviewerByUser: (input) =>
-        Effect.gen(function* () {
-          const [row] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(telegramReviewers)
-              .where(eq(telegramReviewers.userId, input.userId))
               .limit(1),
           );
           return { data: row ? telegramReviewerRecord(row) : null };

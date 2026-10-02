@@ -7,7 +7,7 @@ import { REVIEW_DIGEST_PLUGIN_IDS } from "../contract";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { type CheckDependencies, runReviewChecks } from "./review-checks";
 import { evaluatorContext } from "./review-context";
-import { collectPages } from "./review-digest";
+import { collectPages, loadEvaluations } from "./review-digest";
 import { type Assessor, combineEvaluation, EVALUATION_PROMPT_VERSION } from "./review-evaluation";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
@@ -35,6 +35,10 @@ export type ReviewEvaluationSweep = {
 
 const EVALUATED_PLUGIN_IDS = new Set<string>(REVIEW_DIGEST_PLUGIN_IDS);
 const DEFAULT_ASSESSMENT_RETRY_MS = 30 * 60 * 1000;
+export const MAX_EVALUATION_ATTEMPTS = 5;
+const ATTEMPT_BACKOFF_MS = 10 * 60 * 1000;
+
+type FailedAttempts = { count: number; retryAt: number };
 
 type ExistingEvaluation = {
   proposalId: string;
@@ -172,6 +176,27 @@ export function createReviewEvaluationSweep(options: {
   const leaseTtlMs = Math.max(options.intervalMs * 2, 60_000);
   let firstRun: ReturnType<typeof setTimeout> | undefined;
   let interval: ReturnType<typeof setInterval> | undefined;
+  const failures = new Map<string, FailedAttempts>();
+  const attemptKey = (proposal: ProposalRecord) => `${proposal.id}:${proposal.submissionCount}`;
+  const canAttempt = (proposal: ProposalRecord, now: number) => {
+    const failed = failures.get(attemptKey(proposal));
+    return !failed || (failed.count < MAX_EVALUATION_ATTEMPTS && now >= failed.retryAt);
+  };
+  const recordAttempt = (proposal: ProposalRecord, now: number, succeeded: boolean) => {
+    const key = attemptKey(proposal);
+    if (succeeded) {
+      failures.delete(key);
+      return;
+    }
+    const count = (failures.get(key)?.count ?? 0) + 1;
+    failures.set(key, { count, retryAt: now + ATTEMPT_BACKOFF_MS * 2 ** (count - 1) });
+    if (count >= MAX_EVALUATION_ATTEMPTS) {
+      log("[ReviewEvaluation] Giving up after repeated failures", {
+        proposalId: proposal.id,
+        attempts: count,
+      });
+    }
+  };
 
   const evaluateProposal = async (proposal: ProposalRecord) => {
     const deps =
@@ -230,20 +255,23 @@ export function createReviewEvaluationSweep(options: {
         .acquireReviewLease({ name: LEASE_NAME, holder, ttlMs: leaseTtlMs });
       if (!lease.acquired) return { evaluated: 0, failed: 0, pending: 0, skipped: "lease_held" };
       const proposals = await loadPendingProposals(options.plugins);
-      const existing = await options.plugins
-        .proposals(evaluatorContext)
-        .getEvaluations({ proposalIds: proposals.map((proposal) => proposal.id) });
+      const existing = await loadEvaluations(
+        options.plugins,
+        proposals.map((proposal) => proposal.id),
+      );
       const evaluations = new Map(
-        existing.data.map((evaluation) => [evaluation.proposalId, evaluation]),
+        existing.map((evaluation) => [evaluation.proposalId, evaluation]),
       );
       const now = options.now?.() ?? Date.now();
       const due = proposals
-        .filter((proposal) =>
-          needsEvaluation(proposal, evaluations.get(proposal.id), {
-            canAssess: options.assessor !== null,
-            now,
-            retryAfterMs: options.assessmentRetryMs ?? DEFAULT_ASSESSMENT_RETRY_MS,
-          }),
+        .filter(
+          (proposal) =>
+            canAttempt(proposal, now) &&
+            needsEvaluation(proposal, evaluations.get(proposal.id), {
+              canAssess: options.assessor !== null,
+              now,
+              retryAfterMs: options.assessmentRetryMs ?? DEFAULT_ASSESSMENT_RETRY_MS,
+            }),
         )
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
@@ -251,10 +279,12 @@ export function createReviewEvaluationSweep(options: {
       let failed = 0;
       for (const proposal of due.slice(0, options.batchSize)) {
         try {
-          await evaluateProposal(proposal);
+          const recorded = await evaluateProposal(proposal);
           evaluated += 1;
+          recordAttempt(proposal, now, !options.assessor || recorded.data.model !== null);
         } catch (error) {
           failed += 1;
+          recordAttempt(proposal, now, false);
           log("[ReviewEvaluation] Evaluation failed", {
             proposalId: proposal.id,
             error: error instanceof Error ? error.message : String(error),

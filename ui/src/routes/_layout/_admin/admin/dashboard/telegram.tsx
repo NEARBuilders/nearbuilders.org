@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { useConfirmDialog } from "@/components";
 import { Button } from "@/components/ui/button";
+import { CommandCopy } from "@/components/ui/command-copy";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RecordsState } from "../-records-state";
 
@@ -33,6 +34,11 @@ function TelegramTab() {
     onError: (error) => toast.error(error.message),
   });
 
+  const link = useMutation({
+    mutationFn: () => apiClient.createTelegramLink({}),
+    onError: (error) => toast.error(error.message),
+  });
+
   const rows = reviewers.data?.data ?? [];
 
   return (
@@ -40,10 +46,44 @@ function TelegramTab() {
       <div>
         <h2 className="text-lg font-semibold text-foreground">Telegram reviewers</h2>
         <p className="text-sm text-muted-foreground">
-          These Telegram accounts can approve and reject submissions from the admin group. An admin
-          links their own account by sending /link to Chief in a private chat. Remove access here
-          when someone stops being an admin.
+          These Telegram accounts can approve and reject submissions from the admin group, each as
+          the admin who linked it. Remove access here when someone stops being an admin.
         </p>
+      </div>
+      <div className="space-y-3 rounded-xl border border-border bg-card px-4 py-4">
+        <div>
+          <h3 className="font-semibold text-foreground">Link your Telegram</h3>
+          <p className="text-sm text-muted-foreground">
+            Create a one-time code, then send it to Chief in a private chat from your own Telegram
+            account. The code works once and expires in 10 minutes. Never share it.
+          </p>
+        </div>
+        {link.data ? (
+          <div className="space-y-2">
+            <CommandCopy command={link.data.command} />
+            <div className="flex flex-wrap gap-2">
+              {link.data.openUrl ? (
+                <Button asChild size="sm">
+                  <a href={link.data.openUrl} target="_blank" rel="noreferrer">
+                    Open Chief in Telegram
+                  </a>
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={link.isPending}
+                onClick={() => link.mutate()}
+              >
+                New code
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button size="sm" disabled={link.isPending} onClick={() => link.mutate()}>
+            {link.isPending ? "Creating..." : "Link my Telegram"}
+          </Button>
+        )}
       </div>
       <RecordsState
         isLoading={reviewers.isLoading}
@@ -53,7 +93,7 @@ function TelegramTab() {
         loadingFallback={<Skeleton className="h-24 w-full" />}
         errorTitle="Telegram reviewers could not be loaded"
         emptyTitle="No linked Telegram accounts"
-        emptyBody="Send /link to Chief in a private chat to link yours."
+        emptyBody="Use Link your Telegram above to link yours."
       >
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
           {rows.map((reviewer) => (
@@ -79,7 +119,7 @@ function TelegramTab() {
                 onClick={() =>
                   confirm({
                     title: "Remove Telegram access?",
-                    description: `${reviewer.telegramUsername ? `@${reviewer.telegramUsername}` : "This account"} will no longer be able to approve or reject from Telegram. They can link again with /link while they are an admin.`,
+                    description: `${reviewer.telegramUsername ? `@${reviewer.telegramUsername}` : "This account"} will no longer be able to approve or reject from Telegram. They can link again from this tab while they are an admin.`,
                     confirmLabel: "Remove",
                     variant: "destructive",
                     onConfirm: () => remove.mutate(reviewer.telegramId),

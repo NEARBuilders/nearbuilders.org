@@ -85,7 +85,8 @@ export async function decideTelegramReview(options: {
     .getTelegramReviewer({ telegramId: input.actor.telegramId });
   if (!reviewer) {
     throw new ORPCError("FORBIDDEN", {
-      message: "Link your Telegram account first: send /link to Chief in a private chat",
+      message:
+        "Link your Telegram account first: create a code in the admin dashboard's Telegram tab and send it to Chief",
     });
   }
   const customReason = input.customReason?.trim();
@@ -121,6 +122,13 @@ export async function decideTelegramReview(options: {
   };
   if (input.dryRun) return { decision: "allowed", ...details };
 
+  console.log("[TelegramReview] Decision", {
+    decision: input.decision,
+    proposalId: proposal.id,
+    telegramId: input.actor.telegramId,
+    reviewerUserId: reviewer.userId,
+    apiKeyId: options.context.apiKey?.id ?? null,
+  });
   const context = telegramReviewerContext(options.context, reviewer);
   const target = {
     pluginId: proposal.pluginId,

@@ -23,9 +23,8 @@ CREATE TABLE "review_leases" (
 --> statement-breakpoint
 CREATE TABLE "telegram_link_codes" (
 	"code_hash" text PRIMARY KEY NOT NULL,
-	"telegram_id" bigint NOT NULL,
-	"telegram_username" text,
-	"telegram_name" text,
+	"user_id" text NOT NULL,
+	"user_label" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
