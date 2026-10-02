@@ -1,8 +1,8 @@
 import { Download, Loader2, Search } from "lucide-react";
 import type { ReactNode } from "react";
+import { SegmentedFilter } from "@/components/common/segmented-filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SegmentedFilter } from "@/components/common/segmented-filter";
 
 type FilterOption<V extends string> = { value: V; label: string };
 

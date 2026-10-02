@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/common/command-copy";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_layout/ironclaw")({
   head: () => ({

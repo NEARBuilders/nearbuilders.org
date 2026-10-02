@@ -1,8 +1,8 @@
 import { CalendarDays, Check, Clock, MapPin, Share2, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/common/markdown";
 import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
+import { Button } from "@/components/ui/button";
 import { formatEventTimeRange } from "./-event-sources";
 
 export type EventDetailData = {

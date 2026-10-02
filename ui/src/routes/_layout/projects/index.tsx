@@ -27,6 +27,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
+import { Markdown } from "@/components/common/markdown";
+import { NewBadge } from "@/components/common/new-badge";
+import { VoteButton } from "@/components/common/vote-button";
 import {
   GithubIcon,
   isGithubUrl,
@@ -39,8 +42,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Markdown } from "@/components/common/markdown";
-import { NewBadge } from "@/components/common/new-badge";
 import {
   Select,
   SelectContent,
@@ -56,7 +57,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { VoteButton } from "@/components/common/vote-button";
 import {
   normalizeCatalogDirectoryProjectData,
   selectCatalogDirectoryProjects,

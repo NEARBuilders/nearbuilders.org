@@ -2,7 +2,7 @@
 // Generic primitives only. App-specific components (org switcher, catalog claim flow, api key
 // manager, vote button, member card, under construction, ...) live beside this file and are
 // imported directly by the routes that use them.
-export * from "./confirm-dialog";
+
 export * from "./common/back-button";
 export * from "./common/command-copy";
 export * from "./common/data-table";
@@ -13,6 +13,7 @@ export * from "./common/page-breadcrumb";
 export * from "./common/segmented-filter";
 export * from "./common/social-icons";
 export * from "./common/stepper";
+export * from "./confirm-dialog";
 export * from "./ui/accordion";
 export * from "./ui/alert";
 export * from "./ui/alert-dialog";

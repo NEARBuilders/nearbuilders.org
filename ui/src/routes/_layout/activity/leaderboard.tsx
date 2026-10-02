@@ -3,10 +3,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Activity, Award, ChevronLeft, ChevronRight, Trophy, Zap } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useApiClient } from "@/app";
+import { SegmentedFilter } from "@/components/common/segmented-filter";
 import { NearProfile } from "@/components/near-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SegmentedFilter } from "@/components/common/segmented-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   LEADERBOARD_PAGE_SIZE,

@@ -133,9 +133,7 @@ export function absoluteAssetUrl(path: string, locationHref?: string): string {
   for (const base of bases) {
     try {
       return new URL(path, base).href;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return path;

@@ -3,8 +3,8 @@ import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/reac
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
-import { Button } from "@/components/ui/button";
 import { NearkatPeek } from "@/components/common/nearkat-peek";
+import { Button } from "@/components/ui/button";
 import { nearAccountsQueryKey, nearAccountsQueryOptions } from "@/lib/queries/near-accounts";
 
 type SearchParams = {

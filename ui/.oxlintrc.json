@@ -1,8 +1,6 @@
 {
   "$schema": "../node_modules/oxlint/configuration_schema.json",
-  "jsPlugins": [
-    "@shadcn/lint"
-  ],
+  "jsPlugins": ["@shadcn/lint"],
   "categories": {
     "correctness": "off"
   },
@@ -10,18 +8,13 @@
     "shadcn/no-raw-colors": [
       "error",
       {
-        "allow": [
-          "fill-none",
-          "border-outset"
-        ]
+        "allow": ["fill-none", "border-outset"]
       }
     ],
     "shadcn/no-unknown-classes": [
       "error",
       {
-        "allow": [
-          "toaster"
-        ]
+        "allow": ["toaster"]
       }
     ],
     "shadcn/no-arbitrary-values": "error"
