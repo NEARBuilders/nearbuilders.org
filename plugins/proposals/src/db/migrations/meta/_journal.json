@@ -12,22 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1790406524101,
-      "tag": "0001_proposal_evaluations",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790428101562,
-      "tag": "0002_review_leases_and_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790724932317,
-      "tag": "0003_telegram_reviewers",
+      "when": 1790977401453,
+      "tag": "0001_review_evaluations_and_telegram",
       "breakpoints": true
     }
   ]

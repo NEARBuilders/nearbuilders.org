@@ -24,12 +24,7 @@ function testUser(id: string, role: string) {
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
-  const files = [
-    "0000_concerned_blade.sql",
-    "0001_proposal_evaluations.sql",
-    "0002_review_leases_and_source.sql",
-    "0003_telegram_reviewers.sql",
-  ];
+  const files = ["0000_concerned_blade.sql", "0001_review_evaluations_and_telegram.sql"];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
