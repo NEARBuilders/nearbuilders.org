@@ -6,7 +6,7 @@ import { ProjectApprovalActivity } from "@/components/project-approval-activity"
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VoteButton } from "@/components/ui/vote-button";
+import { VoteButton } from "@/components/common/vote-button";
 import { readCatalogClaimActivityPayload } from "@/lib/catalog-activity";
 import { readProjectApprovalActivityPayload } from "@/lib/project-activity";
 import { type ActivityEvent, readActivityPayload } from "@/lib/queries/activity";

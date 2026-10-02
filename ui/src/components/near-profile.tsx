@@ -3,9 +3,9 @@ import type { Profile } from "better-near-auth";
 import { useEffect, useState } from "react";
 import { type ApiClient, useAuthClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
-import { Markdown } from "@/components/ui/markdown";
+import { Markdown } from "@/components/common/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import { socialIcon } from "@/components/ui/social-icons";
+import { socialIcon } from "@/components/common/social-icons";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 

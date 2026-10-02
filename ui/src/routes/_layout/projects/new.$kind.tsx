@@ -12,7 +12,7 @@ import {
   useFieldErrorVisibility,
 } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
-import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import {
   clearDraft,
   getDraft,

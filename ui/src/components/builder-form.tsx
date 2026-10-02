@@ -12,7 +12,7 @@ import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { socialIcon } from "@/components/ui/social-icons";
+import { socialIcon } from "@/components/common/social-icons";
 import { Textarea } from "@/components/ui/textarea";
 import { SOCIAL_LINKS, validateHandle } from "@/lib/social-links";
 import { cn } from "@/lib/utils";

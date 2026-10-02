@@ -6,7 +6,7 @@ import { useApiClient } from "@/app";
 import { NearProfile } from "@/components/near-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SegmentedFilter } from "@/components/ui/segmented-filter";
+import { SegmentedFilter } from "@/components/common/segmented-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   LEADERBOARD_PAGE_SIZE,

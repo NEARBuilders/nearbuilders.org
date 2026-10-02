@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getAccount, getActiveRuntime, getAppName } from "@/app";
 import { Button } from "@/components/ui/button";
-import { Markdown } from "@/components/ui/markdown";
+import { Markdown } from "@/components/common/markdown";
 import { useClientValue } from "@/hooks/use-client";
 
 const INTENT_REGISTRY_URL = "https://tanstack.com/intent/registry/everything-dev";

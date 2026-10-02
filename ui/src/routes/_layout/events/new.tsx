@@ -8,7 +8,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import {
   Select,
   SelectContent,

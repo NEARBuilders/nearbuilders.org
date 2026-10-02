@@ -101,7 +101,7 @@ import {
   TooltipTrigger,
 } from "@/components";
 
-export const Route = createFileRoute("/_layout/design-system")({
+export const Route = createFileRoute("/_layout/brand/design-system")({
   head: () => ({
     meta: [
       { title: "Design system | NEAR Builders" },

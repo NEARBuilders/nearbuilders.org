@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import { ActivityFeed, type ActivitySort } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
-import { SegmentedFilter } from "@/components/ui/segmented-filter";
+import { SegmentedFilter } from "@/components/common/segmented-filter";
 import {
   Select,
   SelectContent,

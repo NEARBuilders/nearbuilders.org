@@ -27,7 +27,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
 import { Label } from "@/components/ui/label";
-import { Markdown } from "@/components/ui/markdown";
+import { Markdown } from "@/components/common/markdown";
 import {
   Select,
   SelectContent,

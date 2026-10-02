@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
-import { NearkatPeek } from "@/components/ui/nearkat-peek";
+import { NearkatPeek } from "@/components/common/nearkat-peek";
 import { nearAccountsQueryKey, nearAccountsQueryOptions } from "@/lib/queries/near-accounts";
 
 type SearchParams = {

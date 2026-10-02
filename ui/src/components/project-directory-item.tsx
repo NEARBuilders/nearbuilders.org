@@ -12,9 +12,9 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { NewBadge } from "@/components/ui/new-badge";
+import { NewBadge } from "@/components/common/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VoteButton } from "@/components/ui/vote-button";
+import { VoteButton } from "@/components/common/vote-button";
 import { useBookmark } from "@/lib/bookmarks";
 import { cn } from "@/lib/utils";
 

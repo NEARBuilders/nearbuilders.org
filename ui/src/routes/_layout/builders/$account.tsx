@@ -24,7 +24,7 @@ import { ContributedProjects } from "@/components/contributed-projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { socialIcon } from "@/components/ui/social-icons";
+import { socialIcon } from "@/components/common/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
