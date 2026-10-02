@@ -294,12 +294,11 @@ describe("assessment", () => {
         },
       ],
     }));
-    const onUsage = vi.fn();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const assessor = createClaudeAssessor({
       apiKey: "test",
       model: "claude-opus-5",
       client: { beta: { messages: { create } } } as never,
-      onUsage,
     });
 
     await expect(assessor.assess({ subject, checks: [] })).resolves.toEqual({
@@ -319,11 +318,12 @@ describe("assessment", () => {
         }),
       }),
     );
-    expect(onUsage).toHaveBeenCalledWith({
+    expect(log).toHaveBeenCalledWith("[ReviewEvaluation] Claude usage", {
       model: "claude-opus-5",
       inputTokens: 812,
       outputTokens: 64,
     });
+    log.mockRestore();
   });
 
   it("returns no assessment when Claude refuses", async () => {
@@ -426,6 +426,21 @@ describe("createReviewEvaluationSweep", () => {
     };
   }
 
+  function makeSweep(
+    sweepPlugins: never,
+    overrides: Partial<Parameters<typeof createReviewEvaluationSweep>[0]> = {},
+  ) {
+    return createReviewEvaluationSweep({
+      plugins: sweepPlugins,
+      assessor: null,
+      intervalMs: 60_000,
+      batchSize: 5,
+      checkDependencies: () => deps(),
+      log: () => {},
+      ...overrides,
+    });
+  }
+
   it("evaluates only unevaluated or resubmitted proposals, oldest first, within the batch", async () => {
     const { plugins: sweepPlugins, recordEvaluation } = plugins(
       [
@@ -446,13 +461,9 @@ describe("createReviewEvaluationSweep", () => {
       summary: "Solid.",
       flags: [],
     }));
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
+    const sweep = makeSweep(sweepPlugins, {
       assessor: { model: "claude-opus-5", assess },
-      intervalMs: 60_000,
       batchSize: 2,
-      checkDependencies: () => deps(),
-      log: () => {},
     });
 
     await expect(sweep.runOnce()).resolves.toEqual({ evaluated: 2, failed: 0, pending: 1 });
@@ -474,18 +485,13 @@ describe("createReviewEvaluationSweep", () => {
       [],
     );
     recordEvaluation.mockRejectedValueOnce(new Error("db down"));
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
+    const sweep = makeSweep(sweepPlugins, {
       assessor: {
         model: "claude-opus-5",
         assess: vi.fn(async () => {
           throw new Error("overloaded");
         }),
       },
-      intervalMs: 60_000,
-      batchSize: 5,
-      checkDependencies: () => deps(),
-      log: () => {},
     });
 
     await expect(sweep.runOnce()).resolves.toEqual({ evaluated: 1, failed: 1, pending: 0 });
@@ -524,8 +530,7 @@ describe("createReviewEvaluationSweep", () => {
         { proposalId: "assessed", submissionCount: 1, model: "claude-opus-5", evaluatedAt: old },
       ] as never,
     );
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
+    const sweep = makeSweep(sweepPlugins, {
       assessor: {
         model: "claude-opus-5",
         assess: vi.fn(async () => ({
@@ -535,11 +540,7 @@ describe("createReviewEvaluationSweep", () => {
           flags: [],
         })),
       },
-      intervalMs: 60_000,
-      batchSize: 5,
       now: () => NOW,
-      checkDependencies: () => deps(),
-      log: () => {},
     });
 
     await expect(sweep.runOnce()).resolves.toEqual({ evaluated: 1, failed: 0, pending: 0 });
@@ -551,14 +552,7 @@ describe("createReviewEvaluationSweep", () => {
   });
   it("skips the sweep while another instance holds the lease", async () => {
     const { plugins: sweepPlugins, recordEvaluation } = plugins([proposal("a", 1)], [], false);
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
-      assessor: null,
-      intervalMs: 60_000,
-      batchSize: 5,
-      checkDependencies: () => deps(),
-      log: () => {},
-    });
+    const sweep = makeSweep(sweepPlugins);
     await expect(sweep.runOnce()).resolves.toEqual({
       evaluated: 0,
       failed: 0,
@@ -570,14 +564,7 @@ describe("createReviewEvaluationSweep", () => {
 
   it("records where each submission came from", async () => {
     const { plugins: sweepPlugins, recordEvaluation } = plugins([proposal("a", 1)], []);
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
-      assessor: null,
-      intervalMs: 60_000,
-      batchSize: 5,
-      checkDependencies: () => deps(),
-      log: () => {},
-    });
+    const sweep = makeSweep(sweepPlugins);
     await sweep.runOnce();
     const recorded = recordEvaluation.mock.calls[0]![0] as {
       source: string;
@@ -592,28 +579,14 @@ describe("createReviewEvaluationSweep", () => {
       [proposal("one", 2)],
       [{ proposalId: "one", submissionCount: 1 }],
     );
-    const sweep = createReviewEvaluationSweep({
-      plugins: sweepPlugins,
-      assessor: null,
-      intervalMs: 60_000,
-      batchSize: 5,
-      checkDependencies: () => deps(),
-      log: () => {},
-    });
+    const sweep = makeSweep(sweepPlugins);
     await sweep.evaluateOne({ pluginId: "builders", entityId: "one.near" });
     expect(recordEvaluation).toHaveBeenCalledWith(
       expect.objectContaining({ entityId: "one.near", verdict: "review" }),
     );
 
     const { plugins: emptyPlugins } = plugins([], []);
-    const empty = createReviewEvaluationSweep({
-      plugins: emptyPlugins,
-      assessor: null,
-      intervalMs: 60_000,
-      batchSize: 5,
-      checkDependencies: () => deps(),
-      log: () => {},
-    });
+    const empty = makeSweep(emptyPlugins);
     await expect(empty.evaluateOne({ pluginId: "builders", entityId: "x.near" })).rejects.toThrow(
       "Proposal not found",
     );

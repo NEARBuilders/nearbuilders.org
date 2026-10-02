@@ -131,17 +131,10 @@ export function parseAssessment(text: string): Assessment | null {
   };
 }
 
-export type AssessmentUsage = {
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-};
-
 export function createClaudeAssessor(options: {
   apiKey: string;
   model: string;
   client?: Pick<Anthropic, "beta">;
-  onUsage?: (usage: AssessmentUsage) => void;
 }): Assessor {
   const client = options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 2 });
   return {
@@ -159,13 +152,11 @@ export function createClaudeAssessor(options: {
         },
         messages: [{ role: "user", content: buildAssessmentPrompt(subject, checks) }],
       });
-      if (response.usage) {
-        options.onUsage?.({
-          model: response.model ?? options.model,
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens,
-        });
-      }
+      console.log("[ReviewEvaluation] Claude usage", {
+        model: response.model ?? options.model,
+        inputTokens: response.usage?.input_tokens,
+        outputTokens: response.usage?.output_tokens,
+      });
       if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
         return null;
       }

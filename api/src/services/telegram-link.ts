@@ -80,16 +80,3 @@ export async function confirmTelegramLink(plugins: Plugins, code: string, contex
     userLabel: reviewerLabel(context),
   });
 }
-
-export async function findTelegramReviewer(plugins: Plugins, telegramId: number) {
-  const result = await reviewers(plugins).getTelegramReviewer({ telegramId });
-  return result.data;
-}
-
-export async function listTelegramReviewers(plugins: Plugins) {
-  return await reviewers(plugins).listTelegramReviewers({});
-}
-
-export async function removeTelegramReviewer(plugins: Plugins, telegramId: number) {
-  return await reviewers(plugins).removeTelegramReviewer({ telegramId });
-}

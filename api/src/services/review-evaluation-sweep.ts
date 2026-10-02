@@ -3,10 +3,11 @@ import { lookup } from "node:dns/promises";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
-import type { Context } from "../lib/context";
+import { REVIEW_DIGEST_PLUGIN_IDS } from "../contract";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { type CheckDependencies, runReviewChecks } from "./review-checks";
 import { evaluatorContext } from "./review-context";
+import { collectPages } from "./review-digest";
 import { type Assessor, combineEvaluation, EVALUATION_PROMPT_VERSION } from "./review-evaluation";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
@@ -32,7 +33,7 @@ export type ReviewEvaluationSweep = {
   stop: () => void;
 };
 
-const EVALUATED_PLUGIN_IDS = new Set(["builders", "projects", "events", "nearcatalog"]);
+const EVALUATED_PLUGIN_IDS = new Set<string>(REVIEW_DIGEST_PLUGIN_IDS);
 const DEFAULT_ASSESSMENT_RETRY_MS = 30 * 60 * 1000;
 
 type ExistingEvaluation = {
@@ -66,7 +67,7 @@ function sameText(a: string | null | undefined, b: string | null | undefined): b
   return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
 }
 
-export function createCheckDependencies(
+function createCheckDependencies(
   plugins: SweepPlugins,
   options: { githubToken?: string; now?: () => number },
 ): CheckDependencies {
@@ -147,14 +148,10 @@ async function loadSubmissionSource(
 
 async function loadPendingProposals(plugins: SweepPlugins): Promise<ProposalRecord[]> {
   const client = plugins.proposals(evaluatorContext);
-  const proposals: ProposalRecord[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await client.getProposals({ reviewStatus: "pending", limit: 100, cursor });
-    proposals.push(...result.data);
-    if (!result.meta.hasMore || !result.meta.nextCursor) break;
-    cursor = result.meta.nextCursor;
-  }
+  const proposals = await collectPages(
+    (cursor) => client.getProposals({ reviewStatus: "pending", limit: 100, cursor }),
+    MAX_PAGES,
+  );
   return proposals.filter((proposal) => EVALUATED_PLUGIN_IDS.has(proposal.pluginId));
 }
 

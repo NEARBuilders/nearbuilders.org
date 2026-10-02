@@ -211,7 +211,9 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
-const ReviewDigestPluginId = z.enum(["builders", "projects", "events", "nearcatalog"]);
+export const REVIEW_DIGEST_PLUGIN_IDS = ["builders", "projects", "events", "nearcatalog"] as const;
+const ReviewDigestPluginId = z.enum(REVIEW_DIGEST_PLUGIN_IDS);
+const ReviewVerdict = z.enum(["ready", "review", "spam"]);
 
 export const ReviewEvaluationSchema = z.object({
   id: z.string(),
@@ -219,7 +221,7 @@ export const ReviewEvaluationSchema = z.object({
   pluginId: z.string(),
   entityId: z.string(),
   submissionCount: z.number().int().nonnegative(),
-  verdict: z.enum(["ready", "review", "spam"]),
+  verdict: ReviewVerdict,
   score: z.number().int().min(0).max(100).nullable(),
   summary: z.string(),
   flags: z.array(z.string()),
@@ -279,15 +281,13 @@ export const ReviewDigestSchema = z.object({
       submittedBy: z.string(),
       detail: z.string().nullable(),
       submissionCount: z.number().int().nonnegative(),
-      evaluation: z
-        .object({
-          verdict: z.enum(["ready", "review", "spam"]),
-          score: z.number().int().min(0).max(100).nullable(),
-          summary: z.string(),
-          flags: z.array(z.string()),
-          source: z.string().nullable(),
-        })
-        .nullable(),
+      evaluation: ReviewEvaluationSchema.pick({
+        verdict: true,
+        score: true,
+        summary: true,
+        flags: true,
+        source: true,
+      }).nullable(),
       state: z.enum(["pending", "apply_failed", "remove_failed", "stalled"]),
       createdAt: z.iso.datetime(),
       ageDays: z.number().int().nonnegative(),
@@ -917,7 +917,7 @@ export const contract = oc.router({
       z.object({
         decision: z.enum(["approved", "rejected", "allowed"]),
         title: z.string(),
-        verdict: z.enum(["ready", "review", "spam"]).nullable(),
+        verdict: ReviewVerdict.nullable(),
         summary: z.string().nullable(),
       }),
     )

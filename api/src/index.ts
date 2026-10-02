@@ -20,16 +20,14 @@ import {
   assertValidBuilderProposalAccount,
   createProposalOrchestration,
 } from "./services/proposal-orchestration";
+import { evaluatorContext } from "./services/review-context";
 import { loadReviewDigest } from "./services/review-digest";
 import { createClaudeAssessor } from "./services/review-evaluation";
 import { createReviewEvaluationSweep } from "./services/review-evaluation-sweep";
 import {
   confirmTelegramLink,
   createTelegramLink,
-  findTelegramReviewer,
-  listTelegramReviewers,
   previewTelegramLink,
-  removeTelegramReviewer,
 } from "./services/telegram-link";
 import { decideTelegramReview } from "./services/telegram-review";
 
@@ -143,7 +141,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
           ? createClaudeAssessor({
               apiKey: config.secrets.ANTHROPIC_API_KEY,
               model: config.variables.reviewEvaluationModel,
-              onUsage: (usage) => console.log("[ReviewEvaluation] Claude usage", usage),
             })
           : null,
         githubToken: config.secrets.GITHUB_TOKEN,
@@ -686,7 +683,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await decideTelegramReview({
             input,
             context,
-            findReviewer: (telegramId) => findTelegramReviewer(services.plugins, telegramId),
             plugins: services.plugins,
             approve: approveProposal,
             reject: rejectProposal,
@@ -712,13 +708,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       listTelegramReviewers: builder.listTelegramReviewers.use(requireAdmin).handler(async () => {
-        return await listTelegramReviewers(services.plugins);
+        return await services.plugins.proposals(evaluatorContext).listTelegramReviewers({});
       }),
 
       removeTelegramReviewer: builder.removeTelegramReviewer
         .use(requireAdmin)
         .handler(async ({ input }) => {
-          return await removeTelegramReviewer(services.plugins, input.telegramId);
+          return await services.plugins
+            .proposals(evaluatorContext)
+            .removeTelegramReviewer({ telegramId: input.telegramId });
         }),
 
       getReviewDigest: builder.getReviewDigest

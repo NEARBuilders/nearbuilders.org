@@ -43,13 +43,6 @@ const CHECK_STATUS: Record<CheckStatus, { icon: LucideIcon; className: string; l
   skip: { icon: CircleMinus, className: "text-muted-foreground", label: "Skipped" },
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  web: "Website",
-  telegram: "Telegram nomination",
-  x: "X nomination",
-  "nearcatalog-claim": "NEAR Catalog claim",
-};
-
 export function currentEvaluation(
   evaluation: ProposalEvaluation | undefined,
   proposal: Pick<ProposalRecord, "submissionCount">,
@@ -197,8 +190,6 @@ export function EvaluationPanel({ proposal }: { proposal: ProposalRecord }) {
 
           <p className="text-xs text-muted-foreground">
             {evaluation.model ? `Assessed by ${evaluation.model}` : "Automatic checks only"}
-            {evaluation.source &&
-              ` · ${SOURCE_LABELS[evaluation.source] ?? `Source: ${evaluation.source}`}`}
             {` · ${formatDateTime(evaluation.evaluatedAt)}`}
           </p>
         </>

@@ -75,13 +75,14 @@ export type TelegramDecisionResult = {
 export async function decideTelegramReview(options: {
   input: TelegramDecisionInput;
   context: Context;
-  findReviewer: (telegramId: number) => Promise<LinkedReviewer | null>;
   plugins: Pick<PluginsClient, "proposals">;
   approve: DecisionAction;
   reject: DecisionAction;
 }): Promise<TelegramDecisionResult> {
   const { input } = options;
-  const reviewer = await options.findReviewer(input.actor.telegramId);
+  const { data: reviewer } = await options.plugins
+    .proposals(evaluatorContext)
+    .getTelegramReviewer({ telegramId: input.actor.telegramId });
   if (!reviewer) {
     throw new ORPCError("FORBIDDEN", {
       message: "Link your Telegram account first: send /link to Chief in a private chat",

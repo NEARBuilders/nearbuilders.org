@@ -1,53 +1,23 @@
 import type { z } from "every-plugin/zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
+import { REVIEW_DIGEST_PLUGIN_IDS, type ReviewDigestSchema } from "../contract";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { readString, readStringArray } from "../lib/utils";
 import { evaluatorContext } from "./review-context";
 
 type ProposalRecord = z.infer<typeof ProposalSchema>;
 
-export const REVIEW_DIGEST_PLUGIN_IDS = ["builders", "projects", "events", "nearcatalog"] as const;
-
-export type ReviewDigestPluginId = (typeof REVIEW_DIGEST_PLUGIN_IDS)[number];
-export type ReviewDigestItemState = "pending" | "apply_failed" | "remove_failed" | "stalled";
-
-export type ReviewDigestItem = {
-  id: string;
-  pluginId: ReviewDigestPluginId;
-  entityId: string;
-  title: string;
-  submittedBy: string;
-  detail: string | null;
-  submissionCount: number;
-  evaluation: ReviewDigestEvaluation | null;
-  state: ReviewDigestItemState;
-  createdAt: string;
-  ageDays: number;
-  isNew: boolean;
-  isStale: boolean;
-  dashboardPath: string;
-};
-
-export type ReviewDigestEvaluation = {
-  verdict: "ready" | "review" | "spam";
-  score: number | null;
-  summary: string;
-  flags: string[];
-  source: string | null;
-};
+export type ReviewDigest = z.infer<typeof ReviewDigestSchema>;
+export type ReviewDigestItem = ReviewDigest["items"][number];
+export type ReviewDigestPluginId = ReviewDigestItem["pluginId"];
+export type ReviewDigestItemState = ReviewDigestItem["state"];
+export type ReviewDigestEvaluation = NonNullable<ReviewDigestItem["evaluation"]>;
+export type ReviewDigestActivity = ReviewDigest["activity"];
 
 export type StoredEvaluation = Omit<ReviewDigestEvaluation, "source"> & {
   proposalId: string;
   submissionCount: number;
   source?: string | null;
-};
-
-export type ReviewWindow = { reviewed: number; medianWaitDays: number | null };
-
-export type ReviewDigestActivity = {
-  last24h: { approved: number; rejected: number };
-  last7d: ReviewWindow;
-  previous7d: ReviewWindow;
 };
 
 export type ReviewHistoryEntry = {
@@ -57,20 +27,23 @@ export type ReviewHistoryEntry = {
   proposal: { createdAt: string };
 };
 
-export type ReviewDigest = {
-  generatedAt: string;
-  staleAfterDays: number;
-  totals: {
-    pending: number;
-    newLast24h: number;
-    stale: number;
-    needsAttention: number;
-    oldestPendingDays: number | null;
-  };
-  byPlugin: Record<ReviewDigestPluginId, number>;
-  activity: ReviewDigestActivity;
-  items: ReviewDigestItem[];
-};
+type Page<T> = { data: T[]; meta: { hasMore: boolean; nextCursor?: string | null } };
+
+export async function collectPages<T>(
+  fetchPage: (cursor: string | undefined) => Promise<Page<T>>,
+  maxPages: number,
+  isDone: (data: T[]) => boolean = () => false,
+): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await fetchPage(cursor);
+    items.push(...result.data);
+    if (isDone(result.data) || !result.meta.hasMore || !result.meta.nextCursor) break;
+    cursor = result.meta.nextCursor;
+  }
+  return items;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LIFECYCLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -258,29 +231,19 @@ export async function loadReviewDigest(
   options: { now?: number; staleAfterDays: number },
 ): Promise<ReviewDigest> {
   const proposalsClient = plugins.proposals(evaluatorContext);
-  const proposals: ProposalRecord[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await proposalsClient.getProposals({
-      lifecycleStatus: "actionable",
-      limit: 100,
-      cursor,
-    });
-    proposals.push(...result.data);
-    if (!result.meta.hasMore || !result.meta.nextCursor) break;
-    cursor = result.meta.nextCursor;
-  }
   const now = options.now ?? Date.now();
-  const history: ReviewHistoryEntry[] = [];
-  cursor = undefined;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await proposalsClient.getReviewHistory({ limit: 100, cursor });
-    history.push(...result.data);
-    const oldest = result.data.at(-1);
-    if (oldest && now - new Date(oldest.createdAt).getTime() >= 14 * DAY_MS) break;
-    if (!result.meta.hasMore || !result.meta.nextCursor) break;
-    cursor = result.meta.nextCursor;
-  }
+  const proposals = await collectPages(
+    (cursor) => proposalsClient.getProposals({ lifecycleStatus: "actionable", limit: 100, cursor }),
+    MAX_PAGES,
+  );
+  const history: ReviewHistoryEntry[] = await collectPages(
+    (cursor) => proposalsClient.getReviewHistory({ limit: 100, cursor }),
+    MAX_PAGES,
+    (data) => {
+      const oldest = data.at(-1);
+      return Boolean(oldest && now - new Date(oldest.createdAt).getTime() >= 14 * DAY_MS);
+    },
+  );
   const evaluations = await proposalsClient
     .getEvaluations({ proposalIds: proposals.map((proposal) => proposal.id) })
     .then((result) => result.data as StoredEvaluation[])
