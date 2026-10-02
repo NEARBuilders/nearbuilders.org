@@ -20,6 +20,16 @@ import {
   assertValidBuilderProposalAccount,
   createProposalOrchestration,
 } from "./services/proposal-orchestration";
+import { evaluatorContext } from "./services/review-context";
+import { loadReviewDigest } from "./services/review-digest";
+import { createClaudeAssessor } from "./services/review-evaluation";
+import { createReviewEvaluationSweep } from "./services/review-evaluation-sweep";
+import {
+  claimTelegramLink,
+  createTelegramLinkCode,
+  requireAdminKeyOwner,
+} from "./services/telegram-link";
+import { decideTelegramReview } from "./services/telegram-review";
 
 function builderNominationPayload(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -101,37 +111,156 @@ function enforceContentCreationVisibility(
 }
 
 export default createPlugin.withPlugins<PluginsClient>()({
-  variables: z.object({}),
+  variables: z.object({
+    reviewEvaluationEnabled: z.boolean().default(true),
+    reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
+    reviewEvaluationBatchSize: z.number().int().min(1).max(50).default(5),
+    reviewEvaluationModel: z.string().min(1).default("claude-opus-5"),
+    chiefBotUsername: z
+      .string()
+      .regex(/^[A-Za-z0-9_]*$/)
+      .default(""),
+  }),
 
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
+    ANTHROPIC_API_KEY: z.string().default(""),
+    GITHUB_TOKEN: z.string().default(""),
   }),
 
   context: ContextSchema,
 
   contract,
 
-  initialize: (_config, plugins) =>
+  initialize: (config, plugins) =>
     Effect.sync(() => {
       const { auth, ...restPlugins } = plugins;
       const activity = createProposalActivity(restPlugins);
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
+      const reviewEvaluation = createReviewEvaluationSweep({
+        plugins: restPlugins,
+        assessor: config.secrets.ANTHROPIC_API_KEY
+          ? createClaudeAssessor({
+              apiKey: config.secrets.ANTHROPIC_API_KEY,
+              model: config.variables.reviewEvaluationModel,
+            })
+          : null,
+        githubToken: config.secrets.GITHUB_TOKEN,
+        intervalMs: config.variables.reviewEvaluationIntervalMs,
+        batchSize: config.variables.reviewEvaluationBatchSize,
+      });
+      if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
+      console.log(
+        "[API] Review evaluation:",
+        config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
+        config.secrets.ANTHROPIC_API_KEY ? "(checks + Claude)" : "(checks only)",
+      );
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
       console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return { auth, plugins: restPlugins, activity, notifications, orchestration, catalogClaims };
+      return {
+        auth,
+        plugins: restPlugins,
+        activity,
+        notifications,
+        orchestration,
+        catalogClaims,
+        reviewEvaluation,
+        chiefBotUsername: config.variables.chiefBotUsername,
+      };
     }),
 
-  shutdown: () => Effect.log("[API] Shutdown"),
+  shutdown: (services) =>
+    Effect.sync(() => services.reviewEvaluation.stop()).pipe(
+      Effect.zipRight(Effect.log("[API] Shutdown")),
+    ),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireAdmin, requireAuthOrApiKey } = createAuthMiddleware(builder);
+    const { requireAuth, requireAdmin, requireAuthOrApiKey, requireApiKey } =
+      createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const approveProposal = async (
+      input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
+      context: Context,
+    ) => {
+      const proposalsClient = services.plugins.proposals(context);
+      const approval = await proposalsClient.approve(input);
+      const proposal = {
+        id: approval.data.id,
+        pluginId: approval.data.pluginId,
+        entityId: approval.data.entityId,
+        payload: approval.data.payload,
+        appliedResourceId: approval.data.appliedResourceId,
+        createdBy: approval.data.createdBy,
+        submissionCount: approval.data.submissionCount,
+      };
+
+      if (approval.data.applyStatus === "applied") {
+        return approval;
+      }
+
+      let applied = approval;
+      try {
+        const appliedResourceId = await runEffect(
+          Effect.tryPromise({
+            try: () => orchestration.applyProposal(proposal, context),
+            catch: (error) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: error instanceof Error ? error.message : String(error),
+              }),
+          }),
+        );
+        await activity.emitApproval(proposal, context);
+        applied = await proposalsClient.markApplied({
+          pluginId: input.pluginId,
+          entityId: input.entityId,
+          expectedUpdatedAt: approval.data.updatedAt,
+          appliedResourceId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await proposalsClient
+          .markApplyFailed({
+            pluginId: input.pluginId,
+            entityId: input.entityId,
+            expectedUpdatedAt: approval.data.updatedAt,
+            error: message,
+          })
+          .catch((failure) =>
+            console.error("[Proposals] Could not record apply failure:", failure),
+          );
+        throw error;
+      }
+
+      await notifyApproval(proposal, context).catch((error) =>
+        console.error("[Proposals] Approval notification failed:", error),
+      );
+      return applied;
+    };
+
+    const rejectProposal = async (
+      input: { pluginId: string; entityId: string; expectedUpdatedAt: string; reason?: string },
+      context: Context,
+    ) => {
+      const proposalsClient = services.plugins.proposals(context);
+      const rejected = await proposalsClient.reject(input);
+      const proposal = {
+        pluginId: rejected.data.pluginId,
+        entityId: rejected.data.entityId,
+        payload: rejected.data.payload,
+        appliedResourceId: rejected.data.appliedResourceId,
+        createdBy: rejected.data.createdBy,
+        rejectionReason: rejected.data.rejectionReason,
+      };
+      await notifyRejection(proposal, context);
+      return rejected;
+    };
+
     const nominateBuilder = async (
       input: {
         nearAccount: string;
@@ -457,74 +586,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       approve: builder.approve.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(context);
-        const approval = await proposalsClient.approve(input);
-        const proposal = {
-          id: approval.data.id,
-          pluginId: approval.data.pluginId,
-          entityId: approval.data.entityId,
-          payload: approval.data.payload,
-          appliedResourceId: approval.data.appliedResourceId,
-          createdBy: approval.data.createdBy,
-          submissionCount: approval.data.submissionCount,
-        };
-
-        if (approval.data.applyStatus === "applied") {
-          return approval;
-        }
-
-        let applied = approval;
-        try {
-          const appliedResourceId = await runEffect(
-            Effect.tryPromise({
-              try: () => orchestration.applyProposal(proposal, context),
-              catch: (error) =>
-                new ORPCError("INTERNAL_SERVER_ERROR", {
-                  message: error instanceof Error ? error.message : String(error),
-                }),
-            }),
-          );
-          await activity.emitApproval(proposal, context);
-          applied = await proposalsClient.markApplied({
-            pluginId: input.pluginId,
-            entityId: input.entityId,
-            expectedUpdatedAt: approval.data.updatedAt,
-            appliedResourceId,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          await proposalsClient
-            .markApplyFailed({
-              pluginId: input.pluginId,
-              entityId: input.entityId,
-              expectedUpdatedAt: approval.data.updatedAt,
-              error: message,
-            })
-            .catch((failure) =>
-              console.error("[Proposals] Could not record apply failure:", failure),
-            );
-          throw error;
-        }
-
-        await notifyApproval(proposal, context).catch((error) =>
-          console.error("[Proposals] Approval notification failed:", error),
-        );
-        return applied;
+        return await approveProposal(input, context);
       }),
 
       reject: builder.reject.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(context);
-        const rejected = await proposalsClient.reject(input);
-        const proposal = {
-          pluginId: rejected.data.pluginId,
-          entityId: rejected.data.entityId,
-          payload: rejected.data.payload,
-          appliedResourceId: rejected.data.appliedResourceId,
-          createdBy: rejected.data.createdBy,
-          rejectionReason: rejected.data.rejectionReason,
-        };
-        await notifyRejection(proposal, context);
-        return rejected;
+        return await rejectProposal(input, context);
       }),
 
       withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
@@ -599,6 +665,66 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).getAuditLog(input);
       }),
+
+      getReviewEvaluations: builder.getReviewEvaluations
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.proposals(context).getEvaluations(input);
+        }),
+
+      reevaluateProposal: builder.reevaluateProposal
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await services.reviewEvaluation.evaluateOne(input);
+        }),
+
+      decideTelegramReview: builder.decideTelegramReview
+        .use(requireApiKey({ reviews: ["write"] }))
+        .handler(async ({ input, context }) => {
+          requireAdminKeyOwner(context);
+          return await decideTelegramReview({
+            input,
+            context,
+            plugins: services.plugins,
+            approve: approveProposal,
+            reject: rejectProposal,
+          });
+        }),
+
+      createTelegramLink: builder.createTelegramLink
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          return await createTelegramLinkCode(services.plugins, context, {
+            botUsername: services.chiefBotUsername,
+          });
+        }),
+
+      claimTelegramLink: builder.claimTelegramLink
+        .use(requireApiKey({ reviews: ["write"] }))
+        .handler(async ({ input, context }) => {
+          requireAdminKeyOwner(context);
+          return await claimTelegramLink(services.plugins, input);
+        }),
+
+      listTelegramReviewers: builder.listTelegramReviewers.use(requireAdmin).handler(async () => {
+        return await services.plugins.proposals(evaluatorContext).listTelegramReviewers({});
+      }),
+
+      removeTelegramReviewer: builder.removeTelegramReviewer
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await services.plugins
+            .proposals(evaluatorContext)
+            .removeTelegramReviewer({ telegramId: input.telegramId });
+        }),
+
+      getReviewDigest: builder.getReviewDigest
+        .use(requireApiKey({ reviews: ["read"] }))
+        .handler(async ({ input }) => {
+          return await loadReviewDigest(services.plugins, {
+            staleAfterDays: input.staleAfterDays ?? 7,
+          });
+        }),
 
       getProposalSubmissions: builder.getProposalSubmissions
         .use(requireAdmin)

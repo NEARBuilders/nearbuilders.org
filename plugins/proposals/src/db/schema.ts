@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const proposals = pgTable(
   "proposals",
@@ -75,4 +75,62 @@ export const proposalAuditLog = pgTable(
     index("proposal_audit_entity_idx").on(table.pluginId, table.entityId),
     index("proposal_audit_proposal_idx").on(table.proposalId),
   ],
+);
+
+export const proposalEvaluations = pgTable(
+  "proposal_evaluations",
+  {
+    id: text("id").primaryKey(),
+    proposalId: text("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    pluginId: text("plugin_id").notNull(),
+    entityId: text("entity_id").notNull(),
+    submissionCount: integer("submission_count").notNull(),
+    verdict: text("verdict").notNull(),
+    score: integer("score"),
+    summary: text("summary").notNull(),
+    flags: text("flags").notNull(),
+    checks: text("checks").notNull(),
+    model: text("model"),
+    source: text("source"),
+    promptVersion: text("prompt_version").notNull(),
+    evaluatedAt: timestamp("evaluated_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("proposal_evaluations_submission_unique").on(
+      table.proposalId,
+      table.submissionCount,
+    ),
+    index("proposal_evaluations_entity_idx").on(table.pluginId, table.entityId),
+  ],
+);
+
+export const reviewLeases = pgTable("review_leases", {
+  name: text("name").primaryKey(),
+  holder: text("holder").notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+});
+
+export const telegramLinkCodes = pgTable("telegram_link_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  userId: text("user_id").notNull(),
+  userLabel: text("user_label").notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+});
+
+export const telegramReviewers = pgTable(
+  "telegram_reviewers",
+  {
+    telegramId: bigint("telegram_id", { mode: "number" }).primaryKey(),
+    telegramUsername: text("telegram_username"),
+    telegramName: text("telegram_name"),
+    userId: text("user_id").notNull(),
+    userLabel: text("user_label").notNull(),
+    linkedAt: timestamp("linked_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("telegram_reviewers_user_unique").on(table.userId)],
 );

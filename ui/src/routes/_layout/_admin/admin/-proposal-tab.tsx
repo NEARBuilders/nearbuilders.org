@@ -19,6 +19,7 @@ import {
   type ProposalTabSearch,
   titleCase,
 } from "./-proposal-dashboard";
+import { useProposalEvaluations } from "./-proposal-evaluation";
 import { ProposalReviewSheet } from "./-proposal-review-sheet";
 import { ProposalTable, ProposalTableSkeleton } from "./-proposal-table";
 import { RecordsState } from "./-records-state";
@@ -136,6 +137,7 @@ export function ProposalTab({
 
   const proposals = (proposalsQuery.data?.pages.flatMap((page) => page.data) ??
     []) as ProposalRecord[];
+  const evaluations = useProposalEvaluations(proposals);
   const selectedLoadedProposal = proposals.find((proposal) => proposal.entityId === selectedItem);
   const selectedQuery = useQuery({
     queryKey: ["admin-proposal-selected", pluginId, selectedItem],
@@ -250,6 +252,7 @@ export function ProposalTab({
           approvingEntityId={
             quickApproveMutation.isPending ? quickApproveMutation.variables?.entityId : undefined
           }
+          evaluations={evaluations}
         />
       </RecordsState>
 
