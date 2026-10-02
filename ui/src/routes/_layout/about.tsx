@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, ExternalLink, FileText, GitFork, Sparkles } from "lucide-react";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
-import { Markdown } from "@/components/ui/markdown";
+import { Markdown } from "@/components/common/markdown";
 import { useClientValue } from "@/hooks/use-client";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 

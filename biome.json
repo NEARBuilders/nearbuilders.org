@@ -63,5 +63,23 @@
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "ui/src/components/ui/{button-group,carousel,input-group,input-otp,item,pagination}.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off",
+            "useFocusableInteractive": "off",
+            "useAriaPropsForRole": "off",
+            "noRedundantRoles": "off"
+          }
+        }
+      }
+    }
+  ]
 }

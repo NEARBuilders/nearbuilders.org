@@ -4,9 +4,9 @@ import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-ro
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
-import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(

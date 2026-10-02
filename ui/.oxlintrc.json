@@ -5,8 +5,44 @@
     "correctness": "off"
   },
   "rules": {
-    "shadcn/no-raw-colors": ["error", { "allow": ["fill-none", "border-outset"] }],
-    "shadcn/no-unknown-classes": ["error", { "allow": ["toaster"] }],
+    "shadcn/no-raw-colors": [
+      "error",
+      {
+        "allow": ["fill-none", "border-outset"]
+      }
+    ],
+    "shadcn/no-unknown-classes": [
+      "error",
+      {
+        "allow": ["toaster"]
+      }
+    ],
     "shadcn/no-arbitrary-values": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/components/ui/accordion.tsx",
+        "src/components/ui/alert-dialog.tsx",
+        "src/components/ui/alert.tsx",
+        "src/components/ui/calendar.tsx",
+        "src/components/ui/combobox.tsx",
+        "src/components/ui/command.tsx",
+        "src/components/ui/context-menu.tsx",
+        "src/components/ui/drawer.tsx",
+        "src/components/ui/input-group.tsx",
+        "src/components/ui/input-otp.tsx",
+        "src/components/ui/item.tsx",
+        "src/components/ui/menubar.tsx",
+        "src/components/ui/native-select.tsx",
+        "src/components/ui/slider.tsx",
+        "src/components/ui/switch.tsx"
+      ],
+      "rules": {
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/no-unknown-classes": "off",
+        "shadcn/no-raw-colors": "off"
+      }
+    }
+  ]
 }

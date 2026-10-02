@@ -1,46 +1,70 @@
-export {
-  ApiKeyForm,
-  type ApiKeyFormValues,
-  ApiKeyReveal,
-  type ApiKeyRevealProps,
-} from "./api-key-manager";
-export { CatalogClaimActivity } from "./catalog-claim-activity";
-export { CatalogClaimFlow } from "./catalog-claim-flow";
-export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";
-export { ContributedProjects } from "./contributed-projects";
-export { InvitationCard, MemberCard } from "./member-card";
-export { OrgSwitcher } from "./org-switcher";
-export { BackButton, BackLink, backButtonClass } from "./ui/back-button";
-export { Badge } from "./ui/badge";
-export { Button } from "./ui/button";
-export {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-export { CommandCopy } from "./ui/command-copy";
-export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-export { Input } from "./ui/input";
-export { Label } from "./ui/label";
-export { NewBadge } from "./ui/new-badge";
-export { PageBreadcrumb } from "./ui/page-breadcrumb";
-export { ScrollArea, ScrollBar } from "./ui/scroll-area";
-export { Skeleton } from "./ui/skeleton";
-export { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-export { VoteButton } from "./ui/vote-button";
-export { UnderConstruction } from "./under-construction";
+// Design-system barrel — exposed as the Module Federation "./components" remote (#259).
+// Generic primitives only. App-specific components (org switcher, catalog claim flow, api key
+// manager, vote button, member card, under construction, ...) live beside this file and are
+// imported directly by the routes that use them.
+
+export * from "./common/back-button";
+export * from "./common/command-copy";
+export * from "./common/data-table";
+export * from "./common/info-row";
+export * from "./common/markdown";
+export * from "./common/new-badge";
+export * from "./common/page-breadcrumb";
+export * from "./common/segmented-filter";
+export * from "./common/social-icons";
+export * from "./common/stepper";
+export * from "./confirm-dialog";
+export * from "./ui/accordion";
+export * from "./ui/alert";
+export * from "./ui/alert-dialog";
+export * from "./ui/aspect-ratio";
+export * from "./ui/avatar";
+export * from "./ui/badge";
+export * from "./ui/breadcrumb";
+export * from "./ui/button";
+export * from "./ui/button-group";
+export * from "./ui/calendar";
+export * from "./ui/card";
+export * from "./ui/carousel";
+export * from "./ui/checkbox";
+export * from "./ui/collapsible";
+export * from "./ui/combobox";
+export * from "./ui/command";
+export * from "./ui/context-menu";
+export * from "./ui/dialog";
+export * from "./ui/direction";
+export * from "./ui/drawer";
+export * from "./ui/dropdown-menu";
+export * from "./ui/empty";
+export * from "./ui/field";
+export * from "./ui/hover-card";
+export * from "./ui/input";
+export * from "./ui/input-group";
+export * from "./ui/input-otp";
+export * from "./ui/item";
+export * from "./ui/kbd";
+export * from "./ui/label";
+export * from "./ui/menubar";
+export * from "./ui/native-select";
+export * from "./ui/navigation-menu";
+export * from "./ui/pagination";
+export * from "./ui/popover";
+export * from "./ui/progress";
+export * from "./ui/radio-group";
+export * from "./ui/resizable";
+export * from "./ui/scroll-area";
+export * from "./ui/select";
+export * from "./ui/separator";
+export * from "./ui/sheet";
+export * from "./ui/sidebar";
+export * from "./ui/skeleton";
+export * from "./ui/slider";
+export * from "./ui/sonner";
+export * from "./ui/spinner";
+export * from "./ui/switch";
+export * from "./ui/table";
+export * from "./ui/tabs";
+export * from "./ui/textarea";
+export * from "./ui/toggle";
+export * from "./ui/toggle-group";
+export * from "./ui/tooltip";

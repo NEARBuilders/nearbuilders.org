@@ -1,4 +1,4 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
 import { Copy, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -14,11 +14,11 @@ import {
   extractBrandPalette,
   filenameFromHref,
 } from "@/lib/brand";
-import brandStyles from "../../styles.css?raw";
+import brandStyles from "../../../styles.css?raw";
 
 const palette = extractBrandPalette(brandStyles);
 
-export const Route = createFileRoute("/_layout/brand")({
+export const Route = createFileRoute("/_layout/brand/")({
   head: () => ({
     meta: [
       { title: "Brand | NEAR Builders" },
@@ -78,6 +78,9 @@ function BrandPage() {
         <Button type="button" variant="outline" size="sm" className="mt-5" onClick={copyDesignMd}>
           <Copy />
           Copy to DESIGN.md
+        </Button>
+        <Button variant="outline" size="sm" className="mt-5 ml-2" asChild>
+          <Link to="/brand/design-system">Design system</Link>
         </Button>
       </header>
 

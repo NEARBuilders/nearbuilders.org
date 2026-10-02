@@ -20,15 +20,15 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { Markdown } from "@/components/common/markdown";
+import { NewBadge } from "@/components/common/new-badge";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
+import { VoteButton } from "@/components/common/vote-button";
 import { NostrFeed } from "@/components/nostr-feed";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
-import { Markdown } from "@/components/ui/markdown";
-import { NewBadge } from "@/components/ui/new-badge";
-import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { VoteButton } from "@/components/ui/vote-button";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,

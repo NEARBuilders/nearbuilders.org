@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { NewBadge } from "@/components/common/new-badge";
+import { VoteButton } from "@/components/common/vote-button";
 import { Badge } from "@/components/ui/badge";
-import { NewBadge } from "@/components/ui/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VoteButton } from "@/components/ui/vote-button";
 import { useBookmark } from "@/lib/bookmarks";
 import { cn } from "@/lib/utils";
 
