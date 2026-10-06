@@ -30,6 +30,11 @@ import {
   readPayload,
   readString,
 } from "./-proposal-dashboard";
+import {
+  currentEvaluation,
+  EvaluationBadge,
+  type ProposalEvaluation,
+} from "./-proposal-evaluation";
 
 export function ProposalStatusBadge({ state }: { state: ProposalState }) {
   const icon =
@@ -153,12 +158,14 @@ export function ProposalTable({
   onSelect,
   onApprove,
   approvingEntityId,
+  evaluations,
 }: {
   proposals: ProposalRecord[];
   selectedEntityId?: string;
   onSelect: (proposal: ProposalRecord) => void;
   onApprove: (proposal: ProposalRecord) => void;
   approvingEntityId?: string;
+  evaluations?: Map<string, ProposalEvaluation>;
 }) {
   const columns = useMemo<ColumnDef<ProposalRecord, any>[]>(
     () => [
@@ -212,6 +219,22 @@ export function ProposalTable({
         meta: {
           thClassName: "min-w-28",
           tdClassName: "min-w-28 max-w-40 whitespace-normal",
+        },
+      },
+      {
+        id: "evaluation",
+        header: "Evaluation",
+        cell: ({ row }) =>
+          row.original.reviewStatus === "pending" ? (
+            <EvaluationBadge
+              evaluation={currentEvaluation(evaluations?.get(row.original.id), row.original)}
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          ),
+        meta: {
+          thClassName: "w-px whitespace-nowrap px-2",
+          tdClassName: "w-px whitespace-nowrap px-2",
         },
       },
       {

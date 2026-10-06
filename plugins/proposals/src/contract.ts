@@ -60,6 +60,43 @@ export const ProposalReviewHistoryEntrySchema = ProposalAuditEntrySchema.extend(
   proposal: ProposalSchema,
 });
 
+export const REVIEW_EVALUATOR = Symbol.for("nearbuilders.proposals.reviewEvaluator");
+
+export const EvaluationVerdict = z.enum(["ready", "review", "spam"]);
+
+export const EvaluationCheckSchema = z.object({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(200),
+  status: z.enum(["pass", "warn", "fail", "skip"]),
+  detail: z.string().max(500).nullable(),
+});
+
+export const ProposalEvaluationSchema = z.object({
+  id: z.string(),
+  proposalId: z.string(),
+  pluginId: z.string(),
+  entityId: z.string(),
+  submissionCount: z.number().int().nonnegative(),
+  verdict: EvaluationVerdict,
+  score: z.number().int().min(0).max(100).nullable(),
+  summary: z.string(),
+  flags: z.array(z.string()),
+  checks: z.array(EvaluationCheckSchema),
+  model: z.string().nullable(),
+  source: z.string().nullable(),
+  promptVersion: z.string(),
+  evaluatedAt: z.iso.datetime(),
+});
+
+export const TelegramReviewerSchema = z.object({
+  telegramId: z.number().int().positive(),
+  telegramUsername: z.string().nullable(),
+  telegramName: z.string().nullable(),
+  userId: z.string(),
+  userLabel: z.string(),
+  linkedAt: z.iso.datetime(),
+});
+
 export const ProposalEventSchema = z.object({
   action: z.string(),
   pluginId: z.string(),
@@ -279,6 +316,94 @@ export const contract = oc.router({
       }),
     )
     .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  recordEvaluation: oc
+    .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/evaluation" })
+    .input(
+      z.object({
+        pluginId: z.string(),
+        entityId: z.string(),
+        submissionCount: z.number().int().nonnegative(),
+        verdict: EvaluationVerdict,
+        score: z.number().int().min(0).max(100).nullable(),
+        summary: z.string().min(1).max(300),
+        flags: z.array(z.string().min(1).max(80)).max(10),
+        checks: z.array(EvaluationCheckSchema).max(30),
+        model: z.string().max(100).nullable(),
+        source: z.string().max(100).nullable().optional(),
+        promptVersion: z.string().min(1).max(40),
+      }),
+    )
+    .output(z.object({ data: ProposalEvaluationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  acquireReviewLease: oc
+    .route({ method: "POST", path: "/v1/proposals/review-leases/{name}" })
+    .input(
+      z.object({
+        name: z.string().min(1).max(64),
+        holder: z.string().min(1).max(100),
+        ttlMs: z.number().int().min(1_000).max(3_600_000),
+      }),
+    )
+    .output(z.object({ acquired: z.boolean() }))
+    .errors({ FORBIDDEN }),
+
+  getEvaluations: oc
+    .route({ method: "GET", path: "/v1/proposals/evaluations" })
+    .input(z.object({ proposalIds: z.array(z.string().min(1)).max(500) }))
+    .output(z.object({ data: z.array(ProposalEvaluationSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  getProposalById: oc
+    .route({ method: "GET", path: "/v1/proposals/by-id/{id}" })
+    .input(z.object({ id: z.string().min(1).max(100) }))
+    .output(z.object({ data: ProposalSchema.nullable() }))
+    .errors({ FORBIDDEN }),
+
+  createTelegramLinkCode: oc
+    .route({ method: "POST", path: "/v1/proposals/telegram-link-codes" })
+    .input(
+      z.object({
+        codeHash: z.string().min(16).max(128),
+        userId: z.string().min(1),
+        userLabel: z.string().min(1).max(200),
+        ttlMs: z.number().int().min(60_000).max(3_600_000),
+      }),
+    )
+    .output(z.object({ expiresAt: z.iso.datetime() }))
+    .errors({ FORBIDDEN }),
+
+  linkTelegramReviewer: oc
+    .route({ method: "POST", path: "/v1/proposals/telegram-link-codes/{codeHash}/link" })
+    .input(
+      z.object({
+        codeHash: z.string().min(16).max(128),
+        telegramId: z.number().int().positive(),
+        telegramUsername: z.string().max(64).nullable(),
+        telegramName: z.string().max(200).nullable(),
+      }),
+    )
+    .output(z.object({ data: TelegramReviewerSchema }))
+    .errors({ FORBIDDEN, NOT_FOUND }),
+
+  getTelegramReviewer: oc
+    .route({ method: "GET", path: "/v1/proposals/telegram-reviewers/{telegramId}" })
+    .input(z.object({ telegramId: z.coerce.number().int().positive() }))
+    .output(z.object({ data: TelegramReviewerSchema.nullable() }))
+    .errors({ FORBIDDEN }),
+
+  listTelegramReviewers: oc
+    .route({ method: "GET", path: "/v1/proposals/telegram-reviewers" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(TelegramReviewerSchema) }))
+    .errors({ FORBIDDEN }),
+
+  removeTelegramReviewer: oc
+    .route({ method: "DELETE", path: "/v1/proposals/telegram-reviewers/{telegramId}" })
+    .input(z.object({ telegramId: z.coerce.number().int().positive() }))
+    .output(z.object({ removed: z.boolean() }))
+    .errors({ FORBIDDEN }),
 
   subscribe: oc
     .route({ method: "GET", path: "/v1/proposals/stream" })

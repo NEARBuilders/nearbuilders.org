@@ -30,7 +30,13 @@ export function parseProposalTabSearch(search: Record<string, unknown>): Proposa
   };
 }
 
-export type AdminTab = "builders" | "projects" | "events" | "activity" | "x-nominations";
+export type AdminTab =
+  | "builders"
+  | "projects"
+  | "events"
+  | "activity"
+  | "x-nominations"
+  | "telegram";
 
 export const ADMIN_TABS = [
   {
@@ -67,6 +73,13 @@ export const ADMIN_TABS = [
     to: "/admin/dashboard/x-nominations",
     pluginId: null,
     icon: "AtSign" as const,
+  },
+  {
+    value: "telegram",
+    label: "Telegram",
+    to: "/admin/dashboard/telegram",
+    pluginId: null,
+    icon: "Send" as const,
   },
 ] as const satisfies ReadonlyArray<{
   value: AdminTab;
