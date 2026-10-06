@@ -16,7 +16,6 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.128.0",
     "@electric-sql/pglite": "catalog:",
     "@everything-dev/builders-plugin": "workspace:*",
     "@orpc/contract": "catalog:",

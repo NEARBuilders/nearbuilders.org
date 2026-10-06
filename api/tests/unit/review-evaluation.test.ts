@@ -11,7 +11,7 @@ import { REVIEW_EVALUATOR } from "../../src/services/review-context";
 import {
   buildAssessmentPrompt,
   combineEvaluation,
-  createClaudeAssessor,
+  createNearAiAssessor,
   parseAssessment,
 } from "../../src/services/review-evaluation";
 import {
@@ -289,32 +289,46 @@ describe("assessment", () => {
     });
     expect(parseAssessment("not json")).toBeNull();
     expect(
+      parseAssessment(
+        '```json\n{"verdict":"spam","score":3,"summary":"Link farm","flags":[]}\n```',
+      ),
+    ).toMatchObject({ verdict: "spam", score: 3 });
+    expect(
       parseAssessment(JSON.stringify({ verdict: "approve", score: 1, summary: "x", flags: [] })),
     ).toBeNull();
   });
 
-  it("calls Claude with structured output, low effort, and default fallbacks", async () => {
-    const create = vi.fn(async () => ({
-      stop_reason: "end_turn",
-      model: "claude-opus-5",
-      usage: { input_tokens: 812, output_tokens: 64 },
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            verdict: "ready",
-            score: 88,
-            summary: "Complete profile.",
-            flags: [],
-          }),
-        },
-      ],
-    }));
+  const completion = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  it("calls NEAR AI Cloud chat completions with a JSON schema response format", async () => {
+    const fetch = vi.fn(async (_url: string, _init: RequestInit) =>
+      completion({
+        model: "z-ai/glm-5.3-flash",
+        usage: { prompt_tokens: 812, completion_tokens: 64 },
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: JSON.stringify({
+                verdict: "ready",
+                score: 88,
+                summary: "Complete profile.",
+                flags: [],
+              }),
+            },
+          },
+        ],
+      }),
+    );
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const assessor = createClaudeAssessor({
+    const assessor = createNearAiAssessor({
       apiKey: "test",
-      model: "claude-opus-5",
-      client: { beta: { messages: { create } } } as never,
+      model: "z-ai/glm-5.3-flash",
+      fetch: fetch as never,
     });
 
     await expect(assessor.assess({ subject, checks: [] })).resolves.toEqual({
@@ -323,36 +337,48 @@ describe("assessment", () => {
       summary: "Complete profile.",
       flags: [],
     });
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: "claude-opus-5",
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        output_config: expect.objectContaining({
-          effort: "low",
-          format: expect.objectContaining({ type: "json_schema" }),
-        }),
-      }),
-    );
-    expect(log).toHaveBeenCalledWith("[ReviewEvaluation] Claude usage", {
-      model: "claude-opus-5",
+    const [url, init] = fetch.mock.calls[0] ?? [];
+    expect(url).toBe("https://cloud-api.near.ai/v1/chat/completions");
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer test" });
+    expect(JSON.parse(init?.body as string)).toMatchObject({
+      model: "z-ai/glm-5.3-flash",
+      messages: [{ role: "system" }, { role: "user" }],
+      response_format: {
+        type: "json_schema",
+        json_schema: expect.objectContaining({ strict: true }),
+      },
+    });
+    expect(log).toHaveBeenCalledWith("[ReviewEvaluation] NEAR AI usage", {
+      model: "z-ai/glm-5.3-flash",
       inputTokens: 812,
       outputTokens: 64,
     });
     log.mockRestore();
   });
 
-  it("returns no assessment when Claude refuses", async () => {
-    const assessor = createClaudeAssessor({
+  it("returns no assessment when the model refuses or runs out of tokens", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    for (const choice of [
+      { finish_reason: "stop", message: { content: null, refusal: "No." } },
+      { finish_reason: "length", message: { content: '{"verdict":' } },
+    ]) {
+      const assessor = createNearAiAssessor({
+        apiKey: "test",
+        model: "z-ai/glm-5.3-flash",
+        fetch: vi.fn(async () => completion({ choices: [choice] })) as never,
+      });
+      await expect(assessor.assess({ subject, checks: [] })).resolves.toBeNull();
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("throws on a failed request so the sweep retries later", async () => {
+    const assessor = createNearAiAssessor({
       apiKey: "test",
-      model: "claude-opus-5",
-      client: {
-        beta: {
-          messages: { create: vi.fn(async () => ({ stop_reason: "refusal", content: [] })) },
-        },
-      } as never,
+      model: "z-ai/glm-5.3-flash",
+      fetch: vi.fn(async () => completion({ error: "rate limited" }, 429)) as never,
     });
-    await expect(assessor.assess({ subject, checks: [] })).resolves.toBeNull();
+    await expect(assessor.assess({ subject, checks: [] })).rejects.toThrow(/429/);
   });
 });
 
@@ -370,16 +396,16 @@ describe("combineEvaluation", () => {
     const result = combineEvaluation(
       [pass, fail],
       { verdict: "ready", score: 90, summary: "Looks great.", flags: [] },
-      "claude-opus-5",
+      "z-ai/glm-5.3-flash",
     );
-    expect(result).toMatchObject({ verdict: "review", score: 90, model: "claude-opus-5" });
+    expect(result).toMatchObject({ verdict: "review", score: 90, model: "z-ai/glm-5.3-flash" });
   });
 
   it("keeps the model's spam verdict and flags", () => {
     const result = combineEvaluation(
       [pass],
       { verdict: "spam", score: 2, summary: "Promotional link farm.", flags: ["not_near_related"] },
-      "claude-opus-5",
+      "z-ai/glm-5.3-flash",
     );
     expect(result).toMatchObject({ verdict: "spam", flags: ["not_near_related"] });
   });
@@ -478,7 +504,7 @@ describe("createReviewEvaluationSweep", () => {
       flags: [],
     }));
     const sweep = makeSweep(sweepPlugins, {
-      assessor: { model: "claude-opus-5", assess },
+      assessor: { model: "z-ai/glm-5.3-flash", assess },
       batchSize: 2,
     });
 
@@ -490,7 +516,7 @@ describe("createReviewEvaluationSweep", () => {
     expect(recordEvaluation.mock.calls[1]![0]).toMatchObject({
       submissionCount: 2,
       verdict: "ready",
-      model: "claude-opus-5",
+      model: "z-ai/glm-5.3-flash",
       promptVersion: "v2",
     });
   });
@@ -503,7 +529,7 @@ describe("createReviewEvaluationSweep", () => {
     recordEvaluation.mockRejectedValueOnce(new Error("db down"));
     const sweep = makeSweep(sweepPlugins, {
       assessor: {
-        model: "claude-opus-5",
+        model: "z-ai/glm-5.3-flash",
         assess: vi.fn(async () => {
           throw new Error("overloaded");
         }),
@@ -545,7 +571,7 @@ describe("createReviewEvaluationSweep", () => {
     });
   });
 
-  it("stops asking Claude about an item it keeps refusing", async () => {
+  it("stops asking the model about an item it keeps refusing", async () => {
     const { plugins: sweepPlugins, recordEvaluation } = plugins([proposal("refused", 3)], []);
     recordEvaluation.mockImplementation(async (input: Record<string, unknown>) => ({
       data: { model: input.model },
@@ -553,7 +579,7 @@ describe("createReviewEvaluationSweep", () => {
     const assess = vi.fn(async () => null);
     let now = NOW;
     const sweep = makeSweep(sweepPlugins, {
-      assessor: { model: "claude-opus-5", assess },
+      assessor: { model: "z-ai/glm-5.3-flash", assess },
       now: () => now,
     });
 
@@ -580,7 +606,7 @@ describe("createReviewEvaluationSweep", () => {
     );
   });
 
-  it("retries checks-only evaluations with Claude after the retry window", async () => {
+  it("retries checks-only evaluations with the model after the retry window", async () => {
     const old = new Date(NOW - 45 * 60 * 1000).toISOString();
     const recent = new Date(NOW - 5 * 60 * 1000).toISOString();
     const { plugins: sweepPlugins, recordEvaluation } = plugins(
@@ -588,12 +614,17 @@ describe("createReviewEvaluationSweep", () => {
       [
         { proposalId: "stale_checks", submissionCount: 1, model: null, evaluatedAt: old },
         { proposalId: "recent_checks", submissionCount: 1, model: null, evaluatedAt: recent },
-        { proposalId: "assessed", submissionCount: 1, model: "claude-opus-5", evaluatedAt: old },
+        {
+          proposalId: "assessed",
+          submissionCount: 1,
+          model: "z-ai/glm-5.3-flash",
+          evaluatedAt: old,
+        },
       ] as never,
     );
     const sweep = makeSweep(sweepPlugins, {
       assessor: {
-        model: "claude-opus-5",
+        model: "z-ai/glm-5.3-flash",
         assess: vi.fn(async () => ({
           verdict: "ready" as const,
           score: 80,
@@ -608,7 +639,7 @@ describe("createReviewEvaluationSweep", () => {
     expect(recordEvaluation.mock.calls[0]![0]).toMatchObject({
       entityId: "stale_checks.near",
       verdict: "ready",
-      model: "claude-opus-5",
+      model: "z-ai/glm-5.3-flash",
     });
   });
   it("skips the sweep while another instance holds the lease", async () => {
@@ -665,9 +696,9 @@ describe("needsEvaluation", () => {
     promptVersion: "v2",
   });
 
-  it("re-assesses Claude evaluations written by an older prompt", () => {
-    const old = { ...existing("claude-opus-5", 999), promptVersion: "v1" };
-    const current = { ...existing("claude-opus-5", 999), promptVersion: "v2" };
+  it("re-assesses model evaluations written by an older prompt", () => {
+    const old = { ...existing("z-ai/glm-5.3-flash", 999), promptVersion: "v1" };
+    const current = { ...existing("z-ai/glm-5.3-flash", 999), promptVersion: "v2" };
     expect(needsEvaluation(proposal, old, options)).toBe(true);
     expect(needsEvaluation(proposal, current, options)).toBe(false);
     expect(needsEvaluation(proposal, old, { ...options, canAssess: false })).toBe(false);
@@ -675,8 +706,8 @@ describe("needsEvaluation", () => {
 
   it("decides when a proposal needs a fresh evaluation", () => {
     expect(needsEvaluation(proposal, undefined, options)).toBe(true);
-    expect(needsEvaluation(proposal, existing("claude-opus-5", 1, 1), options)).toBe(true);
-    expect(needsEvaluation(proposal, existing("claude-opus-5", 999), options)).toBe(false);
+    expect(needsEvaluation(proposal, existing("z-ai/glm-5.3-flash", 1, 1), options)).toBe(true);
+    expect(needsEvaluation(proposal, existing("z-ai/glm-5.3-flash", 999), options)).toBe(false);
     expect(needsEvaluation(proposal, existing(null, 45), options)).toBe(true);
     expect(needsEvaluation(proposal, existing(null, 5), options)).toBe(false);
     expect(needsEvaluation(proposal, existing(null, 45), { ...options, canAssess: false })).toBe(

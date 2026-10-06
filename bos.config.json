@@ -40,7 +40,7 @@
       "integrity": "sha384-g5kMC6dA5l7l9NBq2U5yWgntreOEqT4+ifIH7a6RMC2JSj6tIuGPG6Xq3ZIAPUAi",
       "secrets": [
         "API_DATABASE_URL",
-        "ANTHROPIC_API_KEY",
+        "NEARAI_API_KEY",
         "GITHUB_TOKEN"
       ]
     },

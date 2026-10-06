@@ -22,7 +22,7 @@ import {
 } from "./services/proposal-orchestration";
 import { evaluatorContext } from "./services/review-context";
 import { loadReviewDigest } from "./services/review-digest";
-import { createClaudeAssessor } from "./services/review-evaluation";
+import { createNearAiAssessor } from "./services/review-evaluation";
 import { createReviewEvaluationSweep } from "./services/review-evaluation-sweep";
 import {
   claimTelegramLink,
@@ -115,7 +115,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     reviewEvaluationEnabled: z.boolean().default(true),
     reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
     reviewEvaluationBatchSize: z.number().int().min(1).max(50).default(5),
-    reviewEvaluationModel: z.string().min(1).default("claude-opus-5"),
+    reviewEvaluationModel: z.string().min(1).default("z-ai/glm-5.3-flash"),
     chiefBotUsername: z
       .string()
       .regex(/^[A-Za-z0-9_]*$/)
@@ -124,7 +124,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
-    ANTHROPIC_API_KEY: z.string().default(""),
+    NEARAI_API_KEY: z.string().default(""),
     GITHUB_TOKEN: z.string().default(""),
   }),
 
@@ -141,9 +141,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const catalogClaims = createCatalogClaims(restPlugins);
       const reviewEvaluation = createReviewEvaluationSweep({
         plugins: restPlugins,
-        assessor: config.secrets.ANTHROPIC_API_KEY
-          ? createClaudeAssessor({
-              apiKey: config.secrets.ANTHROPIC_API_KEY,
+        assessor: config.secrets.NEARAI_API_KEY
+          ? createNearAiAssessor({
+              apiKey: config.secrets.NEARAI_API_KEY,
               model: config.variables.reviewEvaluationModel,
             })
           : null,
@@ -155,7 +155,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       console.log(
         "[API] Review evaluation:",
         config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
-        config.secrets.ANTHROPIC_API_KEY ? "(checks + Claude)" : "(checks only)",
+        config.secrets.NEARAI_API_KEY ? "(checks + NEAR AI)" : "(checks only)",
       );
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));

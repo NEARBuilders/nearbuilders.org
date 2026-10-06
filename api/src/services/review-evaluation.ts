@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { EvaluationCheck, ReviewSubject } from "./review-checks";
 
 export const EVALUATION_PROMPT_VERSION = "v2";
@@ -101,8 +100,11 @@ export function buildAssessmentPrompt(subject: ReviewSubject, checks: Evaluation
 
 export function parseAssessment(text: string): Assessment | null {
   let value: unknown;
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end < start) return null;
   try {
-    value = JSON.parse(text);
+    value = JSON.parse(text.slice(start, end + 1));
   } catch {
     return null;
   }
@@ -131,41 +133,63 @@ export function parseAssessment(text: string): Assessment | null {
   };
 }
 
-export function createClaudeAssessor(options: {
+export const NEAR_AI_BASE_URL = "https://cloud-api.near.ai/v1";
+
+type ChatCompletion = {
+  model?: string;
+  choices?: Array<{
+    finish_reason?: string | null;
+    message?: { content?: string | null; refusal?: string | null };
+  }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+};
+
+export function createNearAiAssessor(options: {
   apiKey: string;
   model: string;
-  client?: Pick<Anthropic, "beta">;
+  baseUrl?: string;
+  fetch?: typeof fetch;
 }): Assessor {
-  const client =
-    options.client ?? new Anthropic({ apiKey: options.apiKey, maxRetries: 2, timeout: 60_000 });
+  const fetchImpl = options.fetch ?? fetch;
+  const url = `${(options.baseUrl ?? NEAR_AI_BASE_URL).replace(/\/+$/, "")}/chat/completions`;
   return {
     model: options.model,
     assess: async ({ subject, checks }) => {
-      const response = await client.beta.messages.create({
-        model: options.model,
-        max_tokens: 4_000,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        system: SYSTEM_PROMPT,
-        output_config: {
-          effort: "low",
-          format: { type: "json_schema", schema: OUTPUT_SCHEMA },
+      const response = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.apiKey}`,
+          "Content-Type": "application/json",
         },
-        messages: [{ role: "user", content: buildAssessmentPrompt(subject, checks) }],
+        body: JSON.stringify({
+          model: options.model,
+          max_tokens: 4_000,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: buildAssessmentPrompt(subject, checks) },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "assessment", strict: true, schema: OUTPUT_SCHEMA },
+          },
+        }),
+        signal: AbortSignal.timeout(60_000),
       });
-      console.log("[ReviewEvaluation] Claude usage", {
-        model: response.model ?? options.model,
-        inputTokens: response.usage?.input_tokens,
-        outputTokens: response.usage?.output_tokens,
+      if (!response.ok) {
+        const detail = (await response.text().catch(() => "")).slice(0, 300);
+        throw new Error(`NEAR AI Cloud request failed with ${response.status}: ${detail}`);
+      }
+      const completion = (await response.json()) as ChatCompletion;
+      console.log("[ReviewEvaluation] NEAR AI usage", {
+        model: completion.model ?? options.model,
+        inputTokens: completion.usage?.prompt_tokens,
+        outputTokens: completion.usage?.completion_tokens,
       });
-      if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
+      const choice = completion.choices?.[0];
+      if (!choice?.message || choice.message.refusal || choice.finish_reason === "length") {
         return null;
       }
-      const text = response.content
-        .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
-        .map((block) => block.text)
-        .join("");
-      return parseAssessment(text);
+      return parseAssessment(choice.message.content ?? "");
     },
   };
 }

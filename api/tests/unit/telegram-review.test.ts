@@ -44,7 +44,7 @@ function setup(options: SetupOptions = {}) {
       })),
       getEvaluations: vi.fn(async () => ({
         data: evaluation
-          ? [{ proposalId: PROPOSAL.id, model: "claude-opus-5", ...evaluation }]
+          ? [{ proposalId: PROPOSAL.id, model: "z-ai/glm-5.3-flash", ...evaluation }]
           : [],
       })),
     }),
