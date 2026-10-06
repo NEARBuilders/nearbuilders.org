@@ -219,6 +219,7 @@ export function formatAuditAction(entry: ProposalAuditEntry, pluginId: ProposalP
     return "Made private";
   }
   if (entry.action === "apply_failed") return "Publishing failed";
+  if (entry.action === "failure_dismissed") return "Failure dismissed";
   if (entry.action === "remove_failed") return "Removal failed";
   return entry.action.replaceAll("_", " ");
 }

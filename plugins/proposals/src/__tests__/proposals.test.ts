@@ -776,6 +776,64 @@ describe.sequential("Proposals plugin", () => {
     ).toBe(true);
   });
 
+  it("lets admins dismiss an approval that failed to publish", async () => {
+    const input = {
+      pluginId: "builders",
+      entityId: "dismissed-failure.near",
+      payload: { name: "Dismissed Failure" },
+      idempotencyKey: "dismissed-failure",
+    };
+    const proposed = await aliceClient().propose(input);
+    const target = { pluginId: input.pluginId, entityId: input.entityId };
+
+    await expect(
+      adminClient().dismissFailure({ ...target, expectedUpdatedAt: proposed.data.updatedAt }),
+    ).rejects.toThrow("Only approvals that failed to publish can be dismissed");
+
+    const approved = await adminClient().approve({
+      ...target,
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    const failed = await adminClient().markApplyFailed({
+      ...target,
+      expectedUpdatedAt: approved.data.updatedAt,
+      error: "Enter a country",
+    });
+
+    await expect(
+      aliceClient().dismissFailure({ ...target, expectedUpdatedAt: failed.data.updatedAt }),
+    ).rejects.toThrow();
+    await expect(
+      adminClient().dismissFailure({ ...target, expectedUpdatedAt: approved.data.updatedAt }),
+    ).rejects.toThrow("This proposal changed");
+
+    const dismissed = await adminClient().dismissFailure({
+      ...target,
+      expectedUpdatedAt: failed.data.updatedAt,
+      reason: "Already onboarded",
+    });
+    expect(dismissed.data).toMatchObject({
+      reviewStatus: "rejected",
+      applyStatus: "not_started",
+      applyError: null,
+      rejectionReason: "Already onboarded",
+    });
+
+    const actionable = await adminClient().getProposals({
+      pluginId: "builders",
+      lifecycleStatus: "actionable",
+      limit: 100,
+    });
+    expect(actionable.data.map((proposal) => proposal.entityId)).not.toContain(input.entityId);
+
+    const audit = await adminClient().getAuditLog({ ...target, limit: 10 });
+    expect(audit.data.map((entry) => entry.action)).toContain("failure_dismissed");
+
+    await expect(
+      adminClient().reopen({ ...target, expectedUpdatedAt: dismissed.data.updatedAt }),
+    ).resolves.toMatchObject({ data: { reviewStatus: "pending" } });
+  });
+
   it("makes stalled lifecycle operations actionable and retryable", async () => {
     const startedAt = Date.now();
     vi.useFakeTimers({ toFake: ["Date"] });

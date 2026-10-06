@@ -13,6 +13,7 @@ const PROPOSAL = {
   payload: { title: "NEAR Rust SDK" },
   submissionCount: 2,
   reviewStatus: "pending",
+  applyStatus: "not_started",
   updatedAt: "2026-09-26T08:00:00.000Z",
 };
 
@@ -30,6 +31,7 @@ type SetupOptions = { proposals?: (typeof PROPOSAL)[]; evaluation?: Evaluation }
 function setup(options: SetupOptions = {}) {
   const approve = vi.fn(async () => ({}));
   const reject = vi.fn(async () => ({}));
+  const dismiss = vi.fn(async () => ({}));
   const evaluation =
     options.evaluation === undefined
       ? { verdict: "ready", submissionCount: 2, summary: "Official repo, active" }
@@ -56,8 +58,9 @@ function setup(options: SetupOptions = {}) {
       plugins,
       approve,
       reject,
+      dismiss,
     });
-  return { approve, reject, decide };
+  return { approve, reject, dismiss, decide };
 }
 
 const BASE = {
@@ -149,6 +152,39 @@ describe("decideTelegramReview", () => {
     const { reject, decide } = setup();
     await decide({ decision: "reject", ...input });
     expect(reject).toHaveBeenCalledWith(expect.objectContaining({ reason }), expect.anything());
+  });
+
+  it("dismisses an approval that failed to publish without approving or rejecting", async () => {
+    const failed = { ...PROPOSAL, reviewStatus: "approved", applyStatus: "failed" };
+    const { approve, reject, dismiss, decide } = setup({
+      proposals: [failed],
+      evaluation: { verdict: "spam", submissionCount: 2 },
+    });
+    await expect(decide({ decision: "dismiss", dryRun: true })).resolves.toMatchObject({
+      decision: "allowed",
+    });
+    expect(dismiss).not.toHaveBeenCalled();
+    await expect(decide({ decision: "dismiss" })).resolves.toMatchObject({
+      decision: "dismissed",
+      title: "NEAR Rust SDK",
+    });
+    expect(dismiss).toHaveBeenCalledWith(
+      { pluginId: "projects", entityId: "project-1", expectedUpdatedAt: PROPOSAL.updatedAt },
+      expect.objectContaining({ userId: "user-admin" }),
+    );
+    expect(approve).not.toHaveBeenCalled();
+    expect(reject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a pending item", { ...PROPOSAL }],
+    ["a published item", { ...PROPOSAL, reviewStatus: "approved", applyStatus: "applied" }],
+  ])("refuses to dismiss %s", async (_name, proposal) => {
+    const { dismiss, decide } = setup({ proposals: [proposal] });
+    await expect(decide({ decision: "dismiss" })).rejects.toThrow(
+      "This item is no longer marked as failed",
+    );
+    expect(dismiss).not.toHaveBeenCalled();
   });
 
   it.each<[string, SetupOptions, Partial<TelegramDecisionInput>, string]>([

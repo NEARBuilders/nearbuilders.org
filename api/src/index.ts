@@ -595,6 +595,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await rejectProposal(input, context);
       }),
 
+      dismissFailure: builder.dismissFailure
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.proposals(context).dismissFailure(input);
+        }),
+
       withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).withdraw(input);
       }),
@@ -690,6 +696,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
             plugins: services.plugins,
             approve: approveProposal,
             reject: rejectProposal,
+            dismiss: (target, context) =>
+              services.plugins.proposals(context).dismissFailure(target),
           });
         }),
 
