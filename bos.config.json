@@ -41,6 +41,7 @@
       "secrets": [
         "API_DATABASE_URL",
         "NEARAI_API_KEY",
+        "NEARAI_MODEL",
         "GITHUB_TOKEN"
       ]
     },

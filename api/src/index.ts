@@ -125,6 +125,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
     NEARAI_API_KEY: z.string().default(""),
+    NEARAI_MODEL: z.string().default(""),
     GITHUB_TOKEN: z.string().default(""),
   }),
 
@@ -139,12 +140,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
+      const reviewModel = config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
       const reviewEvaluation = createReviewEvaluationSweep({
         plugins: restPlugins,
         assessor: config.secrets.NEARAI_API_KEY
           ? createNearAiAssessor({
               apiKey: config.secrets.NEARAI_API_KEY,
-              model: config.variables.reviewEvaluationModel,
+              model: reviewModel,
             })
           : null,
         githubToken: config.secrets.GITHUB_TOKEN,
@@ -155,7 +157,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       console.log(
         "[API] Review evaluation:",
         config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
-        config.secrets.NEARAI_API_KEY ? "(checks + NEAR AI)" : "(checks only)",
+        config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
       );
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
