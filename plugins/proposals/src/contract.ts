@@ -143,6 +143,19 @@ export const contract = oc.router({
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
+  dismissFailure: oc
+    .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/dismiss" })
+    .input(
+      z.object({
+        pluginId: z.string(),
+        entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
+    .output(z.object({ data: ProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
   withdraw: oc
     .route({ method: "POST", path: "/v1/proposals/{pluginId}/{entityId}/withdraw" })
     .input(ExpectedProposalVersion)

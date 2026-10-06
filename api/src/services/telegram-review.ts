@@ -20,7 +20,7 @@ export type TelegramRejectionReason = keyof typeof TELEGRAM_REJECTION_REASONS;
 export type TelegramDecisionInput = {
   proposalId: string;
   submissionCount: number;
-  decision: "approve" | "reject";
+  decision: "approve" | "reject" | "dismiss";
   reason?: TelegramRejectionReason;
   customReason?: string;
   dryRun?: boolean;
@@ -57,16 +57,26 @@ export function telegramReviewerContext(base: Context, reviewer: LinkedReviewer)
   } as unknown as Context;
 }
 
-async function findPendingProposal(
+function failedToPublish(proposal: ProposalRecord): boolean {
+  return (
+    proposal.reviewStatus === "approved" &&
+    (proposal.applyStatus === "failed" || proposal.applyStatus === "applying")
+  );
+}
+
+async function findActionableProposal(
   plugins: Pick<PluginsClient, "proposals">,
   proposalId: string,
+  decision: TelegramDecisionInput["decision"],
 ): Promise<ProposalRecord | null> {
   const result = await plugins.proposals(evaluatorContext).getProposalById({ id: proposalId });
-  return result.data?.reviewStatus === "pending" ? result.data : null;
+  if (!result.data) return null;
+  if (decision === "dismiss") return failedToPublish(result.data) ? result.data : null;
+  return result.data.reviewStatus === "pending" ? result.data : null;
 }
 
 export type TelegramDecisionResult = {
-  decision: "approved" | "rejected" | "allowed";
+  decision: "approved" | "rejected" | "dismissed" | "allowed";
   title: string;
   verdict: "ready" | "review" | "spam" | null;
   summary: string | null;
@@ -78,6 +88,7 @@ export async function decideTelegramReview(options: {
   plugins: Pick<PluginsClient, "proposals">;
   approve: DecisionAction;
   reject: DecisionAction;
+  dismiss: DecisionAction;
 }): Promise<TelegramDecisionResult> {
   const { input } = options;
   const { data: reviewer } = await options.plugins
@@ -94,9 +105,14 @@ export async function decideTelegramReview(options: {
     throw new ORPCError("BAD_REQUEST", { message: "A rejection reason is required" });
   }
 
-  const proposal = await findPendingProposal(options.plugins, input.proposalId);
+  const proposal = await findActionableProposal(options.plugins, input.proposalId, input.decision);
   if (!proposal) {
-    throw new ORPCError("NOT_FOUND", { message: "This item is no longer pending" });
+    throw new ORPCError("NOT_FOUND", {
+      message:
+        input.decision === "dismiss"
+          ? "This item is no longer marked as failed"
+          : "This item is no longer pending",
+    });
   }
   if (proposal.submissionCount !== input.submissionCount) {
     throw new ORPCError("BAD_REQUEST", {
@@ -137,6 +153,8 @@ export async function decideTelegramReview(options: {
   };
   if (input.decision === "approve") {
     await options.approve(target, context);
+  } else if (input.decision === "dismiss") {
+    await options.dismiss(target, context);
   } else {
     await options.reject(
       {
@@ -146,5 +164,6 @@ export async function decideTelegramReview(options: {
       context,
     );
   }
-  return { decision: input.decision === "approve" ? "approved" : "rejected", ...details };
+  const decided = { approve: "approved", reject: "rejected", dismiss: "dismissed" } as const;
+  return { decision: decided[input.decision], ...details };
 }

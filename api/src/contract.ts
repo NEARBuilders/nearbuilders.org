@@ -799,6 +799,19 @@ export const contract = oc.router({
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
+  dismissFailure: oc
+    .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/dismiss" })
+    .input(
+      z.object({
+        pluginId: z.string(),
+        entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
+    .output(z.object({ data: ProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
   withdraw: oc
     .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/withdraw" })
     .input(ExpectedProposalVersion)
@@ -891,7 +904,7 @@ export const contract = oc.router({
       z.object({
         proposalId: z.string().min(1).max(100),
         submissionCount: z.number().int().nonnegative(),
-        decision: z.enum(["approve", "reject"]),
+        decision: z.enum(["approve", "reject", "dismiss"]),
         reason: z.enum(["incomplete", "not_near", "spam", "duplicate"]).optional(),
         customReason: z.string().trim().min(3).max(500).optional(),
         dryRun: z.boolean().optional(),
@@ -903,7 +916,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        decision: z.enum(["approved", "rejected", "allowed"]),
+        decision: z.enum(["approved", "rejected", "dismissed", "allowed"]),
         title: z.string(),
         verdict: ReviewVerdict.nullable(),
         summary: z.string().nullable(),

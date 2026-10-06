@@ -196,6 +196,20 @@ export default createPlugin({
         return { data: result };
       }),
 
+      dismissFailure: builder.dismissFailure
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await runEffect(
+            services.proposal.dismissFailure({
+              ...input,
+              actorId: context.userId!,
+              actor: context.user ?? undefined,
+            }),
+          );
+          await publishProposalEvent("failure_dismissed", result);
+          return { data: result };
+        }),
+
       withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
         const viewer = viewerId(context);
         const existing = await runEffect(
