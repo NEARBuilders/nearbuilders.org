@@ -22,6 +22,7 @@ function normalizeOptionalText(value?: string | null): string | null {
 const HOSTNAME_PATTERN =
   /^(?=.{1,255}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
+const MAX_SLUG_LENGTH = 100;
 const MAX_SLUG_BATCH = 100;
 
 function assertProjectShape(input: {
@@ -29,6 +30,7 @@ function assertProjectShape(input: {
   repository: string | null;
   content: string | null;
   domain: string | null;
+  logoUrl: string | null;
 }) {
   if (input.kind === "project" && !input.repository) {
     throw new ORPCError("BAD_REQUEST", {
@@ -56,27 +58,26 @@ function assertProjectShape(input: {
       message: "Projects require a product domain",
     });
   }
-}
 
-function assertLogoUrl(value: string | null) {
-  if (!value) return;
-  if (value.length > 2000) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Logo URL must be at most 2000 characters",
-    });
-  }
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Logo URL must be an absolute http(s) URL",
-    });
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "Logo URL must be an absolute http(s) URL",
-    });
+  if (input.logoUrl) {
+    if (input.logoUrl.length > 2000) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Logo URL must be at most 2000 characters",
+      });
+    }
+    let url: URL;
+    try {
+      url = new URL(input.logoUrl);
+    } catch {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Logo URL must be an absolute http(s) URL",
+      });
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Logo URL must be an absolute http(s) URL",
+      });
+    }
   }
 }
 
@@ -88,7 +89,7 @@ function parseSlugFilter(raw?: string) {
     for (const part of raw.split(",")) {
       const slug = part.trim();
       if (!slug || seen.has(slug)) continue;
-      if (!SLUG_PATTERN.test(slug)) {
+      if (!SLUG_PATTERN.test(slug) || slug.length > MAX_SLUG_LENGTH) {
         return yield* Effect.fail(
           new ORPCError("BAD_REQUEST", { message: "Invalid slug in slugs filter" }),
         );
@@ -517,7 +518,7 @@ export const ProjectServiceLive = Layer.effect(
               data,
               meta: {
                 total,
-                hasMore: limit < total,
+                hasMore: false,
                 nextCursor: null,
               },
             };
@@ -622,8 +623,8 @@ export const ProjectServiceLive = Layer.effect(
             repository,
             content,
             domain,
+            logoUrl,
           });
-          assertLogoUrl(logoUrl);
 
           yield* Effect.promise(() =>
             db.insert(projects).values({
@@ -724,8 +725,8 @@ export const ProjectServiceLive = Layer.effect(
             repository: nextRepository,
             content: nextContent,
             domain: nextDomain,
+            logoUrl: nextLogoUrl,
           });
-          assertLogoUrl(nextLogoUrl);
 
           if (input.kind !== undefined) updates.kind = input.kind;
           if (input.title !== undefined) updates.title = input.title;

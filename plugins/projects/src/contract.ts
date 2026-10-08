@@ -51,7 +51,7 @@ export const contract = oc.router({
         status: z.enum(["active", "paused", "archived"]).optional(),
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
-        slugs: z.string().max(20_000).optional(),
+        slugs: z.string().max(10_100).optional(),
         limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),

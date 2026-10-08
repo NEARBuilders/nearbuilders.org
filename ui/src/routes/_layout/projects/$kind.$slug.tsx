@@ -29,6 +29,7 @@ import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { isSafeImageUrl } from "@/lib/image-url";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -409,7 +410,7 @@ function ProjectDetailPage() {
                   <NewBadge createdAt={project.createdAt} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  {project.logoUrl && (
+                  {isSafeImageUrl(project.logoUrl) && (
                     <img
                       src={project.logoUrl}
                       alt=""

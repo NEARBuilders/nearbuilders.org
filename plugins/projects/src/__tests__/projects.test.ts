@@ -83,7 +83,7 @@ describe("projects router visibility", () => {
       content: "Public project content",
       visibility: "public",
     });
-  }, 120_000);
+  }, 30_000);
 
   afterAll(async () => {
     await runtime.shutdown();
@@ -388,7 +388,7 @@ describe("project identity fields", () => {
     const limited = await anonymous.listProjects({ slugs: slugs.join(","), limit: 5 });
     expect(limited.data).toHaveLength(5);
     expect(limited.data.map((project) => project.slug)).toEqual(slugs.slice(0, 5));
-    expect(limited.meta).toMatchObject({ total: 30, hasMore: true, nextCursor: null });
+    expect(limited.meta).toMatchObject({ total: 30, hasMore: false, nextCursor: null });
 
     const page = await anonymous.listProjects({ limit: 5 });
     expect(page.data).toHaveLength(5);

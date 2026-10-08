@@ -76,9 +76,9 @@ export const validateLogoUrl = (value?: string) => {
     const url = new URL(trimmed);
     if (url.protocol === "http:" || url.protocol === "https:") return undefined;
   } catch {
-    return "Must be an absolute http(s) URL";
+    return "Logo URL must be an absolute http(s) URL";
   }
-  return "Must be an absolute http(s) URL";
+  return "Logo URL must be an absolute http(s) URL";
 };
 
 export const validateOptionalMaxLength = (

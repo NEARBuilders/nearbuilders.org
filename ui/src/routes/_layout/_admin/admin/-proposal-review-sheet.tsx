@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { isSafeImageUrl } from "@/lib/image-url";
 import { cn } from "@/lib/utils";
 import {
   formatAuditAction,
@@ -362,7 +363,7 @@ function ProposalContent({
         {domain && <MetadataItem label="Domain" value={domain} mono />}
         {logoUrl && <MetadataItem label="Logo" value={logoUrl} mono />}
       </div>
-      {logoUrl && (
+      {isSafeImageUrl(logoUrl) && (
         <img
           src={logoUrl}
           alt=""

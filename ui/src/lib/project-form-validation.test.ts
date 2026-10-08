@@ -130,6 +130,6 @@ describe("project form validation", () => {
       logoUrl: "ftp://example.com/logo.png",
       visibility: "public",
     });
-    expect(logo.errors.logoUrl).toBe("Must be an absolute http(s) URL");
+    expect(logo.errors.logoUrl).toBe("Logo URL must be an absolute http(s) URL");
   });
 });
