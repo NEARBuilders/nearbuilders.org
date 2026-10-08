@@ -19,10 +19,16 @@ function normalizeOptionalText(value?: string | null): string | null {
   return trimmed ? trimmed : null;
 }
 
+const HOSTNAME_PATTERN =
+  /^(?=.{1,255}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+const SLUG_PATTERN = /^[a-z0-9-]+$/;
+const MAX_SLUG_BATCH = 100;
+
 function assertProjectShape(input: {
   kind: ProjectKind;
   repository: string | null;
   content: string | null;
+  domain: string | null;
 }) {
   if (input.kind === "project" && !input.repository) {
     throw new ORPCError("BAD_REQUEST", {
@@ -38,6 +44,70 @@ function assertProjectShape(input: {
       message: `${input.kind.charAt(0).toUpperCase() + input.kind.slice(1)}s require markdown content`,
     });
   }
+
+  if (input.domain && !HOSTNAME_PATTERN.test(input.domain)) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Domain must be a hostname without a scheme or path",
+    });
+  }
+
+  if (input.kind === "project" && !input.domain) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Projects require a product domain",
+    });
+  }
+}
+
+function assertLogoUrl(value: string | null) {
+  if (!value) return;
+  if (value.length > 2000) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Logo URL must be at most 2000 characters",
+    });
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Logo URL must be an absolute http(s) URL",
+    });
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Logo URL must be an absolute http(s) URL",
+    });
+  }
+}
+
+function parseSlugFilter(raw?: string) {
+  return Effect.gen(function* () {
+    if (raw === undefined) return undefined;
+    const seen = new Set<string>();
+    const slugs: string[] = [];
+    for (const part of raw.split(",")) {
+      const slug = part.trim();
+      if (!slug || seen.has(slug)) continue;
+      if (!SLUG_PATTERN.test(slug)) {
+        return yield* Effect.fail(
+          new ORPCError("BAD_REQUEST", { message: "Invalid slug in slugs filter" }),
+        );
+      }
+      seen.add(slug);
+      slugs.push(slug);
+    }
+    if (slugs.length === 0) {
+      return yield* Effect.fail(
+        new ORPCError("BAD_REQUEST", { message: "slugs must include at least one slug" }),
+      );
+    }
+    if (slugs.length > MAX_SLUG_BATCH) {
+      return yield* Effect.fail(
+        new ORPCError("BAD_REQUEST", { message: "slugs accepts at most 100 values" }),
+      );
+    }
+    return slugs;
+  });
 }
 
 function parseMentions(content: string | null): Array<{ ownerId: string; slug: string }> {
@@ -75,6 +145,7 @@ export interface Project {
   visibility: ProjectVisibility;
   repository: string | null;
   domain: string | null;
+  logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,6 +183,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         status?: ProjectStatus;
         query?: string;
         sort?: "newest" | "oldest";
+        slugs?: string;
         limit?: number;
         cursor?: string;
       },
@@ -153,6 +225,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         organizationId?: string;
         ownerId?: string;
         domain?: string;
+        logoUrl?: string;
       },
       userId: string,
       userRole?: string,
@@ -171,6 +244,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         repository?: string;
         ownerId?: string;
         domain?: string;
+        logoUrl?: string;
       },
       userId: string,
       userRole?: string,
@@ -322,6 +396,7 @@ function mapProject(p: any): Project {
     visibility: p.visibility as ProjectVisibility,
     repository: p.repository ?? null,
     domain: p.domain ?? null,
+    logoUrl: p.logoUrl ?? null,
     createdAt: toIsoString(p.createdAt),
     updatedAt: toIsoString(p.updatedAt),
   };
@@ -358,8 +433,11 @@ export const ProjectServiceLive = Layer.effect(
     return {
       listProjects: (input, userId?: string, alternateUserId?: string, userRole?: string) =>
         Effect.gen(function* () {
-          const limit = Math.min(input.limit ?? 24, 100);
-          const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
+          const slugFilter = yield* parseSlugFilter(input.slugs);
+          const limit = slugFilter
+            ? (input.limit ?? slugFilter.length)
+            : Math.min(input.limit ?? 24, 100);
+          const offset = slugFilter ? 0 : input.cursor ? parseInt(input.cursor, 10) : 0;
           const conditions: any[] = [];
 
           if (input.organizationId) {
@@ -372,6 +450,10 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.kind) {
             conditions.push(eq(projects.kind, input.kind));
+          }
+
+          if (slugFilter) {
+            conditions.push(inArray(projects.slug, slugFilter));
           }
 
           if (input.status) {
@@ -417,6 +499,29 @@ export const ProjectServiceLive = Layer.effect(
           }
 
           const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+          if (slugFilter) {
+            const records = yield* Effect.promise(() =>
+              db.select().from(projects).where(whereClause),
+            );
+            const bySlug = new Map(
+              records.map((record: { slug: string }) => [record.slug, record]),
+            );
+            const ordered = slugFilter.flatMap((slug) => {
+              const record = bySlug.get(slug);
+              return record ? [record] : [];
+            });
+            const total = ordered.length;
+            const data: Project[] = ordered.slice(0, limit).map(mapProject);
+            return {
+              data,
+              meta: {
+                total,
+                hasMore: limit < total,
+                nextCursor: null,
+              },
+            };
+          }
 
           const [totalResult] = yield* Effect.promise(() =>
             db.select({ count: count() }).from(projects).where(whereClause),
@@ -510,12 +615,15 @@ export const ProjectServiceLive = Layer.effect(
           const content = normalizeOptionalText(input.content);
           const repository = normalizeOptionalText(input.repository);
           const domain = normalizeOptionalText(input.domain);
+          const logoUrl = normalizeOptionalText(input.logoUrl);
 
           assertProjectShape({
             kind: input.kind,
             repository,
             content,
+            domain,
           });
+          assertLogoUrl(logoUrl);
 
           yield* Effect.promise(() =>
             db.insert(projects).values({
@@ -531,6 +639,7 @@ export const ProjectServiceLive = Layer.effect(
               visibility: input.visibility ?? "public",
               repository,
               domain,
+              logoUrl,
               createdAt: now,
               updatedAt: now,
             }),
@@ -551,6 +660,7 @@ export const ProjectServiceLive = Layer.effect(
             visibility: (input.visibility ?? "public") as ProjectVisibility,
             repository,
             domain,
+            logoUrl,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
           };
@@ -600,12 +710,22 @@ export const ProjectServiceLive = Layer.effect(
             input.repository !== undefined
               ? normalizeOptionalText(input.repository)
               : existing.repository;
+          const nextDomain =
+            input.domain !== undefined
+              ? normalizeOptionalText(input.domain)
+              : (existing.domain ?? null);
+          const nextLogoUrl =
+            input.logoUrl !== undefined
+              ? normalizeOptionalText(input.logoUrl)
+              : (existing.logoUrl ?? null);
 
           assertProjectShape({
             kind: nextKind,
             repository: nextRepository,
             content: nextContent,
+            domain: nextDomain,
           });
+          assertLogoUrl(nextLogoUrl);
 
           if (input.kind !== undefined) updates.kind = input.kind;
           if (input.title !== undefined) updates.title = input.title;
@@ -614,7 +734,8 @@ export const ProjectServiceLive = Layer.effect(
           if (input.status !== undefined) updates.status = input.status;
           if (input.visibility !== undefined) updates.visibility = input.visibility;
           if (input.repository !== undefined) updates.repository = nextRepository;
-          if (input.domain !== undefined) updates.domain = normalizeOptionalText(input.domain);
+          if (input.domain !== undefined) updates.domain = nextDomain;
+          if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
           if (userRole === "admin" && input.ownerId !== undefined)
             updates.ownerId = input.ownerId.trim();
 
@@ -635,7 +756,8 @@ export const ProjectServiceLive = Layer.effect(
             status: updates.status ?? existing.status,
             visibility: updates.visibility ?? existing.visibility,
             repository: updates.repository ?? existing.repository ?? null,
-            domain: updates.domain ?? existing.domain ?? null,
+            domain: nextDomain,
+            logoUrl: nextLogoUrl,
             createdAt: toIsoString(existing.createdAt),
             updatedAt: toIsoString(now),
           };

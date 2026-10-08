@@ -42,6 +42,7 @@ describe("project form validation", () => {
       kind: "project",
       title: "Example project",
       repository: "https://github.com/example/project",
+      domain: "app.example.com",
       visibility: "public",
     });
 
@@ -58,6 +59,7 @@ describe("project form validation", () => {
       kind: "project",
       title: "Example project",
       repository: "not-a-url",
+      domain: "app.example.com",
       description: "x".repeat(1001),
       visibility: "public",
     });
@@ -80,5 +82,45 @@ describe("project form validation", () => {
     expect(validation.errors).toEqual({ title: "Title is required" });
     expect(validation.missingFields).toEqual(["Title"]);
     expect(validation.invalidFieldCount).toBe(1);
+  });
+
+  it("requires a hostname for projects and rejects schemes or paths", () => {
+    const missing = getProjectFormValidation({
+      kind: "project",
+      title: "Example project",
+      repository: "https://github.com/example/project",
+      visibility: "public",
+    });
+    expect(missing.errors.domain).toBe("Product URL is required for projects");
+    expect(missing.missingFieldKeys).toContain("domain");
+
+    const scheme = getProjectFormValidation({
+      kind: "project",
+      title: "Example project",
+      repository: "https://github.com/example/project",
+      domain: "https://app.example.com/start",
+      visibility: "public",
+    });
+    expect(scheme.errors.domain).toBe("Enter a hostname like app.example.com");
+  });
+
+  it("keeps domain optional for ideas and validates logo URLs", () => {
+    const idea = getProjectFormValidation({
+      kind: "idea",
+      title: "Example idea",
+      content: "# Details",
+      visibility: "public",
+    });
+    expect(idea.errors.domain).toBeUndefined();
+    expect(idea.isValid).toBe(true);
+
+    const logo = getProjectFormValidation({
+      kind: "idea",
+      title: "Example idea",
+      content: "# Details",
+      logoUrl: "ftp://example.com/logo.png",
+      visibility: "public",
+    });
+    expect(logo.errors.logoUrl).toBe("Must be an absolute http(s) URL");
   });
 });

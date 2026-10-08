@@ -408,7 +408,14 @@ function ProjectDetailPage() {
                   <StatusChip status={project.status} />
                   <NewBadge createdAt={project.createdAt} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  {project.logoUrl && (
+                    <img
+                      src={project.logoUrl}
+                      alt=""
+                      className="size-12 shrink-0 rounded-md border border-border object-cover"
+                    />
+                  )}
                   <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
                     {project.title}
                   </h1>
@@ -423,6 +430,15 @@ function ProjectDetailPage() {
                   <p className="text-xs text-muted-foreground">
                     Link an identity to endorse entries.
                   </p>
+                )}
+                {project.domain && (
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <a href={`https://${project.domain}`} target="_blank" rel="noopener noreferrer">
+                      <Globe size={13} />
+                      <span className="max-w-55 truncate">{project.domain}</span>
+                      <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
+                    </a>
+                  </Button>
                 )}
                 {project.repository && (
                   <Button asChild size="sm" variant="outline" className="w-fit">

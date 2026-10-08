@@ -353,13 +353,22 @@ function ProposalContent({
   const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
   const slug = readString(payload.slug);
   const domain = readString(payload.domain);
+  const logoUrl = readString(payload.logoUrl);
   return (
     <div className="space-y-4">
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <MetadataItem label="Owner" value={ownerId} mono />
         {slug && <MetadataItem label="Slug" value={slug} mono />}
         {domain && <MetadataItem label="Domain" value={domain} mono />}
+        {logoUrl && <MetadataItem label="Logo" value={logoUrl} mono />}
       </div>
+      {logoUrl && (
+        <img
+          src={logoUrl}
+          alt=""
+          className="size-12 rounded-md border border-border object-cover"
+        />
+      )}
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary" className="capitalize">
           {kind}

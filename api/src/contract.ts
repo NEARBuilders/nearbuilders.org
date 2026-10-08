@@ -464,6 +464,23 @@ const CatalogErrors = {
   SERVICE_UNAVAILABLE,
   TIMEOUT,
 };
+const optionalLogoUrl = z
+  .string()
+  .max(2000)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Logo URL must be an absolute http(s) URL",
+  })
+  .optional();
+
+function isAbsoluteHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -477,6 +494,7 @@ const ProjectOutput = z.object({
   visibility: z.enum(["private", "unlisted", "public"]),
   repository: z.string().nullable(),
   domain: z.string().nullable(),
+  logoUrl: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -1366,7 +1384,8 @@ export const contract = oc.router({
         status: z.enum(["active", "paused", "archived"]).optional(),
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
-        limit: z.number().int().min(1).max(100).optional(),
+        slugs: z.string().max(20_000).optional(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
     )
@@ -1400,6 +1419,7 @@ export const contract = oc.router({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
+        logoUrl: optionalLogoUrl,
       }),
     )
     .output(ProjectOutput)
@@ -1461,6 +1481,7 @@ export const contract = oc.router({
         repository: z.string().url().max(500).optional(),
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
+        logoUrl: optionalLogoUrl,
       }),
     )
     .output(ProjectOutput)

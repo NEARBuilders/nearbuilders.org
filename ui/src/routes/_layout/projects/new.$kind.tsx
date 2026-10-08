@@ -40,6 +40,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   visibility: "public" as const,
   ownerId: "",
   domain: "",
+  logoUrl: "",
 });
 
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
@@ -141,6 +142,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         visibility: submitForReview ? "private" : values.visibility,
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
         domain: values.domain?.trim() || undefined,
+        logoUrl: values.logoUrl?.trim() || undefined,
       });
       if (submitForReview) {
         await apiClient.propose({
@@ -156,6 +158,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             visibility: "public",
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
+            logoUrl: project.logoUrl ?? undefined,
           },
         });
       }

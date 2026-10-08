@@ -8,7 +8,11 @@ export type ProjectFormValues = {
   status?: "active" | "paused" | "archived";
   ownerId?: string;
   domain?: string;
+  logoUrl?: string;
 };
+
+const HOSTNAME_PATTERN =
+  /^(?=.{1,255}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
 
 export const validateTitle = (value: string) => {
   const trimmed = value.trim();
@@ -43,6 +47,29 @@ export const validateContent = (value: string | undefined, kind: ProjectFormValu
   return undefined;
 };
 
+export const validateDomain = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return kind === "project" ? "Product URL is required for projects" : undefined;
+  }
+  if (trimmed.length > 255) return "Max 255 characters";
+  if (!HOSTNAME_PATTERN.test(trimmed)) return "Enter a hostname like app.example.com";
+  return undefined;
+};
+
+export const validateLogoUrl = (value?: string) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return undefined;
+  if (trimmed.length > 2000) return "Max 2000 characters";
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === "http:" || url.protocol === "https:") return undefined;
+  } catch {
+    return "Must be an absolute http(s) URL";
+  }
+  return "Must be an absolute http(s) URL";
+};
+
 export const validateOptionalMaxLength = (
   value: string | undefined,
   max: number,
@@ -62,6 +89,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   status: "Status",
   ownerId: "Owner",
   domain: "Domain",
+  logoUrl: "Logo URL",
 };
 
 export type ProjectFormValidation = {
@@ -91,13 +119,15 @@ export function getProjectFormValidation(
       ? validateRepository(values.repository, kind)
       : validateContent(values.content, kind),
   );
-  setError("domain", validateOptionalMaxLength(values.domain, 255, "Max 255 characters"));
+  setError("domain", validateDomain(values.domain, kind));
+  setError("logoUrl", validateLogoUrl(values.logoUrl));
   setError("ownerId", validateOptionalMaxLength(values.ownerId, 255, "Max 255 characters"));
 
   const missingFieldKeys = [
     !values.title?.trim() && "title",
     (kind === "project" ? !values.repository?.trim() : !values.content?.trim()) &&
       (kind === "project" ? "repository" : "content"),
+    kind === "project" && !values.domain?.trim() && "domain",
   ].filter(Boolean) as (keyof ProjectFormValues)[];
 
   return buildValidation(errors, missingFieldKeys);
