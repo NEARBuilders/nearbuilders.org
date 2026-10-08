@@ -23,6 +23,7 @@ import {
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
+  normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
 import { cn } from "@/lib/utils";
@@ -141,7 +142,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         content: values.content?.trim() || undefined,
         visibility: submitForReview ? "private" : values.visibility,
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
-        domain: values.domain?.trim() || undefined,
+        domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
       });
       if (submitForReview) {

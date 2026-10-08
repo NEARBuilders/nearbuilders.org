@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { filterProjectFormValidation, getProjectFormValidation } from "./project-form-validation";
+import {
+  filterProjectFormValidation,
+  getProjectFormValidation,
+  normalizeDomain,
+} from "./project-form-validation";
 
 describe("project form validation", () => {
   it("reports the required fields missing from an idea", () => {
@@ -84,7 +88,7 @@ describe("project form validation", () => {
     expect(validation.invalidFieldCount).toBe(1);
   });
 
-  it("requires a hostname for projects and rejects schemes or paths", () => {
+  it("requires a hostname for projects and keeps the host from a pasted URL", () => {
     const missing = getProjectFormValidation({
       kind: "project",
       title: "Example project",
@@ -101,7 +105,12 @@ describe("project form validation", () => {
       domain: "https://app.example.com/start",
       visibility: "public",
     });
-    expect(scheme.errors.domain).toBe("Enter a hostname like app.example.com");
+    expect(scheme.errors.domain).toBeUndefined();
+    expect(scheme.isValid).toBe(true);
+    expect(normalizeDomain("https://app.example.com/start")).toBe("app.example.com");
+    expect(normalizeDomain("http://app.example.com")).toBe("app.example.com");
+    expect(normalizeDomain("app.example.com/docs")).toBe("app.example.com");
+    expect(normalizeDomain("app.example.com")).toBe("app.example.com");
   });
 
   it("keeps domain optional for ideas and validates logo URLs", () => {

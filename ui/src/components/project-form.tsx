@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import {
   getProjectFormValidation,
+  normalizeDomain,
   type ProjectFormValues,
   validateContent,
   validateDescription,
@@ -812,7 +813,7 @@ export function ProjectFormLayout({
               </FieldLabel>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {kind === "project"
-                  ? "Hostname testers open, such as app.example.com. Do not include https:// or a path."
+                  ? "Hostname testers open, such as app.example.com."
                   : "Add a live domain if this idea already has a home on the web."}
               </p>
               <form.Field
@@ -830,7 +831,10 @@ export function ProjectFormLayout({
                         id="domain"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
+                        onBlur={() => {
+                          field.handleChange(normalizeDomain(field.state.value));
+                          field.handleBlur();
+                        }}
                         placeholder={kind === "project" ? "app.example.com" : "example.com"}
                         className={cn(
                           "mt-3 font-mono text-sm",

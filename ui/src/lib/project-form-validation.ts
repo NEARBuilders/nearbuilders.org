@@ -47,8 +47,19 @@ export const validateContent = (value: string | undefined, kind: ProjectFormValu
   return undefined;
 };
 
-export const validateDomain = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
+export function normalizeDomain(value: string | undefined): string {
   const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(candidate).hostname.replace(/\.$/, "");
+  } catch {
+    return trimmed;
+  }
+}
+
+export const validateDomain = (value: string | undefined, kind: ProjectFormValues["kind"]) => {
+  const trimmed = normalizeDomain(value);
   if (!trimmed) {
     return kind === "project" ? "Product URL is required for projects" : undefined;
   }
@@ -127,7 +138,7 @@ export function getProjectFormValidation(
     !values.title?.trim() && "title",
     (kind === "project" ? !values.repository?.trim() : !values.content?.trim()) &&
       (kind === "project" ? "repository" : "content"),
-    kind === "project" && !values.domain?.trim() && "domain",
+    kind === "project" && !normalizeDomain(values.domain) && "domain",
   ].filter(Boolean) as (keyof ProjectFormValues)[];
 
   return buildValidation(errors, missingFieldKeys);
