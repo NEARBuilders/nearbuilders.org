@@ -138,6 +138,7 @@ const createCallbacks: Record<string, CreateCallback> = {
         visibility,
         repository: readString(payload.repository),
         domain: readString(payload.domain),
+        logoUrl: readString(payload.logoUrl),
       });
       assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;
@@ -157,6 +158,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       repository: readString(payload.repository),
       organizationId: readString(payload.organizationId),
       domain: readString(payload.domain),
+      logoUrl: readString(payload.logoUrl),
     });
     assertProjectProposalOwner(result.ownerId, ownerId);
     return result.id;

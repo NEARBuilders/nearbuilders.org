@@ -91,6 +91,7 @@ const TYPE_HEADERS: Record<ProposalPluginId, string[]> = {
     "content",
     "repository",
     "domain",
+    "logoUrl",
     "ownerId",
   ],
   events: [
