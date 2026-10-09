@@ -17,10 +17,10 @@ function readOwnerId(value: unknown): string | undefined {
 }
 
 export function resolveProjectProposalOwner(
-  payload: Record<string, unknown>,
+  _payload: Record<string, unknown>,
   createdBy: string,
 ): string {
-  const ownerId = readOwnerId(payload.ownerId) ?? readOwnerId(createdBy);
+  const ownerId = readOwnerId(createdBy);
   if (!ownerId) {
     throw new ORPCError("BAD_REQUEST", {
       message: "Project proposal must identify the project owner",
