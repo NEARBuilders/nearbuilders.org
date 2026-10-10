@@ -16,6 +16,7 @@ export interface ActivityProjectStatus {
 export interface ActivityRegistrationClient {
   startSession(input: {
     projectId: string;
+    nearAccountId?: string;
     eventTypes: ActivityRegistrationEventType[];
   }): Promise<{ url: string; expiresAt: string }>;
   projectStatus(projectId: string): Promise<ActivityProjectStatus>;
@@ -69,6 +70,7 @@ export function createActivityRegistrationClient(options: {
         },
         body: JSON.stringify({
           project: { id: input.projectId },
+          ...(input.nearAccountId && { nearAccountId: input.nearAccountId }),
           eventTypes: input.eventTypes.map(({ name, pointValue }) => ({
             name,
             description: "",

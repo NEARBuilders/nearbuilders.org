@@ -121,6 +121,7 @@ export declare const ActivityRegistrationEventTypeSchema: z.ZodObject<{
 }, z.core.$strip>;
 export declare const ActivityRegistrationInputSchema: z.ZodObject<{
     projectId: z.ZodString;
+    nearAccountId: z.ZodOptional<z.ZodString>;
     eventTypes: z.ZodArray<z.ZodObject<{
         name: z.ZodString;
         pointValue: z.ZodNumber;
@@ -428,6 +429,7 @@ export declare const contract: {
     }>>, Record<never, never>>;
     startActivityRegistration: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         projectId: z.ZodString;
+        nearAccountId: z.ZodOptional<z.ZodString>;
         eventTypes: z.ZodArray<z.ZodObject<{
             name: z.ZodString;
             pointValue: z.ZodNumber;

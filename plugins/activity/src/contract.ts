@@ -115,6 +115,7 @@ export const ActivityRegistrationEventTypeSchema = z.object({
 
 export const ActivityRegistrationInputSchema = z.object({
   projectId: z.string().min(1).max(200),
+  nearAccountId: z.string().min(2).max(64).optional(),
   eventTypes: z
     .array(ActivityRegistrationEventTypeSchema)
     .min(1)

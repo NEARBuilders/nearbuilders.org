@@ -873,7 +873,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Register Activity once the project is approved",
             });
           }
-          return await services.plugins.activity(context).startActivityRegistration(input);
+          const nearAccountId = /^(?=.{2,64}$)[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$/.test(project.ownerId)
+            ? project.ownerId
+            : undefined;
+          return await services.plugins
+            .activity(context)
+            .startActivityRegistration({ ...input, nearAccountId });
         }),
 
       getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {

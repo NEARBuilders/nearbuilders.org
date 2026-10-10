@@ -29,6 +29,7 @@ describe("activity registration client", () => {
 
     const session = await client.startSession({
       projectId: "proj_1",
+      nearAccountId: "owner.near",
       eventTypes: [{ name: "listing.published", pointValue: 10 }],
     });
 
@@ -40,6 +41,7 @@ describe("activity registration client", () => {
     expect(new Headers(requests[0]?.init.headers).get("authorization")).toBe("Bearer act_partner");
     expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
       project: { id: "proj_1" },
+      nearAccountId: "owner.near",
       eventTypes: [{ name: "listing.published", description: "", enabled: true, pointValue: 10 }],
     });
   });
