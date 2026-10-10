@@ -42,6 +42,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   ownerId: "",
   domain: "",
   logoUrl: "",
+  collaborators: [],
 });
 
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
@@ -133,6 +134,9 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const createMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
       const submitForReview = values.visibility === "public" && !isAdmin && routeKind !== "result";
+      const collaborators = (values.collaborators ?? [])
+        .map((c) => c.trim())
+        .filter((c) => c.length > 0 && c !== (defaultOwnerId || undefined));
       const project = await apiClient.createProject({
         kind: routeKind as ProjectKind,
         title: values.title.trim(),
@@ -144,6 +148,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
+        collaborators: collaborators.length > 0 ? collaborators : undefined,
       });
       if (submitForReview) {
         await apiClient.propose({

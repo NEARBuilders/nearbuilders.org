@@ -61,7 +61,10 @@ export default createPlugin({
       createNotification: builder.createNotification
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          if (input.userId !== context.userId && context.user?.role !== "admin") {
+          const serverCall =
+            (context as typeof context & { serverNotification?: boolean }).serverNotification ===
+            true;
+          if (!serverCall && input.userId !== context.userId && context.user?.role !== "admin") {
             throw new ORPCError("FORBIDDEN", { message: "Cannot notify another user" });
           }
           const data = await runEffect(services.notification.createNotification(input));
