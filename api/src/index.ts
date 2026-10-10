@@ -836,6 +836,50 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.activity(context).emitActivity(input);
       }),
 
+      registerProjectActivity: builder.registerProjectActivity
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const { data: project } = await services.plugins
+            .projects(context)
+            .getProject({ id: input.projectId });
+          const signedInIds = [
+            context.userId,
+            (context.user as { walletAddress?: string | null }).walletAddress,
+            context.near?.primaryAccountId,
+            ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+          ].filter(Boolean);
+          if (!project.ownerId || !signedInIds.includes(project.ownerId)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the project owner can register Activity for this project",
+            });
+          }
+          if (
+            project.kind !== "project" ||
+            project.status !== "active" ||
+            project.visibility === "unlisted"
+          ) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only active, public or private projects can register Activity",
+            });
+          }
+          const { data: proposals } = await services.plugins.proposals(context).getProposals({
+            pluginId: "projects",
+            entityId: project.id,
+            limit: 1,
+          });
+          const latestReview = proposals[0]?.reviewStatus;
+          if (latestReview && latestReview !== "approved") {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Register Activity once the project is approved",
+            });
+          }
+          return await services.plugins.activity(context).startActivityRegistration(input);
+        }),
+
+      getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {
+        return await services.plugins.activity().getProjectActivity(input);
+      }),
+
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
         return await services.plugins.activity().getActivityFeed(input);
       }),

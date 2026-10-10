@@ -14,6 +14,7 @@ import {
   type GatewayMode,
 } from "./services/activity-gateway";
 import { createActivityImportMethods } from "./services/activity-import";
+import { createActivityRegistrationClient } from "./services/activity-registration";
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 
@@ -86,9 +87,13 @@ export default createPlugin({
       const gatewayWorker = new ActivityGatewayWorker(gateway);
       if (gatewayClient) gatewayWorker.start();
       const historyImport = createActivityImportMethods(database, gateway);
+      const registration =
+        gatewayUrl && gatewayApiKey
+          ? createActivityRegistrationClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
+          : null;
 
       console.log("[Activity] Services Initialized");
-      return { activity, publisher, gateway, gatewayWorker, historyImport };
+      return { activity, publisher, gateway, gatewayWorker, historyImport, registration };
     }),
 
   shutdown: (services) =>
@@ -115,6 +120,30 @@ export default createPlugin({
     });
 
     return {
+      startActivityRegistration: builder.startActivityRegistration
+        .use(requireAuth)
+        .handler(async ({ input }) => {
+          if (!services.registration) {
+            throw new ORPCError("SERVICE_UNAVAILABLE", {
+              message: "Activity registration is not configured",
+            });
+          }
+          return services.registration.startSession(input);
+        }),
+
+      getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {
+        if (!services.registration) {
+          return {
+            status: "none" as const,
+            sourceId: null,
+            displayName: null,
+            reviewReason: null,
+            activityUrl: "https://activity.nearbuilders.org",
+          };
+        }
+        return services.registration.projectStatus(input.projectId);
+      }),
+
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
         const actor = context.near?.primaryAccountId;
         if (!actor) {

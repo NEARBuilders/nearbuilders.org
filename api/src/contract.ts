@@ -1266,6 +1266,41 @@ export const contract = oc.router({
     .output(ActivityEventSchema)
     .errors({ UNAUTHORIZED }),
 
+  registerProjectActivity: oc
+    .route({ method: "POST", path: "/projects/{projectId}/activity/register" })
+    .input(
+      z.object({
+        projectId: z.string().min(1).max(200),
+        eventTypes: z
+          .array(
+            z.object({
+              name: z
+                .string()
+                .min(1)
+                .max(100)
+                .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
+              pointValue: z.number().int().min(0).max(100),
+            }),
+          )
+          .min(1)
+          .max(50),
+      }),
+    )
+    .output(z.object({ url: z.string(), expiresAt: z.string() })),
+
+  getProjectActivity: oc
+    .route({ method: "GET", path: "/projects/{projectId}/activity" })
+    .input(z.object({ projectId: z.string().min(1).max(200) }))
+    .output(
+      z.object({
+        status: z.enum(["none", "connected", "tracked", "rejected"]),
+        sourceId: z.string().nullable(),
+        displayName: z.string().nullable(),
+        reviewReason: z.string().nullable(),
+        activityUrl: z.string(),
+      }),
+    ),
+
   getActivityFeed: oc
     .route({ method: "GET", path: "/v1/activity" })
     .input(

@@ -21,6 +21,11 @@ import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { NostrFeed } from "@/components/nostr-feed";
+import {
+  ProjectActivityAction,
+  ProjectActivityBadge,
+  ProjectActivityRejected,
+} from "@/components/project-activity";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -367,6 +372,8 @@ function ProjectDetailPage() {
                 <Info size={15} />
               </Button>
 
+              <ProjectActivityAction project={project} isOwner={isOwner} />
+
               {canManage && (
                 <>
                   <Button asChild size="sm" variant="outline">
@@ -403,10 +410,12 @@ function ProjectDetailPage() {
           <div className="min-w-0">
             <div className="mx-auto max-w-4xl space-y-6">
               <ProjectReviewStatus projectId={project.id} visible={isOwner} />
+              <ProjectActivityRejected projectId={project.id} visible={isOwner} />
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <KindChip kind={project.kind} />
                   <StatusChip status={project.status} />
+                  <ProjectActivityBadge projectId={project.id} />
                   <NewBadge createdAt={project.createdAt} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
