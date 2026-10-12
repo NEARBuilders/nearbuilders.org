@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ADMIN_TABS, type AdminTabConfig, type ProposalPluginId } from "./-proposal-dashboard";
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
@@ -110,7 +111,9 @@ function AdminDashboardLayout() {
       </nav>
 
       <div className="mt-6">
-        <Outlet />
+        <TooltipProvider>
+          <Outlet />
+        </TooltipProvider>
       </div>
     </div>
   );
