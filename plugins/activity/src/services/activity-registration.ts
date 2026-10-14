@@ -13,6 +13,26 @@ export interface ActivityProjectStatus {
   activityUrl: string;
 }
 
+export interface ActivityProjectEvent {
+  id: string;
+  type: string;
+  actor: string;
+  occurredAt: string;
+  underReview: boolean;
+}
+
+export interface ActivityProjectEvents {
+  events: ActivityProjectEvent[];
+  nextCursor: string | null;
+}
+
+export interface ActivityProjectContributor {
+  rank: number;
+  actor: string;
+  score: number;
+  eventCount: number;
+}
+
 export interface ActivityRegistrationClient {
   startSession(input: {
     projectId: string;
@@ -20,7 +40,12 @@ export interface ActivityRegistrationClient {
     eventTypes: ActivityRegistrationEventType[];
   }): Promise<{ url: string; expiresAt: string }>;
   projectStatus(projectId: string): Promise<ActivityProjectStatus>;
+  projectEvents(projectId: string, cursor?: string): Promise<ActivityProjectEvents>;
+  projectContributors(projectId: string): Promise<ActivityProjectContributor[]>;
 }
+
+const PROJECT_EVENTS_PAGE_SIZE = 10;
+const PROJECT_CONTRIBUTORS_LIMIT = 5;
 
 export function activitySiteUrl(gatewayUrl: string): string {
   return gatewayUrl.replace(/\/+$/, "").replace(/\/api$/, "");
@@ -60,6 +85,25 @@ export function createActivityRegistrationClient(options: {
     return body;
   }
 
+  async function projectStatus(projectId: string): Promise<ActivityProjectStatus> {
+    const body = (await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
+      method: "GET",
+      headers: { accept: "application/json" },
+    })) as Partial<ActivityProjectStatus>;
+    return {
+      status: body.status ?? "none",
+      sourceId: body.sourceId ?? null,
+      displayName: body.displayName ?? null,
+      reviewReason: body.reviewReason ?? null,
+      activityUrl: activitySiteUrl(baseUrl),
+    };
+  }
+
+  async function trackedSourceId(projectId: string): Promise<string | null> {
+    const status = await projectStatus(projectId);
+    return status.status === "connected" || status.status === "tracked" ? status.sourceId : null;
+  }
+
   return {
     async startSession(input) {
       const body = (await call("/v1/binding-sessions", {
@@ -88,17 +132,62 @@ export function createActivityRegistrationClient(options: {
     },
 
     async projectStatus(projectId) {
-      const body = (await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
+      return projectStatus(projectId);
+    },
+
+    async projectEvents(projectId, cursor) {
+      const sourceId = await trackedSourceId(projectId);
+      if (!sourceId) return { events: [], nextCursor: null };
+      const query = new URLSearchParams({
+        source: sourceId,
+        limit: String(PROJECT_EVENTS_PAGE_SIZE),
+      });
+      if (cursor) query.set("cursor", cursor);
+      const body = (await call(`/v1/events?${query}`, {
         method: "GET",
         headers: { accept: "application/json" },
-      })) as Partial<ActivityProjectStatus>;
-      return {
-        status: body.status ?? "none",
-        sourceId: body.sourceId ?? null,
-        displayName: body.displayName ?? null,
-        reviewReason: body.reviewReason ?? null,
-        activityUrl: activitySiteUrl(baseUrl),
+      })) as {
+        data?: Array<{
+          id: string;
+          type: string;
+          actor: string;
+          timestamp: string;
+          provenance?: { approvalStatus?: string };
+        }>;
+        meta?: { hasMore?: boolean; nextCursor?: string | null };
       };
+      return {
+        events: (body.data ?? []).map((event) => ({
+          id: event.id,
+          type: event.type,
+          actor: event.actor,
+          occurredAt: event.timestamp,
+          underReview: event.provenance?.approvalStatus === "pending",
+        })),
+        nextCursor: body.meta?.hasMore ? (body.meta.nextCursor ?? null) : null,
+      };
+    },
+
+    async projectContributors(projectId) {
+      const sourceId = await trackedSourceId(projectId);
+      if (!sourceId) return [];
+      const query = new URLSearchParams({
+        source: sourceId,
+        period: "all-time",
+        limit: String(PROJECT_CONTRIBUTORS_LIMIT),
+      });
+      const body = (await call(`/v1/leaderboard?${query}`, {
+        method: "GET",
+        headers: { accept: "application/json" },
+      })) as {
+        data?: Array<{ rank: number; actor: string; score: number; eventCount: number }>;
+      };
+      return (body.data ?? []).map(({ rank, actor, score, eventCount }) => ({
+        rank,
+        actor,
+        score,
+        eventCount,
+      }));
     },
   };
 }

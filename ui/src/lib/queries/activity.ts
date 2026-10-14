@@ -3,6 +3,15 @@ import type { ApiClient, AuthClient } from "@/app";
 import { ensureNearProfiles } from "@/lib/queries/builders";
 
 export const PAGE_SIZE = 24;
+export const SELF_REPORTED_SOURCE = "manual";
+
+/** Self-reported uploads appear only where a list asks for them: the uploader's own profile. */
+export function withFeedVisibility(filters: ActivityFilters): ActivityFilters {
+  return {
+    ...filters,
+    excludeSelfReported: filters.excludeSelfReported ?? filters.source !== SELF_REPORTED_SOURCE,
+  };
+}
 
 export type ActivityFeedPage = Awaited<ReturnType<ApiClient["getActivityFeed"]>>;
 export type ActivityEvent = ActivityFeedPage["data"][number];
@@ -34,6 +43,7 @@ export const activityKeys = {
       filters.source ?? null,
       filters.type ?? null,
       filters.actor ?? null,
+      withFeedVisibility(filters).excludeSelfReported ?? null,
     ] as const,
   leaderboard: (period: LeaderboardPeriod) => ["activity", "leaderboard", period] as const,
 };
@@ -59,14 +69,21 @@ export function readActivityPayload(payload: unknown): ActivityPayload {
 }
 
 export function activityFeedQueryOptions(apiClient: ApiClient, filters: ActivityFilters = {}) {
-  const { source, type, actor, limit = PAGE_SIZE } = filters;
+  const {
+    source,
+    type,
+    actor,
+    excludeSelfReported,
+    limit = PAGE_SIZE,
+  } = withFeedVisibility(filters);
   return {
-    queryKey: activityKeys.feed({ source, type, actor }),
+    queryKey: activityKeys.feed({ source, type, actor, excludeSelfReported }),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       apiClient.getActivityFeed({
         source: source || undefined,
         type: type || undefined,
         actor: actor || undefined,
+        excludeSelfReported,
         limit,
         cursor: pageParam,
       }),

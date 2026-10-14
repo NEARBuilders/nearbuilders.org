@@ -104,7 +104,7 @@ export function ProjectActivityAction({
     if (data.sourceId) url.searchParams.set("source", data.sourceId);
     return (
       <Button asChild size="sm" variant="outline">
-        <a href={url.toString()} target="_blank" rel="noreferrer">
+        <a href={url.toString()} target="_blank" rel="noreferrer" aria-label="View activity">
           <Activity size={13} />
           <span className="hidden sm:inline">View activity</span>
         </a>
@@ -116,7 +116,13 @@ export function ProjectActivityAction({
 
   return (
     <>
-      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-label="Register Activity"
+        onClick={() => setOpen(true)}
+      >
         <Activity size={13} />
         <span className="hidden sm:inline">Register Activity</span>
       </Button>

@@ -98,4 +98,119 @@ describe("activity registration client", () => {
     );
     expect(activitySiteUrl("http://localhost:3000/api/")).toBe("http://localhost:3000");
   });
+
+  describe("project activity", () => {
+    const status = (value: string, sourceId: string | null = "kudos-board") =>
+      respond({ status: value, sourceId, displayName: "Kudos Board", reviewReason: null });
+
+    function clientWith(responses: (url: string) => Response) {
+      const urls: string[] = [];
+      const client = createActivityRegistrationClient({
+        baseUrl: "https://activity.nearbuilders.org/api",
+        apiKey: "act_partner",
+        fetchImplementation: async (input) => {
+          urls.push(String(input));
+          return responses(String(input));
+        },
+      });
+      return { client, urls };
+    }
+
+    it("lists a tracked project's own events and marks events under review", async () => {
+      const { client, urls } = clientWith((url) =>
+        url.includes("/v1/projects/")
+          ? status("tracked")
+          : respond({
+              data: [
+                {
+                  id: "a".repeat(64),
+                  type: "kudos.given",
+                  actor: "alice.near",
+                  timestamp: "2026-10-10T10:00:00.000Z",
+                  provenance: { approvalStatus: "pending" },
+                },
+                {
+                  id: "b".repeat(64),
+                  type: "kudos.received",
+                  actor: "bob.near",
+                  timestamp: "2026-10-10T09:00:00.000Z",
+                  provenance: { approvalStatus: "approved" },
+                },
+              ],
+              meta: { hasMore: true, nextCursor: "next-page" },
+            }),
+      );
+
+      const page = await client.projectEvents("proj_1", "this-page");
+
+      expect(urls[1]).toBe(
+        "https://activity.nearbuilders.org/api/v1/events?source=kudos-board&limit=10&cursor=this-page",
+      );
+      expect(page).toEqual({
+        events: [
+          {
+            id: "a".repeat(64),
+            type: "kudos.given",
+            actor: "alice.near",
+            occurredAt: "2026-10-10T10:00:00.000Z",
+            underReview: true,
+          },
+          {
+            id: "b".repeat(64),
+            type: "kudos.received",
+            actor: "bob.near",
+            occurredAt: "2026-10-10T09:00:00.000Z",
+            underReview: false,
+          },
+        ],
+        nextCursor: "next-page",
+      });
+    });
+
+    it("ends pagination when Activity has no more events", async () => {
+      const { client } = clientWith((url) =>
+        url.includes("/v1/projects/")
+          ? status("connected")
+          : respond({ data: [], meta: { hasMore: false, nextCursor: "ignored" } }),
+      );
+
+      await expect(client.projectEvents("proj_1")).resolves.toEqual({
+        events: [],
+        nextCursor: null,
+      });
+    });
+
+    it("reads the project's all-time top contributors", async () => {
+      const { client, urls } = clientWith((url) =>
+        url.includes("/v1/projects/")
+          ? status("tracked")
+          : respond({
+              data: [{ rank: 1, actor: "alice.near", score: 30, eventCount: 3, breakdown: [] }],
+            }),
+      );
+
+      await expect(client.projectContributors("proj_1")).resolves.toEqual([
+        { rank: 1, actor: "alice.near", score: 30, eventCount: 3 },
+      ]);
+      expect(urls[1]).toBe(
+        "https://activity.nearbuilders.org/api/v1/leaderboard?source=kudos-board&period=all-time&limit=5",
+      );
+    });
+
+    it.each([
+      "none",
+      "rejected",
+    ])("returns nothing for a %s project without querying events", async (value) => {
+      const { client, urls } = clientWith(() =>
+        status(value, value === "none" ? null : "kudos-board"),
+      );
+
+      await expect(client.projectEvents("proj_1")).resolves.toEqual({
+        events: [],
+        nextCursor: null,
+      });
+      await expect(client.projectContributors("proj_1")).resolves.toEqual([]);
+      expect(urls.every((url) => url.includes("/v1/projects/"))).toBe(true);
+    });
+  });
 });

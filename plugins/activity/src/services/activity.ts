@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull, ne } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
@@ -38,8 +38,17 @@ function rowToActivity(row: typeof activityEvents.$inferSelect): ActivityEvent {
   };
 }
 
-function filterWhere(input: { source?: string; type?: string; actor?: string; since?: Date }) {
+export const SELF_REPORTED_SOURCE = "manual";
+
+function filterWhere(input: {
+  source?: string;
+  type?: string;
+  actor?: string;
+  since?: Date;
+  excludeSelfReported?: boolean;
+}) {
   const conditions = [isNull(activityEvents.hiddenAt)] as any[];
+  if (input.excludeSelfReported) conditions.push(ne(activityEvents.source, SELF_REPORTED_SOURCE));
   if (input.source) conditions.push(eq(activityEvents.source, input.source));
   if (input.type) conditions.push(eq(activityEvents.type, input.type));
   if (input.actor) conditions.push(eq(activityEvents.actor, input.actor));

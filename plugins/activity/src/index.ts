@@ -6,7 +6,7 @@ import { z } from "every-plugin/zod";
 import { type ActivityEventSchema, contract } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import { ContextSchema } from "./lib/context";
-import { ActivityService, ActivityServiceLive } from "./services/activity";
+import { ActivityService, ActivityServiceLive, SELF_REPORTED_SOURCE } from "./services/activity";
 import {
   ActivityGatewayWorker,
   createActivityGatewayMethods,
@@ -14,6 +14,16 @@ import {
   type GatewayMode,
 } from "./services/activity-gateway";
 import { createActivityImportMethods } from "./services/activity-import";
+import {
+  type ActivityReaderClient,
+  createActivityReaderClient,
+  createReadModeSettings,
+  isPubliclyVisible,
+  type ReaderFilters,
+  type ReadMode,
+  toActivityQuery,
+  toReaderEvent,
+} from "./services/activity-reader";
 import { createActivityRegistrationClient } from "./services/activity-registration";
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
@@ -63,6 +73,7 @@ export default createPlugin({
     ACTIVITY_DATABASE_URL: z.string().default("pglite:.bos/activity/:memory:"),
     ACTIVITY_GATEWAY_URL: z.string().optional(),
     ACTIVITY_GATEWAY_API_KEY: z.string().optional(),
+    ACTIVITY_SOURCE_ID: z.string().default("nearbuilders"),
   }),
 
   context: ContextSchema,
@@ -92,8 +103,22 @@ export default createPlugin({
           ? createActivityRegistrationClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
           : null;
 
+      const reader = gatewayUrl ? createActivityReaderClient({ baseUrl: gatewayUrl }) : null;
+      const readMode = createReadModeSettings(database);
+      const ownSource = config.secrets.ACTIVITY_SOURCE_ID.trim() || "nearbuilders";
+
       console.log("[Activity] Services Initialized");
-      return { activity, publisher, gateway, gatewayWorker, historyImport, registration };
+      return {
+        activity,
+        publisher,
+        gateway,
+        gatewayWorker,
+        historyImport,
+        registration,
+        reader,
+        readMode,
+        ownSource,
+      };
     }),
 
   shutdown: (services) =>
@@ -119,6 +144,17 @@ export default createPlugin({
       return next({ context });
     });
 
+    const adminStatus = async () => ({
+      ...(await services.gateway.status()),
+      readMode: await services.readMode.get(),
+    });
+
+    /** Activity serves reads only when it is configured, selected, and asked for shared events. */
+    const activityReader = async (filters: ReaderFilters): Promise<ActivityReaderClient | null> => {
+      if (!services.reader || filters.source === SELF_REPORTED_SOURCE) return null;
+      return (await services.readMode.get()) === "activity" ? services.reader : null;
+    };
+
     return {
       startActivityRegistration: builder.startActivityRegistration
         .use(requireAuth)
@@ -143,6 +179,18 @@ export default createPlugin({
         }
         return services.registration.projectStatus(input.projectId);
       }),
+
+      getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {
+        if (!services.registration) return { events: [], nextCursor: null };
+        return services.registration.projectEvents(input.projectId, input.cursor);
+      }),
+
+      getProjectActivityContributors: builder.getProjectActivityContributors.handler(
+        async ({ input }) => {
+          if (!services.registration) return [];
+          return services.registration.projectContributors(input.projectId);
+        },
+      ),
 
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
         const actor = context.near?.primaryAccountId;
@@ -221,19 +269,35 @@ export default createPlugin({
 
       getActivityGatewayStatus: builder.getActivityGatewayStatus
         .use(requireAdmin)
-        .handler(async () => services.gateway.status()),
+        .handler(async () => adminStatus()),
 
       setActivityGatewayMode: builder.setActivityGatewayMode
         .use(requireAdmin)
         .handler(async ({ input }) => {
           await services.gateway.setMode(input.mode as GatewayMode);
-          return services.gateway.status();
+          return adminStatus();
         }),
 
       retryActivityGateway: builder.retryActivityGateway.use(requireAdmin).handler(async () => {
         await services.gateway.processDue(100);
-        return services.gateway.status();
+        return adminStatus();
       }),
+
+      setActivityReadMode: builder.setActivityReadMode
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          if (input.readMode === "activity" && !services.reader) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Set ACTIVITY_GATEWAY_URL before reading from Activity",
+            });
+          }
+          await services.readMode.set(input.readMode as ReadMode);
+          return adminStatus();
+        }),
+
+      redateActivityHistory: builder.redateActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input }) => services.gateway.redate({ dryRun: input.dryRun })),
 
       importActivityHistory: builder.importActivityHistory
         .use(requireAdmin)
@@ -246,7 +310,30 @@ export default createPlugin({
         ),
 
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
-        return await runEffect(services.activity.getActivityFeed(input));
+        const reader = await activityReader(input);
+        if (!reader) return await runEffect(services.activity.getActivityFeed(input));
+        const query = toActivityQuery(input, services.ownSource);
+        if (query.kind === "empty") {
+          return { data: [], meta: { total: 0, hasMore: false, nextCursor: null } };
+        }
+        const page = await reader.listEvents({
+          source: query.source,
+          type: query.type,
+          actor: query.actor,
+          limit: Math.min(input.limit ?? 50, 100),
+          cursor: input.cursor,
+        });
+        const visible = page.data.filter((event) => isPubliclyVisible(event, services.ownSource));
+        const legacyIds = await services.gateway.legacyIdsFor(visible.map(({ id }) => id));
+        const data = visible.map((event) => toReaderEvent(event, legacyIds, services.ownSource));
+        return {
+          data,
+          meta: {
+            total: data.length,
+            hasMore: page.nextCursor !== null,
+            nextCursor: page.nextCursor,
+          },
+        };
       }),
 
       subscribeActivity: builder.subscribeActivity.handler(async function* ({
@@ -254,17 +341,44 @@ export default createPlugin({
         signal,
         lastEventId,
       }) {
+        const reader = await activityReader(input);
+        if (reader) {
+          const query = toActivityQuery(input, services.ownSource);
+          if (query.kind === "empty") return;
+          const events = reader.stream(
+            { source: query.source, type: query.type, actor: query.actor },
+            { signal, lastEventId },
+          );
+          for await (const event of events) {
+            if (!isPubliclyVisible(event, services.ownSource)) continue;
+            const legacyIds = await services.gateway.legacyIdsFor([event.id]);
+            yield toReaderEvent(event, legacyIds, services.ownSource);
+          }
+          return;
+        }
         const iterator = services.publisher.subscribe("activity", { signal, lastEventId });
         for await (const event of iterator) {
           if (input.source && event.source !== input.source) continue;
           if (input.type && event.type !== input.type) continue;
           if (input.actor && event.actor !== input.actor) continue;
+          if (input.excludeSelfReported && event.source === SELF_REPORTED_SOURCE) continue;
           yield event;
         }
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
-        return await runEffect(services.activity.getLeaderboard(input));
+        const reader = await activityReader({});
+        if (!reader) return await runEffect(services.activity.getLeaderboard(input));
+        const entries = await reader.leaderboard({
+          period: input.period,
+          limit: Math.min(input.limit ?? 50, 100),
+        });
+        return entries.map((entry) => ({
+          actor: entry.actor,
+          eventCount: entry.eventCount,
+          endorsementScore: entry.score,
+          topSources: [...new Set(entry.breakdown.map(({ source }) => source))],
+        }));
       }),
     };
   },

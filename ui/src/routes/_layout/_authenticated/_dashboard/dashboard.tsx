@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
 import { NearProfile } from "@/components/near-profile";
+import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -925,32 +926,34 @@ interface Project {
 
 function ProjectRow({ project, voteCount }: { project: Project; voteCount?: number }) {
   return (
-    <Link
-      to="/projects/$kind/$slug"
-      params={{ kind: project.kind, slug: project.slug }}
-      className="group block border-b border-border last:border-b-0"
-    >
-      <div className="flex items-start justify-between gap-3 px-4 py-4 transition-colors hover:bg-muted/40 sm:px-5">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <KindChip kind={project.kind} />
-            <p className="truncate text-sm font-medium text-foreground">{project.title}</p>
-          </div>
-          {project.description && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
-          )}
+    <div className="flex flex-col gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+      <Link
+        to="/projects/$kind/$slug"
+        params={{ kind: project.kind, slug: project.slug }}
+        className="group min-w-0 flex-1"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <KindChip kind={project.kind} />
+          <p className="truncate text-sm font-medium text-foreground group-hover:underline">
+            {project.title}
+          </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {typeof voteCount === "number" && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
-              <ThumbsUp className="h-3 w-3" />
-              {voteCount}
-            </span>
-          )}
-          <StatusChip status={project.status} />
-        </div>
+        {project.description && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
+        )}
+      </Link>
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <ProjectActivityBadge projectId={project.id} />
+        {typeof voteCount === "number" && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
+            <ThumbsUp className="h-3 w-3" />
+            {voteCount}
+          </span>
+        )}
+        <StatusChip status={project.status} />
+        <ProjectActivityAction project={project} isOwner />
       </div>
-    </Link>
+    </div>
   );
 }
 

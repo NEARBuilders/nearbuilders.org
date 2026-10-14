@@ -885,6 +885,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.activity().getProjectActivity(input);
       }),
 
+      getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {
+        return await services.plugins.activity().getProjectActivityEvents(input);
+      }),
+
+      getProjectActivityContributors: builder.getProjectActivityContributors.handler(
+        async ({ input }) => {
+          return await services.plugins.activity().getProjectActivityContributors(input);
+        },
+      ),
+
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
         return await services.plugins.activity().getActivityFeed(input);
       }),
@@ -928,6 +938,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAdmin)
         .handler(async ({ input, context }) => {
           return await services.plugins.activity(context).importActivityHistory(input);
+        }),
+
+      setActivityReadMode: builder.setActivityReadMode
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.activity(context).setActivityReadMode(input);
+        }),
+
+      redateActivityHistory: builder.redateActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.activity(context).redateActivityHistory(input);
         }),
 
       getMyNotifications: builder.getMyNotifications

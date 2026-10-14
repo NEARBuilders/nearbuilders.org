@@ -161,7 +161,8 @@
       "secrets": [
         "ACTIVITY_DATABASE_URL",
         "ACTIVITY_GATEWAY_URL",
-        "ACTIVITY_GATEWAY_API_KEY"
+        "ACTIVITY_GATEWAY_API_KEY",
+        "ACTIVITY_SOURCE_ID"
       ]
     },
     "nearcatalog": {
