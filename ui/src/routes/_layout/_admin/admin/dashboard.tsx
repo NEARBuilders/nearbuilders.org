@@ -1,8 +1,17 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Activity, AtSign, CalendarDays, CircleAlert, FolderKanban, Hammer } from "lucide-react";
+import {
+  Activity,
+  AtSign,
+  CalendarDays,
+  CircleAlert,
+  FolderKanban,
+  Hammer,
+  Send,
+} from "lucide-react";
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ADMIN_TABS, type AdminTabConfig, type ProposalPluginId } from "./-proposal-dashboard";
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
@@ -16,6 +25,7 @@ const TAB_ICONS: Record<(typeof ADMIN_TABS)[number]["icon"], typeof Hammer> = {
   CalendarDays,
   Activity,
   AtSign,
+  Send,
 };
 
 function AdminDashboardLayout() {
@@ -101,7 +111,9 @@ function AdminDashboardLayout() {
       </nav>
 
       <div className="mt-6">
-        <Outlet />
+        <TooltipProvider>
+          <Outlet />
+        </TooltipProvider>
       </div>
     </div>
   );

@@ -24,7 +24,8 @@ export declare const contract: {
             newest: "newest";
             oldest: "oldest";
         }>>;
-        limit: z.ZodOptional<z.ZodNumber>;
+        slugs: z.ZodOptional<z.ZodString>;
+        limit: z.ZodOptional<z.ZodCoercedNumber<unknown>>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodArray<z.ZodObject<{
@@ -53,6 +54,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -103,6 +105,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
             apps: z.ZodArray<z.ZodObject<{
@@ -152,6 +155,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
             apps: z.ZodArray<z.ZodObject<{
@@ -193,6 +197,7 @@ export declare const contract: {
         organizationId: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
+        logoUrl: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         ownerId: z.ZodString;
@@ -219,6 +224,7 @@ export declare const contract: {
         }>;
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
+        logoUrl: z.ZodNullable<z.ZodString>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
@@ -277,6 +283,7 @@ export declare const contract: {
         repository: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
+        logoUrl: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         ownerId: z.ZodString;
@@ -303,6 +310,7 @@ export declare const contract: {
         }>;
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
+        logoUrl: z.ZodNullable<z.ZodString>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
@@ -368,6 +376,7 @@ export declare const contract: {
         }>>;
         repository: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
+        logoUrl: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         ownerId: z.ZodString;
@@ -394,6 +403,7 @@ export declare const contract: {
         }>;
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
+        logoUrl: z.ZodNullable<z.ZodString>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
@@ -583,6 +593,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -628,6 +639,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -669,6 +681,7 @@ export declare const contract: {
             }>;
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
+            logoUrl: z.ZodNullable<z.ZodString>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;

@@ -23,6 +23,24 @@ describe("normalizeLocation", () => {
     expect(normalizeLocation("Lisbon, Portugal")).toBe("Lisbon, Portugal");
   });
 
+  it("accepts every country, not only a shortlist", () => {
+    expect(normalizeLocation("Iraq")).toBe("Iraq");
+    expect(normalizeLocation("baghdad, iraq")).toBe("Baghdad, Iraq");
+    expect(normalizeLocation("Kaduna, Nigeria")).toBe("Kaduna, Nigeria");
+    expect(normalizeLocation("vietnam")).toBe("Vietnam");
+    expect(normalizeLocation("Hanoi, Viet Nam")).toBe("Hanoi, Vietnam");
+    expect(normalizeLocation("Guinea-Bissau")).toBe("Guinea-Bissau");
+  });
+
+  it("matches common alternate names and accented spellings", () => {
+    expect(normalizeLocation("Türkiye")).toBe("Turkey");
+    expect(normalizeLocation("Ivory Coast")).toBe("Côte d'Ivoire");
+    expect(normalizeLocation("Abidjan, Cote d'Ivoire")).toBe("Abidjan, Côte d'Ivoire");
+    expect(normalizeLocation("México")).toBe("Mexico");
+    expect(normalizeLocation("Czech Republic")).toBe("Czechia");
+    expect(normalizeLocation("Holland")).toBe("Netherlands");
+  });
+
   it("accepts Remote aliases", () => {
     expect(normalizeLocation("remote")).toBe("Remote");
     expect(normalizeLocation("Worldwide")).toBe("Remote");
@@ -31,6 +49,8 @@ describe("normalizeLocation", () => {
   it("rejects non-geographic values", () => {
     expect(resolveLocation("asdf")).toEqual({ ok: false });
     expect(resolveLocation("bangalore")).toEqual({ ok: false });
+    expect(resolveLocation("Kaduna, Nigerian")).toEqual({ ok: false });
+    expect(resolveLocation("Egypt | Remote Web3 Builder")).toEqual({ ok: false });
     expect(locationError("asdf")).toBeTruthy();
     expect(normalizeLocation("")).toBeNull();
   });

@@ -65,6 +65,7 @@ import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from 
 import { Route as LayoutAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/new'
 import { Route as LayoutAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/$slug'
 import { Route as LayoutAdminAdminDashboardXNominationsRouteImport } from './routes/_layout/_admin/admin/dashboard/x-nominations'
+import { Route as LayoutAdminAdminDashboardTelegramRouteImport } from './routes/_layout/_admin/admin/dashboard/telegram'
 import { Route as LayoutAdminAdminDashboardProjectsRouteImport } from './routes/_layout/_admin/admin/dashboard/projects'
 import { Route as LayoutAdminAdminDashboardEventsRouteImport } from './routes/_layout/_admin/admin/dashboard/events'
 import { Route as LayoutAdminAdminDashboardBuildersRouteImport } from './routes/_layout/_admin/admin/dashboard/builders'
@@ -373,6 +374,12 @@ const LayoutAdminAdminDashboardXNominationsRoute =
     path: '/x-nominations',
     getParentRoute: () => LayoutAdminAdminDashboardRoute,
   } as any)
+const LayoutAdminAdminDashboardTelegramRoute =
+  LayoutAdminAdminDashboardTelegramRouteImport.update({
+    id: '/telegram',
+    path: '/telegram',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
 const LayoutAdminAdminDashboardProjectsRoute =
   LayoutAdminAdminDashboardProjectsRouteImport.update({
     id: '/projects',
@@ -440,6 +447,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -493,6 +501,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -556,6 +565,7 @@ export interface FileRoutesById {
   '/_layout/_admin/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/_layout/_admin/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/_layout/_admin/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/_layout/_admin/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/_layout/_admin/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/_layout/_authenticated/_dashboard/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/_layout/_authenticated/_dashboard/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -616,6 +626,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
+    | '/admin/dashboard/telegram'
     | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -669,6 +680,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
+    | '/admin/dashboard/telegram'
     | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -731,6 +743,7 @@ export interface FileRouteTypes {
     | '/_layout/_admin/admin/dashboard/builders'
     | '/_layout/_admin/admin/dashboard/events'
     | '/_layout/_admin/admin/dashboard/projects'
+    | '/_layout/_admin/admin/dashboard/telegram'
     | '/_layout/_admin/admin/dashboard/x-nominations'
     | '/_layout/_authenticated/_dashboard/organizations/$slug'
     | '/_layout/_authenticated/_dashboard/organizations/new'
@@ -1146,6 +1159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminAdminDashboardXNominationsRouteImport
       parentRoute: typeof LayoutAdminAdminDashboardRoute
     }
+    '/_layout/_admin/admin/dashboard/telegram': {
+      id: '/_layout/_admin/admin/dashboard/telegram'
+      path: '/telegram'
+      fullPath: '/admin/dashboard/telegram'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardTelegramRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
     '/_layout/_admin/admin/dashboard/projects': {
       id: '/_layout/_admin/admin/dashboard/projects'
       path: '/projects'
@@ -1182,6 +1202,7 @@ interface LayoutAdminAdminDashboardRouteChildren {
   LayoutAdminAdminDashboardBuildersRoute: typeof LayoutAdminAdminDashboardBuildersRoute
   LayoutAdminAdminDashboardEventsRoute: typeof LayoutAdminAdminDashboardEventsRoute
   LayoutAdminAdminDashboardProjectsRoute: typeof LayoutAdminAdminDashboardProjectsRoute
+  LayoutAdminAdminDashboardTelegramRoute: typeof LayoutAdminAdminDashboardTelegramRoute
   LayoutAdminAdminDashboardXNominationsRoute: typeof LayoutAdminAdminDashboardXNominationsRoute
   LayoutAdminAdminDashboardIndexRoute: typeof LayoutAdminAdminDashboardIndexRoute
 }
@@ -1195,6 +1216,8 @@ const LayoutAdminAdminDashboardRouteChildren: LayoutAdminAdminDashboardRouteChil
     LayoutAdminAdminDashboardEventsRoute: LayoutAdminAdminDashboardEventsRoute,
     LayoutAdminAdminDashboardProjectsRoute:
       LayoutAdminAdminDashboardProjectsRoute,
+    LayoutAdminAdminDashboardTelegramRoute:
+      LayoutAdminAdminDashboardTelegramRoute,
     LayoutAdminAdminDashboardXNominationsRoute:
       LayoutAdminAdminDashboardXNominationsRoute,
     LayoutAdminAdminDashboardIndexRoute: LayoutAdminAdminDashboardIndexRoute,

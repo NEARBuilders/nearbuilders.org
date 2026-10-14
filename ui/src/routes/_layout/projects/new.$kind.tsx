@@ -23,6 +23,7 @@ import {
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
+  normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   visibility: "public" as const,
   ownerId: "",
   domain: "",
+  logoUrl: "",
 });
 
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
@@ -140,7 +142,8 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         content: values.content?.trim() || undefined,
         visibility: submitForReview ? "private" : values.visibility,
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
-        domain: values.domain?.trim() || undefined,
+        domain: normalizeDomain(values.domain) || undefined,
+        logoUrl: values.logoUrl?.trim() || undefined,
       });
       if (submitForReview) {
         await apiClient.propose({
@@ -156,6 +159,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             visibility: "public",
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
+            logoUrl: project.logoUrl ?? undefined,
           },
         });
       }

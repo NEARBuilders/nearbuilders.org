@@ -40,9 +40,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import {
   getProjectFormValidation,
+  normalizeDomain,
   type ProjectFormValues,
   validateContent,
   validateDescription,
+  validateDomain,
+  validateLogoUrl,
   validateOptionalMaxLength,
   validateRepository,
   validateTitle,
@@ -253,7 +256,9 @@ export function ProjectFormLayout({
   const titleReady = !validation.errors.title;
   const metadataReady = titleReady && !validation.errors.description;
   const sourceReady =
-    kind === "project" ? !validation.errors.repository : !validation.errors.content;
+    kind === "project"
+      ? !validation.errors.repository && !validation.errors.domain
+      : !validation.errors.content;
   const identityReady = Boolean(defaultOwnerId || isAdmin);
 
   useEffect(() => {
@@ -801,19 +806,21 @@ export function ProjectFormLayout({
             </section>
           )}
 
-          {kind === "idea" && (
+          {(kind === "project" || kind === "idea") && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
-              <FieldLabel htmlFor="domain">Domain</FieldLabel>
+              <FieldLabel htmlFor="domain" required={kind === "project"}>
+                {kind === "project" ? "Product URL" : "Domain"}
+              </FieldLabel>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Add a live domain if this idea already has a home on the web.
+                {kind === "project"
+                  ? "Hostname testers open, such as app.example.com."
+                  : "Add a live domain if this idea already has a home on the web."}
               </p>
               <form.Field
                 name="domain"
                 validators={{
-                  onBlur: ({ value }: any) =>
-                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
-                  onSubmit: ({ value }: any) =>
-                    validateOptionalMaxLength(value, 255, "Max 255 characters"),
+                  onBlur: ({ value }: any) => validateDomain(value, kind),
+                  onSubmit: ({ value }: any) => validateDomain(value, kind),
                 }}
               >
                 {(field: any) => {
@@ -824,8 +831,11 @@ export function ProjectFormLayout({
                         id="domain"
                         value={field.state.value ?? ""}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        placeholder="example.com"
+                        onBlur={() => {
+                          field.handleChange(normalizeDomain(field.state.value));
+                          field.handleBlur();
+                        }}
+                        placeholder={kind === "project" ? "app.example.com" : "example.com"}
                         className={cn(
                           "mt-3 font-mono text-sm",
                           fieldStateClassName(
@@ -849,6 +859,51 @@ export function ProjectFormLayout({
               </form.Field>
             </section>
           )}
+
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <FieldLabel htmlFor="logoUrl">Logo URL</FieldLabel>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Optional absolute http(s) URL for the project logo.
+            </p>
+            <form.Field
+              name="logoUrl"
+              validators={{
+                onBlur: ({ value }: any) => validateLogoUrl(value),
+                onSubmit: ({ value }: any) => validateLogoUrl(value),
+              }}
+            >
+              {(field: any) => {
+                const err = fieldErrorFor(field, "logoUrl");
+                return (
+                  <>
+                    <Input
+                      id="logoUrl"
+                      value={field.state.value ?? ""}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="https://example.com/logo.png"
+                      className={cn(
+                        "mt-3 font-mono text-sm",
+                        fieldStateClassName(
+                          field.state.value,
+                          err,
+                          false,
+                          creatorMode && isFieldVisible("logoUrl"),
+                        ),
+                      )}
+                      aria-invalid={Boolean(err)}
+                      aria-describedby={err ? "logo-feedback" : undefined}
+                    />
+                    {err && (
+                      <div id="logo-feedback">
+                        <ErrorText>{err}</ErrorText>
+                      </div>
+                    )}
+                  </>
+                );
+              }}
+            </form.Field>
+          </section>
 
           {isAdmin && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">

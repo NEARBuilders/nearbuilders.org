@@ -39,7 +39,10 @@
       "production": "https://elliot-braem-7604-api-everything-dev-nearbuilders-296d74eec-ze.zephyrcloud.app",
       "integrity": "sha384-g5kMC6dA5l7l9NBq2U5yWgntreOEqT4+ifIH7a6RMC2JSj6tIuGPG6Xq3ZIAPUAi",
       "secrets": [
-        "API_DATABASE_URL"
+        "API_DATABASE_URL",
+        "NEARAI_API_KEY",
+        "NEARAI_MODEL",
+        "GITHUB_TOKEN"
       ]
     },
     "auth": {

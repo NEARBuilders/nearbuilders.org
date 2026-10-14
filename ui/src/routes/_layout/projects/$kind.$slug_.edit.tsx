@@ -7,6 +7,8 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { normalizeDomain } from "@/lib/project-form-validation";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
@@ -95,7 +97,8 @@ function EditProjectPage() {
             : undefined,
         visibility: submitForReview ? undefined : values.visibility,
         status: values.kind !== "result" ? values.status : undefined,
-        domain: values.domain?.trim() || undefined,
+        domain: normalizeDomain(values.domain) || undefined,
+        logoUrl: values.logoUrl?.trim() || "",
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
@@ -115,6 +118,7 @@ function EditProjectPage() {
             visibility: "public",
             ownerId: updated.ownerId,
             domain: updated.domain ?? undefined,
+            logoUrl: updated.logoUrl ?? undefined,
           },
         });
       }
@@ -257,6 +261,7 @@ function EditFormInner({
       status: (project.status ?? "active") as "active" | "paused" | "archived",
       ownerId: project.ownerId ?? "",
       domain: project.domain ?? "",
+      logoUrl: project.logoUrl ?? "",
     } satisfies ProjectFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
