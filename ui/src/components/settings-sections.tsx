@@ -3,17 +3,13 @@ import { Clock, KeyRound, Server, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { type Passkey, useAuthClient } from "@/app";
+import { Badge, Button, Card, CardContent, ConfirmDialog } from "@/components";
 import {
   ApiKeyForm,
   type ApiKeyFormValues,
   ApiKeyReveal,
   type ApiKeyRevealProps,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  ConfirmDialog,
-} from "@/components";
+} from "@/components/api-key-manager";
 import { Input } from "@/components/ui/input";
 
 type CreatedApiKey = ApiKeyRevealProps["apiKey"];
