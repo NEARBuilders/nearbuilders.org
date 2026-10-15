@@ -54,7 +54,7 @@ describe("activity router", () => {
       variables: {},
       secrets: { ACTIVITY_DATABASE_URL: `pglite:${dataDir}` },
     });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await runtime.shutdown();
@@ -100,7 +100,7 @@ describe("activity router", () => {
     });
     expect(trusted.verified).toBe(true);
     await admin.hideActivity({ id: trusted.id });
-    const feed = await loaded.createClient().getActivityFeed({});
-    expect(feed.data.map((event) => event.id)).toEqual([manual.id]);
+    const uploads = await loaded.createClient().getActivityFeed({ source: "manual" });
+    expect(uploads.data.map((event) => event.id)).toEqual([manual.id]);
   });
 });

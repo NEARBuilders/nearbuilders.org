@@ -940,12 +940,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await services.plugins.activity(context).importActivityHistory(input);
         }),
 
-      setActivityReadMode: builder.setActivityReadMode
-        .use(requireAdmin)
-        .handler(async ({ input, context }) => {
-          return await services.plugins.activity(context).setActivityReadMode(input);
-        }),
-
       redateActivityHistory: builder.redateActivityHistory
         .use(requireAdmin)
         .handler(async ({ input, context }) => {

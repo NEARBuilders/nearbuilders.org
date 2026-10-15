@@ -11,7 +11,6 @@ import {
   type ActivityFilters,
   activityFeedWithProfilesQueryOptions,
   activityKeys,
-  withFeedVisibility,
 } from "@/lib/queries/activity";
 import { ensureNearProfiles, upvoteCountsOptions, userVotesOptions } from "@/lib/queries/builders";
 
@@ -68,10 +67,7 @@ export function ActivityFeed({
   }, [events, sort, counts]);
 
   const { data: latestEvent } = useQuery(
-    orpc.subscribeActivity.experimental_liveOptions({
-      input: withFeedVisibility(filters),
-      retry: true,
-    }),
+    orpc.subscribeActivity.experimental_liveOptions({ input: filters, retry: true }),
   );
 
   useEffect(() => {

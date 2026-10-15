@@ -15,14 +15,12 @@ import {
 } from "./services/activity-gateway";
 import { createActivityImportMethods } from "./services/activity-import";
 import {
-  type ActivityReaderClient,
   createActivityReaderClient,
-  createReadModeSettings,
+  DEFAULT_ACTIVITY_API_URL,
   isPubliclyVisible,
-  type ReaderFilters,
-  type ReadMode,
+  NEARBUILDERS_SOURCE,
+  toActivityEvent,
   toActivityQuery,
-  toReaderEvent,
 } from "./services/activity-reader";
 import { createActivityRegistrationClient } from "./services/activity-registration";
 
@@ -103,9 +101,10 @@ export default createPlugin({
           ? createActivityRegistrationClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
           : null;
 
-      const reader = gatewayUrl ? createActivityReaderClient({ baseUrl: gatewayUrl }) : null;
-      const readMode = createReadModeSettings(database);
-      const ownSource = config.secrets.ACTIVITY_SOURCE_ID.trim() || "nearbuilders";
+      const reader = createActivityReaderClient({
+        baseUrl: gatewayUrl || DEFAULT_ACTIVITY_API_URL,
+      });
+      const ownSource = config.secrets.ACTIVITY_SOURCE_ID.trim() || NEARBUILDERS_SOURCE;
 
       console.log("[Activity] Services Initialized");
       return {
@@ -116,7 +115,6 @@ export default createPlugin({
         historyImport,
         registration,
         reader,
-        readMode,
         ownSource,
       };
     }),
@@ -144,15 +142,16 @@ export default createPlugin({
       return next({ context });
     });
 
-    const adminStatus = async () => ({
-      ...(await services.gateway.status()),
-      readMode: await services.readMode.get(),
-    });
-
-    /** Activity serves reads only when it is configured, selected, and asked for shared events. */
-    const activityReader = async (filters: ReaderFilters): Promise<ActivityReaderClient | null> => {
-      if (!services.reader || filters.source === SELF_REPORTED_SOURCE) return null;
-      return (await services.readMode.get()) === "activity" ? services.reader : null;
+    /** Activity is the source of reads; only self-reported uploads stay in this plugin's store. */
+    const fromActivity = async <T>(read: () => Promise<T>): Promise<T> => {
+      try {
+        return await read();
+      } catch (error) {
+        console.error("[Activity] Read from activity.nearbuilders.org failed", error);
+        throw new ORPCError("SERVICE_UNAVAILABLE", {
+          message: "Activity is unavailable right now. Try again shortly.",
+        });
+      }
     };
 
     return {
@@ -269,31 +268,19 @@ export default createPlugin({
 
       getActivityGatewayStatus: builder.getActivityGatewayStatus
         .use(requireAdmin)
-        .handler(async () => adminStatus()),
+        .handler(async () => services.gateway.status()),
 
       setActivityGatewayMode: builder.setActivityGatewayMode
         .use(requireAdmin)
         .handler(async ({ input }) => {
           await services.gateway.setMode(input.mode as GatewayMode);
-          return adminStatus();
+          return services.gateway.status();
         }),
 
       retryActivityGateway: builder.retryActivityGateway.use(requireAdmin).handler(async () => {
         await services.gateway.processDue(100);
-        return adminStatus();
+        return services.gateway.status();
       }),
-
-      setActivityReadMode: builder.setActivityReadMode
-        .use(requireAdmin)
-        .handler(async ({ input }) => {
-          if (input.readMode === "activity" && !services.reader) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Set ACTIVITY_GATEWAY_URL before reading from Activity",
-            });
-          }
-          await services.readMode.set(input.readMode as ReadMode);
-          return adminStatus();
-        }),
 
       redateActivityHistory: builder.redateActivityHistory
         .use(requireAdmin)
@@ -310,22 +297,21 @@ export default createPlugin({
         ),
 
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
-        const reader = await activityReader(input);
-        if (!reader) return await runEffect(services.activity.getActivityFeed(input));
-        const query = toActivityQuery(input, services.ownSource);
-        if (query.kind === "empty") {
-          return { data: [], meta: { total: 0, hasMore: false, nextCursor: null } };
+        if (input.source === SELF_REPORTED_SOURCE) {
+          return await runEffect(services.activity.getActivityFeed(input));
         }
-        const page = await reader.listEvents({
-          source: query.source,
-          type: query.type,
-          actor: query.actor,
-          limit: Math.min(input.limit ?? 50, 100),
-          cursor: input.cursor,
-        });
+        const query = toActivityQuery(input, services.ownSource);
+        if (!query) return { data: [], meta: { total: 0, hasMore: false, nextCursor: null } };
+        const page = await fromActivity(() =>
+          services.reader.listEvents({
+            ...query,
+            limit: Math.min(input.limit ?? 50, 100),
+            cursor: input.cursor,
+          }),
+        );
         const visible = page.data.filter((event) => isPubliclyVisible(event, services.ownSource));
         const legacyIds = await services.gateway.legacyIdsFor(visible.map(({ id }) => id));
-        const data = visible.map((event) => toReaderEvent(event, legacyIds, services.ownSource));
+        const data = visible.map((event) => toActivityEvent(event, legacyIds, services.ownSource));
         return {
           data,
           meta: {
@@ -341,38 +327,31 @@ export default createPlugin({
         signal,
         lastEventId,
       }) {
-        const reader = await activityReader(input);
-        if (reader) {
-          const query = toActivityQuery(input, services.ownSource);
-          if (query.kind === "empty") return;
-          const events = reader.stream(
-            { source: query.source, type: query.type, actor: query.actor },
-            { signal, lastEventId },
-          );
-          for await (const event of events) {
-            if (!isPubliclyVisible(event, services.ownSource)) continue;
-            const legacyIds = await services.gateway.legacyIdsFor([event.id]);
-            yield toReaderEvent(event, legacyIds, services.ownSource);
+        if (input.source === SELF_REPORTED_SOURCE) {
+          const iterator = services.publisher.subscribe("activity", { signal, lastEventId });
+          for await (const event of iterator) {
+            if (event.source !== SELF_REPORTED_SOURCE) continue;
+            if (input.actor && event.actor !== input.actor) continue;
+            yield event;
           }
           return;
         }
-        const iterator = services.publisher.subscribe("activity", { signal, lastEventId });
-        for await (const event of iterator) {
-          if (input.source && event.source !== input.source) continue;
-          if (input.type && event.type !== input.type) continue;
-          if (input.actor && event.actor !== input.actor) continue;
-          if (input.excludeSelfReported && event.source === SELF_REPORTED_SOURCE) continue;
-          yield event;
+        const query = toActivityQuery(input, services.ownSource);
+        if (!query) return;
+        for await (const event of services.reader.stream(query, { signal, lastEventId })) {
+          if (!isPubliclyVisible(event, services.ownSource)) continue;
+          const legacyIds = await services.gateway.legacyIdsFor([event.id]);
+          yield toActivityEvent(event, legacyIds, services.ownSource);
         }
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
-        const reader = await activityReader({});
-        if (!reader) return await runEffect(services.activity.getLeaderboard(input));
-        const entries = await reader.leaderboard({
-          period: input.period,
-          limit: Math.min(input.limit ?? 50, 100),
-        });
+        const entries = await fromActivity(() =>
+          services.reader.leaderboard({
+            period: input.period,
+            limit: Math.min(input.limit ?? 50, 100),
+          }),
+        );
         return entries.map((entry) => ({
           actor: entry.actor,
           eventCount: entry.eventCount,

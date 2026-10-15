@@ -3,31 +3,28 @@ import {
   createActivityReaderClient,
   isPubliclyVisible,
   parseSseFrames,
+  toActivityEvent,
   toActivityQuery,
-  toReaderEvent,
 } from "../services/activity-reader";
 
 const EVENT_ID = "e".repeat(64);
 
 describe("activity reader", () => {
   it("translates legacy filters into Activity's source and Event Type", () => {
-    expect(toActivityQuery({})).toEqual({ kind: "activity", actor: undefined });
-    expect(toActivityQuery({ actor: "" })).toEqual({ kind: "activity", actor: undefined });
+    expect(toActivityQuery({})).toEqual({ type: undefined, actor: undefined });
+    expect(toActivityQuery({ actor: "" })).toEqual({ type: undefined, actor: undefined });
     expect(toActivityQuery({ source: "projects", actor: "alice.near" })).toEqual({
-      kind: "activity",
       source: "nearbuilders",
       type: "project.approved",
       actor: "alice.near",
     });
     expect(toActivityQuery({ source: "nearcatalog", type: "claim" })).toEqual({
-      kind: "activity",
       source: "nearbuilders",
       type: "nearcatalog.claim",
       actor: undefined,
     });
-    expect(toActivityQuery({ source: "projects", type: "claim" })).toEqual({ kind: "empty" });
+    expect(toActivityQuery({ source: "projects", type: "claim" })).toEqual(null);
     expect(toActivityQuery({ source: "kudos-board", type: "kudos.given" })).toEqual({
-      kind: "activity",
       source: "kudos-board",
       type: "kudos.given",
       actor: undefined,
@@ -36,7 +33,7 @@ describe("activity reader", () => {
 
   it("keeps nearbuilders.org's own events in their legacy shape and ID", () => {
     expect(
-      toReaderEvent(
+      toActivityEvent(
         {
           id: EVENT_ID,
           source: "nearbuilders",
@@ -61,7 +58,7 @@ describe("activity reader", () => {
 
   it("shows other sources without their unverified payload", () => {
     expect(
-      toReaderEvent(
+      toActivityEvent(
         {
           id: EVENT_ID,
           source: "kudos-board",
@@ -135,7 +132,16 @@ describe("activity reader", () => {
 
   it("streams events from Activity across chunk boundaries", async () => {
     const encoder = new TextEncoder();
-    const chunks = [`id: ${EVENT_ID}\ndata: {"id":"${EVENT_ID}","sou`, `rce":"x"}\n\n`];
+    const event = {
+      id: EVENT_ID,
+      source: "x",
+      type: "x.done",
+      actor: "a.near",
+      timestamp: "2026-10-10T09:00:00.000Z",
+      payload: {},
+    };
+    const json = JSON.stringify(event);
+    const chunks = [`id: ${EVENT_ID}\ndata: ${json.slice(0, 20)}`, `${json.slice(20)}\n\n`];
     let headers: Headers | undefined;
     const client = createActivityReaderClient({
       baseUrl: "https://activity.nearbuilders.org/api",
@@ -157,7 +163,7 @@ describe("activity reader", () => {
     for await (const event of client.stream({ source: "x" }, { lastEventId: "prev" })) {
       received.push(event);
     }
-    expect(received).toEqual([{ id: EVENT_ID, source: "x" }]);
+    expect(received).toEqual([event]);
     expect(headers?.get("last-event-id")).toBe("prev");
   });
 
@@ -189,13 +195,12 @@ describe("activity reader", () => {
 
   it("maps a configured own source the same way as nearbuilders", () => {
     expect(toActivityQuery({ source: "builders" }, "staging")).toEqual({
-      kind: "activity",
       source: "staging",
       type: "builder.approved",
       actor: undefined,
     });
     expect(
-      toReaderEvent(
+      toActivityEvent(
         {
           id: EVENT_ID,
           source: "staging",
@@ -208,5 +213,15 @@ describe("activity reader", () => {
         "staging",
       ),
     ).toMatchObject({ source: "builders", type: "approved", verified: true });
+  });
+
+  it("rejects a response that does not match Activity's feed", async () => {
+    const client = createActivityReaderClient({
+      baseUrl: "https://activity.nearbuilders.org/api",
+      fetchImplementation: async () =>
+        new Response(JSON.stringify({ data: [{ id: 1 }], meta: {} }), { status: 200 }),
+    });
+
+    await expect(client.listEvents({ limit: 10 })).rejects.toThrow();
   });
 });

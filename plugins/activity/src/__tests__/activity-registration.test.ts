@@ -127,6 +127,8 @@ describe("activity registration client", () => {
                   type: "kudos.given",
                   actor: "alice.near",
                   timestamp: "2026-10-10T10:00:00.000Z",
+                  source: "kudos-board",
+                  payload: {},
                   provenance: { approvalStatus: "pending" },
                 },
                 {
@@ -134,6 +136,8 @@ describe("activity registration client", () => {
                   type: "kudos.received",
                   actor: "bob.near",
                   timestamp: "2026-10-10T09:00:00.000Z",
+                  source: "kudos-board",
+                  payload: {},
                   provenance: { approvalStatus: "approved" },
                 },
               ],

@@ -1,48 +1,18 @@
 import { ORPCError } from "every-plugin/orpc";
+import type { z } from "every-plugin/zod";
+import type {
+  ActivityProjectContributorsSchema,
+  ActivityProjectEventsSchema,
+  ActivityProjectStatusSchema,
+  ActivityRegistrationInputSchema,
+} from "../contract";
+import { ActivityApiBindingSessionSchema, ActivityApiProjectStatusSchema } from "./activity-api";
+import { createActivityReaderClient } from "./activity-reader";
 
-export interface ActivityRegistrationEventType {
-  name: string;
-  pointValue: number;
-}
-
-export interface ActivityProjectStatus {
-  status: "none" | "connected" | "tracked" | "rejected";
-  sourceId: string | null;
-  displayName: string | null;
-  reviewReason: string | null;
-  activityUrl: string;
-}
-
-export interface ActivityProjectEvent {
-  id: string;
-  type: string;
-  actor: string;
-  occurredAt: string;
-  underReview: boolean;
-}
-
-export interface ActivityProjectEvents {
-  events: ActivityProjectEvent[];
-  nextCursor: string | null;
-}
-
-export interface ActivityProjectContributor {
-  rank: number;
-  actor: string;
-  score: number;
-  eventCount: number;
-}
-
-export interface ActivityRegistrationClient {
-  startSession(input: {
-    projectId: string;
-    nearAccountId?: string;
-    eventTypes: ActivityRegistrationEventType[];
-  }): Promise<{ url: string; expiresAt: string }>;
-  projectStatus(projectId: string): Promise<ActivityProjectStatus>;
-  projectEvents(projectId: string, cursor?: string): Promise<ActivityProjectEvents>;
-  projectContributors(projectId: string): Promise<ActivityProjectContributor[]>;
-}
+type ActivityRegistrationInput = z.infer<typeof ActivityRegistrationInputSchema>;
+type ActivityProjectStatus = z.infer<typeof ActivityProjectStatusSchema>;
+type ActivityProjectEvents = z.infer<typeof ActivityProjectEventsSchema>;
+type ActivityProjectContributors = z.infer<typeof ActivityProjectContributorsSchema>;
 
 const PROJECT_EVENTS_PAGE_SIZE = 10;
 const PROJECT_CONTRIBUTORS_LIMIT = 5;
@@ -51,15 +21,22 @@ export function activitySiteUrl(gatewayUrl: string): string {
   return gatewayUrl.replace(/\/+$/, "").replace(/\/api$/, "");
 }
 
+function unavailable(): ORPCError<"SERVICE_UNAVAILABLE", unknown> {
+  return new ORPCError("SERVICE_UNAVAILABLE", {
+    message: "Activity could not be reached. Try again shortly.",
+  });
+}
+
 export function createActivityRegistrationClient(options: {
   baseUrl: string;
   apiKey: string;
   fetchImplementation?: typeof fetch;
   timeoutMs?: number;
-}): ActivityRegistrationClient {
+}) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
+  const reader = createActivityReaderClient({ baseUrl, fetchImplementation, timeoutMs });
 
   async function call(path: string, init: RequestInit): Promise<unknown> {
     let response: Response;
@@ -69,15 +46,15 @@ export function createActivityRegistrationClient(options: {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
-      throw new ORPCError("SERVICE_UNAVAILABLE", {
-        message: "Activity could not be reached. Try again shortly.",
-      });
+      throw unavailable();
     }
     const text = await response.text();
-    const body = text ? (JSON.parse(text) as { message?: unknown }) : {};
+    const body: unknown = text ? JSON.parse(text) : {};
     if (!response.ok) {
       const message =
-        typeof body.message === "string" ? body.message : `Activity returned ${response.status}`;
+        body && typeof body === "object" && "message" in body && typeof body.message === "string"
+          ? body.message
+          : `Activity returned ${response.status}`;
       throw new ORPCError(response.status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
         message,
       });
@@ -86,17 +63,13 @@ export function createActivityRegistrationClient(options: {
   }
 
   async function projectStatus(projectId: string): Promise<ActivityProjectStatus> {
-    const body = (await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
-      method: "GET",
-      headers: { accept: "application/json" },
-    })) as Partial<ActivityProjectStatus>;
-    return {
-      status: body.status ?? "none",
-      sourceId: body.sourceId ?? null,
-      displayName: body.displayName ?? null,
-      reviewReason: body.reviewReason ?? null,
-      activityUrl: activitySiteUrl(baseUrl),
-    };
+    const body = ActivityApiProjectStatusSchema.parse(
+      await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
+        method: "GET",
+        headers: { accept: "application/json" },
+      }),
+    );
+    return { ...body, activityUrl: activitySiteUrl(baseUrl) };
   }
 
   async function trackedSourceId(projectId: string): Promise<string | null> {
@@ -105,8 +78,8 @@ export function createActivityRegistrationClient(options: {
   }
 
   return {
-    async startSession(input) {
-      const body = (await call("/v1/binding-sessions", {
+    async startSession(input: ActivityRegistrationInput) {
+      const body = await call("/v1/binding-sessions", {
         method: "POST",
         headers: {
           authorization: `Bearer ${options.apiKey}`,
@@ -122,67 +95,47 @@ export function createActivityRegistrationClient(options: {
             pointValue,
           })),
         }),
-      })) as { url?: unknown; expiresAt?: unknown };
-      if (typeof body.url !== "string" || typeof body.expiresAt !== "string") {
+      });
+      const session = ActivityApiBindingSessionSchema.safeParse(body);
+      if (!session.success) {
         throw new ORPCError("SERVICE_UNAVAILABLE", {
           message: "Activity returned an unexpected response",
         });
       }
-      return { url: body.url, expiresAt: body.expiresAt };
+      return session.data;
     },
 
-    async projectStatus(projectId) {
-      return projectStatus(projectId);
-    },
+    projectStatus,
 
-    async projectEvents(projectId, cursor) {
+    async projectEvents(projectId: string, cursor?: string): Promise<ActivityProjectEvents> {
       const sourceId = await trackedSourceId(projectId);
       if (!sourceId) return { events: [], nextCursor: null };
-      const query = new URLSearchParams({
-        source: sourceId,
-        limit: String(PROJECT_EVENTS_PAGE_SIZE),
-      });
-      if (cursor) query.set("cursor", cursor);
-      const body = (await call(`/v1/events?${query}`, {
-        method: "GET",
-        headers: { accept: "application/json" },
-      })) as {
-        data?: Array<{
-          id: string;
-          type: string;
-          actor: string;
-          timestamp: string;
-          provenance?: { approvalStatus?: string };
-        }>;
-        meta?: { hasMore?: boolean; nextCursor?: string | null };
-      };
+      const page = await reader
+        .listEvents({ source: sourceId, limit: PROJECT_EVENTS_PAGE_SIZE, cursor })
+        .catch(() => {
+          throw unavailable();
+        });
       return {
-        events: (body.data ?? []).map((event) => ({
+        events: page.data.map((event) => ({
           id: event.id,
           type: event.type,
           actor: event.actor,
           occurredAt: event.timestamp,
           underReview: event.provenance?.approvalStatus === "pending",
         })),
-        nextCursor: body.meta?.hasMore ? (body.meta.nextCursor ?? null) : null,
+        nextCursor: page.nextCursor,
       };
     },
 
-    async projectContributors(projectId) {
+    async projectContributors(projectId: string): Promise<ActivityProjectContributors> {
       const sourceId = await trackedSourceId(projectId);
       if (!sourceId) return [];
-      const query = new URLSearchParams({
-        source: sourceId,
-        period: "all-time",
-        limit: String(PROJECT_CONTRIBUTORS_LIMIT),
-      });
-      const body = (await call(`/v1/leaderboard?${query}`, {
-        method: "GET",
-        headers: { accept: "application/json" },
-      })) as {
-        data?: Array<{ rank: number; actor: string; score: number; eventCount: number }>;
-      };
-      return (body.data ?? []).map(({ rank, actor, score, eventCount }) => ({
+      const entries = await reader
+        .leaderboard({ source: sourceId, period: "all-time", limit: PROJECT_CONTRIBUTORS_LIMIT })
+        .catch(() => {
+          throw unavailable();
+        });
+      return entries.map(({ rank, actor, score, eventCount }) => ({
         rank,
         actor,
         score,
@@ -191,3 +144,5 @@ export function createActivityRegistrationClient(options: {
     },
   };
 }
+
+export type ActivityRegistrationClient = ReturnType<typeof createActivityRegistrationClient>;

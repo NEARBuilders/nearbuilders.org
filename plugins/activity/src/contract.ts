@@ -1,10 +1,4 @@
-import {
-  BAD_REQUEST,
-  FORBIDDEN,
-  NOT_FOUND,
-  SERVICE_UNAVAILABLE,
-  UNAUTHORIZED,
-} from "every-plugin/errors";
+import { FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
@@ -39,7 +33,6 @@ export const ActivityFiltersSchema = z.object({
   source: z.string().optional(),
   type: z.string().optional(),
   actor: z.string().optional(),
-  excludeSelfReported: z.boolean().optional(),
 });
 
 export const EmitActivityInputSchema = z.object({
@@ -65,8 +58,6 @@ export const ActivityLeaderboardInputSchema = z.object({
 
 export const ActivityGatewayModeSchema = z.enum(["legacy-only", "dual-write", "standalone-only"]);
 
-export const ActivityReadModeSchema = z.enum(["legacy", "activity"]);
-
 export const ActivityRedatePlanSchema = z.object({
   dryRun: z.boolean(),
   misdated: z.number().int().nonnegative(),
@@ -78,7 +69,6 @@ export const ActivityRedatePlanSchema = z.object({
 
 export const ActivityGatewayStatusSchema = z.object({
   mode: ActivityGatewayModeSchema,
-  readMode: ActivityReadModeSchema,
   configured: z.boolean(),
   counts: z.object({
     pending: z.number().int().nonnegative(),
@@ -226,12 +216,6 @@ export const contract = oc.router({
     .route({ method: "POST", path: "/v1/internal/activity/gateway/retry" })
     .output(ActivityGatewayStatusSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN }),
-
-  setActivityReadMode: oc
-    .route({ method: "PUT", path: "/v1/internal/activity/gateway/read-mode" })
-    .input(z.object({ readMode: ActivityReadModeSchema }))
-    .output(ActivityGatewayStatusSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   redateActivityHistory: oc
     .route({ method: "POST", path: "/v1/internal/activity/gateway/redate" })

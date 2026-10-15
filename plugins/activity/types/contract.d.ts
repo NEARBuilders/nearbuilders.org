@@ -36,7 +36,6 @@ export declare const ActivityFiltersSchema: z.ZodObject<{
     source: z.ZodOptional<z.ZodString>;
     type: z.ZodOptional<z.ZodString>;
     actor: z.ZodOptional<z.ZodString>;
-    excludeSelfReported: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>;
 export declare const EmitActivityInputSchema: z.ZodObject<{
     source: z.ZodString;
@@ -54,7 +53,6 @@ export declare const ActivityFeedInputSchema: z.ZodObject<{
     source: z.ZodOptional<z.ZodString>;
     type: z.ZodOptional<z.ZodString>;
     actor: z.ZodOptional<z.ZodString>;
-    excludeSelfReported: z.ZodOptional<z.ZodBoolean>;
     limit: z.ZodOptional<z.ZodNumber>;
     cursor: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
@@ -71,10 +69,6 @@ export declare const ActivityGatewayModeSchema: z.ZodEnum<{
     "dual-write": "dual-write";
     "standalone-only": "standalone-only";
 }>;
-export declare const ActivityReadModeSchema: z.ZodEnum<{
-    legacy: "legacy";
-    activity: "activity";
-}>;
 export declare const ActivityRedatePlanSchema: z.ZodObject<{
     dryRun: z.ZodBoolean;
     misdated: z.ZodNumber;
@@ -88,10 +82,6 @@ export declare const ActivityGatewayStatusSchema: z.ZodObject<{
         "legacy-only": "legacy-only";
         "dual-write": "dual-write";
         "standalone-only": "standalone-only";
-    }>;
-    readMode: z.ZodEnum<{
-        legacy: "legacy";
-        activity: "activity";
     }>;
     configured: z.ZodBoolean;
     counts: z.ZodObject<{
@@ -280,7 +270,6 @@ export declare const contract: {
         source: z.ZodOptional<z.ZodString>;
         type: z.ZodOptional<z.ZodString>;
         actor: z.ZodOptional<z.ZodString>;
-        excludeSelfReported: z.ZodOptional<z.ZodBoolean>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
@@ -304,7 +293,6 @@ export declare const contract: {
         source: z.ZodOptional<z.ZodString>;
         type: z.ZodOptional<z.ZodString>;
         actor: z.ZodOptional<z.ZodString>;
-        excludeSelfReported: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>, import("@orpc/contract").Schema<AsyncIteratorObject<{
         id: string;
         source: string;
@@ -342,10 +330,6 @@ export declare const contract: {
             "legacy-only": "legacy-only";
             "dual-write": "dual-write";
             "standalone-only": "standalone-only";
-        }>;
-        readMode: z.ZodEnum<{
-            legacy: "legacy";
-            activity: "activity";
         }>;
         configured: z.ZodBoolean;
         counts: z.ZodObject<{
@@ -393,10 +377,6 @@ export declare const contract: {
             "dual-write": "dual-write";
             "standalone-only": "standalone-only";
         }>;
-        readMode: z.ZodEnum<{
-            legacy: "legacy";
-            activity: "activity";
-        }>;
         configured: z.ZodBoolean;
         counts: z.ZodObject<{
             pending: z.ZodNumber;
@@ -437,10 +417,6 @@ export declare const contract: {
             "dual-write": "dual-write";
             "standalone-only": "standalone-only";
         }>;
-        readMode: z.ZodEnum<{
-            legacy: "legacy";
-            activity: "activity";
-        }>;
         configured: z.ZodBoolean;
         counts: z.ZodObject<{
             pending: z.ZodNumber;
@@ -472,66 +448,6 @@ export declare const contract: {
             readonly data: z.ZodObject<{
                 requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
                 action: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>;
-        };
-    }>>, Record<never, never>>;
-    setActivityReadMode: import("@orpc/contract").ContractProcedure<z.ZodObject<{
-        readMode: z.ZodEnum<{
-            legacy: "legacy";
-            activity: "activity";
-        }>;
-    }, z.core.$strip>, z.ZodObject<{
-        mode: z.ZodEnum<{
-            "legacy-only": "legacy-only";
-            "dual-write": "dual-write";
-            "standalone-only": "standalone-only";
-        }>;
-        readMode: z.ZodEnum<{
-            legacy: "legacy";
-            activity: "activity";
-        }>;
-        configured: z.ZodBoolean;
-        counts: z.ZodObject<{
-            pending: z.ZodNumber;
-            sent: z.ZodNumber;
-            failed: z.ZodNumber;
-        }, z.core.$strip>;
-        oldestPendingAt: z.ZodNullable<z.ZodString>;
-        recentFailures: z.ZodArray<z.ZodObject<{
-            operation: z.ZodString;
-            idempotencyKey: z.ZodString;
-            attempts: z.ZodNumber;
-            lastError: z.ZodNullable<z.ZodString>;
-        }, z.core.$strip>>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
-        UNAUTHORIZED: {
-            readonly status: 401;
-            readonly data: z.ZodObject<{
-                apiKeyProvided: z.ZodBoolean;
-                provider: z.ZodOptional<z.ZodString>;
-                authType: z.ZodOptional<z.ZodEnum<{
-                    apiKey: "apiKey";
-                    oauth: "oauth";
-                    token: "token";
-                }>>;
-            }, z.core.$strip>;
-        };
-        FORBIDDEN: {
-            readonly status: 403;
-            readonly data: z.ZodObject<{
-                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
-                action: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>;
-        };
-        BAD_REQUEST: {
-            readonly status: 400;
-            readonly data: z.ZodObject<{
-                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
-                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
-                    field: z.ZodString;
-                    message: z.ZodString;
-                    code: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;

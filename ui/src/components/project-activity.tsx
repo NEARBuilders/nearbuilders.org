@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useApiClient } from "@/app";
+import { type ApiClient, useApiClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,10 @@ import { Label } from "@/components/ui/label";
 const EVENT_TYPE_NAME_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const MAX_EVENT_POINTS = 100;
 
-interface ActivityProject {
-  id: string;
-  kind: string;
-  status: string;
-  visibility: string;
-}
+type ActivityProject = Pick<
+  Awaited<ReturnType<ApiClient["getProject"]>>["data"],
+  "id" | "kind" | "status" | "visibility"
+>;
 
 interface EventRow {
   key: number;

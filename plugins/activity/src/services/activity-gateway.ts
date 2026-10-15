@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
+import type { z } from "every-plugin/zod";
+import {
+  ActivityGatewayModeSchema,
+  type ActivityGatewayStatusSchema,
+  type ActivityRedatePlanSchema,
+} from "../contract";
 import type { Database } from "../db";
 import { activityEvents, activityGatewayOutbox, activitySettings } from "../db/schema";
 
-export const GATEWAY_MODES = ["legacy-only", "dual-write", "standalone-only"] as const;
-export type GatewayMode = (typeof GATEWAY_MODES)[number];
+export type GatewayMode = z.infer<typeof ActivityGatewayModeSchema>;
+type ActivityGatewayStatus = z.infer<typeof ActivityGatewayStatusSchema>;
+type ActivityRedatePlan = z.infer<typeof ActivityRedatePlanSchema>;
 
 export const GATEWAY_MODE_SETTING_KEY = "activity_gateway_mode";
 const DEFAULT_MODE: GatewayMode = "legacy-only";
@@ -110,31 +117,9 @@ export function createHttpActivityGatewayClient(options: {
 
 type OutboxRow = typeof activityGatewayOutbox.$inferSelect;
 
-export type ActivityRedatePlan = {
-  dryRun: boolean;
-  misdated: number;
-  hidden: number;
-  enqueued: number;
-  oldestOccurredAt: string | null;
-  newestOccurredAt: string | null;
-};
-
 /** Events forwarded more than this long after they happened were imported, not dual-written. */
 const REDATE_THRESHOLD_MS = 60 * 60 * 1000;
 const REDATED_KEY_SUFFIX = ":dated";
-
-export type ActivityGatewayStatus = {
-  mode: GatewayMode;
-  configured: boolean;
-  counts: { pending: number; sent: number; failed: number };
-  oldestPendingAt: string | null;
-  recentFailures: Array<{
-    operation: string;
-    idempotencyKey: string;
-    attempts: number;
-    lastError: string | null;
-  }>;
-};
 
 export function createActivityGatewayMethods(
   db: Database,
@@ -153,8 +138,8 @@ export function createActivityGatewayMethods(
       .from(activitySettings)
       .where(eq(activitySettings.key, GATEWAY_MODE_SETTING_KEY))
       .limit(1);
-    const value = row?.value as GatewayMode | undefined;
-    return value && GATEWAY_MODES.includes(value) ? value : DEFAULT_MODE;
+    const parsed = ActivityGatewayModeSchema.safeParse(row?.value);
+    return parsed.success ? parsed.data : DEFAULT_MODE;
   }
 
   async function setMode(mode: GatewayMode): Promise<GatewayMode> {
