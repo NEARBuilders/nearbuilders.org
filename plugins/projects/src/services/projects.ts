@@ -675,8 +675,7 @@ export const ProjectServiceLive = Layer.effect(
             const viewerIds = [userId, alternateUserId]
               .filter(Boolean)
               .map((id) => (id as string).toLowerCase());
-            const requesterIsCollaborator =
-              userRole === "admin" || viewerIds.includes(collabId);
+            const requesterIsCollaborator = userRole === "admin" || viewerIds.includes(collabId);
             if (!requesterIsCollaborator) {
               conditions.push(eq(projects.visibility, "public"));
             }
@@ -1293,9 +1292,7 @@ export const ProjectServiceLive = Layer.effect(
           const isPrivileged =
             userRole === "admin" ||
             isProjectOwner(project.ownerId, userId, alternateUserId) ||
-            rows.some(
-              (c) => c.status === "accepted" && viewerIds.includes(c.collaboratorOwnerId),
-            );
+            rows.some((c) => c.status === "accepted" && viewerIds.includes(c.collaboratorOwnerId));
           const visible = isPrivileged ? rows : rows.filter((c) => c.status === "accepted");
           return visible.map(mapCollaborator);
         }),
@@ -1389,10 +1386,7 @@ export const ProjectServiceLive = Layer.effect(
                 updatedAt: now,
               })
               .onConflictDoNothing({
-                target: [
-                  projectCollaborators.projectId,
-                  projectCollaborators.collaboratorOwnerId,
-                ],
+                target: [projectCollaborators.projectId, projectCollaborators.collaboratorOwnerId],
               }),
           );
 
@@ -1516,6 +1510,6 @@ export const ProjectServiceLive = Layer.effect(
           }
           return out;
         }),
-}
-}),
-)
+    };
+  }),
+);
