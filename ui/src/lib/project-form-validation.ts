@@ -9,6 +9,7 @@ export type ProjectFormValues = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  collaborators?: string[];
 };
 
 const HOSTNAME_PATTERN =
@@ -101,6 +102,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   ownerId: "Owner",
   domain: "Domain",
   logoUrl: "Logo URL",
+  collaborators: "Collaborators",
 };
 
 export type ProjectFormValidation = {

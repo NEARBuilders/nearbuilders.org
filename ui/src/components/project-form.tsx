@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
+import { CollaboratorPicker } from "@/components/collaborator-picker";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
 import {
@@ -115,6 +116,7 @@ interface ProjectFormLayoutProps {
   tab: "write" | "preview";
   slugPreview?: string;
   currentKind?: string;
+  collaboratorsLocked?: boolean;
 }
 
 export function ProjectFormLayout({
@@ -125,6 +127,7 @@ export function ProjectFormLayout({
   tab,
   slugPreview,
   currentKind,
+  collaboratorsLocked,
 }: ProjectFormLayoutProps) {
   const formKind = useStore(form.store, (s: any) => s.values.kind);
   const kind = mode === "create" && currentKind ? currentKind : formKind;
@@ -953,6 +956,25 @@ export function ProjectFormLayout({
               </form.Field>
             </section>
           )}
+
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <FieldLabel>Collaborators</FieldLabel>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Credit team members. They will be invited and can accept to co-own this entry.
+            </p>
+            <form.Field name="collaborators">
+              {(field: any) => (
+                <div className="mt-3">
+                  <CollaboratorPicker
+                    value={field.state.value ?? []}
+                    onChange={(next) => field.handleChange(next)}
+                    excludeOwnerId={defaultOwnerId}
+                    locked={collaboratorsLocked}
+                  />
+                </div>
+              )}
+            </form.Field>
+          </section>
 
           <section className="hidden rounded-xl border border-border bg-card p-4 shadow-sm sm:block sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between gap-3">
