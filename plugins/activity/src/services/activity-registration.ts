@@ -7,7 +7,8 @@ import type {
   ActivityRegistrationInputSchema,
 } from "../contract";
 import { ActivityApiBindingSessionSchema, ActivityApiProjectStatusSchema } from "./activity-api";
-import { createActivityReaderClient } from "./activity-reader";
+import { type ActivityReaderClient, createActivityReaderClient } from "./activity-reader";
+import { createTtlCache } from "./ttl-cache";
 
 type ActivityRegistrationInput = z.infer<typeof ActivityRegistrationInputSchema>;
 type ActivityProjectStatus = z.infer<typeof ActivityProjectStatusSchema>;
@@ -32,11 +33,18 @@ export function createActivityRegistrationClient(options: {
   apiKey: string;
   fetchImplementation?: typeof fetch;
   timeoutMs?: number;
+  reader?: ActivityReaderClient;
+  statusCacheMs?: number;
 }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const reader = createActivityReaderClient({ baseUrl, fetchImplementation, timeoutMs });
+  const reader =
+    options.reader ?? createActivityReaderClient({ baseUrl, fetchImplementation, timeoutMs });
+  const statuses = createTtlCache<ActivityProjectStatus>({
+    ttlMs: options.statusCacheMs ?? 30_000,
+    maxEntries: 1_000,
+  });
 
   async function call(path: string, init: RequestInit): Promise<unknown> {
     let response: Response;
@@ -62,14 +70,16 @@ export function createActivityRegistrationClient(options: {
     return body;
   }
 
-  async function projectStatus(projectId: string): Promise<ActivityProjectStatus> {
-    const body = ActivityApiProjectStatusSchema.parse(
-      await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
-        method: "GET",
-        headers: { accept: "application/json" },
-      }),
-    );
-    return { ...body, activityUrl: activitySiteUrl(baseUrl) };
+  function projectStatus(projectId: string): Promise<ActivityProjectStatus> {
+    return statuses.get(projectId, async () => {
+      const body = ActivityApiProjectStatusSchema.parse(
+        await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
+          method: "GET",
+          headers: { accept: "application/json" },
+        }),
+      );
+      return { ...body, activityUrl: activitySiteUrl(baseUrl) };
+    });
   }
 
   async function trackedSourceId(projectId: string): Promise<string | null> {

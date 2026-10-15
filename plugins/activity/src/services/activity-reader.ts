@@ -11,6 +11,7 @@ import {
   ActivityApiLeaderboardSchema,
 } from "./activity-api";
 import { GATEWAY_EVENT_TYPES } from "./activity-gateway";
+import { createTtlCache } from "./ttl-cache";
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 type ActivityFilters = z.infer<typeof ActivityFiltersSchema>;
@@ -187,3 +188,106 @@ export function createActivityReaderClient(options: {
 }
 
 export type ActivityReaderClient = ReturnType<typeof createActivityReaderClient>;
+
+/** Activity's host rate-limits per IP, and every nearbuilders.org visitor reads through one. */
+export function withReadCache(
+  reader: ActivityReaderClient,
+  options: { ttlMs?: number; maxEntries?: number; now?: () => number } = {},
+): ActivityReaderClient & { clear(): void } {
+  const settings = {
+    ttlMs: options.ttlMs ?? 30_000,
+    maxEntries: options.maxEntries ?? 500,
+    now: options.now,
+  };
+  const events = createTtlCache<Awaited<ReturnType<ActivityReaderClient["listEvents"]>>>(settings);
+  const leaderboards =
+    createTtlCache<Awaited<ReturnType<ActivityReaderClient["leaderboard"]>>>(settings);
+  return {
+    ...reader,
+    listEvents: (input) => events.get(JSON.stringify(input), () => reader.listEvents(input)),
+    leaderboard: (input) =>
+      leaderboards.get(JSON.stringify(input), () => reader.leaderboard(input)),
+    clear() {
+      events.clear();
+      leaderboards.clear();
+    },
+  };
+}
+
+const STREAM_RETRY_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
+
+/**
+ * One upstream connection to Activity's live stream, shared by every subscriber in this process.
+ * It opens with the first subscriber, closes with the last, and reconnects from the last event seen.
+ */
+export function createSharedActivityStream(
+  reader: Pick<ActivityReaderClient, "stream">,
+  options: { retryMs?: readonly number[] } = {},
+) {
+  const retryMs = options.retryMs ?? STREAM_RETRY_MS;
+  const listeners = new Set<(event: ActivityApiEvent) => void>();
+  let upstream: AbortController | null = null;
+  let lastEventId: string | undefined;
+
+  async function run(controller: AbortController): Promise<void> {
+    let failures = 0;
+    while (!controller.signal.aborted) {
+      try {
+        for await (const event of reader.stream({}, { signal: controller.signal, lastEventId })) {
+          failures = 0;
+          lastEventId = event.id;
+          for (const listener of listeners) listener(event);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("[Activity] Live stream from activity.nearbuilders.org dropped", error);
+      }
+      if (controller.signal.aborted) return;
+      const delay = retryMs[Math.min(failures, retryMs.length - 1)] ?? 0;
+      failures += 1;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  return {
+    get subscribers() {
+      return listeners.size;
+    },
+
+    async *subscribe({ signal }: { signal?: AbortSignal } = {}): AsyncGenerator<ActivityApiEvent> {
+      const queue: ActivityApiEvent[] = [];
+      let wake: (() => void) | null = null;
+      const listener = (event: ActivityApiEvent) => {
+        queue.push(event);
+        wake?.();
+      };
+      const stop = () => wake?.();
+      listeners.add(listener);
+      signal?.addEventListener("abort", stop);
+      if (!upstream) {
+        upstream = new AbortController();
+        void run(upstream);
+      }
+      try {
+        while (!signal?.aborted) {
+          const next = queue.shift();
+          if (next) {
+            yield next;
+            continue;
+          }
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+          wake = null;
+        }
+      } finally {
+        listeners.delete(listener);
+        signal?.removeEventListener("abort", stop);
+        if (listeners.size === 0) {
+          upstream?.abort();
+          upstream = null;
+        }
+      }
+    },
+  };
+}

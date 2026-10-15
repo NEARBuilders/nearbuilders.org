@@ -16,11 +16,13 @@ import {
 import { createActivityImportMethods } from "./services/activity-import";
 import {
   createActivityReaderClient,
+  createSharedActivityStream,
   DEFAULT_ACTIVITY_API_URL,
   isPubliclyVisible,
   NEARBUILDERS_SOURCE,
   toActivityEvent,
   toActivityQuery,
+  withReadCache,
 } from "./services/activity-reader";
 import { createActivityRegistrationClient } from "./services/activity-registration";
 
@@ -96,14 +98,18 @@ export default createPlugin({
       const gatewayWorker = new ActivityGatewayWorker(gateway);
       if (gatewayClient) gatewayWorker.start();
       const historyImport = createActivityImportMethods(database, gateway);
+      const reader = withReadCache(
+        createActivityReaderClient({ baseUrl: gatewayUrl || DEFAULT_ACTIVITY_API_URL }),
+      );
+      const liveStream = createSharedActivityStream(reader);
       const registration =
         gatewayUrl && gatewayApiKey
-          ? createActivityRegistrationClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
+          ? createActivityRegistrationClient({
+              baseUrl: gatewayUrl,
+              apiKey: gatewayApiKey,
+              reader,
+            })
           : null;
-
-      const reader = createActivityReaderClient({
-        baseUrl: gatewayUrl || DEFAULT_ACTIVITY_API_URL,
-      });
       const ownSource = config.secrets.ACTIVITY_SOURCE_ID.trim() || NEARBUILDERS_SOURCE;
 
       console.log("[Activity] Services Initialized");
@@ -115,6 +121,7 @@ export default createPlugin({
         historyImport,
         registration,
         reader,
+        liveStream,
         ownSource,
       };
     }),
@@ -228,6 +235,7 @@ export default createPlugin({
               }),
             );
           }
+          services.reader.clear();
 
           await services.publisher.publish("activity", event);
           return event;
@@ -261,6 +269,7 @@ export default createPlugin({
             }),
           );
         }
+        services.reader.clear();
 
         await services.publisher.publish("activity", event);
         return event;
@@ -338,7 +347,10 @@ export default createPlugin({
         }
         const query = toActivityQuery(input, services.ownSource);
         if (!query) return;
-        for await (const event of services.reader.stream(query, { signal, lastEventId })) {
+        for await (const event of services.liveStream.subscribe({ signal })) {
+          if (query.source && event.source !== query.source) continue;
+          if (query.type && event.type !== query.type) continue;
+          if (query.actor && event.actor !== query.actor) continue;
           if (!isPubliclyVisible(event, services.ownSource)) continue;
           const legacyIds = await services.gateway.legacyIdsFor([event.id]);
           yield toActivityEvent(event, legacyIds, services.ownSource);
