@@ -367,13 +367,16 @@ function LoadedProfile({
       {isOwner && <LegacySocialImportPrompt profile={profile} className="mb-6" />}
 
       <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="relative h-32 sm:h-40">
+        <div
+          // oxlint-disable-next-line shadcn/no-arbitrary-values -- near.social banners are 1500x500 (3:1); no Tailwind aspect scale token matches
+          className="relative aspect-[3/1] w-full"
+        >
           <div className="absolute inset-0 bg-brand-accent-light" />
           {backgroundUrl && (
             <img
               src={backgroundUrl}
               alt="Profile background"
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
@@ -408,14 +411,17 @@ function LoadedProfile({
             )}
           </ClientOnly>
           <div className="absolute -bottom-10 left-6 sm:left-8">
-            <div className="flex size-20 items-center justify-center overflow-hidden rounded-full border-4 border-card bg-muted shadow-lg">
+            <div
+              // oxlint-disable-next-line shadcn/no-arbitrary-values -- responsive avatar: -5px below md, +10px from size-20 at md+
+              className="flex size-[75px] items-center justify-center overflow-hidden rounded-full border-4 border-card bg-muted shadow-lg md:size-[90px]"
+            >
               {profileLoading ? (
-                <Skeleton className="size-20 rounded-full" />
+                <Skeleton className="size-full rounded-full" />
               ) : avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt={displayName}
-                  className="size-20 object-cover"
+                  className="size-full object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
