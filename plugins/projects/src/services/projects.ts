@@ -730,7 +730,10 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.visibility) {
             conditions.push(eq(projects.visibility, input.visibility));
-            if (input.visibility === "private" && userRole !== "admin") {
+            if (
+              (input.visibility === "private" || input.visibility === "unlisted") &&
+              userRole !== "admin"
+            ) {
               const viewerCollabIds = yield* getViewerCollabProjectIds;
               const accessConditions: any[] = [
                 userId ? eq(projects.ownerId, userId) : undefined,
@@ -740,14 +743,19 @@ export const ProjectServiceLive = Layer.effect(
               conditions.push(accessConditions.length > 0 ? or(...accessConditions) : sql`false`);
             }
           } else {
-            const visibleConditions: any[] = [inArray(projects.visibility, ["public", "unlisted"])];
-            if (userId || alternateUserId) {
-              const ownerConditions = [
-                userId ? eq(projects.ownerId, userId) : undefined,
-                alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
-              ].filter(Boolean);
-              if (ownerConditions.length > 0) {
-                visibleConditions.push(or(...ownerConditions));
+            const ownerConditions = [
+              userId ? eq(projects.ownerId, userId) : undefined,
+              alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+            ].filter(Boolean);
+            const visibleConditions: any[] = [eq(projects.visibility, "public")];
+            if (ownerConditions.length > 0) {
+              visibleConditions.push(
+                and(or(...ownerConditions), eq(projects.visibility, "private")),
+              );
+              if (input.ownerId) {
+                visibleConditions.push(
+                  and(or(...ownerConditions), eq(projects.visibility, "unlisted")),
+                );
               }
               const viewerCollabIds = yield* getViewerCollabProjectIds;
               if (viewerCollabIds.length > 0) {
