@@ -1,8 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { getBuilderOnboardingProgress } from "@/lib/builder-onboarding";
+import {
+  hasNearSocialAvatar,
+  NEAR_SOCIAL_ONBOARDING_URL,
+  type ResolvedNearProfile,
+} from "@/lib/near-social";
 import { mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +36,7 @@ export function BuilderOnboardingChecklist({
   isLoading,
 }: {
   accountId: string;
-  nearProfile: Profile | null | undefined;
+  nearProfile: ResolvedNearProfile | null | undefined;
   builderProfile: BuilderOnboardingProfile | null;
   hasFirstIdea: boolean;
   isLoading: boolean;
@@ -47,7 +51,7 @@ export function BuilderOnboardingChecklist({
       {
         id: "avatar",
         label: "Add avatar",
-        complete: Boolean(nearProfile?.image?.url || nearProfile?.image?.ipfs_cid),
+        complete: hasNearSocialAvatar(nearProfile),
         target: { kind: "near-social" },
       },
       {
@@ -262,7 +266,7 @@ function ChecklistLink({
   if (target.kind === "near-social") {
     return (
       <a
-        href="https://near.social/#/mob.near/widget/ProfileEditor"
+        href={NEAR_SOCIAL_ONBOARDING_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={linkClassName}

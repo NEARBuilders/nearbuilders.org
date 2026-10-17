@@ -20,6 +20,16 @@ import {
   assertValidBuilderProposalAccount,
   createProposalOrchestration,
 } from "./services/proposal-orchestration";
+import { evaluatorContext } from "./services/review-context";
+import { loadReviewDigest } from "./services/review-digest";
+import { createNearAiAssessor } from "./services/review-evaluation";
+import { createReviewEvaluationSweep } from "./services/review-evaluation-sweep";
+import {
+  claimTelegramLink,
+  createTelegramLinkCode,
+  requireAdminKeyOwner,
+} from "./services/telegram-link";
+import { decideTelegramReview } from "./services/telegram-review";
 
 function builderNominationPayload(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -55,6 +65,13 @@ function notificationContext(context: Context) {
   return {
     ...context,
     userId: context.near?.primaryAccountId ?? context.userId ?? context.user?.id,
+  };
+}
+
+function serverNotificationContext(context: Context) {
+  return {
+    ...notificationContext(context),
+    serverNotification: true as const,
   };
 }
 
@@ -101,37 +118,158 @@ function enforceContentCreationVisibility(
 }
 
 export default createPlugin.withPlugins<PluginsClient>()({
-  variables: z.object({}),
+  variables: z.object({
+    reviewEvaluationEnabled: z.boolean().default(true),
+    reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
+    reviewEvaluationBatchSize: z.number().int().min(1).max(50).default(5),
+    reviewEvaluationModel: z.string().min(1).default("z-ai/glm-5.3-flash"),
+    chiefBotUsername: z
+      .string()
+      .regex(/^[A-Za-z0-9_]*$/)
+      .default(""),
+  }),
 
   secrets: z.object({
     API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
+    NEARAI_API_KEY: z.string().default(""),
+    NEARAI_MODEL: z.string().default(""),
+    GITHUB_TOKEN: z.string().default(""),
   }),
 
   context: ContextSchema,
 
   contract,
 
-  initialize: (_config, plugins) =>
+  initialize: (config, plugins) =>
     Effect.sync(() => {
       const { auth, ...restPlugins } = plugins;
       const activity = createProposalActivity(restPlugins);
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
+      const reviewModel = config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
+      const reviewEvaluation = createReviewEvaluationSweep({
+        plugins: restPlugins,
+        assessor: config.secrets.NEARAI_API_KEY
+          ? createNearAiAssessor({
+              apiKey: config.secrets.NEARAI_API_KEY,
+              model: reviewModel,
+            })
+          : null,
+        githubToken: config.secrets.GITHUB_TOKEN,
+        intervalMs: config.variables.reviewEvaluationIntervalMs,
+        batchSize: config.variables.reviewEvaluationBatchSize,
+      });
+      if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
+      console.log(
+        "[API] Review evaluation:",
+        config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
+        config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
+      );
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
       console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return { auth, plugins: restPlugins, activity, notifications, orchestration, catalogClaims };
+      return {
+        auth,
+        plugins: restPlugins,
+        activity,
+        notifications,
+        orchestration,
+        catalogClaims,
+        reviewEvaluation,
+        chiefBotUsername: config.variables.chiefBotUsername,
+      };
     }),
 
-  shutdown: () => Effect.log("[API] Shutdown"),
+  shutdown: (services) =>
+    Effect.sync(() => services.reviewEvaluation.stop()).pipe(
+      Effect.zipRight(Effect.log("[API] Shutdown")),
+    ),
 
   createRouter: (services, builder) => {
-    const { requireAuth, requireAdmin, requireAuthOrApiKey } = createAuthMiddleware(builder);
+    const { requireAuth, requireAdmin, requireAuthOrApiKey, requireApiKey } =
+      createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const approveProposal = async (
+      input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
+      context: Context,
+    ) => {
+      const proposalsClient = services.plugins.proposals(context);
+      const approval = await proposalsClient.approve(input);
+      const proposal = {
+        id: approval.data.id,
+        pluginId: approval.data.pluginId,
+        entityId: approval.data.entityId,
+        payload: approval.data.payload,
+        appliedResourceId: approval.data.appliedResourceId,
+        createdBy: approval.data.createdBy,
+        submissionCount: approval.data.submissionCount,
+      };
+
+      if (approval.data.applyStatus === "applied") {
+        return approval;
+      }
+
+      let applied = approval;
+      try {
+        const appliedResourceId = await runEffect(
+          Effect.tryPromise({
+            try: () => orchestration.applyProposal(proposal, context),
+            catch: (error) =>
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: error instanceof Error ? error.message : String(error),
+              }),
+          }),
+        );
+        await activity.emitApproval(proposal, context);
+        applied = await proposalsClient.markApplied({
+          pluginId: input.pluginId,
+          entityId: input.entityId,
+          expectedUpdatedAt: approval.data.updatedAt,
+          appliedResourceId,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await proposalsClient
+          .markApplyFailed({
+            pluginId: input.pluginId,
+            entityId: input.entityId,
+            expectedUpdatedAt: approval.data.updatedAt,
+            error: message,
+          })
+          .catch((failure) =>
+            console.error("[Proposals] Could not record apply failure:", failure),
+          );
+        throw error;
+      }
+
+      await notifyApproval(proposal, context).catch((error) =>
+        console.error("[Proposals] Approval notification failed:", error),
+      );
+      return applied;
+    };
+
+    const rejectProposal = async (
+      input: { pluginId: string; entityId: string; expectedUpdatedAt: string; reason?: string },
+      context: Context,
+    ) => {
+      const proposalsClient = services.plugins.proposals(context);
+      const rejected = await proposalsClient.reject(input);
+      const proposal = {
+        pluginId: rejected.data.pluginId,
+        entityId: rejected.data.entityId,
+        payload: rejected.data.payload,
+        appliedResourceId: rejected.data.appliedResourceId,
+        createdBy: rejected.data.createdBy,
+        rejectionReason: rejected.data.rejectionReason,
+      };
+      await notifyRejection(proposal, context);
+      return rejected;
+    };
+
     const nominateBuilder = async (
       input: {
         nearAccount: string;
@@ -457,75 +595,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       approve: builder.approve.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(context);
-        const approval = await proposalsClient.approve(input);
-        const proposal = {
-          id: approval.data.id,
-          pluginId: approval.data.pluginId,
-          entityId: approval.data.entityId,
-          payload: approval.data.payload,
-          appliedResourceId: approval.data.appliedResourceId,
-          createdBy: approval.data.createdBy,
-          submissionCount: approval.data.submissionCount,
-        };
-
-        if (approval.data.applyStatus === "applied") {
-          return approval;
-        }
-
-        let applied = approval;
-        try {
-          const appliedResourceId = await runEffect(
-            Effect.tryPromise({
-              try: () => orchestration.applyProposal(proposal, context),
-              catch: (error) =>
-                new ORPCError("INTERNAL_SERVER_ERROR", {
-                  message: error instanceof Error ? error.message : String(error),
-                }),
-            }),
-          );
-          await activity.emitApproval(proposal, context);
-          applied = await proposalsClient.markApplied({
-            pluginId: input.pluginId,
-            entityId: input.entityId,
-            expectedUpdatedAt: approval.data.updatedAt,
-            appliedResourceId,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          await proposalsClient
-            .markApplyFailed({
-              pluginId: input.pluginId,
-              entityId: input.entityId,
-              expectedUpdatedAt: approval.data.updatedAt,
-              error: message,
-            })
-            .catch((failure) =>
-              console.error("[Proposals] Could not record apply failure:", failure),
-            );
-          throw error;
-        }
-
-        await notifyApproval(proposal, context).catch((error) =>
-          console.error("[Proposals] Approval notification failed:", error),
-        );
-        return applied;
+        return await approveProposal(input, context);
       }),
 
       reject: builder.reject.use(requireAdmin).handler(async ({ input, context }) => {
-        const proposalsClient = services.plugins.proposals(context);
-        const rejected = await proposalsClient.reject(input);
-        const proposal = {
-          pluginId: rejected.data.pluginId,
-          entityId: rejected.data.entityId,
-          payload: rejected.data.payload,
-          appliedResourceId: rejected.data.appliedResourceId,
-          createdBy: rejected.data.createdBy,
-          rejectionReason: rejected.data.rejectionReason,
-        };
-        await notifyRejection(proposal, context);
-        return rejected;
+        return await rejectProposal(input, context);
       }),
+
+      dismissFailure: builder.dismissFailure
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.proposals(context).dismissFailure(input);
+        }),
 
       withdraw: builder.withdraw.use(requireAuth).handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).withdraw(input);
@@ -599,6 +680,68 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getAuditLog: builder.getAuditLog.handler(async ({ input, context }) => {
         return await services.plugins.proposals(context).getAuditLog(input);
       }),
+
+      getReviewEvaluations: builder.getReviewEvaluations
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.proposals(context).getEvaluations(input);
+        }),
+
+      reevaluateProposal: builder.reevaluateProposal
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await services.reviewEvaluation.evaluateOne(input);
+        }),
+
+      decideTelegramReview: builder.decideTelegramReview
+        .use(requireApiKey({ reviews: ["write"] }))
+        .handler(async ({ input, context }) => {
+          requireAdminKeyOwner(context);
+          return await decideTelegramReview({
+            input,
+            context,
+            plugins: services.plugins,
+            approve: approveProposal,
+            reject: rejectProposal,
+            dismiss: (target, context) =>
+              services.plugins.proposals(context).dismissFailure(target),
+          });
+        }),
+
+      createTelegramLink: builder.createTelegramLink
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          return await createTelegramLinkCode(services.plugins, context, {
+            botUsername: services.chiefBotUsername,
+          });
+        }),
+
+      claimTelegramLink: builder.claimTelegramLink
+        .use(requireApiKey({ reviews: ["write"] }))
+        .handler(async ({ input, context }) => {
+          requireAdminKeyOwner(context);
+          return await claimTelegramLink(services.plugins, input);
+        }),
+
+      listTelegramReviewers: builder.listTelegramReviewers.use(requireAdmin).handler(async () => {
+        return await services.plugins.proposals(evaluatorContext).listTelegramReviewers({});
+      }),
+
+      removeTelegramReviewer: builder.removeTelegramReviewer
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          return await services.plugins
+            .proposals(evaluatorContext)
+            .removeTelegramReviewer({ telegramId: input.telegramId });
+        }),
+
+      getReviewDigest: builder.getReviewDigest
+        .use(requireApiKey({ reviews: ["read"] }))
+        .handler(async ({ input }) => {
+          return await loadReviewDigest(services.plugins, {
+            staleAfterDays: input.staleAfterDays ?? 7,
+          });
+        }),
 
       getProposalSubmissions: builder.getProposalSubmissions
         .use(requireAdmin)
@@ -700,6 +843,65 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.activity(context).emitActivity(input);
       }),
 
+      registerProjectActivity: builder.registerProjectActivity
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const { data: project } = await services.plugins
+            .projects(context)
+            .getProject({ id: input.projectId });
+          const signedInIds = [
+            context.userId,
+            (context.user as { walletAddress?: string | null }).walletAddress,
+            context.near?.primaryAccountId,
+            ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+          ].filter(Boolean);
+          if (!project.ownerId || !signedInIds.includes(project.ownerId)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only the project owner can register Activity for this project",
+            });
+          }
+          if (
+            project.kind !== "project" ||
+            project.status !== "active" ||
+            project.visibility === "unlisted"
+          ) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only active, public or private projects can register Activity",
+            });
+          }
+          const { data: proposals } = await services.plugins.proposals(context).getProposals({
+            pluginId: "projects",
+            entityId: project.id,
+            limit: 1,
+          });
+          const latestReview = proposals[0]?.reviewStatus;
+          if (latestReview && latestReview !== "approved") {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Register Activity once the project is approved",
+            });
+          }
+          const nearAccountId = /^(?=.{2,64}$)[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$/.test(project.ownerId)
+            ? project.ownerId
+            : undefined;
+          return await services.plugins
+            .activity(context)
+            .startActivityRegistration({ ...input, nearAccountId });
+        }),
+
+      getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {
+        return await services.plugins.activity().getProjectActivity(input);
+      }),
+
+      getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {
+        return await services.plugins.activity().getProjectActivityEvents(input);
+      }),
+
+      getProjectActivityContributors: builder.getProjectActivityContributors.handler(
+        async ({ input }) => {
+          return await services.plugins.activity().getProjectActivityContributors(input);
+        },
+      ),
+
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
         return await services.plugins.activity().getActivityFeed(input);
       }),
@@ -743,6 +945,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAdmin)
         .handler(async ({ input, context }) => {
           return await services.plugins.activity(context).importActivityHistory(input);
+        }),
+
+      redateActivityHistory: builder.redateActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.activity(context).redateActivityHistory(input);
         }),
 
       getMyNotifications: builder.getMyNotifications
@@ -796,7 +1004,31 @@ export default createPlugin.withPlugins<PluginsClient>()({
           context.near,
           input.visibility,
         );
-        return await services.plugins.projects(context).createProject({ ...input, visibility });
+        const created = await services.plugins
+          .projects(context)
+          .createProject({ ...input, visibility });
+        const invited =
+          (created as { collaborators?: Array<{ collaboratorOwnerId: string }> })?.collaborators ??
+          [];
+        if (invited.length > 0) {
+          const inviter =
+            context.near?.primaryAccountId ?? context.user?.name ?? context.userId ?? "A builder";
+          await Promise.allSettled(
+            invited.map((c) =>
+              services.plugins
+                .notifications(serverNotificationContext(context))
+                .createNotification({
+                  userId: c.collaboratorOwnerId,
+                  type: "project_collab_invite",
+                  source: "projects",
+                  subject: `${inviter} invited you to collaborate on ${created.title}`,
+                  body: `You were invited as a collaborator. Accept to have it appear on your profile and edit it together.`,
+                  link: `/projects/${created.kind}/${created.slug}`,
+                }),
+            ),
+          );
+        }
+        return created;
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
@@ -871,6 +1103,59 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listMentionedBy(input);
       }),
+
+      listCollaborators: builder.listCollaborators.handler(async ({ input, context }) => {
+        return await services.plugins.projects(context).listCollaborators(input);
+      }),
+
+      inviteCollaborator: builder.inviteCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const collaboration = await services.plugins.projects(context).inviteCollaborator(input);
+          try {
+            const projectResult = await services.plugins
+              .projects(context)
+              .getProject({ id: input.projectId });
+            const project = (
+              projectResult as { data?: { title?: string; slug?: string; kind?: string } }
+            )?.data;
+            const inviter =
+              context.near?.primaryAccountId ?? context.user?.name ?? context.userId ?? "A builder";
+            await services.plugins
+              .notifications(serverNotificationContext(context))
+              .createNotification({
+                userId: collaboration.collaboratorOwnerId,
+                type: "project_collab_invite",
+                source: "projects",
+                subject: `${inviter} invited you to collaborate on ${project?.title ?? "a project"}`,
+                body: `You were invited as a collaborator. Accept to have it appear on your profile and edit it together.`,
+                link: project?.slug
+                  ? `/projects/${project?.kind ?? "project"}/${project.slug}`
+                  : "/dashboard",
+              });
+          } catch (error) {
+            console.error("[collaborators] failed to emit invite notification", error);
+          }
+          return collaboration;
+        }),
+
+      respondCollaborator: builder.respondCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).respondCollaborator(input);
+        }),
+
+      removeCollaborator: builder.removeCollaborator
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).removeCollaborator(input);
+        }),
+
+      listMyCollaborations: builder.listMyCollaborations
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await services.plugins.projects(context).listMyCollaborations(input);
+        }),
 
       listBuilders: builder.listBuilders.handler(async ({ input, context }) => {
         return await services.plugins.builders(context).listBuilders(input);

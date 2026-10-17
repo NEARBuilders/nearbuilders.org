@@ -23,6 +23,7 @@ import {
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
+  normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,8 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   visibility: "public" as const,
   ownerId: "",
   domain: "",
+  logoUrl: "",
+  collaborators: [],
 });
 
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
@@ -131,6 +134,9 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const createMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
       const submitForReview = values.visibility === "public" && !isAdmin && routeKind !== "result";
+      const collaborators = (values.collaborators ?? [])
+        .map((c) => c.trim())
+        .filter((c) => c.length > 0 && c !== (defaultOwnerId || undefined));
       const project = await apiClient.createProject({
         kind: routeKind as ProjectKind,
         title: values.title.trim(),
@@ -140,7 +146,9 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         content: values.content?.trim() || undefined,
         visibility: submitForReview ? "private" : values.visibility,
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
-        domain: values.domain?.trim() || undefined,
+        domain: normalizeDomain(values.domain) || undefined,
+        logoUrl: values.logoUrl?.trim() || undefined,
+        collaborators: collaborators.length > 0 ? collaborators : undefined,
       });
       if (submitForReview) {
         await apiClient.propose({
@@ -156,6 +164,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             visibility: "public",
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
+            logoUrl: project.logoUrl ?? undefined,
           },
         });
       }

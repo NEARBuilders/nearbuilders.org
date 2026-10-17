@@ -2,7 +2,6 @@ import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags"
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -12,12 +11,15 @@ import {
   type BuilderFormValues,
   parseBuilderSkills,
 } from "@/components/builder-form";
+import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import type { ResolvedNearProfile } from "@/lib/near-social";
 import {
   initializeNominationToken,
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
 } from "@/lib/nomination-token";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 type NominationStatus = "ready" | "submitted" | "invalid" | "error";
@@ -141,14 +143,9 @@ function JoinPage() {
     retry: false,
   });
 
-  const profileQuery = useQuery<Profile | null>({
-    queryKey: ["near-profile", nearAccountId],
-    queryFn: async () => {
-      const response = await auth.near.getProfile(nearAccountId!);
-      return response.data || null;
-    },
+  const profileQuery = useQuery({
+    ...nearProfileOptions(auth, nearAccountId ?? ""),
     enabled: flowReady && isSignedIn && Boolean(nearAccountId),
-    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -280,7 +277,7 @@ function BuilderProfileForm({
   referralContext,
 }: {
   accountId: string;
-  socialProfile: Profile | null | undefined;
+  socialProfile: ResolvedNearProfile | null | undefined;
   apiClient: ReturnType<typeof useApiClient>;
   nominationToken: string | null;
   nominationStatus?: NominationStatus;
@@ -373,6 +370,7 @@ function BuilderProfileForm({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Complete the details that will be reviewed for the NEAR Builders directory.
         </p>
+        <LegacySocialImportPrompt profile={socialProfile} className="mt-5" />
       </div>
 
       <form

@@ -3,6 +3,7 @@ import type { ApiClient, AuthClient } from "@/app";
 import { ensureNearProfiles } from "@/lib/queries/builders";
 
 export const PAGE_SIZE = 24;
+export const SELF_REPORTED_SOURCE = "manual";
 
 export type ActivityFeedPage = Awaited<ReturnType<ApiClient["getActivityFeed"]>>;
 export type ActivityEvent = ActivityFeedPage["data"][number];

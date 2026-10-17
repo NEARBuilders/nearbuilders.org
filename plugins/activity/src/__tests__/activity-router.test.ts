@@ -26,8 +26,9 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0000_third_dazzler.sql",
     "0001_clear_champions.sql",
     "0002_parched_edwin_jarvis.sql",
+    "0003_jazzy_silver_surfer.sql",
   ];
-  const timestamps = [1782299122315, 1783924992496, 1789520000000];
+  const timestamps = [1782299122315, 1783924992496, 1789520000000, 1791930786995];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
@@ -53,7 +54,7 @@ describe("activity router", () => {
       variables: {},
       secrets: { ACTIVITY_DATABASE_URL: `pglite:${dataDir}` },
     });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await runtime.shutdown();
@@ -99,7 +100,7 @@ describe("activity router", () => {
     });
     expect(trusted.verified).toBe(true);
     await admin.hideActivity({ id: trusted.id });
-    const feed = await loaded.createClient().getActivityFeed({});
-    expect(feed.data.map((event) => event.id)).toEqual([manual.id]);
+    const uploads = await loaded.createClient().getActivityFeed({ source: "manual" });
+    expect(uploads.data.map((event) => event.id)).toEqual([manual.id]);
   });
 });

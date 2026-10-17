@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { cn } from "@/lib/utils";
 
@@ -57,9 +58,7 @@ export function UserNav({ className }: { className?: string }) {
   }
 
   const initials = (user.name || user.email || user.id).slice(0, 2).toUpperCase();
-  const avatarUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const avatarUrl = getNearSocialAvatarUrl(profile);
 
   return (
     <DropdownMenu>

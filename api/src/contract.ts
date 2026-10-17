@@ -211,6 +211,93 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
+export const REVIEW_DIGEST_PLUGIN_IDS = ["builders", "projects", "events", "nearcatalog"] as const;
+const ReviewDigestPluginId = z.enum(REVIEW_DIGEST_PLUGIN_IDS);
+const ReviewVerdict = z.enum(["ready", "review", "spam"]);
+
+export const ReviewEvaluationSchema = z.object({
+  id: z.string(),
+  proposalId: z.string(),
+  pluginId: z.string(),
+  entityId: z.string(),
+  submissionCount: z.number().int().nonnegative(),
+  verdict: ReviewVerdict,
+  score: z.number().int().min(0).max(100).nullable(),
+  summary: z.string(),
+  flags: z.array(z.string()),
+  checks: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      status: z.enum(["pass", "warn", "fail", "skip"]),
+      detail: z.string().nullable(),
+    }),
+  ),
+  model: z.string().nullable(),
+  source: z.string().nullable(),
+  promptVersion: z.string(),
+  evaluatedAt: z.iso.datetime(),
+});
+
+export const TelegramReviewerSchema = z.object({
+  telegramId: z.number().int().positive(),
+  telegramUsername: z.string().nullable(),
+  telegramName: z.string().nullable(),
+  userId: z.string(),
+  userLabel: z.string(),
+  linkedAt: z.iso.datetime(),
+});
+
+const ReviewDigestWindow = z.object({
+  reviewed: z.number().int().nonnegative(),
+  medianWaitDays: z.number().nonnegative().nullable(),
+});
+
+export const ReviewDigestSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  staleAfterDays: z.number().int().positive(),
+  totals: z.object({
+    pending: z.number().int().nonnegative(),
+    newLast24h: z.number().int().nonnegative(),
+    stale: z.number().int().nonnegative(),
+    needsAttention: z.number().int().nonnegative(),
+    oldestPendingDays: z.number().int().nonnegative().nullable(),
+  }),
+  byPlugin: z.record(ReviewDigestPluginId, z.number().int().nonnegative()),
+  activity: z.object({
+    last24h: z.object({
+      approved: z.number().int().nonnegative(),
+      rejected: z.number().int().nonnegative(),
+    }),
+    last7d: ReviewDigestWindow,
+    previous7d: ReviewDigestWindow,
+  }),
+  items: z.array(
+    z.object({
+      id: z.string(),
+      pluginId: ReviewDigestPluginId,
+      entityId: z.string(),
+      title: z.string(),
+      submittedBy: z.string(),
+      detail: z.string().nullable(),
+      submissionCount: z.number().int().nonnegative(),
+      evaluation: ReviewEvaluationSchema.pick({
+        verdict: true,
+        score: true,
+        summary: true,
+        flags: true,
+        source: true,
+      }).nullable(),
+      state: z.enum(["pending", "apply_failed", "remove_failed", "stalled"]),
+      createdAt: z.iso.datetime(),
+      ageDays: z.number().int().nonnegative(),
+      isNew: z.boolean(),
+      isStale: z.boolean(),
+      dashboardPath: z.string(),
+    }),
+  ),
+});
+
 export const ProposalSubmissionSchema = z.object({
   id: z.string(),
   pluginId: z.string(),
@@ -268,6 +355,15 @@ export const ActivityFiltersSchema = z.object({
 });
 
 export const ActivityGatewayModeSchema = z.enum(["legacy-only", "dual-write", "standalone-only"]);
+
+export const ActivityRedatePlanSchema = z.object({
+  dryRun: z.boolean(),
+  misdated: z.number().int().nonnegative(),
+  hidden: z.number().int().nonnegative(),
+  enqueued: z.number().int().nonnegative(),
+  oldestOccurredAt: z.string().nullable(),
+  newestOccurredAt: z.string().nullable(),
+});
 
 export const ActivityGatewayStatusSchema = z.object({
   mode: ActivityGatewayModeSchema,
@@ -377,6 +473,23 @@ const CatalogErrors = {
   SERVICE_UNAVAILABLE,
   TIMEOUT,
 };
+const optionalLogoUrl = z
+  .string()
+  .max(2000)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Logo URL must be an absolute http(s) URL",
+  })
+  .optional();
+
+function isAbsoluteHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -390,6 +503,18 @@ const ProjectOutput = z.object({
   visibility: z.enum(["private", "unlisted", "public"]),
   repository: z.string().nullable(),
   domain: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+const ProjectCollaboratorOutput = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  collaboratorOwnerId: z.string(),
+  role: z.string(),
+  status: z.enum(["pending", "accepted", "declined", "removed"]),
+  invitedByUserId: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -712,6 +837,19 @@ export const contract = oc.router({
     .output(z.object({ data: ProposalSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 
+  dismissFailure: oc
+    .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/dismiss" })
+    .input(
+      z.object({
+        pluginId: z.string(),
+        entityId: z.string(),
+        expectedUpdatedAt: z.iso.datetime(),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
+    .output(z.object({ data: ProposalSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
   withdraw: oc
     .route({ method: "POST", path: "/proposals/{pluginId}/{entityId}/withdraw" })
     .input(ExpectedProposalVersion)
@@ -785,6 +923,92 @@ export const contract = oc.router({
         }),
       }),
     ),
+
+  getReviewEvaluations: oc
+    .route({ method: "GET", path: "/reviews/evaluations" })
+    .input(z.object({ proposalIds: z.array(z.string().min(1)).max(200) }))
+    .output(z.object({ data: z.array(ReviewEvaluationSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  reevaluateProposal: oc
+    .route({ method: "POST", path: "/reviews/{pluginId}/{entityId}/evaluate" })
+    .input(z.object({ pluginId: z.string(), entityId: z.string() }))
+    .output(z.object({ data: ReviewEvaluationSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  decideTelegramReview: oc
+    .route({ method: "POST", path: "/reviews/telegram-decision" })
+    .input(
+      z.object({
+        proposalId: z.string().min(1).max(100),
+        submissionCount: z.number().int().nonnegative(),
+        decision: z.enum(["approve", "reject", "dismiss"]),
+        reason: z.enum(["incomplete", "not_near", "spam", "duplicate"]).optional(),
+        customReason: z.string().trim().min(3).max(500).optional(),
+        dryRun: z.boolean().optional(),
+        actor: z.object({
+          telegramId: z.number().int().positive(),
+          username: z.string().max(64).nullable().optional(),
+        }),
+      }),
+    )
+    .output(
+      z.object({
+        decision: z.enum(["approved", "rejected", "dismissed", "allowed"]),
+        title: z.string(),
+        verdict: ReviewVerdict.nullable(),
+        summary: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  createTelegramLink: oc
+    .route({ method: "POST", path: "/reviews/telegram-links" })
+    .input(z.object({}))
+    .output(
+      z.object({
+        code: z.string(),
+        command: z.string(),
+        expiresAt: z.iso.datetime(),
+        openUrl: z.string().nullable(),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  claimTelegramLink: oc
+    .route({ method: "POST", path: "/reviews/telegram-links/claim" })
+    .input(
+      z.object({
+        code: z.string().min(20).max(100),
+        telegramId: z.number().int().positive(),
+        username: z.string().max(64).nullable().optional(),
+        name: z.string().max(200).nullable().optional(),
+      }),
+    )
+    .output(z.object({ userLabel: z.string() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  listTelegramReviewers: oc
+    .route({ method: "GET", path: "/reviews/telegram-reviewers" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(TelegramReviewerSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  removeTelegramReviewer: oc
+    .route({ method: "DELETE", path: "/reviews/telegram-reviewers/{telegramId}" })
+    .input(z.object({ telegramId: z.coerce.number().int().positive() }))
+    .output(z.object({ removed: z.boolean() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  getReviewDigest: oc
+    .route({ method: "GET", path: "/reviews/digest" })
+    .input(
+      z.object({
+        staleAfterDays: z.coerce.number().int().min(1).max(90).optional(),
+      }),
+    )
+    .output(ReviewDigestSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 
   getProposalSubmissions: oc
     .route({ method: "GET", path: "/proposals/{pluginId}/{entityId}/submissions" })
@@ -1062,6 +1286,78 @@ export const contract = oc.router({
     .output(ActivityEventSchema)
     .errors({ UNAUTHORIZED }),
 
+  registerProjectActivity: oc
+    .route({ method: "POST", path: "/projects/{projectId}/activity/register" })
+    .input(
+      z.object({
+        projectId: z.string().min(1).max(200),
+        eventTypes: z
+          .array(
+            z.object({
+              name: z
+                .string()
+                .min(1)
+                .max(100)
+                .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
+              pointValue: z.number().int().min(0).max(100),
+            }),
+          )
+          .min(1)
+          .max(50),
+      }),
+    )
+    .output(z.object({ url: z.string(), expiresAt: z.string() })),
+
+  getProjectActivity: oc
+    .route({ method: "GET", path: "/projects/{projectId}/activity" })
+    .input(z.object({ projectId: z.string().min(1).max(200) }))
+    .output(
+      z.object({
+        status: z.enum(["none", "connected", "tracked", "rejected"]),
+        sourceId: z.string().nullable(),
+        displayName: z.string().nullable(),
+        reviewReason: z.string().nullable(),
+        activityUrl: z.string(),
+      }),
+    ),
+
+  getProjectActivityEvents: oc
+    .route({ method: "GET", path: "/projects/{projectId}/activity/events" })
+    .input(
+      z.object({
+        projectId: z.string().min(1).max(200),
+        cursor: z.string().max(500).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        events: z.array(
+          z.object({
+            id: z.string(),
+            type: z.string(),
+            actor: z.string(),
+            occurredAt: z.string(),
+            underReview: z.boolean(),
+          }),
+        ),
+        nextCursor: z.string().nullable(),
+      }),
+    ),
+
+  getProjectActivityContributors: oc
+    .route({ method: "GET", path: "/projects/{projectId}/activity/contributors" })
+    .input(z.object({ projectId: z.string().min(1).max(200) }))
+    .output(
+      z.array(
+        z.object({
+          rank: z.number().int().positive(),
+          actor: z.string(),
+          score: z.number().nonnegative(),
+          eventCount: z.number().int().nonnegative(),
+        }),
+      ),
+    ),
+
   getActivityFeed: oc
     .route({ method: "GET", path: "/v1/activity" })
     .input(
@@ -1121,6 +1417,12 @@ export const contract = oc.router({
     .output(ActivityGatewayStatusSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN }),
 
+  redateActivityHistory: oc
+    .route({ method: "POST", path: "/v1/internal/activity/gateway/redate" })
+    .input(z.object({ dryRun: z.boolean().default(true) }))
+    .output(ActivityRedatePlanSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
   importActivityHistory: oc
     .route({ method: "POST", path: "/v1/internal/activity/gateway/import" })
     .input(
@@ -1175,12 +1477,14 @@ export const contract = oc.router({
       z.object({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
+        collaboratorId: z.string().optional(),
         kind: z.enum(["project", "idea", "scope", "result"]).optional(),
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         status: z.enum(["active", "paused", "archived"]).optional(),
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
-        limit: z.number().int().min(1).max(100).optional(),
+        slugs: z.string().max(10_100).optional(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
     )
@@ -1214,9 +1518,11 @@ export const contract = oc.router({
         organizationId: z.string().optional(),
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
+        logoUrl: optionalLogoUrl,
+        collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
-    .output(ProjectOutput)
+    .output(ProjectOutput.extend({ collaborators: z.array(ProjectCollaboratorOutput).optional() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   getProject: oc
@@ -1235,6 +1541,7 @@ export const contract = oc.router({
               createdAt: z.iso.datetime(),
             }),
           ),
+          collaborators: z.array(ProjectCollaboratorOutput).optional(),
         }),
       }),
     )
@@ -1256,6 +1563,7 @@ export const contract = oc.router({
               createdAt: z.iso.datetime(),
             }),
           ),
+          collaborators: z.array(ProjectCollaboratorOutput).optional(),
         }),
       }),
     )
@@ -1275,6 +1583,7 @@ export const contract = oc.router({
         repository: z.string().url().max(500).optional(),
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
+        logoUrl: optionalLogoUrl,
       }),
     )
     .output(ProjectOutput)
@@ -1450,6 +1759,50 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ data: z.array(ProjectOutput) }))
     .errors({ NOT_FOUND }),
+
+  listCollaborators: oc
+    .route({ method: "GET", path: "/v1/projects/{projectId}/collaborators" })
+    .input(z.object({ projectId: z.string() }))
+    .output(z.object({ data: z.array(ProjectCollaboratorOutput) }))
+    .errors({ NOT_FOUND }),
+
+  inviteCollaborator: oc
+    .route({ method: "POST", path: "/v1/projects/{projectId}/collaborators" })
+    .input(z.object({ projectId: z.string(), collaboratorOwnerId: z.string().min(1).max(255) }))
+    .output(ProjectCollaboratorOutput)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
+  respondCollaborator: oc
+    .route({ method: "POST", path: "/v1/projects/{projectId}/collaborators/respond" })
+    .input(z.object({ projectId: z.string(), action: z.enum(["accept", "decline"]) }))
+    .output(ProjectCollaboratorOutput)
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN, BAD_REQUEST }),
+
+  removeCollaborator: oc
+    .route({
+      method: "DELETE",
+      path: "/v1/projects/{projectId}/collaborators/{collaboratorOwnerId}",
+    })
+    .input(z.object({ projectId: z.string(), collaboratorOwnerId: z.string().min(1) }))
+    .output(z.object({ removed: z.boolean() }))
+    .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN }),
+
+  listMyCollaborations: oc
+    .route({ method: "GET", path: "/v1/collaborations/me" })
+    .input(
+      z.object({
+        status: z.enum(["pending", "accepted", "declined", "removed"]).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        data: z.array(
+          z.object({ collaboration: ProjectCollaboratorOutput, project: ProjectOutput }),
+        ),
+      }),
+    )
+    .errors({ UNAUTHORIZED }),
   listBuilders: oc
     .route({ method: "GET", path: "/v1/builders" })
     .input(

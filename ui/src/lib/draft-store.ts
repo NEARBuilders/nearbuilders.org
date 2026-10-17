@@ -12,6 +12,7 @@ export type ProjectDraft = {
   status?: "active" | "paused" | "archived";
   ownerId?: string;
   domain?: string;
+  logoUrl?: string;
 };
 
 type DraftState = Record<ProjectKind, ProjectDraft | null>;

@@ -55,6 +55,8 @@ export const activityGatewayOutbox = pgTable(
     attempts: integer("attempts").default(0).notNull(),
     lastError: text("last_error"),
     gatewayEventId: text("gateway_event_id"),
+    occurredAt: timestamp("occurred_at", { mode: "date", withTimezone: true }),
+    supersededAt: timestamp("superseded_at", { mode: "date", withTimezone: true }),
     nextAttemptAt: timestamp("next_attempt_at", { mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -68,5 +70,6 @@ export const activityGatewayOutbox = pgTable(
     ),
     index("activity_gateway_outbox_status_next_attempt_idx").on(table.status, table.nextAttemptAt),
     index("activity_gateway_outbox_legacy_event_idx").on(table.legacyEventId),
+    index("activity_gateway_outbox_gateway_event_idx").on(table.gatewayEventId),
   ],
 );

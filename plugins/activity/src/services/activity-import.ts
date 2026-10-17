@@ -1,30 +1,13 @@
 import { and, asc, gte, inArray, isNotNull } from "drizzle-orm";
+import type { z } from "every-plugin/zod";
+import type { ActivityImportPlanSchema } from "../contract";
 import type { Database } from "../db";
 import { activityEvents, activityGatewayOutbox } from "../db/schema";
 import { type ActivityGatewayMethods, gatewayEventType } from "./activity-gateway";
 
 const BATCH_SIZE = 500;
 
-export type ActivityImportPlan = {
-  dryRun: boolean;
-  scanned: number;
-  eligible: number;
-  alreadyForwarded: number;
-  toImport: number;
-  hidden: number;
-  synthesizedKeys: number;
-  skippedByType: Array<{ source: string; type: string; count: number }>;
-  oldestOccurredAt: string | null;
-  newestOccurredAt: string | null;
-  timestamps: {
-    preserved: boolean;
-    note: string;
-    olderThanCurrentWeek: number;
-    olderThanCurrentMonth: number;
-  };
-  enqueued: number;
-  enqueuedRetractions: number;
-};
+type ActivityImportPlan = z.infer<typeof ActivityImportPlanSchema>;
 
 /** Legacy rows may predate idempotency keys; the row ID is stable, so derive one from it. */
 export function importIdempotencyKey(row: { id: string; idempotencyKey: string | null }): string {

@@ -2,20 +2,13 @@ import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
-import type {
-  ActivityEventSchema,
-  ActivityFeedInputSchema,
-  ActivityLeaderboardInputSchema,
-  LeaderboardEntrySchema,
-} from "../contract";
+import type { ActivityEventSchema, ActivityFeedInputSchema } from "../contract";
 import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import { activityEvents } from "../db/schema";
 
 export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 export type ActivityFeedInput = z.infer<typeof ActivityFeedInputSchema>;
-export type ActivityLeaderboardInput = z.infer<typeof ActivityLeaderboardInputSchema>;
-export type ActivityLeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
 
 function generateId(): string {
   return `act_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -38,6 +31,8 @@ function rowToActivity(row: typeof activityEvents.$inferSelect): ActivityEvent {
   };
 }
 
+export const SELF_REPORTED_SOURCE = "manual";
+
 function filterWhere(input: { source?: string; type?: string; actor?: string; since?: Date }) {
   const conditions = [isNull(activityEvents.hiddenAt)] as any[];
   if (input.source) conditions.push(eq(activityEvents.source, input.source));
@@ -45,12 +40,6 @@ function filterWhere(input: { source?: string; type?: string; actor?: string; si
   if (input.actor) conditions.push(eq(activityEvents.actor, input.actor));
   if (input.since) conditions.push(gte(activityEvents.createdAt, input.since));
   return and(...conditions);
-}
-
-function periodStart(period: ActivityLeaderboardInput["period"]): Date | undefined {
-  if (period === "all-time") return undefined;
-  const days = period === "week" ? 7 : 30;
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
 export function createActivityMethods(db: Database) {
@@ -144,48 +133,6 @@ export function createActivityMethods(db: Database) {
             nextCursor: hasMore ? String(nextOffset) : null,
           },
         };
-      }),
-
-    getLeaderboard: (input: ActivityLeaderboardInput) =>
-      Effect.gen(function* () {
-        const limit = Math.min(input.limit ?? 20, 100);
-        const where = filterWhere({ since: periodStart(input.period) });
-
-        const rows = yield* Effect.promise(() => db.select().from(activityEvents).where(where));
-
-        const byActor = new Map<
-          string,
-          { eventCount: number; endorsementScore: number; sources: Map<string, number> }
-        >();
-
-        for (const row of rows) {
-          const current = byActor.get(row.actor) ?? {
-            eventCount: 0,
-            endorsementScore: 0,
-            sources: new Map<string, number>(),
-          };
-          current.eventCount += 1;
-          current.endorsementScore += row.verified ? 2 : 1;
-          current.sources.set(row.source, (current.sources.get(row.source) ?? 0) + 1);
-          byActor.set(row.actor, current);
-        }
-
-        return Array.from(byActor.entries())
-          .map(([actor, stats]) => ({
-            actor,
-            eventCount: stats.eventCount,
-            endorsementScore: stats.endorsementScore,
-            topSources: Array.from(stats.sources.entries())
-              .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-              .map(([source]) => source),
-          }))
-          .sort(
-            (a, b) =>
-              b.endorsementScore - a.endorsementScore ||
-              b.eventCount - a.eventCount ||
-              a.actor.localeCompare(b.actor),
-          )
-          .slice(0, limit);
       }),
   };
 }

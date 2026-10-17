@@ -62,6 +62,9 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
+import { isSafeImageUrl } from "@/lib/image-url";
+import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -227,6 +230,15 @@ function ProjectVisual({
   project: ProjectDirectoryItem;
   className?: string;
 }) {
+  const auth = useAuthClient();
+  const socialAccount = resolveProjectNearAccount({ ownerId: project.ownerId }) ?? "";
+  const { data: socialProfile } = useQuery({
+    ...nearProfileOptions(auth, socialAccount),
+    enabled: Boolean(socialAccount) && !isSafeImageUrl(project.imageUrl),
+  });
+  const imageUrl = isSafeImageUrl(project.imageUrl)
+    ? project.imageUrl
+    : getNearSocialAvatarUrl(socialProfile);
   const initials = project.title
     .split(/\s+/)
     .filter(Boolean)
@@ -234,9 +246,9 @@ function ProjectVisual({
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
 
-  return project.imageUrl ? (
+  return imageUrl ? (
     <img
-      src={project.imageUrl}
+      src={imageUrl}
       alt=""
       className={cn("size-14 shrink-0 rounded-2xl border border-border object-cover", className)}
       loading="lazy"
@@ -934,7 +946,7 @@ function ProjectsList() {
       ...project,
       source: "local" as const,
       catalogUrl: null,
-      imageUrl: null,
+      imageUrl: project.logoUrl,
       catalogTags: [],
       catalogPhase: null,
       catalogStatus: null,
@@ -1122,7 +1134,7 @@ function ProjectsList() {
             upvoteCount: counts[selectedProjectQuery.data.data.id] ?? 0,
             source: "local",
             catalogUrl: null,
-            imageUrl: null,
+            imageUrl: selectedProjectQuery.data.data.logoUrl,
             catalogTags: [],
             catalogPhase: null,
             catalogStatus: null,

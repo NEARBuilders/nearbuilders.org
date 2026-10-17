@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Profile } from "better-near-auth";
 import { useEffect, useState } from "react";
 import { type ApiClient, useAuthClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
+import {
+  getNearSocialAvatarUrl,
+  getNearSocialBannerUrl,
+  type ResolvedNearProfile,
+} from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 
@@ -36,19 +40,13 @@ export function NearProfile({
     data: profile,
     isLoading,
     error,
-  } = useQuery<Profile | null>(nearProfileOptions(auth, accountId ?? ""));
+  } = useQuery<ResolvedNearProfile | null>(nearProfileOptions(auth, accountId ?? ""));
 
   const profileName = profile?.name?.trim();
   const displayName = profileName || accountId || "Builder";
   const accountLabel = accountId ? `@${accountId}` : null;
-  const avatarUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
-  const backgroundUrl =
-    profile?.backgroundImage?.url ??
-    (profile?.backgroundImage?.ipfs_cid
-      ? `https://ipfs.near.social/ipfs/${profile.backgroundImage.ipfs_cid}`
-      : null);
+  const avatarUrl = getNearSocialAvatarUrl(profile);
+  const backgroundUrl = getNearSocialBannerUrl(profile);
   const bio = extendedProfile?.bio?.trim() || profile?.description?.trim();
   const socialLinks = mergeSocialLinks(profile?.linktree, extendedProfile?.links);
   const [backgroundImageError, setBackgroundImageError] = useState(false);

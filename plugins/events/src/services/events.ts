@@ -316,7 +316,9 @@ export const EventServiceLive = Layer.effect(
 
           if (input.visibility) conditions.push(eq(events.visibility, input.visibility));
           if (userRole !== "admin") {
-            conditions.push(viewableEventConditions(userId, alternateUserId, Boolean(input.ownerId)));
+            conditions.push(
+              viewableEventConditions(userId, alternateUserId, Boolean(input.ownerId)),
+            );
           }
 
           const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

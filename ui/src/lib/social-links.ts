@@ -59,8 +59,9 @@ export function mergeSocialLinks(
 ): Record<string, string> {
   const result: Record<string, string> = {};
   for (const source of sources) {
-    for (const [key, value] of Object.entries(source ?? {})) {
+    for (const [rawKey, value] of Object.entries(source ?? {})) {
       if (typeof value !== "string") continue;
+      const key = rawKey === "x" ? "twitter" : rawKey;
       const url = socialLinkToUrl(key, value);
       if (url) result[key] = url;
     }
@@ -76,7 +77,13 @@ export function initialFormLinks(
     SOCIAL_LINKS.map(({ key }) => {
       const saved = links?.[key];
       if (saved) return [key, urlToHandle(key, saved)];
-      const fromSocial = typeof social?.[key] === "string" ? (social[key] as string) : undefined;
+      const socialKey = key === "twitter" && typeof social?.x === "string" ? "x" : key;
+      const fromSocial =
+        typeof social?.[socialKey] === "string"
+          ? (social[socialKey] as string)
+          : typeof social?.[key] === "string"
+            ? (social[key] as string)
+            : undefined;
       return [key, urlToHandle(key, fromSocial)];
     }),
   );

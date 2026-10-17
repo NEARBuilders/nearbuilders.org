@@ -11,7 +11,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
@@ -42,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -878,9 +878,7 @@ function BuilderCard({
   isNominated: boolean;
   layout: BuilderLayout;
 }) {
-  const { data: profile, isLoading } = useQuery<Profile | null>(
-    nearProfileOptions(auth, nearAccount),
-  );
+  const { data: profile, isLoading } = useQuery(nearProfileOptions(auth, nearAccount));
 
   const resolvedName = displayNameOverride
     ? displayNameOverride === nearAccount && profile?.name
@@ -888,9 +886,7 @@ function BuilderCard({
       : displayNameOverride
     : displayName || profile?.name || nearAccount;
 
-  const avatarUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const avatarUrl = getNearSocialAvatarUrl(profile);
 
   const resolvedBio = bioOverride ?? bioProp ?? profile?.description ?? null;
   const resolvedSkills = skillsOverride ?? skillsProp ?? [];

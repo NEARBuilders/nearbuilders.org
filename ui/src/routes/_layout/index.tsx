@@ -10,9 +10,11 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { type ApiClient, useApiClient } from "@/app";
+import { type ApiClient, useApiClient, useAuthClient } from "@/app";
 import multiagencyLogo from "@/assets/multiagency-logo.svg";
 import { Button } from "@/components/ui/button";
+import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/")({
@@ -46,13 +48,6 @@ interface EcosystemLink {
 interface LandingBuilder {
   nearAccount: string;
   name: string;
-}
-
-interface NearSocialProfile {
-  image?: {
-    url?: string;
-    ipfs_cid?: string;
-  };
 }
 
 const ecosystemLinks: EcosystemLink[] = [
@@ -97,25 +92,6 @@ function landingBuildersOptions(apiClient: ApiClient) {
       }));
     },
     staleTime: 60_000,
-  };
-}
-
-function nearSocialProfileOptions(accountId: string) {
-  return {
-    queryKey: ["near-social-profile", accountId] as const,
-    queryFn: async (): Promise<NearSocialProfile | null> => {
-      const url = new URL("https://api.near.social/get");
-      url.searchParams.set("keys", `${accountId}/profile/**`);
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const data = (await response.json()) as Record<
-        string,
-        { profile?: NearSocialProfile } | undefined
-      >;
-      return data[accountId]?.profile ?? null;
-    },
-    enabled: Boolean(accountId),
-    staleTime: 5 * 60 * 1000,
   };
 }
 
@@ -269,11 +245,10 @@ function HeroSection() {
 }
 
 function BuilderAvatar({ builder, className }: { builder: LandingBuilder; className?: string }) {
-  const { data: profile } = useQuery(nearSocialProfileOptions(builder.nearAccount));
+  const auth = useAuthClient();
+  const { data: profile } = useQuery(nearProfileOptions(auth, builder.nearAccount));
   const [errored, setErrored] = useState(false);
-  const imageUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const imageUrl = getNearSocialAvatarUrl(profile);
   const initials = builder.name
     .split(/\s+/)
     .map((part) => part[0])

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart2,
   Bookmark,
@@ -11,11 +12,15 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAuthClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { NewBadge } from "@/components/ui/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { useBookmark } from "@/lib/bookmarks";
+import { isSafeImageUrl } from "@/lib/image-url";
+import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { cn } from "@/lib/utils";
 
 export type VoteDirection = "up" | "down" | null;
@@ -201,9 +206,19 @@ export function ProjectDirectoryListRow({
 }
 
 function ProjectImage({ project }: { project: ProjectDirectoryItem }) {
-  return project.imageUrl ? (
+  const auth = useAuthClient();
+  const socialAccount = resolveProjectNearAccount({ ownerId: project.ownerId }) ?? "";
+  const { data: socialProfile } = useQuery({
+    ...nearProfileOptions(auth, socialAccount),
+    enabled: Boolean(socialAccount) && !isSafeImageUrl(project.imageUrl),
+  });
+  const imageUrl = isSafeImageUrl(project.imageUrl)
+    ? project.imageUrl
+    : getNearSocialAvatarUrl(socialProfile);
+
+  return imageUrl ? (
     <img
-      src={project.imageUrl}
+      src={imageUrl}
       alt=""
       className="size-9 shrink-0 rounded-md border border-border object-cover"
     />

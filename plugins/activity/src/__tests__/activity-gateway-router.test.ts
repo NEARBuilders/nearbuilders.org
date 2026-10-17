@@ -27,8 +27,9 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0000_third_dazzler.sql",
     "0001_clear_champions.sql",
     "0002_parched_edwin_jarvis.sql",
+    "0003_jazzy_silver_surfer.sql",
   ];
-  const timestamps = [1782299122315, 1783924992496, 1789520000000];
+  const timestamps = [1782299122315, 1783924992496, 1789520000000, 1791930786995];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
@@ -45,23 +46,46 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
 
 type GatewayCall = { path: string; authorization: string | undefined; body: any };
 
-/** Stands in for activity.nearbuilders.org over real HTTP, so the plugin's client is exercised. */
+/**
+ * Stands in for activity.nearbuilders.org over real HTTP: it records writes, keeps submitted events,
+ * honours retractions, and serves them back from its feed, so reads exercise the real client.
+ */
 async function startFakeGateway() {
   const calls: GatewayCall[] = [];
+  const events = new Map<string, Record<string, unknown>>();
   const server: Server = createServer((request, response) => {
     let raw = "";
     request.on("data", (chunk) => {
       raw += chunk;
     });
     request.on("end", () => {
-      calls.push({
-        path: request.url ?? "",
-        authorization: request.headers.authorization,
-        body: raw ? JSON.parse(raw) : null,
-      });
-      const isSubmit = request.url === "/v1/events";
+      const url = new URL(request.url ?? "/", "http://gateway.test");
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(isSubmit ? { eventId: `${"f".repeat(63)}${calls.length}` } : {}));
+      if (request.method === "GET") {
+        const type = url.searchParams.get("type");
+        const data = [...events.values()].filter((event) => !type || event.type === type);
+        response.end(JSON.stringify({ data, meta: { hasMore: false, nextCursor: null } }));
+        return;
+      }
+      const body = raw ? JSON.parse(raw) : null;
+      calls.push({ path: request.url ?? "", authorization: request.headers.authorization, body });
+      if (url.pathname === "/v1/events") {
+        const eventId = `${"f".repeat(63)}${calls.length}`;
+        events.set(eventId, {
+          id: eventId,
+          source: "nearbuilders",
+          type: body.eventType,
+          actor: body.actor,
+          timestamp: new Date().toISOString(),
+          payload: body.payload,
+          provenance: { approvalStatus: "approved" },
+        });
+        response.end(JSON.stringify({ eventId }));
+        return;
+      }
+      const retracted = url.pathname.match(/^\/v1\/events\/([^/]+)\/retract$/)?.[1];
+      if (retracted) events.delete(retracted);
+      response.end("{}");
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -91,7 +115,7 @@ describe("activity gateway routes", () => {
         ACTIVITY_GATEWAY_API_KEY: "act_test_key",
       },
     });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await runtime.shutdown();
@@ -206,11 +230,13 @@ describe("activity gateway routes", () => {
     });
 
     const feed = await loaded.createClient().getActivityFeed({ source: "builders" });
-    expect(feed.data).toHaveLength(0);
+    expect(feed.data.map(({ id }) => id)).toEqual([published.id]);
 
     const hidden = await admin.hideActivity({ id: published.id });
     expect(hidden).toMatchObject({ source: "builders", type: "approved", actor: "bob.near" });
     expect(gateway.calls[before + 1]?.path).toContain("/retract");
+    const afterHide = await loaded.createClient().getActivityFeed({ source: "builders" });
+    expect(afterHide.data).toHaveLength(0);
 
     await expect(admin.hideActivity({ id: "act_unknown" })).rejects.toThrow(
       "Activity event not found",

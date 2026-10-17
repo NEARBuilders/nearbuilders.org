@@ -1,6 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import {
   AlertCircle,
   ArrowRight,
@@ -22,7 +21,9 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
+import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { NearProfile } from "@/components/near-profile";
+import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useNearAccount } from "@/hooks";
+import type { ResolvedNearProfile } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboard")({
@@ -100,7 +102,7 @@ function Dashboard() {
     enabled: Boolean(user && !user.isAnonymous),
   });
 
-  const { data: nearProfile, isLoading: nearProfileLoading } = useQuery<Profile | null>(
+  const { data: nearProfile, isLoading: nearProfileLoading } = useQuery(
     nearProfileOptions(auth, nearAccountId ?? ""),
   );
 
@@ -128,6 +130,19 @@ function Dashboard() {
 
   const builderProfile = builderResult?.data ?? null;
   const builderProposal = builderProposalResult?.data[0] ?? null;
+
+  const { data: collaborationsData } = useQuery({
+    queryKey: ["collaborations", "me", nearAccountId],
+    queryFn: () => apiClient.listMyCollaborations({ limit: 20 }),
+    enabled: Boolean(user && !user.isAnonymous && nearAccountId),
+  });
+
+  const pendingInvites = (collaborationsData?.data ?? []).filter(
+    (c) => c.collaboration.status === "pending",
+  );
+  const acceptedCollaborations = (collaborationsData?.data ?? []).filter(
+    (c) => c.collaboration.status === "accepted",
+  );
 
   const projects = projectsData?.data ?? [];
   const projectCount = projectsData?.meta.total ?? projects.length;
@@ -199,6 +214,13 @@ function Dashboard() {
         nearProfile={nearProfile}
         showPublicProfile={Boolean(builderProfile)}
       />
+
+      <CollaborationsPanel
+        pendingInvites={pendingInvites}
+        acceptedCollaborations={acceptedCollaborations}
+      />
+
+      <LegacySocialImportPrompt profile={nearProfile} />
 
       {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
@@ -832,7 +854,7 @@ function DashboardHeader({
   showPublicProfile = false,
 }: {
   nearAccountId?: string | null;
-  nearProfile?: Profile | null;
+  nearProfile?: ResolvedNearProfile | null;
   showPublicProfile?: boolean;
 }) {
   const displayName = nearProfile?.name?.trim() || nearAccountId?.split(".")[0] || "builder";
@@ -923,34 +945,117 @@ interface Project {
   visibility: "private" | "unlisted" | "public";
 }
 
+function CollaborationsPanel({
+  pendingInvites,
+  acceptedCollaborations,
+}: {
+  pendingInvites: Array<{ collaboration: { projectId: string }; project: Project }>;
+  acceptedCollaborations: Array<{ collaboration: { projectId: string }; project: Project }>;
+}) {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+
+  const respondMutation = useMutation({
+    mutationFn: ({ projectId, action }: { projectId: string; action: "accept" | "decline" }) =>
+      apiClient.respondCollaborator({ projectId, action }),
+    onSuccess: () => {
+      toast.success("Invitation updated");
+      queryClient.invalidateQueries({ queryKey: ["collaborations"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to respond"),
+  });
+
+  if (pendingInvites.length === 0 && acceptedCollaborations.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card" aria-label="Collaborations">
+      <div className="border-b border-border px-4 py-3 sm:px-5">
+        <h2 className="text-sm font-bold text-foreground">Team collaborations</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Invites to co-own projects and accepted team work.
+        </p>
+      </div>
+      {pendingInvites.length > 0 && (
+        <div className="space-y-2 px-4 py-3 sm:px-5">
+          {pendingInvites.map(({ project }) => (
+            <div
+              key={project.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-accent/40 bg-brand-accent-light px-3 py-2"
+            >
+              <Link
+                to="/projects/$kind/$slug"
+                params={{ kind: project.kind, slug: project.slug }}
+                className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground hover:underline"
+              >
+                {project.title}
+              </Link>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  size="sm"
+                  disabled={respondMutation.isPending}
+                  onClick={() =>
+                    respondMutation.mutate({ projectId: project.id, action: "accept" })
+                  }
+                >
+                  <Check className="size-3" /> Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={respondMutation.isPending}
+                  onClick={() =>
+                    respondMutation.mutate({ projectId: project.id, action: "decline" })
+                  }
+                >
+                  <X className="size-3" /> Decline
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {acceptedCollaborations.length > 0 && (
+        <div className="divide-y divide-border">
+          {acceptedCollaborations.slice(0, 5).map(({ project }) => (
+            <ProjectRow key={project.id} project={project} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ProjectRow({ project, voteCount }: { project: Project; voteCount?: number }) {
   return (
-    <Link
-      to="/projects/$kind/$slug"
-      params={{ kind: project.kind, slug: project.slug }}
-      className="group block border-b border-border last:border-b-0"
-    >
-      <div className="flex items-start justify-between gap-3 px-4 py-4 transition-colors hover:bg-muted/40 sm:px-5">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <KindChip kind={project.kind} />
-            <p className="truncate text-sm font-medium text-foreground">{project.title}</p>
-          </div>
-          {project.description && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
-          )}
+    <div className="flex flex-col gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+      <Link
+        to="/projects/$kind/$slug"
+        params={{ kind: project.kind, slug: project.slug }}
+        className="group min-w-0 flex-1"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <KindChip kind={project.kind} />
+          <p className="truncate text-sm font-medium text-foreground group-hover:underline">
+            {project.title}
+          </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {typeof voteCount === "number" && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
-              <ThumbsUp className="h-3 w-3" />
-              {voteCount}
-            </span>
-          )}
-          <StatusChip status={project.status} />
-        </div>
+        {project.description && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">{project.description}</p>
+        )}
+      </Link>
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <ProjectActivityBadge projectId={project.id} />
+        {typeof voteCount === "number" && (
+          <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
+            <ThumbsUp className="h-3 w-3" />
+            {voteCount}
+          </span>
+        )}
+        <StatusChip status={project.status} />
+        <ProjectActivityAction project={project} isOwner />
       </div>
-    </Link>
+    </div>
   );
 }
 

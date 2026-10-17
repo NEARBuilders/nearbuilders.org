@@ -78,4 +78,10 @@ describe("mergeSocialLinks", () => {
       }),
     ).toEqual({});
   });
+
+  it("maps near.social x links onto the twitter UI field", () => {
+    expect(mergeSocialLinks({ x: "ekuzyakov" })).toEqual({
+      twitter: "https://x.com/ekuzyakov",
+    });
+  });
 });
