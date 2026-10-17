@@ -1,0 +1,219 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowDown, ArrowRight, ExternalLink, KeyRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CommandCopy } from "@/components/ui/command-copy";
+import {
+  type BuildLink,
+  type BuildTool,
+  type BuildTopic,
+  buildPage,
+  buildTopics,
+} from "@/lib/build-content";
+
+export const Route = createFileRoute("/_layout/build")({
+  head: () => ({
+    meta: [
+      { title: buildPage.metaTitle },
+      { name: "description", content: buildPage.metaDescription },
+    ],
+  }),
+  component: BuildPage,
+});
+
+function BuildPage() {
+  return (
+    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <header className="max-w-2xl">
+        <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">
+          {buildPage.eyebrow}
+        </p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+          {buildPage.title}
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+          {buildPage.description}
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button
+            asChild
+            size="lg"
+            className="rounded-full bg-brand-accent px-7 text-brand-on-accent hover:opacity-90"
+          >
+            <Link to={buildPage.joinAction.to}>
+              {buildPage.joinAction.label}
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg" className="rounded-full px-7">
+            <Link to={buildPage.browseAction.to}>{buildPage.browseAction.label}</Link>
+          </Button>
+        </div>
+      </header>
+
+      <section className="mt-12">
+        <SectionHeading title="Topics" />
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          {buildTopics.map((topic, index) => (
+            <TopicCard key={topic.id} topic={topic} index={index} />
+          ))}
+        </div>
+      </section>
+
+      {buildTopics.flatMap((topic) =>
+        topic.tools.map((tool) => <ToolSection key={tool.id} topic={topic} tool={tool} />),
+      )}
+    </div>
+  );
+}
+
+function SectionHeading({ title }: { title: string }) {
+  return <h2 className="text-xs font-bold uppercase tracking-widest text-brand-accent">{title}</h2>;
+}
+
+function TopicCard({ topic, index }: { topic: BuildTopic; index: number }) {
+  return (
+    <article
+      id={topic.id}
+      className="flex scroll-mt-24 flex-col rounded-xl border border-border bg-card p-6"
+    >
+      <span className="font-mono text-xs font-bold text-brand-accent">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <h3 className="mt-3 text-2xl font-black tracking-tight text-foreground">{topic.title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{topic.summary}</p>
+
+      {topic.links.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {topic.links.map((link) => (
+            <li key={link.href}>
+              <ExternalLinkRow link={link} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {topic.tools.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {topic.tools.map((tool) => (
+            <li key={tool.id}>
+              <a
+                href={`#${tool.id}`}
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
+              >
+                {tool.name}
+                <ArrowDown className="size-3.5" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-auto pt-6">
+        <Button asChild variant="outline" className="w-full rounded-full">
+          <a href={topic.primaryLink.href} target="_blank" rel="noopener noreferrer">
+            {topic.primaryLink.label}
+            <ExternalLink className="size-4" />
+          </a>
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function ToolSection({ topic, tool }: { topic: BuildTopic; tool: BuildTool }) {
+  return (
+    <section id={tool.id} className="mt-14 scroll-mt-24">
+      <SectionHeading title={topic.title} />
+      <h3 className="mt-3 text-2xl font-black tracking-tight text-foreground">{tool.name}</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+        {tool.summary}
+      </p>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {tool.links.map((link) => (
+            <ExternalLinkCard key={link.href} link={link} />
+          ))}
+        </div>
+
+        {tool.access && (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <div className="flex items-center gap-2">
+              <KeyRound className="size-4 text-brand-accent" />
+              <h4 className="text-sm font-bold text-foreground">{tool.access.title}</h4>
+            </div>
+            <ol className="mt-4 space-y-4">
+              <li className="flex gap-3">
+                <StepNumber value={1} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{tool.access.apiKeyStep}</p>
+                  <Button asChild variant="outline" size="sm" className="mt-2 rounded-full">
+                    <a href={tool.access.apiKey.href} target="_blank" rel="noopener noreferrer">
+                      {tool.access.apiKey.label}
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <StepNumber value={2} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground">{tool.access.baseUrlStep}</p>
+                  <div className="mt-2">
+                    <CommandCopy command={tool.access.baseUrl} />
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StepNumber({ value }: { value: number }) {
+  return (
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-accent-light font-mono text-xs font-bold text-brand-accent">
+      {value}
+    </span>
+  );
+}
+
+function displayHref(href: string) {
+  const url = new URL(href);
+  return `${url.host}${url.pathname}`.replace(/\/$/, "");
+}
+
+function ExternalLinkCard({ link }: { link: BuildLink }) {
+  return (
+    <a
+      href={link.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-brand-accent-border"
+    >
+      <span className="flex items-center justify-between gap-2 text-sm font-bold text-foreground">
+        {link.label}
+        <ExternalLink className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-brand-accent" />
+      </span>
+      <span className="mt-1 truncate font-mono text-xs text-muted-foreground">
+        {displayHref(link.href)}
+      </span>
+    </a>
+  );
+}
+
+function ExternalLinkRow({ link }: { link: BuildLink }) {
+  return (
+    <a
+      href={link.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
+    >
+      {link.label}
+      <ExternalLink className="size-3.5" />
+    </a>
+  );
+}

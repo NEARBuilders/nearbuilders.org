@@ -10,6 +10,7 @@ export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";
 export { ContributedProjects } from "./contributed-projects";
 export { InvitationCard, MemberCard } from "./member-card";
 export { OrgSwitcher } from "./org-switcher";
+export { SiteLink, type SiteLinkTarget } from "./site-link";
 export { BackButton, BackLink, backButtonClass } from "./ui/back-button";
 export { Badge } from "./ui/badge";
 export { Button } from "./ui/button";
