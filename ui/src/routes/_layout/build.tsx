@@ -1,16 +1,28 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowDown, ArrowRight, ExternalLink, KeyRound } from "lucide-react";
+import { ArrowDown, ArrowRight, ExternalLink, FolderPlus, KeyRound, Send } from "lucide-react";
+import { useApiClient } from "@/app";
+import { GetInvolvedCard, GetInvolvedCardSkeleton } from "@/components/get-involved-card";
+import { SiteLink } from "@/components/site-link";
 import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/ui/command-copy";
 import {
+  type BuildGetInvolvedAction,
   type BuildLink,
   type BuildTool,
   type BuildTopic,
+  buildGetInvolved,
   buildPage,
   buildTopics,
 } from "@/lib/build-content";
+import { featuredProjectsQueryOptions } from "@/lib/queries/featured-projects";
 
 export const Route = createFileRoute("/_layout/build")({
+  loader: async ({ context }) => {
+    await context.queryClient.prefetchQuery(
+      featuredProjectsQueryOptions(context.apiClient, buildGetInvolved.featuredProjectSlugs),
+    );
+  },
   head: () => ({
     meta: [
       { title: buildPage.metaTitle },
@@ -62,7 +74,61 @@ function BuildPage() {
       {buildTopics.flatMap((topic) =>
         topic.tools.map((tool) => <ToolSection key={tool.id} topic={topic} tool={tool} />),
       )}
+
+      <GetInvolvedSection />
     </div>
+  );
+}
+
+function GetInvolvedSection() {
+  const apiClient = useApiClient();
+  const { data: projects, isPending } = useQuery(
+    featuredProjectsQueryOptions(apiClient, buildGetInvolved.featuredProjectSlugs),
+  );
+
+  return (
+    <section id="get-involved" className="mt-14 scroll-mt-24">
+      <SectionHeading title={buildGetInvolved.title} />
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+        {buildGetInvolved.description}
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isPending
+          ? buildGetInvolved.featuredProjectSlugs.map((slug) => (
+              <GetInvolvedCardSkeleton key={slug} />
+            ))
+          : projects?.map((project) => <GetInvolvedCard key={project.id} project={project} />)}
+        {buildGetInvolved.actions.map((action) => (
+          <GetInvolvedActionCard key={action.id} action={action} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GetInvolvedActionCard({ action }: { action: BuildGetInvolvedAction }) {
+  const Icon = action.kind === "internal" ? FolderPlus : Send;
+
+  return (
+    <article className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-6">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-accent-light text-brand-accent">
+        <Icon className="size-5" />
+      </span>
+      <h3 className="mt-3 text-lg font-black tracking-tight text-foreground">{action.label}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{action.description}</p>
+      <div className="mt-auto pt-6">
+        <Button asChild variant="outline" className="rounded-full">
+          <SiteLink link={action}>
+            {action.label}
+            {action.kind === "internal" ? (
+              <ArrowRight className="size-4" />
+            ) : (
+              <ExternalLink className="size-4" />
+            )}
+          </SiteLink>
+        </Button>
+      </div>
+    </article>
   );
 }
 

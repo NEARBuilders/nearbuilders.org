@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILDER_TELEGRAM_URL,
   type BuildTopic,
+  buildGetInvolved,
   buildTopics,
   getBuildFooterLinks,
+  getBuildGetInvolvedActionHref,
   listBuildTopicLinks,
 } from "./build-content";
 import { BUILD_PAGE_PATH } from "./site-paths";
@@ -124,5 +127,35 @@ describe("getBuildFooterLinks", () => {
       label: first.primaryLink.label,
       href: first.primaryLink.href,
     });
+  });
+});
+
+describe("buildGetInvolved", () => {
+  it("features the feedback and activity projects first", () => {
+    expect(buildGetInvolved.featuredProjectSlugs.slice(0, 2)).toEqual([
+      "feedback-nearbuilders-org-ew364z",
+      "activity-nearbuilders-org-2erd1k",
+    ]);
+  });
+
+  it("uses unique featured slugs", () => {
+    const slugs = buildGetInvolved.featuredProjectSlugs;
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("links Share a project to the new project form and the builder chat to Telegram", () => {
+    expect(buildGetInvolved.actions.map(getBuildGetInvolvedActionHref)).toEqual([
+      "/projects/new/project",
+      BUILDER_TELEGRAM_URL,
+    ]);
+  });
+
+  it("gives every action a unique id, label and description", () => {
+    const ids = buildGetInvolved.actions.map((action) => action.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const action of buildGetInvolved.actions) {
+      expect(action.label.trim()).not.toBe("");
+      expect(action.description.trim()).not.toBe("");
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ExternalLink, FolderKanban, Globe } from "lucide-react";
-import { GithubIcon, isGithubUrl, KindBadge } from "@/components/project-directory-item";
+import { GithubIcon, isGithubUrl } from "@/components/project-directory-item";
+import { KindBadge } from "@/components/project-tags";
 import type { ProjectApprovalActivityPayload } from "@/lib/project-activity";
 
 export function ProjectApprovalActivity({ payload }: { payload: ProjectApprovalActivityPayload }) {

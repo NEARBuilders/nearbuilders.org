@@ -1,18 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart2,
-  Bookmark,
-  FileText,
-  Globe,
-  Layers,
-  Lock,
-  Share2,
-  ThumbsDown,
-  ThumbsUp,
-} from "lucide-react";
+import { Bookmark, Globe, Share2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
+import { KindBadge, PrivateIndicator } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { NewBadge } from "@/components/ui/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -263,74 +254,5 @@ function ProjectDirectoryRowContent({
         <p className="text-xs text-muted-foreground truncate">{project.description}</p>
       )}
     </div>
-  );
-}
-
-export function PrivateIndicator({ size = 12 }: { size?: number }) {
-  return (
-    <span
-      title="Private"
-      role="img"
-      aria-label="Private"
-      className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary p-1 text-muted-foreground"
-    >
-      <Lock size={size} />
-    </span>
-  );
-}
-
-export function KindBadge({
-  kind,
-  compact,
-  size,
-  className,
-}: {
-  kind: ProjectKind;
-  compact?: boolean;
-  size?: "default" | "sidebar";
-  className?: string;
-}) {
-  const isCompact = compact ?? size === "sidebar";
-  const KindIcon =
-    kind === "idea" ? FileText : kind === "scope" ? Layers : kind === "result" ? BarChart2 : null;
-  return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "shrink-0 rounded-2xs border-border text-foreground",
-        kind === "idea" || kind === "scope" || kind === "result" ? "bg-muted" : "bg-secondary",
-        size === "sidebar"
-          ? "gap-1 px-2 py-0.5 text-2xs [&>svg]:size-2.5"
-          : isCompact
-            ? "gap-0.5 px-1.5 py-0 text-3xs [&>svg]:size-2.25"
-            : "gap-1 px-2 py-0.5 text-2xs [&>svg]:size-2.5",
-        className,
-      )}
-    >
-      {KindIcon ? <KindIcon /> : null}
-      {kind}
-    </Badge>
-  );
-}
-
-export function StatusBadge({
-  status,
-  className,
-}: {
-  status: "active" | "paused" | "archived";
-  className?: string;
-}) {
-  const statusClasses = {
-    active: "border-brand-accent bg-brand-accent-light text-foreground",
-    paused: "border-border bg-secondary text-foreground",
-    archived: "border-destructive/40 bg-destructive/10 text-destructive",
-  };
-  return (
-    <Badge
-      variant="outline"
-      className={cn("rounded-2xs px-2 py-0.5 text-2xs", statusClasses[status], className)}
-    >
-      {status}
-    </Badge>
   );
 }

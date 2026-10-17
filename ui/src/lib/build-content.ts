@@ -127,3 +127,59 @@ export function getBuildFooterLinks(
     { kind: "internal", label: "Brand", to: "/brand" },
   ];
 }
+
+export const BUILDER_TELEGRAM_URL = "https://t.me/nearbuilderschat";
+
+export type BuildGetInvolvedAction =
+  | {
+      id: string;
+      kind: "internal";
+      label: string;
+      description: string;
+      to: "/projects/new/$kind";
+      params: { kind: "project" };
+      search: { tab: "write" };
+    }
+  | {
+      id: string;
+      kind: "external";
+      label: string;
+      description: string;
+      href: string;
+    };
+
+export type BuildGetInvolved = {
+  title: string;
+  description: string;
+  featuredProjectSlugs: readonly string[];
+  actions: readonly BuildGetInvolvedAction[];
+};
+
+export const buildGetInvolved: BuildGetInvolved = {
+  title: "Get involved",
+  description:
+    "Help shape the tools builders use, share what you are working on, and meet other builders.",
+  featuredProjectSlugs: ["feedback-nearbuilders-org-ew364z", "activity-nearbuilders-org-2erd1k"],
+  actions: [
+    {
+      id: "share-project",
+      kind: "internal",
+      label: "Share a project",
+      description: "Add what you are building so other builders can find it and pitch in.",
+      to: "/projects/new/$kind",
+      params: { kind: "project" },
+      search: { tab: "write" },
+    },
+    {
+      id: "telegram",
+      kind: "external",
+      label: "Join the builder chat",
+      description: "Ask questions, find collaborators and follow what is shipping, on Telegram.",
+      href: BUILDER_TELEGRAM_URL,
+    },
+  ],
+};
+
+export function getBuildGetInvolvedActionHref(action: BuildGetInvolvedAction) {
+  return action.kind === "internal" ? action.to.replace("$kind", action.params.kind) : action.href;
+}
