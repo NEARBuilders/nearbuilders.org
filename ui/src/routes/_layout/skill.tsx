@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { useClientValue } from "@/hooks/use-client";
 
-const INTENT_REGISTRY_URL = "https://tanstack.com/intent/registry/everything-dev";
-
 export const Route = createFileRoute("/_layout/skill")({
   loader: async ({ context }) => {
     const runtimeConfig = context.runtimeConfig;
@@ -30,7 +28,6 @@ export const Route = createFileRoute("/_layout/skill")({
       runtimeConfig,
       rawSkillUrl,
       skill,
-      intentRegistryUrl: INTENT_REGISTRY_URL,
     };
   },
   head: ({ loaderData }) => {
@@ -44,7 +41,7 @@ export const Route = createFileRoute("/_layout/skill")({
           name: "description",
           content:
             description ||
-            "Agent-oriented instructions for running, editing, and publishing this runtime.",
+            "Agent-ready instructions for joining NEAR Builders, building on NEAR, and getting involved.",
         },
       ],
     };
@@ -53,7 +50,7 @@ export const Route = createFileRoute("/_layout/skill")({
 });
 
 function SkillPage() {
-  const { rawSkillUrl, skill, runtimeConfig, intentRegistryUrl } = Route.useLoaderData();
+  const { rawSkillUrl, skill, runtimeConfig } = Route.useLoaderData();
   const runtime = useClientValue(() => getActiveRuntime(runtimeConfig), undefined);
   const account = useClientValue(() => getAccount(runtimeConfig), "every.near");
   const appName = useClientValue(() => getAppName(runtimeConfig), "app");
@@ -90,8 +87,8 @@ function SkillPage() {
                     <span className="text-base font-semibold text-foreground">{appName}</span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Agent-ready prompt for TanStack Intent, local development, UI changes, and
-                    publish flow.
+                    Agent-ready prompt for joining NEAR Builders, picking a topic, and getting
+                    involved.
                   </p>
                 </div>
               </div>
@@ -107,18 +104,11 @@ function SkillPage() {
                     raw skill.md
                   </a>
                 </Button>
-                <Button asChild>
-                  <a href={intentRegistryUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={14} />
-                    TanStack Intent
-                  </a>
-                </Button>
               </div>
             </div>
 
             <div className="rounded-md border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
-              Best entry points: `npx @tanstack/intent@latest load everything-dev`, `/skill.md`, and
-              the registry page above.
+              Point your coding agent at `/skill.md` to get started building on NEAR.
             </div>
           </div>
 

@@ -1,53 +1,24 @@
-# everything.dev
+# NEAR Builders
 
-everything.dev is an open runtime for apps on NEAR.
+NEAR Builders (`nearbuilders.org`) is an open network where people building on NEAR find each other, make their work visible, and find where to start building.
 
-The bootstrap root is published from `dev.everything.near/everything.dev` and composed at runtime from public configuration rather than a single fixed bundle.
+## Start here
 
-## What it is
+- [Build on NEAR](https://nearbuilders.org/build): pick a topic (Private Cloud, Agentic Commerce, Smart Contracts) and open its docs and tools
+- [Join NEAR Builders](https://nearbuilders.org/join): connect your NEAR account and submit your builder profile for review
+- [skill.md](https://nearbuilders.org/skill.md): point your coding agent here to get started
 
-- A site for browsing and inspecting published runtimes
-- A product surface built from a host, remote UI, and remote API
-- A public reference for runtime composition on NEAR
+## Explore
 
-## How it works
-
-1. A published `bos.config.json` record defines the runtime.
-2. The bootstrap root is published first, without `extends`.
-3. Other configs can extend that root record once it exists.
-3. The UI loads through Module Federation.
-4. The API loads through `every-plugin`.
-5. Public metadata can be layered on without replacing the canonical runtime record.
-
-## Why it matters
-
-- Runtime configuration stays public and inspectable.
-- Sites can share the same host while changing composition through config.
-- UI and API can evolve independently.
-- The system can keep being built over time because composition is externalized.
-- Integrity hashes prove what runs matches what was published.
-- Agents compose from verified primitives instead of building insecure bundles from scratch.
+- [Builders](https://nearbuilders.org/builders): the builder directory
+- [Projects](https://nearbuilders.org/projects): projects and ideas from builders
+- [Events](https://nearbuilders.org/events): NEAR events and meetups
+- [Activity](https://nearbuilders.org/activity): what builders are shipping
 
 ## Public files
 
-- `/README.md` - human-readable overview
-- `/skill.md` - agent-oriented usage notes
-- `/llms.txt` - concise machine-ingestible summary
-- `/manifest.json` - install and browser metadata
+- [`/README.md`](https://nearbuilders.org/README.md): this overview
+- [`/skill.md`](https://nearbuilders.org/skill.md): agent instructions for builders
+- [`/llms.txt`](https://nearbuilders.org/llms.txt): short summary for language models
 
-## Related ideas
-
-- BOS — composable on-chain frontends
-- web4 — verifiable on-chain hosting
-- NEAR Intents — cross-chain settlement
-- near-dns — blockchain-backed DNS
-- NameSky — composable identity
-- OutLayer — verifiable off-chain computation
-- `every-plugin` — typed plugin contracts
-- better-near-auth — cryptographic identity + gasless relay
-
-## Canonical context
-
-- Bootstrap runtime: `dev.everything.near/everything.dev`
-- Stable host URLs can be reused across multiple sites
-- Composition happens through published config, not rebuild-only deployment
+To run or fork the platform, see [Run or fork NEAR Builders](https://github.com/NEARBuilders/nearbuilders.org#run-or-fork-near-builders).
