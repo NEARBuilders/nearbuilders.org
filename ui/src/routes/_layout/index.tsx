@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { buildPage } from "@/lib/build-content";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
-import { BUILD_PAGE_PATH } from "@/lib/site-paths";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/")({
@@ -155,9 +155,7 @@ function HeroSection() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-full px-7">
-              <Link to="/builders/add" search={{ intent: "self" }}>
-                Share your work
-              </Link>
+              <Link to={JOIN_PATH}>Share your work</Link>
             </Button>
           </div>
           {featuredBuilders.length > 0 && (
@@ -486,7 +484,7 @@ function ParticipationSection() {
               size="lg"
               className="rounded-full bg-foreground px-6 text-background hover:bg-foreground/90"
             >
-              <Link to="/builders/add" search={{ intent: "self" }}>
+              <Link to={JOIN_PATH}>
                 <Users className="size-4" />
                 Create builder profile
               </Link>

@@ -7,6 +7,7 @@ import {
   NEAR_SOCIAL_ONBOARDING_URL,
   type ResolvedNearProfile,
 } from "@/lib/near-social";
+import { JOIN_PATH } from "@/lib/site-paths";
 import { mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +19,7 @@ interface BuilderOnboardingProfile {
 type ChecklistTarget =
   | { kind: "near-social" }
   | { kind: "builder-edit"; accountId: string }
-  | { kind: "builder-add" }
+  | { kind: "join" }
   | { kind: "idea" };
 
 interface ChecklistItem {
@@ -45,7 +46,7 @@ export function BuilderOnboardingChecklist({
     const links = mergeSocialLinks(nearProfile?.linktree, builderProfile?.links);
     const builderTarget: ChecklistTarget = builderProfile
       ? { kind: "builder-edit", accountId }
-      : { kind: "builder-add" };
+      : { kind: "join" };
 
     return [
       {
@@ -288,9 +289,9 @@ function ChecklistLink({
     );
   }
 
-  if (target.kind === "builder-add") {
+  if (target.kind === "join") {
     return (
-      <Link to="/builders/add" className={linkClassName}>
+      <Link to={JOIN_PATH} className={linkClassName}>
         {children}
       </Link>
     );

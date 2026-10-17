@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/user-nav";
 import { buildPage, getBuildFooterLinks } from "@/lib/build-content";
-import { BUILD_PAGE_PATH } from "@/lib/site-paths";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 
 export const Route = createFileRoute("/_layout")({
   beforeLoad: async ({ context }) => {
@@ -189,8 +189,7 @@ function Layout() {
 
               <div className="mt-auto pt-8">
                 <Link
-                  to="/builders/add"
-                  search={{ intent: "self" }}
+                  to={JOIN_PATH}
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-on-accent"
                 >

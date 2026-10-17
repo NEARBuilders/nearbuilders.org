@@ -52,6 +52,7 @@ import {
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
+import { JOIN_PATH, NOMINATE_PATH } from "@/lib/site-paths";
 import { cn } from "@/lib/utils";
 
 interface BuilderLike {
@@ -721,14 +722,14 @@ function BuildersPage() {
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <BuilderActionCard
             icon={WalletCards}
-            title="Build on NEAR"
+            title={isAuthenticated ? "Build on NEAR" : "Join NEAR Builders"}
             description={
               isAuthenticated
                 ? "Claim your profile and help collaborators discover your work."
-                : "Connect your NEAR wallet and join the builder directory."
+                : "Connect your NEAR wallet and submit your builder profile for review."
             }
-            label={isAuthenticated ? "Open your dashboard" : "Connect your wallet"}
-            to={isAuthenticated ? "/dashboard" : "/login"}
+            label={isAuthenticated ? "Open your dashboard" : "Join NEAR Builders"}
+            to={isAuthenticated ? "/dashboard" : JOIN_PATH}
           />
           {isBuilderProfileLoading ? (
             <section
@@ -755,7 +756,7 @@ function BuildersPage() {
               title="Nominate someone"
               description="Recognize a builder who is making an impact in the NEAR ecosystem."
               label="Nominate a builder"
-              to="/builders/add"
+              to={NOMINATE_PATH}
             />
           ) : (
             <BuilderActionCard
@@ -763,8 +764,7 @@ function BuildersPage() {
               title="Join as a builder"
               description="Submit your profile and make your work discoverable in the NEAR ecosystem."
               label="Create your builder profile"
-              to="/builders/add"
-              selfRegistration
+              to={JOIN_PATH}
             />
           )}
         </aside>
@@ -799,24 +799,13 @@ function BuilderActionCard({
   description,
   label,
   to,
-  selfRegistration = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description: string;
   label: string;
-  to: "/dashboard" | "/login" | "/builders/add";
-  selfRegistration?: boolean;
+  to: "/dashboard" | typeof NOMINATE_PATH | typeof JOIN_PATH;
 }) {
-  const linkClassName =
-    "mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent";
-  const linkContent = (
-    <>
-      {label}
-      <ArrowRight className="size-4" />
-    </>
-  );
-
   return (
     <section className="rounded-xl border border-brand-accent-border bg-brand-accent-light p-5">
       <div className="flex size-10 items-center justify-center rounded-full bg-card text-brand-accent shadow-sm">
@@ -824,19 +813,13 @@ function BuilderActionCard({
       </div>
       <h2 className="mt-5 text-lg font-bold text-foreground">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      {to === "/builders/add" ? (
-        <Link
-          to="/builders/add"
-          search={selfRegistration ? { intent: "self" } : undefined}
-          className={linkClassName}
-        >
-          {linkContent}
-        </Link>
-      ) : (
-        <Link to={to} className={linkClassName}>
-          {linkContent}
-        </Link>
-      )}
+      <Link
+        to={to}
+        className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
+      >
+        {label}
+        <ArrowRight className="size-4" />
+      </Link>
     </section>
   );
 }
