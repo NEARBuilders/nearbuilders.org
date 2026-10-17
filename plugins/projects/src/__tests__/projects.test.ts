@@ -190,11 +190,10 @@ describe("projects router visibility", () => {
     });
     const anonymous = loaded.createClient();
     const unlisted = await owner.createProject({
-      kind: "project",
+      kind: "idea",
       title: "Unlisted project",
       slug: "unlisted-project",
       content: "Direct link only",
-      repository: "https://github.com/example/unlisted",
       visibility: "unlisted",
     });
 
