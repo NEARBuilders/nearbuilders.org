@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   ExternalLink,
+  Hammer,
   Network,
   PanelsTopLeft,
   Rocket,
@@ -13,8 +14,10 @@ import { useState } from "react";
 import { type ApiClient, useApiClient, useAuthClient } from "@/app";
 import multiagencyLogo from "@/assets/multiagency-logo.svg";
 import { Button } from "@/components/ui/button";
+import { buildPage } from "@/lib/build-content";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/")({
@@ -51,13 +54,6 @@ interface LandingBuilder {
 }
 
 const ecosystemLinks: EcosystemLink[] = [
-  {
-    href: "https://ironclaw.com",
-    label: "IronClaw",
-    tagline: "Secure AI agent OS",
-    domain: "ironclaw.com",
-    logoSrc: "https://ironclaw.com/images/iron_claw_guy1.png",
-  },
   {
     href: "https://nearcatalog.xyz",
     label: "NEAR Catalog",
@@ -159,9 +155,7 @@ function HeroSection() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-full px-7">
-              <Link to="/builders/add" search={{ intent: "self" }}>
-                Share your work
-              </Link>
+              <Link to={JOIN_PATH}>Share your work</Link>
             </Button>
           </div>
           {featuredBuilders.length > 0 && (
@@ -233,6 +227,7 @@ function HeroSection() {
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
+              <BuildNetworkCard />
               {ecosystemLinks.map((item) => (
                 <EcosystemNetworkCard key={item.href} item={item} />
               ))}
@@ -277,6 +272,23 @@ function BuilderAvatar({ builder, className }: { builder: LandingBuilder; classN
       )}
       {(!imageUrl || errored) && <span aria-hidden="true">{initials}</span>}
     </div>
+  );
+}
+
+function BuildNetworkCard() {
+  return (
+    <Link
+      to={BUILD_PAGE_PATH}
+      className="group flex h-20 w-full min-w-0 items-center gap-3 self-center rounded-xl border border-border bg-card p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent-border hover:shadow-md"
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-accent-light text-brand-accent sm:size-10">
+        <Hammer className="size-4 sm:size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold text-foreground">{buildPage.label}</p>
+        <p className="truncate text-3xs text-muted-foreground">{buildPage.cardTagline}</p>
+      </div>
+    </Link>
   );
 }
 
@@ -472,7 +484,7 @@ function ParticipationSection() {
               size="lg"
               className="rounded-full bg-foreground px-6 text-background hover:bg-foreground/90"
             >
-              <Link to="/builders/add" search={{ intent: "self" }}>
+              <Link to={JOIN_PATH}>
                 <Users className="size-4" />
                 Create builder profile
               </Link>

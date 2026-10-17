@@ -144,8 +144,8 @@ function About() {
                   for agents and builders
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Open the skill page for the essential TanStack Intent, local dev, and publish
-                  instructions.
+                  Open the skill page to see how to join, where to start building, and how to get
+                  involved.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

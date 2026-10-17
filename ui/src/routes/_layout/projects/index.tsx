@@ -30,12 +30,11 @@ import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app
 import {
   GithubIcon,
   isGithubUrl,
-  KindBadge,
-  PrivateIndicator,
   type ProjectDirectoryItem,
-  StatusBadge,
   type VoteDirection,
 } from "@/components/project-directory-item";
+import { KindBadge, PrivateIndicator, ProjectTags, StatusBadge } from "@/components/project-tags";
+import { ProjectVisual } from "@/components/project-visual";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,9 +61,6 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
-import { isSafeImageUrl } from "@/lib/image-url";
-import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
-import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -223,49 +219,6 @@ function matchesCatalogQuery(project: Omit<ProjectDirectoryItem, "upvoteCount">,
     .includes(normalizedQuery);
 }
 
-function ProjectVisual({
-  project,
-  className,
-}: {
-  project: ProjectDirectoryItem;
-  className?: string;
-}) {
-  const auth = useAuthClient();
-  const socialAccount = resolveProjectNearAccount({ ownerId: project.ownerId }) ?? "";
-  const { data: socialProfile } = useQuery({
-    ...nearProfileOptions(auth, socialAccount),
-    enabled: Boolean(socialAccount) && !isSafeImageUrl(project.imageUrl),
-  });
-  const imageUrl = isSafeImageUrl(project.imageUrl)
-    ? project.imageUrl
-    : getNearSocialAvatarUrl(socialProfile);
-  const initials = project.title
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-
-  return imageUrl ? (
-    <img
-      src={imageUrl}
-      alt=""
-      className={cn("size-14 shrink-0 rounded-2xl border border-border object-cover", className)}
-      loading="lazy"
-    />
-  ) : (
-    <span
-      className={cn(
-        "flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-accent-light text-lg font-black tracking-tight text-brand-accent",
-        className,
-      )}
-      aria-hidden="true"
-    >
-      {initials || "NB"}
-    </span>
-  );
-}
-
 function FilterChip({
   active,
   children,
@@ -292,40 +245,6 @@ function FilterChip({
     >
       {children}
     </button>
-  );
-}
-
-function ProjectTags({ project }: { project: RankedProject }) {
-  return (
-    <span className="flex max-w-full items-center gap-2 overflow-hidden whitespace-nowrap">
-      <span className="shrink-0">
-        <KindBadge kind={project.kind} className="rounded-full border" />
-      </span>
-      <span className="shrink-0">
-        <StatusBadge
-          status={project.status}
-          className={cn(
-            "rounded-full border",
-            project.status === "active" && "border-brand-accent-border",
-          )}
-        />
-      </span>
-      {project.source === "nearcatalog" && (
-        <span className="shrink-0">
-          <Badge variant="outline" className="rounded-full border px-2 py-0.5 text-2xs">
-            Catalog
-          </Badge>
-        </span>
-      )}
-      <span className="shrink-0">
-        <NewBadge createdAt={project.createdAt} className="rounded-full border" />
-      </span>
-      {project.visibility === "private" && (
-        <span className="shrink-0">
-          <PrivateIndicator size={10} />
-        </span>
-      )}
-    </span>
   );
 }
 

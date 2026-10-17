@@ -8,9 +8,12 @@ import builtOnRev from "@/assets/built_on_rev.png";
 import { BrandLogoLink } from "@/components/brand-logo-link";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notification-bell";
+import { SiteLink } from "@/components/site-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/user-nav";
+import { buildPage, getBuildFooterLinks } from "@/lib/build-content";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 
 export const Route = createFileRoute("/_layout")({
   beforeLoad: async ({ context }) => {
@@ -27,6 +30,7 @@ export const Route = createFileRoute("/_layout")({
 });
 
 const navLinks = [
+  { label: buildPage.navLabel, to: BUILD_PAGE_PATH },
   { label: "Builders", to: "/builders" },
   { label: "Projects", to: "/projects" },
   { label: "Events", to: "/events" },
@@ -34,7 +38,6 @@ const navLinks = [
 ] as const;
 
 const ecosystemLinks = [
-  { href: "https://ironclaw.com", label: "Ironclaw" },
   { href: "https://near.ai", label: "NEAR AI" },
   { href: "https://near.org", label: "NEAR Protocol" },
   { href: "https://near.dev", label: "NEAR Dev" },
@@ -42,13 +45,7 @@ const ecosystemLinks = [
   { href: "https://nearlegion.com", label: "NEAR Legion" },
 ] as const;
 
-const resourceLinks = [
-  { href: "https://docs.near.org", label: "NEAR Docs" },
-  { href: "https://docs.near.ai", label: "NEAR AI Docs" },
-  { href: "https://docs.near-intents.org/", label: "NEAR Intents" },
-  { href: "https://docs.ironclaw.com/", label: "IronClaw Docs" },
-  { href: "https://docs.near.org/getting-started/hackathons", label: "Builder Starter Guide" },
-] as const;
+const resourceLinks = getBuildFooterLinks();
 
 function Layout() {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
@@ -192,8 +189,7 @@ function Layout() {
 
               <div className="mt-auto pt-8">
                 <Link
-                  to="/builders/add"
-                  search={{ intent: "self" }}
+                  to={JOIN_PATH}
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center justify-center rounded-full bg-brand-accent px-5 py-3.5 text-sm font-bold text-brand-on-accent"
                 >
@@ -275,22 +271,14 @@ function Layout() {
                 </h3>
                 <nav className="mt-5 flex flex-col gap-3">
                   {resourceLinks.map((link) => (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <SiteLink
+                      key={link.kind === "internal" ? link.to : link.href}
+                      link={link}
                       className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {link.label}
-                    </a>
+                    </SiteLink>
                   ))}
-                  <Link
-                    to="/brand"
-                    className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Brand
-                  </Link>
                 </nav>
               </div>
             </div>

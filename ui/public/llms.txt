@@ -1,28 +1,24 @@
-everything.dev is an open runtime for apps on NEAR.
+# NEAR Builders
 
-The site is published from every.near/everything.dev.
-It is composed at runtime from public configuration rather than built as one fixed application bundle.
+> NEAR Builders (nearbuilders.org) is an open network where people building on NEAR find each other, make their work visible, and find where to start building. Builders join with their NEAR account, share projects, and follow what others are shipping.
 
-Core architecture:
-- host: runtime shell, auth boundary, request handling, runtime config loader
-- auth: authentication plugin loaded through every-plugin (Better-Auth, NEAR SIWN, organizations, API keys)
-- ui: remote interface loaded through Module Federation
-- api: remote backend loaded through every-plugin
+Start with the build page to pick a topic (Private Cloud, Agentic Commerce, Smart Contracts), then join. Point a coding agent at skill.md for step-by-step instructions.
 
-Canonical runtime model:
-- bos.config.json is the source of truth for runtime composition
-- config can inherit from other published records through bos:// references
-- metadata can be layered on top, but does not replace the runtime manifest
+## Start here
 
-Why it matters:
-- sites can share the same host while varying UI and API composition
-- runtime can change through published config instead of rebuild-only deployment
-- software remains more portable, inspectable, and extensible over time
+- [Build on NEAR](https://nearbuilders.org/build): topics, docs and tools for building on NEAR, including Agent Connect
+- [Join NEAR Builders](https://nearbuilders.org/join): create a builder profile, with or without a nomination
+- [skill.md](https://nearbuilders.org/skill.md): agent instructions for joining, building and getting involved
 
-Useful public paths:
-- /
-- /about
-- /apps
-- /README.md
-- /skill.md
-- /manifest.json
+## Community
+
+- [Builders](https://nearbuilders.org/builders): directory of approved builders
+- [Projects](https://nearbuilders.org/projects): projects and ideas shared by builders
+- [Events](https://nearbuilders.org/events): NEAR events and meetups
+- [Activity](https://nearbuilders.org/activity): what builders are shipping, with a leaderboard
+
+## Optional
+
+- [About](https://nearbuilders.org/about): about the platform
+- [API reference](https://nearbuilders.org/api): NEAR Builders API docs and OpenAPI spec
+- [Run or fork NEAR Builders](https://github.com/NEARBuilders/nearbuilders.org#run-or-fork-near-builders): platform documentation
