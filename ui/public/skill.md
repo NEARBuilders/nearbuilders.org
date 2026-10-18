@@ -10,7 +10,7 @@ NEAR Builders (`nearbuilders.org`) is an open network where people building on N
 - **Projects**: a board where builders share projects and ideas, upvote them, and find teams.
 - **Events**: NEAR events and meetups.
 - **Activity**: a feed of what builders are shipping, with a leaderboard.
-- **Build page**: the hub for building on NEAR at [nearbuilders.org/build](https://nearbuilders.org/build). Hackathons and partners link to it instead of keeping their own resource lists.
+- **Build page**: the hub for building on NEAR at [nearbuilders.org/build](https://nearbuilders.org/build), kept current by the builder community.
 
 ## Join
 
@@ -37,6 +37,16 @@ Run AI models and agents on private, verifiable compute with NEAR AI.
 
 - [NEAR AI Docs](https://docs.near.ai)
 
+**NEAR AI Cloud** lets you call open models through an OpenAI-compatible API, running inside private, verifiable hardware.
+
+- [Agent skill](https://github.com/near/agent-skills/tree/main/skills/near-ai-cloud): load this into your coding agent to work with NEAR AI Cloud
+- [Models](https://near.ai/models)
+
+To get access:
+
+1. [Get an API key](https://cloud.near.ai) from the NEAR AI Cloud dashboard.
+2. Point any OpenAI SDK at the base URL: `https://cloud-api.near.ai/v1`
+
 ### Agentic Commerce
 
 Let agents swap, pay and settle across chains through NEAR Intents.
@@ -60,6 +70,13 @@ To get access:
 Write, test and deploy contracts and apps on NEAR Protocol.
 
 - [NEAR Docs](https://docs.near.org)
+
+**Write a contract**: learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.
+
+- [What is a smart contract](https://docs.near.org/smart-contracts/what-is)
+- [SDK libraries](https://docs.near.org/tools/sdk)
+- [Reference contracts](https://docs.near.org/tools/contracts-list)
+- [Testnet faucet](https://near-faucet.io): get testnet NEAR to deploy and test contracts
 
 ## Get involved
 

@@ -37,6 +37,19 @@ describe("build topics", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("gives each topic its own logo", () => {
+    expect(buildTopics.map((topic) => topic.logo)).toEqual([
+      "near-ai",
+      "near-intents",
+      "near-protocol",
+    ]);
+  });
+
+  it("uses tool ids that do not clash with topic ids", () => {
+    const ids = buildTopics.flatMap((topic) => [topic.id, ...topic.tools.map((tool) => tool.id)]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("uses https for every topic link", () => {
     for (const topic of buildTopics) {
       for (const link of listBuildTopicLinks(topic)) {
@@ -54,6 +67,29 @@ describe("build topics", () => {
     expect(agentConnect?.access?.apiKey.href).toBe("https://partners.demo.agentsonintents.com/");
     expect(agentConnect?.access?.baseUrl).toBe("https://api.demo.agentsonintents.com");
   });
+
+  it("includes NEAR AI Cloud access under Private Cloud", () => {
+    const privateCloud = buildTopics.find((topic) => topic.id === "private-cloud");
+    const cloud = privateCloud?.tools.find((tool) => tool.id === "near-ai-cloud");
+
+    expect(cloud?.links.map((link) => link.href)).toEqual([
+      "https://github.com/near/agent-skills/tree/main/skills/near-ai-cloud",
+      "https://near.ai/models",
+    ]);
+    expect(cloud?.access?.apiKey.href).toBe("https://cloud.near.ai");
+    expect(cloud?.access?.baseUrl).toBe("https://cloud-api.near.ai/v1");
+  });
+
+  it("links Smart Contracts to the contract docs, SDKs, reference contracts and faucet", () => {
+    const contracts = buildTopics.find((topic) => topic.id === "smart-contracts");
+
+    expect(contracts?.tools.flatMap((tool) => tool.links.map((link) => link.href))).toEqual([
+      "https://docs.near.org/smart-contracts/what-is",
+      "https://docs.near.org/tools/sdk",
+      "https://docs.near.org/tools/contracts-list",
+      "https://near-faucet.io",
+    ]);
+  });
 });
 
 describe("listBuildTopicLinks", () => {
@@ -61,6 +97,7 @@ describe("listBuildTopicLinks", () => {
     const topic: BuildTopic = {
       id: "agentic-commerce",
       title: "Topic",
+      logo: "near-intents",
       summary: "Summary",
       primaryLink: { label: "Docs", href: "https://docs.example.com" },
       links: [{ label: "Extra", href: "https://extra.example.com" }],

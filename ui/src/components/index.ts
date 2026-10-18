@@ -10,6 +10,7 @@ export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";
 export { ContributedProjects } from "./contributed-projects";
 export { GetInvolvedCard, GetInvolvedCardSkeleton } from "./get-involved-card";
 export { InvitationCard, MemberCard } from "./member-card";
+export { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "./near-logos";
 export { OrgSwitcher } from "./org-switcher";
 export {
   KindBadge,

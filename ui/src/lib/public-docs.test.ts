@@ -36,7 +36,10 @@ describe("skill.md", () => {
       topic.tools.flatMap((tool) => (tool.access ? [tool.access.baseUrl] : [])),
     );
 
-    expect(baseUrls).toContain("https://api.demo.agentsonintents.com");
+    expect(baseUrls).toEqual([
+      "https://cloud-api.near.ai/v1",
+      "https://api.demo.agentsonintents.com",
+    ]);
     for (const baseUrl of baseUrls) {
       expect(skill).toContain(baseUrl);
     }
