@@ -1,4 +1,5 @@
 @import "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
+@import "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=swap";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -44,6 +45,13 @@
   --color-brand-accent-light: var(--brand-accent-light);
   --color-brand-accent-border: var(--brand-accent-border);
   --color-near-intents: var(--near-intents);
+  --color-hackathon: var(--hackathon);
+  --color-hackathon-foreground: var(--hackathon-foreground);
+  --color-hackathon-spot: var(--hackathon-spot);
+  --color-hackathon-line: var(--hackathon-line);
+  --color-hackathon-muted: var(--hackathon-muted);
+  --color-hackathon-on-spot: var(--hackathon-on-spot);
+  --font-hackathon: "IBM Plex Mono", ui-monospace, monospace;
   --color-brand-pink-light: var(--brand-pink-light);
   --color-brand-pink-soft: var(--brand-pink-soft);
   --color-brand-mint-soft: var(--brand-mint-soft);
@@ -156,6 +164,12 @@
   --brand-accent-light: #00d9a314;
   --brand-accent-border: #00d9a340;
   --near-intents: #fb4d01;
+  --hackathon: #e9e1cd;
+  --hackathon-foreground: #322e25;
+  --hackathon-muted: #655d4f;
+  --hackathon-spot: #005fb0;
+  --hackathon-on-spot: #fff7e9;
+  --hackathon-line: #bdb199;
 
   --sidebar: #ffffff;
   --sidebar-foreground: #1d2b36;
@@ -208,6 +222,12 @@
   --brand-accent-light: #00d9a31f;
   --brand-accent-border: #00d9a34d;
   --near-intents: #fb4d01;
+  --hackathon: #161a15;
+  --hackathon-foreground: #e7dfca;
+  --hackathon-muted: #b0b29d;
+  --hackathon-spot: #0091fd;
+  --hackathon-on-spot: #181c16;
+  --hackathon-line: #454d3d;
 
   --sidebar: #15202c;
   --sidebar-foreground: #e8eef2;

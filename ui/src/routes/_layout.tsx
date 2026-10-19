@@ -7,6 +7,7 @@ import builtOn from "@/assets/built_on.png";
 import builtOnRev from "@/assets/built_on_rev.png";
 import { BrandLogoLink } from "@/components/brand-logo-link";
 import { GlobalSearch } from "@/components/global-search";
+import { HackathonBanner } from "@/components/hackathon-banner";
 import { NotificationBell } from "@/components/notification-bell";
 import { SiteLink } from "@/components/site-link";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -81,6 +82,8 @@ function Layout() {
           </div>
         )}
       </ClientOnly>
+
+      <HackathonBanner />
 
       <header className="sticky top-0 z-40 w-full border-b border-border bg-background text-foreground backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
