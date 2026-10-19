@@ -142,7 +142,7 @@ const topicLogos: Record<
   { Logo: ComponentType<{ className?: string }>; className: string }
 > = {
   "near-ai": { Logo: NearAiLogo, className: "h-7.5" },
-  "near-intents": { Logo: NearIntentsLogo, className: "h-13" },
+  "near-intents": { Logo: NearIntentsLogo, className: "h-8" },
   "near-protocol": { Logo: NearProtocolLogo, className: "h-10" },
 };
 
