@@ -1,8 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { getBuilderOnboardingProgress } from "@/lib/builder-onboarding";
+import {
+  hasNearSocialAvatar,
+  NEAR_SOCIAL_ONBOARDING_URL,
+  type ResolvedNearProfile,
+} from "@/lib/near-social";
+import { JOIN_PATH } from "@/lib/site-paths";
 import { mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +19,7 @@ interface BuilderOnboardingProfile {
 type ChecklistTarget =
   | { kind: "near-social" }
   | { kind: "builder-edit"; accountId: string }
-  | { kind: "builder-add" }
+  | { kind: "join" }
   | { kind: "idea" };
 
 interface ChecklistItem {
@@ -32,7 +37,7 @@ export function BuilderOnboardingChecklist({
   isLoading,
 }: {
   accountId: string;
-  nearProfile: Profile | null | undefined;
+  nearProfile: ResolvedNearProfile | null | undefined;
   builderProfile: BuilderOnboardingProfile | null;
   hasFirstIdea: boolean;
   isLoading: boolean;
@@ -41,13 +46,13 @@ export function BuilderOnboardingChecklist({
     const links = mergeSocialLinks(nearProfile?.linktree, builderProfile?.links);
     const builderTarget: ChecklistTarget = builderProfile
       ? { kind: "builder-edit", accountId }
-      : { kind: "builder-add" };
+      : { kind: "join" };
 
     return [
       {
         id: "avatar",
         label: "Add avatar",
-        complete: Boolean(nearProfile?.image?.url || nearProfile?.image?.ipfs_cid),
+        complete: hasNearSocialAvatar(nearProfile),
         target: { kind: "near-social" },
       },
       {
@@ -262,7 +267,7 @@ function ChecklistLink({
   if (target.kind === "near-social") {
     return (
       <a
-        href="https://near.social/#/mob.near/widget/ProfileEditor"
+        href={NEAR_SOCIAL_ONBOARDING_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={linkClassName}
@@ -284,9 +289,9 @@ function ChecklistLink({
     );
   }
 
-  if (target.kind === "builder-add") {
+  if (target.kind === "join") {
     return (
-      <Link to="/builders/add" className={linkClassName}>
+      <Link to={JOIN_PATH} className={linkClassName}>
         {children}
       </Link>
     );

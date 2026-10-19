@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ExternalLink, Loader2, Lock, Pencil, Trash2, Users, X } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -9,6 +8,8 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { EventDetail, formatEventDate } from "./-event-detail";
 
@@ -358,17 +359,8 @@ type EventParticipantRecord = Awaited<
 function ParticipantBadge({ participant }: { participant: EventParticipantRecord }) {
   const auth = useAuthClient();
   const accountId = getParticipantAccountId(participant);
-  const { data: profile } = useQuery<Profile | null>({
-    queryKey: ["near-profile", accountId],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(accountId ?? undefined);
-      return res.data || null;
-    },
-    enabled: !!accountId,
-  });
-  const avatarUrl =
-    profile?.image?.url ??
-    (profile?.image?.ipfs_cid ? `https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}` : null);
+  const { data: profile } = useQuery(nearProfileOptions(auth, accountId ?? ""));
+  const avatarUrl = getNearSocialAvatarUrl(profile);
   const label = formatParticipantLabel(participant);
   const className =
     "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary";

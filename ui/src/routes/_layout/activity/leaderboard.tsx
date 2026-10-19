@@ -66,8 +66,7 @@ function LeaderboardPage() {
         <div>
           <h1 className="text-4xl font-black tracking-tight text-foreground mb-2">Leaderboard</h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            The builders contributing most across the NEAR Builders ecosystem, ranked by endorsement
-            score.
+            The builders contributing most across the NEAR Builders ecosystem, ranked by score.
           </p>
         </div>
         <Button asChild size="sm" variant="outline" className="shrink-0">

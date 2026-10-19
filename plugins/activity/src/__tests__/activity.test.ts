@@ -70,18 +70,9 @@ describe("activity service", () => {
       );
 
       const feed = await Effect.runPromise(activity.getActivityFeed({ actor: "alice.near" }));
-      const leaderboard = await Effect.runPromise(
-        activity.getLeaderboard({ period: "all-time", limit: 10 }),
-      );
 
       expect(manual.verified).toBe(false);
       expect(feed.data).toHaveLength(2);
-      expect(leaderboard[0]).toMatchObject({
-        actor: "alice.near",
-        eventCount: 2,
-        endorsementScore: 3,
-        topSources: ["github", "manual"],
-      });
 
       const duplicate = await Effect.runPromise(
         activity.emitActivity({
@@ -95,13 +86,9 @@ describe("activity service", () => {
       );
       await Effect.runPromise(activity.hideActivity(duplicate.id));
       const hiddenFeed = await Effect.runPromise(activity.getActivityFeed({ actor: "alice.near" }));
-      const hiddenLeaderboard = await Effect.runPromise(
-        activity.getLeaderboard({ period: "all-time", limit: 10 }),
-      );
 
       expect(duplicate.id).not.toBe(manual.id);
       expect(hiddenFeed.data).toHaveLength(1);
-      expect(hiddenLeaderboard[0]).toMatchObject({ eventCount: 1, endorsementScore: 1 });
     } finally {
       await cleanup();
     }

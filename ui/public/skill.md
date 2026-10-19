@@ -1,217 +1,115 @@
 # NEAR Builders skill
 
-Use this when you want an agent to run, edit, publish, or fork the NEAR Builders platform — an open builder directory and project board on NEAR.
+Use this when a builder asks you to help them get started on NEAR: join NEAR Builders, pick a topic, find the docs, and get involved. Everything here links to live pages on `https://nearbuilders.org`.
 
-## TanStack Intent
+## What NEAR Builders is
 
-- Registry entry: `https://tanstack.com/intent/registry/everything-dev`
-- Load with TanStack Intent: `npx @tanstack/intent@latest load everything-dev`
-- If the agent supports registry URLs directly, point it at the registry entry above.
+NEAR Builders (`nearbuilders.org`) is an open network where people building on NEAR find each other, make their work visible, and find where to start building.
 
-## What this project is
+- **Builders**: a directory of approved builder profiles (name, bio, skills, location, links), each tied to one NEAR account.
+- **Projects**: a board where builders share projects and ideas, upvote them, and find teams.
+- **Events**: NEAR events and meetups.
+- **Activity**: a feed of what builders are shipping, with a leaderboard.
+- **Build page**: the hub for building on NEAR at [nearbuilders.org/build](https://nearbuilders.org/build), kept current by the builder community.
 
-NEAR Builders (`nearbuilders.org`) is an open-source platform for builders on NEAR Protocol. It is a **tenant runtime** built on the [everything.dev](https://everything.dev) platform, composed at runtime via Module Federation and every-plugin.
+## Join
 
-```
-bos://dev.everything.near/everything.dev    ← parent platform (host, auth, API shell)
-  └── bos://nearbuilding.near/nearbuilders.org ← this tenant (UI, plugins, branding)
-```
+There is one place to join: [nearbuilders.org/join](https://nearbuilders.org/join).
 
-- `bos.config.json` is the canonical runtime manifest.
-- The host is the runtime shell and trust boundary — inherited from everything.dev.
-- The UI is loaded at runtime through Module Federation.
-- The API is loaded at runtime through `every-plugin`.
+1. Open `/join` and connect the NEAR account that should appear on the builder profile.
+2. Fill in the builder profile: name, bio, skills, location and links.
+3. Submit. The profile stays pending until an admin approves it. Once approved, the builder appears in the directory.
 
-## What nearbuilders.org provides
+### Nominations
 
-- **Builders** — A curated directory of NEAR builders with profiles, skills, social links, and NEAR account verification. Admin moderation (pending → approved → rejected) keeps the directory high-signal.
-- **Projects** — A ranked project board where builders pitch work for funding, community members request projects, and hackathon projects are archived for future discovery. Includes upvoting, markdown editing, and GitHub integration.
-- **Events** — Event listings with Luma integration, participant management, and public/unlisted visibility.
-- **Activity** — A real-time activity feed with leaderboard ranking and endorsement scores, sourced from across the platform.
-- **Notifications** — Per-user notifications with SSE streaming for upvotes, proposals, and activity.
-- **NEAR Catalog** — Search and claim projects from the NEAR ecosystem catalog, with proposal-based claiming workflow.
-- **Registry** — Browse and inspect published everything.dev runtimes, their extends chains, and metadata.
+A nomination is someone vouching that a NEAR account should become a builder.
 
-## API contract
+- **Telegram or X**: when someone nominates you on Telegram or X, you get a link like `https://nearbuilders.org/join?nomination=…`. Open it and join as above; the nomination is attached to your profile for review. If the link was already used or is invalid, you can still join without it.
+- **Web**: to nominate someone else, sign in and use the nominate form at [nearbuilders.org/builders/add](https://nearbuilders.org/builders/add) with their NEAR account. The nominate form is only for nominating others; to join yourself, use `/join`.
 
-The API is defined in `api/src/contract.ts` using oRPC with Zod schemas. All endpoints are type-safe and documented via OpenAPI. The API runs at `http://localhost:3001` in development.
+## Start building
 
-Key endpoint groups:
+The build page groups building on NEAR into three topics. These are the same links as [nearbuilders.org/build](https://nearbuilders.org/build).
 
-- `GET /ping` — Health check
-- `GET /auth/health` — Auth system health
-- **Builders**: `GET /v1/builders`, `GET /v1/builders/{nearAccount}`, `GET /v1/builders/me`, `PATCH /v1/builders/{nearAccount}`
-- **Projects**: `GET /v1/projects`, `POST /v1/projects`, `GET /v1/projects/{id}`, `PATCH /v1/projects/{id}`, `DELETE /v1/projects/{id}`, `GET /v1/projects/by-slug/{slug}`, `GET /v1/projects/{id}/mentions`, `GET /v1/projects/{id}/mentioned-by`
-- **Events**: `GET /v1/events`, `POST /v1/events`, `GET /v1/events/{id}`, `GET /v1/events/by-slug/{slug}`, `PATCH /v1/events/{id}`, `DELETE /v1/events/{id}`, `GET /v1/events/{eventId}/participants`, `POST /v1/events/{eventId}/participants`, `DELETE /v1/events/{eventId}/participants/me`, `GET /v1/luma/event`
-- **Votes**: `POST /upvotes`, `DELETE /upvotes/{entityId}`, `GET /upvotes/{entityId}/count`, `GET /upvotes/{entityId}/me`, `POST /upvotes/me/batch`, `POST /upvotes/counts`, `GET /upvotes/feed`, `GET /upvotes/stream` (SSE)
-- **Proposals**: `POST /proposals`, `POST /proposals/{pluginId}/{entityId}/approve`, `POST /proposals/{pluginId}/{entityId}/reject`, `DELETE /proposals/{pluginId}/{entityId}`, `GET /proposals`, `GET /proposals/{pluginId}/{entityId}/count`, `GET /proposals/{pluginId}/{entityId}/audit`, `GET /proposals/stream` (SSE)
-- **Activity**: `POST /v1/activity`, `GET /v1/activity`, `GET /v1/activity/stream` (SSE), `GET /v1/activity/leaderboard`
-- **Notifications**: `GET /v1/notifications/me`, `POST /v1/notifications/{id}/read`, `POST /v1/notifications/me/read-all`, `GET /v1/notifications/stream` (SSE)
-- **NEAR Catalog**: `GET /v1/nearcatalog/projects/search`, `GET /v1/nearcatalog/projects/{slug}`, `POST /v1/nearcatalog/claim-proposals`, `GET /v1/nearcatalog/claim-proposals/me`, `GET /v1/nearcatalog/claims`, `GET /v1/nearcatalog/claimed-projects`
-- **Registry**: `GET /v1/registry/apps`, `GET /v1/registry/apps/account/{accountId}`, `GET /v1/registry/apps/{accountId}/{gatewayId}`, `GET /v1/registry/status`, `POST /v1/registry/apps/{accountId}/{gatewayId}/metadata/prepare`
+### Private Cloud
 
-## Plugin architecture
+Run AI models and agents on private, verifiable compute with NEAR AI.
 
-Business logic is organized into independent plugins loaded via Module Federation:
+- [NEAR AI Docs](https://docs.near.ai)
 
-| Plugin | Purpose | Database |
-|--------|---------|----------|
-| `apps` | Registry app discovery and metadata | — |
-| `projects` | Projects, ideas, scopes, results CRUD | `PROJECTS_DATABASE_URL` |
-| `builders` | Builder profiles with moderation | `BUILDERS_DATABASE_URL` |
-| `events` | Events with Luma integration and participants | `EVENTS_DATABASE_URL` |
-| `proposals` | Review workflow (propose → approve → reject → remove) | `PROPOSALS_DATABASE_URL` |
-| `votes` | Upvoting with SSE feed | `VOTES_DATABASE_URL` |
-| `notifications` | Per-user notifications with SSE | `NOTIFICATIONS_DATABASE_URL` |
-| `activity` | Activity feed with leaderboard and endorsement scores | `ACTIVITY_DATABASE_URL` |
-| `nearcatalog` | NEAR Catalog search and project claims | `NEARCATALOG_DATABASE_URL` |
+**NEAR AI Cloud** lets you call open models through an OpenAI-compatible API, running inside private, verifiable hardware.
 
-The API plugin receives typed client factories for all other plugins via `createPlugin.withPlugins<PluginsClient>()`, enabling in-process composition without HTTP roundtrips.
+- [Agent skill](https://github.com/near/agent-skills/tree/main/skills/near-ai-cloud): load this into your coding agent to work with NEAR AI Cloud
+- [Models](https://near.ai/models)
 
-The UI accesses plugin routes via namespaced clients: `apiClient.<plugin>.<method>()`.
+To get access:
 
-## Scaffold your own version
+1. [Get an API key](https://cloud.near.ai) from the NEAR AI Cloud dashboard.
+2. Point any OpenAI SDK at the base URL: `https://cloud-api.near.ai/v1`
 
-Use `bos init` to create a child app that extends this runtime:
+### Agentic Commerce
 
-```bash
-bos init your-app.nearbuilders.org \
-  --extends nearbuilding.near/nearbuilders.org \
-  --account your-account.near \
-  --overrides ui \
-  --no-interactive
-```
+Let agents swap, pay and settle across chains through NEAR Intents.
 
-If your installed `bos` version rejects `--no-interactive` or other expected init flags, use one of these fallbacks:
+- [NEAR Intents Docs](https://docs.near-intents.org)
 
-```bash
-bunx everything-dev@latest init your-app.nearbuilders.org
-```
+**Agent Connect** (the NEAR Intents Agent API) gives an AI agent its own account on NEAR Intents, acting within rules its owner signs.
 
-or run `bos init` interactively and answer the prompts.
+- [Agent skill](https://github.com/NEAR-Intents-Agent-API/skills): load this into your coding agent to work with Agent Connect
+- [TypeScript SDK](https://github.com/NEAR-Intents-Agent-API/sdk-typescript)
+- [Demo app](https://github.com/NEAR-Intents-Agent-API/demo)
+- [Examples](https://github.com/NEAR-Intents-Agent-API/examples)
 
-What this gives you:
+To get access:
 
-- a fresh app directory with `bos.config.json`
-- a local `ui/` workspace to customize
-- the shared host, auth, and API inherited from nearbuilders.org
-- the current UI scaffold as a starting point
+1. [Get an API key](https://partners.demo.agentsonintents.com/) from the partner portal.
+2. Point your agent at the base URL: `https://api.demo.agentsonintents.com`
 
-Keep these route boundaries intact:
+### Smart Contracts
 
-- `ui/src/routes/_layout.tsx`
-- `ui/src/routes/_layout/login.tsx`
-- `ui/src/routes/_layout/_authenticated.tsx`
+Write, test and deploy contracts and apps on NEAR Protocol.
 
-## Run locally
+- [NEAR Docs](https://docs.near.org)
 
-```bash
-cp .env.example .env
-docker compose up -d --wait
-bun install
-bun run dev
-```
+**Write a contract**: learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.
 
-Visit http://localhost:3003 (UI), http://localhost:3001 (API).
+- [What is a smart contract](https://docs.near.org/smart-contracts/what-is)
+- [SDK libraries](https://docs.near.org/tools/sdk)
+- [Reference contracts](https://docs.near.org/tools/contracts-list)
+- [Testnet faucet](https://near-faucet.io): get testnet NEAR to deploy and test contracts
 
-Useful variants:
+## Get involved
 
-```bash
-bun run dev:ui     # local UI, remote API
-bun run dev:api    # remote UI, local API
-bos dev --host remote --api remote   # everything remote
-```
+- **Give feedback**: help improve NEAR Builders through the [feedback.nearbuilders.org project](https://nearbuilders.org/projects/project/feedback-nearbuilders-org-ew364z).
+- **Follow activity**: see what builders are shipping at [nearbuilders.org/activity](https://nearbuilders.org/activity), and follow the [activity.nearbuilders.org project](https://nearbuilders.org/projects/project/activity-nearbuilders-org-2erd1k) that powers it.
+- **Share a project**: sign in and add it at [nearbuilders.org/projects/new/project](https://nearbuilders.org/projects/new/project) so other builders can find it, upvote it and join in.
+- **Talk to builders**: join the builder Telegram chat at [t.me/nearbuilderschat](https://t.me/nearbuilderschat).
 
-## Edit the UI
+## Public pages
 
-- main UI code lives in `ui/src/`
-- routes live in `ui/src/routes/`
-- reusable components live in `ui/src/components/`
-- runtime helpers live in `ui/src/app.ts`
-- root document wiring lives in `ui/src/routes/__root.tsx`
-- use semantic Tailwind classes such as `bg-background`, `bg-card`, `text-foreground`, and `text-muted-foreground`
+- [`/`](https://nearbuilders.org/): home
+- [`/build`](https://nearbuilders.org/build): build page with topics and docs
+- [`/join`](https://nearbuilders.org/join): join NEAR Builders
+- [`/builders`](https://nearbuilders.org/builders): builder directory
+- [`/builders/add`](https://nearbuilders.org/builders/add): nominate a builder
+- [`/projects`](https://nearbuilders.org/projects): projects and ideas
+- [`/events`](https://nearbuilders.org/events): events
+- [`/activity`](https://nearbuilders.org/activity): activity feed and [leaderboard](https://nearbuilders.org/activity/leaderboard)
+- [`/about`](https://nearbuilders.org/about): about the platform
+- [`/skill`](https://nearbuilders.org/skill) and [`/skill.md`](https://nearbuilders.org/skill.md): this skill
+- [`/llms.txt`](https://nearbuilders.org/llms.txt) and [`/README.md`](https://nearbuilders.org/README.md): short summaries for agents and people
 
-## Edit the API
+## NEAR Builders API for agents
 
-- contract definitions live in `api/src/contract.ts`
-- route implementations live in `api/src/index.ts`
-- use in UI via `apiClient` from `useApiClient()` in `@/app`
+The data behind these pages is available over HTTP at `https://nearbuilders.org/api`.
 
-## Post-init cleanup for `--overrides ui`
+- **Reference**: interactive docs at [nearbuilders.org/api](https://nearbuilders.org/api) and the OpenAPI spec at [nearbuilders.org/api/spec.json](https://nearbuilders.org/api/spec.json).
+- **Public reads**: for example `GET /api/v1/builders`, `GET /api/v1/builders/{nearAccount}`, `GET /api/v1/projects`, `GET /api/v1/projects/by-slug/{slug}`, `GET /api/v1/events` and `GET /api/v1/activity`.
+- **Writes**: creating or editing projects, profiles and nominations needs the builder to be signed in. A builder can create an API key at [nearbuilders.org/settings/api-keys](https://nearbuilders.org/settings/api-keys) and send it in the `x-api-key` header, but not every write route accepts a key. If a route returns `UNAUTHORIZED`, ask the builder to do that step on the site.
+- **Typed client**: the same procedures are available over oRPC at `https://nearbuilders.org/api/rpc`.
 
-After scaffold:
+Check the spec before calling a route; do not guess paths or fields.
 
-- replace copied showcase routes with your own routes
-- update `README.md`, `AGENTS.md`, and `skill.md` to describe your child app
-- replace placeholder `account`, `domain`, `title`, and `description` in `bos.config.json`
-- keep the shared runtime relationship clear in `bos.config.json`
+## Run or fork NEAR Builders
 
-## Generated types
-
-`api/src/lib/plugins-types.gen.ts`, `api/src/lib/auth-types.gen.ts`, `ui/src/lib/api-types.gen.ts`, and `ui/src/lib/auth-types.gen.ts` are generated by `bos types gen` from `bos.config.json`. These files are gitignored and auto-regenerated on `bun install`, `typecheck`, `bos dev`, `bos build`, and bos plugin management commands.
-
-If you hand-edit `bos.config.json`, run `bos types gen` or restart `bos dev` to regenerate.
-
-## Verify the child app
-
-```bash
-bun run types:gen
-bun run typecheck
-bun run lint
-```
-
-## Publish
-
-```bash
-bos publish --deploy
-bos publish
-```
-
-After `bos publish --deploy`, the `bos.config.json` gets the deployed UI/API URLs and integrity hashes.
-
-## Tenant runtime rules
-
-- publish the base runtime first
-- publish the tenant runtime that extends it
-- use your own NEAR account in `account`
-- keep the same gateway or domain when you want the shared-host tenant model
-- tenant SSR is gated by `TENANT_WHITELIST` unless `ALLOW_UNTRUSTED_SSR=true`
-
-## Host env for fixed-core tenant mode
-
-```bash
-NETWORK_ID=mainnet
-ALLOW_OVERRIDE=ui,plugins.*
-TENANT_WHITELIST=your-account.near
-ALLOW_UNTRUSTED_SSR=false
-```
-
-## IronClaw skills
-
-This repository ships two IronClaw skills in `skills/`:
-
-- **near-builders** — Discover, search, and manage builder profiles
-- **near-projects** — Create, discover, and manage projects and ideas
-
-## Good tasks for an agent
-
-- scaffold a white-label starter app with `bos init --overrides ui`
-- wire new pages into the `_layout` and `_authenticated` route structure
-- add or modify API endpoints in `contract.ts` and `index.ts`
-- publish a tenant UI without changing the shared host
-- debug why a tenant UI override is not loading
-
-## Public entry points
-
-- `/`
-- `/about`
-- `/skill`
-- `/skill.md`
-- `/README.md`
-- `/llms.txt`
-
-## Tone
-
-Prefer runtime-first explanations.
-Treat the project as a living runtime surface, not a fixed demo.
-Keep NEAR and Module Federation context intact.
+To run, fork or contribute to the platform itself, see [Run or fork NEAR Builders](https://github.com/NEARBuilders/nearbuilders.org#run-or-fork-near-builders) in the repository README.

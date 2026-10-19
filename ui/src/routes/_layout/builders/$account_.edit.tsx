@@ -2,7 +2,6 @@ import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags"
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +12,9 @@ import {
   parseBuilderSkills,
 } from "@/components/builder-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({
@@ -43,14 +44,7 @@ function EditBuilderProfilePage() {
   });
   const builder = builderQuery.data?.data;
 
-  const profileQuery = useQuery<Profile | null>({
-    queryKey: ["near-profile", account],
-    queryFn: async () => {
-      const res = await auth.near.getProfile(account);
-      return res.data || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const profileQuery = useQuery(nearProfileOptions(auth, account));
 
   const canEdit = Boolean(nearAccountId) && nearAccountId?.toLowerCase() === account.toLowerCase();
 
@@ -101,7 +95,12 @@ function EditBuilderProfilePage() {
   }
 
   return (
-    <EditForm account={account} builder={builder} socialLinktree={profileQuery.data?.linktree} />
+    <>
+      <div className="mx-auto max-w-2xl px-4 pt-8 sm:px-6">
+        <LegacySocialImportPrompt profile={profileQuery.data} />
+      </div>
+      <EditForm account={account} builder={builder} socialLinktree={profileQuery.data?.linktree} />
+    </>
   );
 }
 

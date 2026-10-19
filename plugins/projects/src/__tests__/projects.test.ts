@@ -30,10 +30,12 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0004_lively_hex.sql",
     "0005_scope_result_mentions.sql",
     "0006_global_project_slugs.sql",
+    "0007_project_logo_url.sql",
+    "0008_project_collaborators.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000,
+    1781818000000, 1781900000000, 1782000000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -173,5 +175,493 @@ describe("projects router visibility", () => {
     expect((await anonymous.getProjectBySlug({ slug: "public-project" })).data.visibility).toBe(
       "public",
     );
+  });
+
+  it("keeps unlisted projects off the directory but readable by link", async () => {
+    const owner = loaded.createClient({
+      userId: "owner-user",
+      near: testNear("owner.near"),
+      user: testUser("owner-user", "member"),
+    });
+    const member = loaded.createClient({
+      userId: "member-user",
+      near: testNear("member.near"),
+      user: testUser("member-user", "member"),
+    });
+    const anonymous = loaded.createClient();
+    const unlisted = await owner.createProject({
+      kind: "idea",
+      title: "Unlisted project",
+      slug: "unlisted-project",
+      content: "Direct link only",
+      visibility: "unlisted",
+    });
+
+    expect((await anonymous.getProjectBySlug({ slug: "unlisted-project" })).data.id).toBe(
+      unlisted.id,
+    );
+    expect((await anonymous.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect((await member.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect((await owner.listProjects({})).data.map((project) => project.id)).not.toContain(
+      unlisted.id,
+    );
+    expect(
+      (await owner.listProjects({ ownerId: "owner.near" })).data.map((project) => project.id),
+    ).toContain(unlisted.id);
+  });
+});
+
+describe("project identity fields", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+
+  const ownerClient = () =>
+    loaded.createClient({
+      userId: "owner-user",
+      near: testNear("owner.near"),
+      user: testUser("owner-user", "member"),
+    });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-identity-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+    const owner = ownerClient();
+    await owner.createProject({
+      kind: "idea",
+      title: "Plain idea",
+      slug: "plain-idea",
+      content: "Idea content",
+      visibility: "public",
+    });
+    await owner.createProject({
+      kind: "project",
+      title: "Hidden product",
+      slug: "hidden-product",
+      repository: "https://github.com/example/hidden",
+      domain: "hidden.example.com",
+      content: "Hidden",
+      visibility: "private",
+    });
+    await owner.createProject({
+      kind: "project",
+      title: "Listed product",
+      slug: "listed-product",
+      repository: "https://github.com/example/listed",
+      domain: "listed.example.com",
+      visibility: "public",
+    });
+    for (let index = 0; index < 30; index += 1) {
+      await owner.createProject({
+        kind: "idea",
+        title: `Batch ${index}`,
+        slug: `batch-${String(index).padStart(2, "0")}`,
+        content: "Batch content",
+        visibility: "public",
+      });
+    }
+  }, 120_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  }, 30_000);
+
+  it("requires a hostname when creating a project and stores it", async () => {
+    const owner = ownerClient();
+    await expect(
+      owner.createProject({
+        kind: "project",
+        title: "Missing domain",
+        slug: "missing-domain",
+        repository: "https://github.com/example/missing",
+      }),
+    ).rejects.toThrow(/domain/i);
+
+    await expect(
+      owner.createProject({
+        kind: "project",
+        title: "Schemed domain",
+        slug: "schemed-domain",
+        repository: "https://github.com/example/schemed",
+        domain: "https://app.example.com/start",
+      }),
+    ).rejects.toThrow(/hostname/i);
+
+    const created = await owner.createProject({
+      kind: "project",
+      title: "Live product",
+      slug: "live-product",
+      repository: "https://github.com/example/live",
+      domain: "app.example.com",
+      logoUrl: "https://cdn.example.com/logo.png",
+    });
+    expect(created).toMatchObject({
+      domain: "app.example.com",
+      logoUrl: "https://cdn.example.com/logo.png",
+    });
+
+    const read = await loaded.createClient().getProject({ id: created.id });
+    expect(read.data).toMatchObject({
+      domain: "app.example.com",
+      logoUrl: "https://cdn.example.com/logo.png",
+    });
+  });
+
+  it("lets ideas omit a domain and keeps a null domain readable", async () => {
+    const idea = await loaded.createClient().getProjectBySlug({ slug: "plain-idea" });
+    expect(idea.data).toMatchObject({ kind: "idea", domain: null, logoUrl: null });
+  });
+
+  it("rejects project updates that would leave the product domain empty", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "project",
+      title: "Editable product",
+      slug: "editable-product",
+      repository: "https://github.com/example/editable",
+      domain: "edit.example.com",
+    });
+
+    await expect(owner.updateProject({ id: created.id, domain: "" })).rejects.toThrow(/domain/i);
+    await expect(
+      owner.updateProject({ id: created.id, domain: "edit.example.com/docs" }),
+    ).rejects.toThrow(/hostname/i);
+
+    const renamed = await owner.updateProject({ id: created.id, title: "Renamed product" });
+    expect(renamed.domain).toBe("edit.example.com");
+  });
+
+  it("round-trips, updates, and clears logo URLs", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Logo idea",
+      slug: "logo-idea",
+      content: "Logo content",
+      logoUrl: "https://cdn.example.com/first.png",
+    });
+    expect(created.logoUrl).toBe("https://cdn.example.com/first.png");
+
+    const updated = await owner.updateProject({
+      id: created.id,
+      logoUrl: "http://cdn.example.com/second.png",
+    });
+    expect(updated.logoUrl).toBe("http://cdn.example.com/second.png");
+
+    const cleared = await owner.updateProject({ id: created.id, logoUrl: "" });
+    expect(cleared.logoUrl).toBeNull();
+    expect((await loaded.createClient().getProject({ id: created.id })).data.logoUrl).toBeNull();
+
+    await expect(
+      owner.updateProject({ id: created.id, logoUrl: "ftp://cdn.example.com/logo.png" }),
+    ).rejects.toThrow(/validation failed/i);
+    await expect(
+      owner.updateProject({
+        id: created.id,
+        logoUrl: `https://cdn.example.com/${"a".repeat(2000)}`,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("returns slug batches in request order and omits unknown or private rows", async () => {
+    const anonymous = loaded.createClient();
+    const owner = ownerClient();
+    const requested = ["batch-02", "missing-slug", "batch-00", "batch-02", "hidden-product"];
+
+    const listed = await anonymous.listProjects({ slugs: ` ${requested.join(", ")} ` });
+    expect(listed.data.map((project) => project.slug)).toEqual(["batch-02", "batch-00"]);
+    expect(listed.meta).toMatchObject({ total: 2, hasMore: false, nextCursor: null });
+
+    const visibleToOwner = await owner.listProjects({
+      slugs: "hidden-product,batch-00",
+    });
+    expect(visibleToOwner.data.map((project) => project.slug)).toEqual([
+      "hidden-product",
+      "batch-00",
+    ]);
+
+    const projectsOnly = await anonymous.listProjects({
+      slugs: "hidden-product,listed-product,batch-00",
+      kind: "project",
+    });
+    expect(projectsOnly.data.map((project) => project.slug)).toEqual(["listed-product"]);
+
+    const ignoredCursor = await anonymous.listProjects({
+      slugs: "batch-01,batch-00",
+      cursor: "100",
+    });
+    expect(ignoredCursor.data.map((project) => project.slug)).toEqual(["batch-01", "batch-00"]);
+  });
+
+  it("rejects invalid slug batches", async () => {
+    const anonymous = loaded.createClient();
+    await expect(anonymous.listProjects({ slugs: "Bad_Slug" })).rejects.toThrow(/slug/i);
+    await expect(
+      anonymous.listProjects({
+        slugs: Array.from({ length: 101 }, (_, index) => `batch-${index}`).join(","),
+      }),
+    ).rejects.toThrow(/100/);
+  });
+
+  it("coerces limit and does not page a slug batch down to 24", async () => {
+    const anonymous = loaded.createClient();
+    const slugs = Array.from(
+      { length: 30 },
+      (_, index) => `batch-${String(index).padStart(2, "0")}`,
+    );
+
+    const all = await anonymous.listProjects({ slugs: slugs.join(",") });
+    expect(all.data).toHaveLength(30);
+    expect(all.meta).toMatchObject({ total: 30, hasMore: false, nextCursor: null });
+    expect(all.data.map((project) => project.slug)).toEqual(slugs);
+
+    const limited = await anonymous.listProjects({ slugs: slugs.join(","), limit: 5 });
+    expect(limited.data).toHaveLength(5);
+    expect(limited.data.map((project) => project.slug)).toEqual(slugs.slice(0, 5));
+    expect(limited.meta).toMatchObject({ total: 30, hasMore: false, nextCursor: null });
+
+    const page = await anonymous.listProjects({ limit: 5 });
+    expect(page.data).toHaveLength(5);
+    expect(page.meta.total).toBeGreaterThan(5);
+
+    const one = await anonymous.listProjects({ limit: 1 });
+    expect(one.data).toHaveLength(1);
+
+    const hundred = await anonymous.listProjects({ limit: 100 });
+    expect(hundred.data.length).toBe(hundred.meta.total);
+    expect(hundred.data.length).toBeLessThanOrEqual(100);
+
+    const coerced = await anonymous.listProjects({ limit: "5" as unknown as number });
+    expect(coerced.data).toHaveLength(5);
+
+    await expect(anonymous.listProjects({ limit: 0 })).rejects.toThrow();
+    await expect(anonymous.listProjects({ limit: -1 })).rejects.toThrow();
+    await expect(anonymous.listProjects({ limit: 101 })).rejects.toThrow();
+    await expect(anonymous.listProjects({ limit: "nope" as unknown as number })).rejects.toThrow();
+  });
+});
+
+describe("project collaborators", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+  let projectId: string;
+
+  const ownerCtx = () => ({
+    userId: "owner-user",
+    near: testNear("owner.near"),
+    user: testUser("owner-user", "member"),
+  });
+  const collabCtx = () => ({
+    userId: "collab-user",
+    near: testNear("bob.near"),
+    user: testUser("collab-user", "member"),
+  });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-collab-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+    const owner = loaded.createClient(ownerCtx());
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Team idea",
+      slug: "team-idea",
+      content: "Team content",
+      visibility: "private",
+      collaborators: ["bob.near"],
+    });
+    projectId = created.id;
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("creates pending invites on create and hides private from others", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const collabs = await owner.listCollaborators({ projectId });
+    expect(collabs.data).toHaveLength(1);
+    expect(collabs.data[0]).toMatchObject({
+      collaboratorOwnerId: "bob.near",
+      status: "pending",
+    });
+
+    const stranger = loaded.createClient({
+      userId: "stranger",
+      near: testNear("stranger.near"),
+      user: testUser("stranger", "member"),
+    });
+    await expect(stranger.getProject({ id: projectId })).rejects.toThrow("Project not found");
+  });
+
+  it("lets invitees accept and then view/edit, and appear via collaborator filter", async () => {
+    const collab = loaded.createClient(collabCtx());
+    const accepted = await collab.respondCollaborator({ projectId, action: "accept" });
+    expect(accepted.status).toBe("accepted");
+
+    expect((await collab.getProject({ id: projectId })).data.id).toBe(projectId);
+
+    const updated = await collab.updateProject({ id: projectId, title: "Team idea v2" });
+    expect(updated.title).toBe("Team idea v2");
+
+    const listed = await collab.listProjects({ collaboratorId: "bob.near" });
+    expect(listed.data.map((p) => p.id)).toContain(projectId);
+
+    await expect(
+      collab.inviteCollaborator({ projectId, collaboratorOwnerId: "carol.near" }),
+    ).rejects.toThrow();
+  });
+
+  it("lets owner remove collaborators and blocks collaborator delete", async () => {
+    const collab = loaded.createClient(collabCtx());
+    await expect(collab.deleteProject({ id: projectId })).rejects.toThrow();
+
+    const owner = loaded.createClient(ownerCtx());
+    const removed = await owner.removeCollaborator({
+      projectId,
+      collaboratorOwnerId: "bob.near",
+    });
+    expect(removed.removed).toBe(true);
+    expect((await owner.listCollaborators({ projectId })).data).toHaveLength(0);
+  });
+
+  it("lets pending invitees view but not edit private projects", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Pending view idea",
+      slug: "pending-view-idea",
+      content: "Pending view content",
+      visibility: "private",
+      collaborators: ["carol.near"],
+    });
+    const carol = loaded.createClient({
+      userId: "carol-user",
+      near: testNear("carol.near"),
+      user: testUser("carol-user", "member"),
+    });
+
+    expect((await carol.getProject({ id: created.id })).data.id).toBe(created.id);
+    await expect(carol.updateProject({ id: created.id, title: "Nope" })).rejects.toThrow(
+      "permission",
+    );
+  });
+
+  it("validates and lowercases collaborator handles", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    await expect(
+      owner.inviteCollaborator({ projectId, collaboratorOwnerId: "not a handle!" }),
+    ).rejects.toThrow("Invalid NEAR handle");
+    await expect(owner.inviteCollaborator({ projectId, collaboratorOwnerId: "x" })).rejects.toThrow(
+      "Invalid NEAR handle",
+    );
+
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Case idea",
+      slug: "case-idea",
+      content: "Case content",
+      visibility: "private",
+      collaborators: ["DAVE.NEAR"],
+    });
+    const collabs = await owner.listCollaborators({ projectId: created.id });
+    expect(collabs.data.map((c) => c.collaboratorOwnerId)).toEqual(["dave.near"]);
+
+    const removed = await owner.removeCollaborator({
+      projectId: created.id,
+      collaboratorOwnerId: "Dave.Near",
+    });
+    expect(removed.removed).toBe(true);
+  });
+
+  it("returns removed:false when nothing was deleted", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const removed = await owner.removeCollaborator({
+      projectId,
+      collaboratorOwnerId: "ghost.near",
+    });
+    expect(removed.removed).toBe(false);
+  });
+
+  it("handles duplicate concurrent invites without errors", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Race idea",
+      slug: "race-idea",
+      content: "Race content",
+      visibility: "private",
+    });
+    const [first, second] = await Promise.all([
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "erin.near" }),
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "erin.near" }),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect((await owner.listCollaborators({ projectId: created.id })).data).toHaveLength(1);
+  });
+
+  it("only shows public collaborator projects to other viewers", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const pub = await owner.createProject({
+      kind: "idea",
+      title: "Shared public idea",
+      slug: "shared-public-idea",
+      content: "Shared public content",
+      visibility: "public",
+      collaborators: ["frank.near"],
+    });
+    const priv = await owner.createProject({
+      kind: "idea",
+      title: "Shared private idea",
+      slug: "shared-private-idea",
+      content: "Shared private content",
+      visibility: "private",
+      collaborators: ["frank.near"],
+    });
+    const frank = loaded.createClient({
+      userId: "frank-user",
+      near: testNear("frank.near"),
+      user: testUser("frank-user", "member"),
+    });
+    await frank.respondCollaborator({ projectId: pub.id, action: "accept" });
+    await frank.respondCollaborator({ projectId: priv.id, action: "accept" });
+
+    const anonymous = loaded.createClient();
+    const seen = await anonymous.listProjects({ collaboratorId: "frank.near" });
+    expect(seen.data.map((p) => p.id)).toContain(pub.id);
+    expect(seen.data.map((p) => p.id)).not.toContain(priv.id);
+
+    const own = await frank.listProjects({ collaboratorId: "frank.near" });
+    expect(own.data.map((p) => p.id)).toEqual(expect.arrayContaining([pub.id, priv.id]));
+  });
+
+  it("lets admins delete projects", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Admin delete idea",
+      slug: "admin-delete-idea",
+      content: "Admin delete content",
+      visibility: "private",
+    });
+    const admin = loaded.createClient({
+      userId: "admin-user",
+      near: testNear("admin.near"),
+      user: testUser("admin-user", "admin"),
+    });
+    await expect(admin.deleteProject({ id: created.id })).resolves.toEqual({ deleted: true });
+    await expect(owner.getProject({ id: created.id })).rejects.toThrow("Project not found");
   });
 });

@@ -17,6 +17,7 @@ import { Route as LayoutLoginRouteImport } from './routes/_layout/login'
 import { Route as LayoutJoinRouteImport } from './routes/_layout/join'
 import { Route as LayoutIronclawRouteImport } from './routes/_layout/ironclaw'
 import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
+import { Route as LayoutBuildRouteImport } from './routes/_layout/build'
 import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
@@ -65,6 +66,7 @@ import { Route as LayoutAuthenticatedDashboardSettingsApiKeysRouteImport } from 
 import { Route as LayoutAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/new'
 import { Route as LayoutAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_layout/_authenticated/_dashboard/organizations/$slug'
 import { Route as LayoutAdminAdminDashboardXNominationsRouteImport } from './routes/_layout/_admin/admin/dashboard/x-nominations'
+import { Route as LayoutAdminAdminDashboardTelegramRouteImport } from './routes/_layout/_admin/admin/dashboard/telegram'
 import { Route as LayoutAdminAdminDashboardProjectsRouteImport } from './routes/_layout/_admin/admin/dashboard/projects'
 import { Route as LayoutAdminAdminDashboardEventsRouteImport } from './routes/_layout/_admin/admin/dashboard/events'
 import { Route as LayoutAdminAdminDashboardBuildersRouteImport } from './routes/_layout/_admin/admin/dashboard/builders'
@@ -107,6 +109,11 @@ const LayoutIronclawRoute = LayoutIronclawRouteImport.update({
 const LayoutEventsRoute = LayoutEventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBuildRoute = LayoutBuildRouteImport.update({
+  id: '/build',
+  path: '/build',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAboutRoute = LayoutAboutRouteImport.update({
@@ -373,6 +380,12 @@ const LayoutAdminAdminDashboardXNominationsRoute =
     path: '/x-nominations',
     getParentRoute: () => LayoutAdminAdminDashboardRoute,
   } as any)
+const LayoutAdminAdminDashboardTelegramRoute =
+  LayoutAdminAdminDashboardTelegramRouteImport.update({
+    id: '/telegram',
+    path: '/telegram',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
 const LayoutAdminAdminDashboardProjectsRoute =
   LayoutAdminAdminDashboardProjectsRouteImport.update({
     id: '/projects',
@@ -401,6 +414,7 @@ const LayoutAdminAdminDashboardActivityRoute =
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
+  '/build': typeof LayoutBuildRoute
   '/events': typeof LayoutEventsRouteWithChildren
   '/ironclaw': typeof LayoutIronclawRoute
   '/join': typeof LayoutJoinRoute
@@ -440,6 +454,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -459,6 +474,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
+  '/build': typeof LayoutBuildRoute
   '/ironclaw': typeof LayoutIronclawRoute
   '/join': typeof LayoutJoinRoute
   '/login': typeof LayoutLoginRoute
@@ -493,6 +509,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -515,6 +532,7 @@ export interface FileRoutesById {
   '/_layout/_admin': typeof LayoutAdminRouteWithChildren
   '/_layout/_authenticated': typeof LayoutAuthenticatedRouteWithChildren
   '/_layout/about': typeof LayoutAboutRoute
+  '/_layout/build': typeof LayoutBuildRoute
   '/_layout/events': typeof LayoutEventsRouteWithChildren
   '/_layout/ironclaw': typeof LayoutIronclawRoute
   '/_layout/join': typeof LayoutJoinRoute
@@ -556,6 +574,7 @@ export interface FileRoutesById {
   '/_layout/_admin/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
   '/_layout/_admin/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/_layout/_admin/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
+  '/_layout/_admin/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
   '/_layout/_admin/admin/dashboard/x-nominations': typeof LayoutAdminAdminDashboardXNominationsRoute
   '/_layout/_authenticated/_dashboard/organizations/$slug': typeof LayoutAuthenticatedDashboardOrganizationsSlugRoute
   '/_layout/_authenticated/_dashboard/organizations/new': typeof LayoutAuthenticatedDashboardOrganizationsNewRoute
@@ -577,6 +596,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/build'
     | '/events'
     | '/ironclaw'
     | '/join'
@@ -616,6 +636,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
+    | '/admin/dashboard/telegram'
     | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -635,6 +656,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/build'
     | '/ironclaw'
     | '/join'
     | '/login'
@@ -669,6 +691,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
+    | '/admin/dashboard/telegram'
     | '/admin/dashboard/x-nominations'
     | '/organizations/$slug'
     | '/organizations/new'
@@ -690,6 +713,7 @@ export interface FileRouteTypes {
     | '/_layout/_admin'
     | '/_layout/_authenticated'
     | '/_layout/about'
+    | '/_layout/build'
     | '/_layout/events'
     | '/_layout/ironclaw'
     | '/_layout/join'
@@ -731,6 +755,7 @@ export interface FileRouteTypes {
     | '/_layout/_admin/admin/dashboard/builders'
     | '/_layout/_admin/admin/dashboard/events'
     | '/_layout/_admin/admin/dashboard/projects'
+    | '/_layout/_admin/admin/dashboard/telegram'
     | '/_layout/_admin/admin/dashboard/x-nominations'
     | '/_layout/_authenticated/_dashboard/organizations/$slug'
     | '/_layout/_authenticated/_dashboard/organizations/new'
@@ -808,6 +833,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof LayoutEventsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/build': {
+      id: '/_layout/build'
+      path: '/build'
+      fullPath: '/build'
+      preLoaderRoute: typeof LayoutBuildRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/about': {
@@ -1146,6 +1178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminAdminDashboardXNominationsRouteImport
       parentRoute: typeof LayoutAdminAdminDashboardRoute
     }
+    '/_layout/_admin/admin/dashboard/telegram': {
+      id: '/_layout/_admin/admin/dashboard/telegram'
+      path: '/telegram'
+      fullPath: '/admin/dashboard/telegram'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardTelegramRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
     '/_layout/_admin/admin/dashboard/projects': {
       id: '/_layout/_admin/admin/dashboard/projects'
       path: '/projects'
@@ -1182,6 +1221,7 @@ interface LayoutAdminAdminDashboardRouteChildren {
   LayoutAdminAdminDashboardBuildersRoute: typeof LayoutAdminAdminDashboardBuildersRoute
   LayoutAdminAdminDashboardEventsRoute: typeof LayoutAdminAdminDashboardEventsRoute
   LayoutAdminAdminDashboardProjectsRoute: typeof LayoutAdminAdminDashboardProjectsRoute
+  LayoutAdminAdminDashboardTelegramRoute: typeof LayoutAdminAdminDashboardTelegramRoute
   LayoutAdminAdminDashboardXNominationsRoute: typeof LayoutAdminAdminDashboardXNominationsRoute
   LayoutAdminAdminDashboardIndexRoute: typeof LayoutAdminAdminDashboardIndexRoute
 }
@@ -1195,6 +1235,8 @@ const LayoutAdminAdminDashboardRouteChildren: LayoutAdminAdminDashboardRouteChil
     LayoutAdminAdminDashboardEventsRoute: LayoutAdminAdminDashboardEventsRoute,
     LayoutAdminAdminDashboardProjectsRoute:
       LayoutAdminAdminDashboardProjectsRoute,
+    LayoutAdminAdminDashboardTelegramRoute:
+      LayoutAdminAdminDashboardTelegramRoute,
     LayoutAdminAdminDashboardXNominationsRoute:
       LayoutAdminAdminDashboardXNominationsRoute,
     LayoutAdminAdminDashboardIndexRoute: LayoutAdminAdminDashboardIndexRoute,
@@ -1364,6 +1406,7 @@ interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutAuthenticatedRoute: typeof LayoutAuthenticatedRouteWithChildren
   LayoutAboutRoute: typeof LayoutAboutRoute
+  LayoutBuildRoute: typeof LayoutBuildRoute
   LayoutEventsRoute: typeof LayoutEventsRouteWithChildren
   LayoutIronclawRoute: typeof LayoutIronclawRoute
   LayoutJoinRoute: typeof LayoutJoinRoute
@@ -1388,6 +1431,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutAuthenticatedRoute: LayoutAuthenticatedRouteWithChildren,
   LayoutAboutRoute: LayoutAboutRoute,
+  LayoutBuildRoute: LayoutBuildRoute,
   LayoutEventsRoute: LayoutEventsRouteWithChildren,
   LayoutIronclawRoute: LayoutIronclawRoute,
   LayoutJoinRoute: LayoutJoinRoute,

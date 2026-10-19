@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { activityFeedWithProfilesQueryOptions } from "@/lib/queries/activity";
+import { activityFeedWithProfilesQueryOptions, SELF_REPORTED_SOURCE } from "@/lib/queries/activity";
 import { catalogClaimProposalsQueryOptions } from "@/lib/queries/catalog";
 
 type ActivitySubmission = {
@@ -129,6 +129,10 @@ function ProfileActivityPage() {
 
   const tags = parseSkills(useStore(form.store, (s) => s.values.tags ?? ""));
   const feedFilters = useMemo(() => ({ actor: nearAccountId ?? "" }), [nearAccountId]);
+  const uploadFilters = useMemo(
+    () => ({ actor: nearAccountId ?? "", source: SELF_REPORTED_SOURCE }),
+    [nearAccountId],
+  );
 
   if (!nearAccountId) {
     return (
@@ -327,11 +331,27 @@ function ProfileActivityPage() {
             </div>
           </form>
 
-          <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">Recent activity</h2>
+          <h2 className="mb-1 text-xl font-bold tracking-tight text-foreground">
+            Your self-reported uploads
+          </h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            These are not verified, so they stay off the public feed, builder profiles, and
+            leaderboards.
+          </p>
+          <TooltipProvider>
+            <ActivityFeed
+              filters={uploadFilters}
+              emptyHint="Submit your first contribution using the form above."
+            />
+          </TooltipProvider>
+
+          <h2 className="mt-10 mb-4 text-xl font-bold tracking-tight text-foreground">
+            Verified activity
+          </h2>
           <TooltipProvider>
             <ActivityFeed
               filters={feedFilters}
-              emptyHint="Submit your first contribution using the form above."
+              emptyHint="Approved projects, claims, and activity from connected apps appear here."
             />
           </TooltipProvider>
         </TabsContent>

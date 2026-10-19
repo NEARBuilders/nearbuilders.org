@@ -2,7 +2,6 @@ import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags"
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import type { Profile } from "better-near-auth";
 import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -12,12 +11,16 @@ import {
   type BuilderFormValues,
   parseBuilderSkills,
 } from "@/components/builder-form";
+import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import type { ResolvedNearProfile } from "@/lib/near-social";
 import {
   initializeNominationToken,
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
 } from "@/lib/nomination-token";
+import { nearProfileOptions } from "@/lib/queries/builders";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 type NominationStatus = "ready" | "submitted" | "invalid" | "error";
@@ -34,6 +37,11 @@ type NominationReferralContext = {
   nominatorXUsername: string;
   nomineeXId: string;
   nomineeXUsername: string;
+};
+
+type ProfileSubmission = {
+  nominationAttached: boolean;
+  nominationSource?: NominationSource;
 };
 
 type JoinSearch = {
@@ -71,6 +79,7 @@ function JoinPage() {
   const [nearPending, setNearPending] = useState(false);
   const [nominationToken, setNominationToken] = useState<string | null>(null);
   const [nominationInitialized, setNominationInitialized] = useState(false);
+  const [submission, setSubmission] = useState<ProfileSubmission | null>(null);
 
   useEffect(() => {
     const state = initializeNominationToken(
@@ -81,7 +90,7 @@ function JoinPage() {
       sessionStorage.setItem(NOMINATION_STORAGE_KEY, state.capturedToken);
     }
     if (state.shouldCleanUrl) {
-      void navigate({ to: "/join", search: {}, replace: true });
+      void navigate({ to: JOIN_PATH, search: {}, replace: true });
     }
     setNominationToken(state.token);
     setNominationInitialized(true);
@@ -141,14 +150,9 @@ function JoinPage() {
     retry: false,
   });
 
-  const profileQuery = useQuery<Profile | null>({
-    queryKey: ["near-profile", nearAccountId],
-    queryFn: async () => {
-      const response = await auth.near.getProfile(nearAccountId!);
-      return response.data || null;
-    },
+  const profileQuery = useQuery({
+    ...nearProfileOptions(auth, nearAccountId ?? ""),
     enabled: flowReady && isSignedIn && Boolean(nearAccountId),
-    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -179,6 +183,15 @@ function JoinPage() {
       setNearPending(false);
     }
   };
+
+  if (submission) {
+    return (
+      <ProfileSubmitted
+        nominationAttached={submission.nominationAttached}
+        nominationSource={submission.nominationSource}
+      />
+    );
+  }
 
   if (!nominationInitialized || (nominationToken && nominationQuery.isLoading)) {
     return <LoadingState />;
@@ -248,11 +261,7 @@ function JoinPage() {
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           A builder profile for {nearAccountId} has already been submitted.
         </p>
-        <Button asChild variant="outline" size="lg" className="mt-8 w-full rounded-full">
-          <Link to="/builders" search={undefined}>
-            Browse builders
-          </Link>
-        </Button>
+        <JoinNextSteps />
       </JoinShell>
     );
   }
@@ -266,6 +275,7 @@ function JoinPage() {
       nominationStatus={nominationStatus}
       nominationSource={nominationSource}
       referralContext={referralContext}
+      onSubmitted={() => setSubmission({ nominationAttached, nominationSource })}
     />
   );
 }
@@ -278,17 +288,18 @@ function BuilderProfileForm({
   nominationStatus,
   nominationSource,
   referralContext,
+  onSubmitted,
 }: {
   accountId: string;
-  socialProfile: Profile | null | undefined;
+  socialProfile: ResolvedNearProfile | null | undefined;
   apiClient: ReturnType<typeof useApiClient>;
   nominationToken: string | null;
   nominationStatus?: NominationStatus;
   nominationSource?: NominationSource;
   referralContext?: NominationReferralContext;
+  onSubmitted: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [submitted, setSubmitted] = useState(false);
   const nominationAttached = Boolean(nominationToken);
 
   const mutation = useMutation({
@@ -303,7 +314,7 @@ function BuilderProfileForm({
       }),
     onSuccess: async () => {
       sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
-      setSubmitted(true);
+      onSubmitted();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
         queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
@@ -336,29 +347,6 @@ function BuilderProfileForm({
     },
   });
 
-  if (submitted) {
-    return (
-      <JoinShell>
-        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">
-          <Check className="size-6 text-brand-green" />
-        </div>
-        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
-          Profile submitted
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          {nominationAttached
-            ? `Your ${nominationSource === "x" ? "X" : "Telegram"} nomination and builder profile are now pending admin review.`
-            : "Your builder profile is now pending admin review."}
-        </p>
-        <Button asChild size="lg" className="mt-8 w-full rounded-full font-bold">
-          <Link to="/builders" search={undefined}>
-            Browse builders
-          </Link>
-        </Button>
-      </JoinShell>
-    );
-  }
-
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6">
       <div className="mb-8">
@@ -373,6 +361,7 @@ function BuilderProfileForm({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Complete the details that will be reviewed for the NEAR Builders directory.
         </p>
+        <LegacySocialImportPrompt profile={socialProfile} className="mt-5" />
       </div>
 
       <form
@@ -408,6 +397,44 @@ function BuilderProfileForm({
           </form.Subscribe>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ProfileSubmitted({
+  nominationAttached,
+  nominationSource,
+}: {
+  nominationAttached: boolean;
+  nominationSource?: NominationSource;
+}) {
+  return (
+    <JoinShell>
+      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">
+        <Check className="size-6 text-brand-green" />
+      </div>
+      <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">Profile submitted</h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        {nominationAttached
+          ? `Your ${nominationSource === "x" ? "X" : "Telegram"} nomination and builder profile are now pending admin review.`
+          : "Your builder profile is now pending admin review."}
+      </p>
+      <JoinNextSteps />
+    </JoinShell>
+  );
+}
+
+function JoinNextSteps() {
+  return (
+    <div className="mt-8 flex flex-col gap-3">
+      <Button asChild size="lg" className="w-full rounded-full font-bold">
+        <Link to={BUILD_PAGE_PATH}>Start building</Link>
+      </Button>
+      <Button asChild variant="outline" size="lg" className="w-full rounded-full">
+        <Link to="/builders" search={undefined}>
+          Browse builders
+        </Link>
+      </Button>
     </div>
   );
 }

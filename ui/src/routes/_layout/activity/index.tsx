@@ -16,19 +16,14 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { activityFeedWithProfilesQueryOptions } from "@/lib/queries/activity";
 
-type SourceFilter = "all" | "manual" | "nearcatalog";
-type TypeFilter = "all" | "upload" | "claim";
+type SourceFilter = "all" | "projects" | "builders" | "events" | "nearcatalog";
 
 const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "manual", label: "Manual" },
-  { value: "nearcatalog", label: "NearCatalog" },
-];
-
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "upload", label: "Upload" },
-  { value: "claim", label: "Claim" },
+  { value: "projects", label: "Projects" },
+  { value: "builders", label: "Builders" },
+  { value: "events", label: "Events" },
+  { value: "nearcatalog", label: "NEAR Catalog" },
 ];
 
 export const Route = createFileRoute("/_layout/activity/")({
@@ -56,16 +51,9 @@ function ActivityPage() {
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
   const [source, setSource] = useState<SourceFilter>("all");
-  const [type, setType] = useState<TypeFilter>("all");
   const [sort, setSort] = useState<ActivitySort>("recent");
 
-  const filters = useMemo(
-    () => ({
-      source: source === "all" ? undefined : source,
-      type: type === "all" ? undefined : type,
-    }),
-    [source, type],
-  );
+  const filters = useMemo(() => ({ source: source === "all" ? undefined : source }), [source]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
@@ -103,15 +91,6 @@ function ActivityPage() {
             value={source}
             onChange={setSource}
             ariaLabel="Activity source"
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Type</span>
-          <SegmentedFilter
-            options={TYPE_OPTIONS}
-            value={type}
-            onChange={setType}
-            ariaLabel="Activity type"
           />
         </div>
         <Select value={sort} onValueChange={(v) => setSort(v as ActivitySort)}>

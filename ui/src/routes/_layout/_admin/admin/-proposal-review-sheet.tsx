@@ -14,6 +14,7 @@ import {
   Loader2,
   RotateCcw,
   Send,
+  Sparkles,
   UserRound,
   X,
   XCircle,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { isSafeImageUrl } from "@/lib/image-url";
 import { cn } from "@/lib/utils";
 import {
   formatAuditAction,
@@ -52,10 +54,11 @@ import {
   readString,
   readStringArray,
 } from "./-proposal-dashboard";
+import { EvaluationPanel } from "./-proposal-evaluation";
 import { ProposalStatusBadge } from "./-proposal-table";
 
 type CatalogProject = Awaited<ReturnType<ApiClient["getCatalogProject"]>>["data"];
-type AdminAction = "approve" | "reject" | "reopen" | "remove";
+type AdminAction = "approve" | "reject" | "reopen" | "remove" | "dismiss";
 
 function getCategoryLabel(pluginId: string) {
   if (pluginId === "builders") return "Builder proposal";
@@ -351,13 +354,22 @@ function ProposalContent({
   const ownerId = readString(payload.ownerId) ?? proposal.createdBy;
   const slug = readString(payload.slug);
   const domain = readString(payload.domain);
+  const logoUrl = readString(payload.logoUrl);
   return (
     <div className="space-y-4">
       <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
         <MetadataItem label="Owner" value={ownerId} mono />
         {slug && <MetadataItem label="Slug" value={slug} mono />}
         {domain && <MetadataItem label="Domain" value={domain} mono />}
+        {logoUrl && <MetadataItem label="Logo" value={logoUrl} mono />}
       </div>
+      {isSafeImageUrl(logoUrl) && (
+        <img
+          src={logoUrl}
+          alt=""
+          className="size-12 rounded-md border border-border object-cover"
+        />
+      )}
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary" className="capitalize">
           {kind}
@@ -660,6 +672,7 @@ export function ProposalReviewSheet({
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
   const [confirmingRemoval, setConfirmingRemoval] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [copiedReference, setCopiedReference] = useState(false);
@@ -683,6 +696,7 @@ export function ProposalReviewSheet({
   useEffect(() => {
     if (!itemKey) return;
     setRejecting(false);
+    setDismissing(false);
     setConfirmingRemoval(false);
     setRejectionReason("");
     setCopiedReference(false);
@@ -739,6 +753,9 @@ export function ProposalReviewSheet({
       if (action === "reject") {
         return apiClient.reject({ ...input, reason: rejectionReason.trim() || undefined });
       }
+      if (action === "dismiss") {
+        return apiClient.dismissFailure({ ...input, reason: rejectionReason.trim() || undefined });
+      }
       if (action === "reopen") return apiClient.reopen(input);
       return apiClient.remove(input);
     },
@@ -748,9 +765,11 @@ export function ProposalReviewSheet({
         reject: `${title} rejected`,
         reopen: `${title} reopened`,
         remove: `${title} approval revoked`,
+        dismiss: `${title} dismissed`,
       };
       toast.success(messages[action]);
       setRejecting(false);
+      setDismissing(false);
       setConfirmingRemoval(false);
       setRejectionReason("");
       await refreshProposalState();
@@ -922,6 +941,16 @@ export function ProposalReviewSheet({
                 </div>
               )}
 
+              {proposal.reviewStatus === "pending" && (
+                <DetailSection
+                  icon={<Sparkles className="size-4" />}
+                  title="Automatic evaluation"
+                  description="Advisory checks and an AI assessment. Decisions stay with admins."
+                >
+                  <EvaluationPanel proposal={proposal} />
+                </DetailSection>
+              )}
+
               <DetailSection
                 icon={<ClipboardList className="size-4" />}
                 title="Record"
@@ -996,6 +1025,48 @@ export function ProposalReviewSheet({
                       </Button>
                     </div>
                   </div>
+                ) : dismissing ? (
+                  <div className="w-full space-y-3">
+                    <div>
+                      <Label htmlFor="admin-dismissal-reason">Dismiss this failure?</Label>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Nothing was published, so nothing is removed. The record moves to Rejected
+                        and can be reopened later. The submitter is not notified, but can see the
+                        note as the rejection reason.
+                      </p>
+                    </div>
+                    <Textarea
+                      id="admin-dismissal-reason"
+                      value={rejectionReason}
+                      onChange={(event) => setRejectionReason(event.target.value)}
+                      placeholder="Note (optional)"
+                      maxLength={1000}
+                      rows={3}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDismissing(false)}
+                        disabled={isBusy}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => actionMutation.mutate("dismiss")}
+                        disabled={isBusy}
+                      >
+                        {actionMutation.variables === "dismiss" && isBusy ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Archive />
+                        )}
+                        Confirm dismissal
+                      </Button>
+                    </div>
+                  </div>
                 ) : confirmingRemoval ? (
                   <div className="w-full space-y-3">
                     <div>
@@ -1038,6 +1109,17 @@ export function ProposalReviewSheet({
                         >
                           <X />
                           Reject
+                        </Button>
+                      )}
+                      {canRetryApplication && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDismissing(true)}
+                          disabled={isBusy}
+                        >
+                          <Archive />
+                          Dismiss
                         </Button>
                       )}
                       {proposal.reviewStatus === "pending" || canRetryApplication ? (

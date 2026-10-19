@@ -6,7 +6,7 @@ import { z } from "every-plugin/zod";
 import { type ActivityEventSchema, contract } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import { ContextSchema } from "./lib/context";
-import { ActivityService, ActivityServiceLive } from "./services/activity";
+import { ActivityService, ActivityServiceLive, SELF_REPORTED_SOURCE } from "./services/activity";
 import {
   ActivityGatewayWorker,
   createActivityGatewayMethods,
@@ -14,6 +14,17 @@ import {
   type GatewayMode,
 } from "./services/activity-gateway";
 import { createActivityImportMethods } from "./services/activity-import";
+import {
+  createActivityReaderClient,
+  createSharedActivityStream,
+  DEFAULT_ACTIVITY_API_URL,
+  isPubliclyVisible,
+  NEARBUILDERS_SOURCE,
+  toActivityEvent,
+  toActivityQuery,
+  withReadCache,
+} from "./services/activity-reader";
+import { createActivityRegistrationClient } from "./services/activity-registration";
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 
@@ -62,6 +73,7 @@ export default createPlugin({
     ACTIVITY_DATABASE_URL: z.string().default("pglite:.bos/activity/:memory:"),
     ACTIVITY_GATEWAY_URL: z.string().optional(),
     ACTIVITY_GATEWAY_API_KEY: z.string().optional(),
+    ACTIVITY_SOURCE_ID: z.string().default("nearbuilders"),
   }),
 
   context: ContextSchema,
@@ -86,9 +98,32 @@ export default createPlugin({
       const gatewayWorker = new ActivityGatewayWorker(gateway);
       if (gatewayClient) gatewayWorker.start();
       const historyImport = createActivityImportMethods(database, gateway);
+      const reader = withReadCache(
+        createActivityReaderClient({ baseUrl: gatewayUrl || DEFAULT_ACTIVITY_API_URL }),
+      );
+      const liveStream = createSharedActivityStream(reader);
+      const registration =
+        gatewayUrl && gatewayApiKey
+          ? createActivityRegistrationClient({
+              baseUrl: gatewayUrl,
+              apiKey: gatewayApiKey,
+              reader,
+            })
+          : null;
+      const ownSource = config.secrets.ACTIVITY_SOURCE_ID.trim() || NEARBUILDERS_SOURCE;
 
       console.log("[Activity] Services Initialized");
-      return { activity, publisher, gateway, gatewayWorker, historyImport };
+      return {
+        activity,
+        publisher,
+        gateway,
+        gatewayWorker,
+        historyImport,
+        registration,
+        reader,
+        liveStream,
+        ownSource,
+      };
     }),
 
   shutdown: (services) =>
@@ -114,7 +149,55 @@ export default createPlugin({
       return next({ context });
     });
 
+    /** Activity is the source of reads; only self-reported uploads stay in this plugin's store. */
+    const fromActivity = async <T>(read: () => Promise<T>): Promise<T> => {
+      try {
+        return await read();
+      } catch (error) {
+        console.error("[Activity] Read from activity.nearbuilders.org failed", error);
+        throw new ORPCError("SERVICE_UNAVAILABLE", {
+          message: "Activity is unavailable right now. Try again shortly.",
+        });
+      }
+    };
+
     return {
+      startActivityRegistration: builder.startActivityRegistration
+        .use(requireAuth)
+        .handler(async ({ input }) => {
+          if (!services.registration) {
+            throw new ORPCError("SERVICE_UNAVAILABLE", {
+              message: "Activity registration is not configured",
+            });
+          }
+          return services.registration.startSession(input);
+        }),
+
+      getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {
+        if (!services.registration) {
+          return {
+            status: "none" as const,
+            sourceId: null,
+            displayName: null,
+            reviewReason: null,
+            activityUrl: "https://activity.nearbuilders.org",
+          };
+        }
+        return services.registration.projectStatus(input.projectId);
+      }),
+
+      getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {
+        if (!services.registration) return { events: [], nextCursor: null };
+        return services.registration.projectEvents(input.projectId, input.cursor);
+      }),
+
+      getProjectActivityContributors: builder.getProjectActivityContributors.handler(
+        async ({ input }) => {
+          if (!services.registration) return [];
+          return services.registration.projectContributors(input.projectId);
+        },
+      ),
+
       emitActivity: builder.emitActivity.use(requireAuth).handler(async ({ input, context }) => {
         const actor = context.near?.primaryAccountId;
         if (!actor) {
@@ -152,6 +235,7 @@ export default createPlugin({
               }),
             );
           }
+          services.reader.clear();
 
           await services.publisher.publish("activity", event);
           return event;
@@ -185,6 +269,7 @@ export default createPlugin({
             }),
           );
         }
+        services.reader.clear();
 
         await services.publisher.publish("activity", event);
         return event;
@@ -206,6 +291,10 @@ export default createPlugin({
         return services.gateway.status();
       }),
 
+      redateActivityHistory: builder.redateActivityHistory
+        .use(requireAdmin)
+        .handler(async ({ input }) => services.gateway.redate({ dryRun: input.dryRun })),
+
       importActivityHistory: builder.importActivityHistory
         .use(requireAdmin)
         .handler(async ({ input }) =>
@@ -217,7 +306,29 @@ export default createPlugin({
         ),
 
       getActivityFeed: builder.getActivityFeed.handler(async ({ input }) => {
-        return await runEffect(services.activity.getActivityFeed(input));
+        if (input.source === SELF_REPORTED_SOURCE) {
+          return await runEffect(services.activity.getActivityFeed(input));
+        }
+        const query = toActivityQuery(input, services.ownSource);
+        if (!query) return { data: [], meta: { total: 0, hasMore: false, nextCursor: null } };
+        const page = await fromActivity(() =>
+          services.reader.listEvents({
+            ...query,
+            limit: Math.min(input.limit ?? 50, 100),
+            cursor: input.cursor,
+          }),
+        );
+        const visible = page.data.filter((event) => isPubliclyVisible(event, services.ownSource));
+        const legacyIds = await services.gateway.legacyIdsFor(visible.map(({ id }) => id));
+        const data = visible.map((event) => toActivityEvent(event, legacyIds, services.ownSource));
+        return {
+          data,
+          meta: {
+            total: data.length,
+            hasMore: page.nextCursor !== null,
+            nextCursor: page.nextCursor,
+          },
+        };
       }),
 
       subscribeActivity: builder.subscribeActivity.handler(async function* ({
@@ -225,17 +336,40 @@ export default createPlugin({
         signal,
         lastEventId,
       }) {
-        const iterator = services.publisher.subscribe("activity", { signal, lastEventId });
-        for await (const event of iterator) {
-          if (input.source && event.source !== input.source) continue;
-          if (input.type && event.type !== input.type) continue;
-          if (input.actor && event.actor !== input.actor) continue;
-          yield event;
+        if (input.source === SELF_REPORTED_SOURCE) {
+          const iterator = services.publisher.subscribe("activity", { signal, lastEventId });
+          for await (const event of iterator) {
+            if (event.source !== SELF_REPORTED_SOURCE) continue;
+            if (input.actor && event.actor !== input.actor) continue;
+            yield event;
+          }
+          return;
+        }
+        const query = toActivityQuery(input, services.ownSource);
+        if (!query) return;
+        for await (const event of services.liveStream.subscribe({ signal })) {
+          if (query.source && event.source !== query.source) continue;
+          if (query.type && event.type !== query.type) continue;
+          if (query.actor && event.actor !== query.actor) continue;
+          if (!isPubliclyVisible(event, services.ownSource)) continue;
+          const legacyIds = await services.gateway.legacyIdsFor([event.id]);
+          yield toActivityEvent(event, legacyIds, services.ownSource);
         }
       }),
 
       getLeaderboard: builder.getLeaderboard.handler(async ({ input }) => {
-        return await runEffect(services.activity.getLeaderboard(input));
+        const entries = await fromActivity(() =>
+          services.reader.leaderboard({
+            period: input.period,
+            limit: Math.min(input.limit ?? 50, 100),
+          }),
+        );
+        return entries.map((entry) => ({
+          actor: entry.actor,
+          eventCount: entry.eventCount,
+          endorsementScore: entry.score,
+          topSources: [...new Set(entry.breakdown.map(({ source }) => source))],
+        }));
       }),
     };
   },

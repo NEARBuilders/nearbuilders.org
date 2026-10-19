@@ -25,10 +25,19 @@ import { NewBadge } from "@/components/common/new-badge";
 import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import { VoteButton } from "@/components/common/vote-button";
 import { NostrFeed } from "@/components/nostr-feed";
+import {
+  ProjectActivityAction,
+  ProjectActivityBadge,
+  ProjectActivityRejected,
+} from "@/components/project-activity";
+import { ProjectActivityFeed } from "@/components/project-activity-feed";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { isSafeImageUrl } from "@/lib/image-url";
+import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -110,6 +119,16 @@ function isCurrentUserOwner(
   return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
+function isCurrentUserCollaborator(
+  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
+  user: { id?: string | null; walletAddress?: string | null } | null | undefined,
+  nearAccountId?: string | null,
+) {
+  if (!collaborators) return false;
+  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
+  return collaborators.some((c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId));
+}
+
 function ProjectDetailPage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
@@ -132,6 +151,12 @@ function ProjectDetailPage() {
 
   const project = projectQuery.data?.data;
   const projectId = project?.id;
+  const projectSocialAccount =
+    resolveProjectNearAccount({
+      ownerId: project?.ownerId,
+      apps: (project as { apps?: Array<{ accountId: string }> } | undefined)?.apps,
+    }) ?? "";
+  const { data: projectSocialProfile } = useQuery(nearProfileOptions(auth, projectSocialAccount));
   const canParticipate = Boolean(session?.user && !session.user.isAnonymous);
 
   const readmeQuery = useQuery({
@@ -264,7 +289,13 @@ function ProjectDetailPage() {
   const effectiveUpdatedAt =
     mostRecentIsoDate(project.updatedAt, lastCommitQuery.data) ?? project.updatedAt;
   const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
-  const canManage = isOwner;
+  const isAdmin = session?.user?.role === "admin";
+  const collaborators =
+    (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+      .collaborators ?? [];
+  const acceptedCollaborators = collaborators.filter((c) => c.status === "accepted");
+  const isCollaborator = isCurrentUserCollaborator(collaborators, session?.user, nearAccountId);
+  const canManage = isOwner || isCollaborator;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
   const voteCountAvailable = !upvoteCountQuery.isLoading && !upvoteCountQuery.isError;
   const voteDirection = userVoteQuery.data ?? null;
@@ -274,6 +305,9 @@ function ProjectDetailPage() {
       ? project.content
       : (readmeQuery.data ?? project.description ?? null);
   const readmeUnavailable = project.kind === "project" && readmeQuery.isError && !readmeQuery.data;
+  const projectImageUrl = isSafeImageUrl(project.logoUrl)
+    ? project.logoUrl
+    : getNearSocialAvatarUrl(projectSocialProfile);
 
   const metaItems = (
     <div className="space-y-4">
@@ -287,6 +321,23 @@ function ProjectDetailPage() {
         value={shortenId(project.ownerId)}
         mono
       />
+      {acceptedCollaborators.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-semibold text-muted-foreground">Collaborators</div>
+          <div className="flex flex-wrap gap-1.5">
+            {acceptedCollaborators.map((c) => (
+              <Link
+                key={c.collaboratorOwnerId}
+                to="/builders/$account"
+                params={{ account: c.collaboratorOwnerId }}
+                className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted"
+              >
+                {shortenId(c.collaboratorOwnerId)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       <MetaItem label="Slug" value={project.slug} mono />
       {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
       <MetaItem label="Created" value={formatDate(project.createdAt)} />
@@ -366,6 +417,8 @@ function ProjectDetailPage() {
                 <Info size={15} />
               </Button>
 
+              <ProjectActivityAction project={project} isOwner={isOwner} />
+
               {canManage && (
                 <>
                   <Button asChild size="sm" variant="outline">
@@ -378,18 +431,20 @@ function ProjectDetailPage() {
                       <span className="hidden sm:inline">Edit</span>
                     </Link>
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-                    }}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 size={13} />
-                    <span className="hidden sm:inline">Delete</span>
-                  </Button>
+                  {(isOwner || isAdmin) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (confirm("Delete this project permanently?")) deleteMutation.mutate();
+                      }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 size={13} />
+                      <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -402,13 +457,22 @@ function ProjectDetailPage() {
           <div className="min-w-0">
             <div className="mx-auto max-w-4xl space-y-6">
               <ProjectReviewStatus projectId={project.id} visible={isOwner} />
+              <ProjectActivityRejected projectId={project.id} visible={isOwner} />
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <KindChip kind={project.kind} />
                   <StatusChip status={project.status} />
+                  <ProjectActivityBadge projectId={project.id} />
                   <NewBadge createdAt={project.createdAt} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  {projectImageUrl && (
+                    <img
+                      src={projectImageUrl}
+                      alt=""
+                      className="size-12 shrink-0 rounded-md border border-border object-cover"
+                    />
+                  )}
                   <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
                     {project.title}
                   </h1>
@@ -423,6 +487,15 @@ function ProjectDetailPage() {
                   <p className="text-xs text-muted-foreground">
                     Link an identity to endorse entries.
                   </p>
+                )}
+                {project.domain && (
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <a href={`https://${project.domain}`} target="_blank" rel="noopener noreferrer">
+                      <Globe size={13} />
+                      <span className="max-w-55 truncate">{project.domain}</span>
+                      <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
+                    </a>
+                  </Button>
                 )}
                 {project.repository && (
                   <Button asChild size="sm" variant="outline" className="w-fit">
@@ -486,7 +559,16 @@ function ProjectDetailPage() {
                 </div>
               </section>
 
+              <ProjectActivityFeed projectId={project.id} />
+
               <NostrFeed target={project.slug} targetType={project.kind} requireBound />
+
+              <CollaboratorsSection
+                projectId={project.id}
+                ownerId={project.ownerId}
+                isOwner={isOwner}
+                canManage={canManage}
+              />
 
               {(project.kind === "scope" || project.kind === "result") && (
                 <MentionsSection projectId={project.id} />
@@ -564,6 +646,184 @@ function KindChip({ kind }: { kind: "project" | "idea" | "scope" | "result" }) {
       {icons[kind]}
       {kind}
     </span>
+  );
+}
+
+function CollaboratorsSection({
+  projectId,
+  ownerId,
+  isOwner,
+  canManage,
+}: {
+  projectId: string;
+  ownerId: string;
+  isOwner: boolean;
+  canManage: boolean;
+}) {
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const queryClient = useQueryClient();
+  const nearAccountId = auth.near.getAccountId();
+  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const [inviteHandle, setInviteHandle] = useState("");
+
+  const collaboratorsQuery = useQuery({
+    queryKey: ["project-collaborators", projectId],
+    queryFn: () => apiClient.listCollaborators({ projectId }),
+  });
+
+  const collaborations = collaboratorsQuery.data?.data ?? [];
+  const myIds = [
+    nearAccountId,
+    (session?.user as { walletAddress?: string } | undefined)?.walletAddress,
+    session?.user?.id,
+  ].filter(Boolean) as string[];
+  const myPending = collaborations.find(
+    (c) => c.status === "pending" && myIds.includes(c.collaboratorOwnerId),
+  );
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["project-collaborators", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["project"] });
+    queryClient.invalidateQueries({ queryKey: ["projects"] });
+    queryClient.invalidateQueries({ queryKey: ["collaborations"] });
+  };
+
+  const inviteMutation = useMutation({
+    mutationFn: (handle: string) =>
+      apiClient.inviteCollaborator({ projectId, collaboratorOwnerId: handle.trim() }),
+    onSuccess: () => {
+      toast.success("Collaborator invited");
+      setInviteHandle("");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to invite"),
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: (action: "accept" | "decline") =>
+      apiClient.respondCollaborator({ projectId, action }),
+    onSuccess: (_, action) => {
+      toast.success(action === "accept" ? "Invitation accepted" : "Invitation declined");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to respond"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (handle: string) =>
+      apiClient.removeCollaborator({ projectId, collaboratorOwnerId: handle }),
+    onSuccess: () => {
+      toast.success("Collaborator removed");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to remove"),
+  });
+
+  if (collaborations.length === 0 && !isOwner) return null;
+
+  return (
+    <section
+      className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+      aria-label="Collaborators"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-bold text-foreground">Collaborators</h2>
+        <span className="text-xs text-muted-foreground">{collaborations.length}</span>
+      </div>
+      {myPending && (
+        <div className="mt-3 rounded-xl border border-brand-accent/40 bg-brand-accent-light p-3">
+          <p className="text-xs font-semibold text-foreground">
+            You were invited to collaborate on this project.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => respondMutation.mutate("accept")}
+              disabled={respondMutation.isPending}
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => respondMutation.mutate("decline")}
+              disabled={respondMutation.isPending}
+            >
+              Decline
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2">
+          <Link
+            to="/builders/$account"
+            params={{ account: ownerId }}
+            className="truncate font-mono text-xs font-semibold text-foreground hover:underline"
+          >
+            {ownerId}
+          </Link>
+          <span className="shrink-0 text-2xs font-bold uppercase tracking-wide text-muted-foreground">
+            Owner
+          </span>
+        </div>
+        {collaborations.map((c) => {
+          const canRemove = isOwner || myIds.includes(c.collaboratorOwnerId);
+          return (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+            >
+              <Link
+                to="/builders/$account"
+                params={{ account: c.collaboratorOwnerId }}
+                className="min-w-0 truncate font-mono text-xs font-semibold text-foreground hover:underline"
+              >
+                {c.collaboratorOwnerId}
+              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-2xs font-semibold text-muted-foreground">{c.status}</span>
+                {canRemove && canManage && (
+                  <button
+                    type="button"
+                    onClick={() => removeMutation.mutate(c.collaboratorOwnerId)}
+                    disabled={removeMutation.isPending}
+                    className="text-2xs font-semibold text-destructive hover:underline disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {isOwner && (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (inviteHandle.trim()) inviteMutation.mutate(inviteHandle);
+          }}
+        >
+          <input
+            value={inviteHandle}
+            onChange={(e) => setInviteHandle(e.target.value)}
+            placeholder="Invite by handle, e.g. bob.near"
+            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 font-mono text-xs text-foreground outline-none focus:border-brand-accent"
+            aria-label="Invite collaborator"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!inviteHandle.trim() || inviteMutation.isPending}
+          >
+            Invite
+          </Button>
+        </form>
+      )}
+    </section>
   );
 }
 

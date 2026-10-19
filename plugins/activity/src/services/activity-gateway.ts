@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
+import type { z } from "every-plugin/zod";
+import {
+  ActivityGatewayModeSchema,
+  type ActivityGatewayStatusSchema,
+  type ActivityRedatePlanSchema,
+} from "../contract";
 import type { Database } from "../db";
-import { activityGatewayOutbox, activitySettings } from "../db/schema";
+import { activityEvents, activityGatewayOutbox, activitySettings } from "../db/schema";
 
-export const GATEWAY_MODES = ["legacy-only", "dual-write", "standalone-only"] as const;
-export type GatewayMode = (typeof GATEWAY_MODES)[number];
+export type GatewayMode = z.infer<typeof ActivityGatewayModeSchema>;
+type ActivityGatewayStatus = z.infer<typeof ActivityGatewayStatusSchema>;
+type ActivityRedatePlan = z.infer<typeof ActivityRedatePlanSchema>;
 
 export const GATEWAY_MODE_SETTING_KEY = "activity_gateway_mode";
 const DEFAULT_MODE: GatewayMode = "legacy-only";
@@ -43,6 +50,7 @@ export interface ActivityGatewayClient {
     actor: string;
     idempotencyKey: string;
     payload: unknown;
+    occurredAt?: string;
   }): Promise<{ eventId: string }>;
   retract(input: { eventId: string; reason: string; idempotencyKey: string }): Promise<void>;
 }
@@ -109,18 +117,9 @@ export function createHttpActivityGatewayClient(options: {
 
 type OutboxRow = typeof activityGatewayOutbox.$inferSelect;
 
-export type ActivityGatewayStatus = {
-  mode: GatewayMode;
-  configured: boolean;
-  counts: { pending: number; sent: number; failed: number };
-  oldestPendingAt: string | null;
-  recentFailures: Array<{
-    operation: string;
-    idempotencyKey: string;
-    attempts: number;
-    lastError: string | null;
-  }>;
-};
+/** Events forwarded more than this long after they happened were imported, not dual-written. */
+const REDATE_THRESHOLD_MS = 60 * 60 * 1000;
+const REDATED_KEY_SUFFIX = ":dated";
 
 export function createActivityGatewayMethods(
   db: Database,
@@ -139,8 +138,8 @@ export function createActivityGatewayMethods(
       .from(activitySettings)
       .where(eq(activitySettings.key, GATEWAY_MODE_SETTING_KEY))
       .limit(1);
-    const value = row?.value as GatewayMode | undefined;
-    return value && GATEWAY_MODES.includes(value) ? value : DEFAULT_MODE;
+    const parsed = ActivityGatewayModeSchema.safeParse(row?.value);
+    return parsed.success ? parsed.data : DEFAULT_MODE;
   }
 
   async function setMode(mode: GatewayMode): Promise<GatewayMode> {
@@ -161,6 +160,7 @@ export function createActivityGatewayMethods(
     actor: string;
     payload: unknown;
     idempotencyKey: string;
+    occurredAt?: Date;
   }): Promise<OutboxRow | null> {
     const eventType = gatewayEventType(input.source, input.type);
     if (!eventType) return null;
@@ -176,6 +176,7 @@ export function createActivityGatewayMethods(
         eventType,
         actor: input.actor,
         payload: input.payload ?? null,
+        occurredAt: input.occurredAt ?? null,
         status: "pending",
         nextAttemptAt: now(),
         createdAt: now(),
@@ -207,17 +208,46 @@ export function createActivityGatewayMethods(
         and(
           eq(activityGatewayOutbox.operation, "publish"),
           eq(activityGatewayOutbox.legacyEventId, legacyEventId),
+          isNull(activityGatewayOutbox.supersededAt),
+          ne(activityGatewayOutbox.status, "failed"),
         ),
+      )
+      // The copy already on Activity first, so a queued replacement never hides the live one.
+      .orderBy(
+        sql`${activityGatewayOutbox.gatewayEventId} is null`,
+        desc(activityGatewayOutbox.createdAt),
       )
       .limit(1);
     return row ?? null;
   }
 
+  async function legacyIdsFor(gatewayEventIds: readonly string[]): Promise<Map<string, string>> {
+    if (gatewayEventIds.length === 0) return new Map();
+    const rows = await db
+      .select({
+        gatewayEventId: activityGatewayOutbox.gatewayEventId,
+        legacyEventId: activityGatewayOutbox.legacyEventId,
+      })
+      .from(activityGatewayOutbox)
+      .where(
+        and(
+          eq(activityGatewayOutbox.operation, "publish"),
+          inArray(activityGatewayOutbox.gatewayEventId, [...gatewayEventIds]),
+        ),
+      );
+    return new Map(
+      rows.flatMap(({ gatewayEventId, legacyEventId }) =>
+        gatewayEventId ? [[gatewayEventId, legacyEventId] as const] : [],
+      ),
+    );
+  }
+
   async function enqueueRetract(input: {
     legacyEventId: string;
     reason: string;
+    published?: OutboxRow;
   }): Promise<OutboxRow | null> {
-    const published = await findPublished(input.legacyEventId);
+    const published = input.published ?? (await findPublished(input.legacyEventId));
     if (!published) return null;
     const [row] = await db
       .insert(activityGatewayOutbox)
@@ -284,8 +314,10 @@ export function createActivityGatewayMethods(
         actor: row.actor,
         idempotencyKey: row.idempotencyKey,
         payload: row.payload ?? {},
+        ...(row.occurredAt ? { occurredAt: row.occurredAt.toISOString() } : {}),
       });
       await markSent(row, eventId);
+      if (row.idempotencyKey.endsWith(REDATED_KEY_SUFFIX)) await retireReplaced(row);
       return;
     }
     const [published] = await db
@@ -294,7 +326,7 @@ export function createActivityGatewayMethods(
       .where(
         and(
           eq(activityGatewayOutbox.operation, "publish"),
-          eq(activityGatewayOutbox.legacyEventId, row.legacyEventId),
+          eq(activityGatewayOutbox.idempotencyKey, row.idempotencyKey.replace(/^retract:/, "")),
           isNotNull(activityGatewayOutbox.gatewayEventId),
         ),
       )
@@ -312,6 +344,46 @@ export function createActivityGatewayMethods(
       idempotencyKey: row.idempotencyKey,
     });
     await markSent(row, published.gatewayEventId);
+  }
+
+  async function retireReplaced(replacement: OutboxRow): Promise<void> {
+    const [original] = await db
+      .update(activityGatewayOutbox)
+      .set({ supersededAt: now(), updatedAt: now() })
+      .where(
+        and(
+          eq(activityGatewayOutbox.operation, "publish"),
+          eq(
+            activityGatewayOutbox.idempotencyKey,
+            replacement.idempotencyKey.slice(0, -REDATED_KEY_SUFFIX.length),
+          ),
+          isNull(activityGatewayOutbox.supersededAt),
+        ),
+      )
+      .returning();
+    if (!original) return;
+    const [hidden] = await db
+      .select({ id: activityGatewayOutbox.id })
+      .from(activityGatewayOutbox)
+      .where(
+        and(
+          eq(activityGatewayOutbox.operation, "retract"),
+          eq(activityGatewayOutbox.idempotencyKey, `retract:${original.idempotencyKey}`),
+        ),
+      )
+      .limit(1);
+    await enqueueRetract({
+      legacyEventId: original.legacyEventId,
+      reason: "Re-sent with its original time",
+      published: original,
+    });
+    if (hidden) {
+      await enqueueRetract({
+        legacyEventId: replacement.legacyEventId,
+        reason: "Hidden by nearbuilders.org",
+        published: { ...replacement, status: "sent" },
+      });
+    }
   }
 
   /** Sends one row now. Failures are recorded, never thrown, so callers are not blocked. */
@@ -339,6 +411,61 @@ export function createActivityGatewayMethods(
       .limit(limit);
     for (const row of due) await trySend(row);
     return { processed: due.length };
+  }
+
+  /**
+   * History imported before Activity accepted `occurredAt` carries its import time. Each such event
+   * is re-sent with its original time under a new key; the old copy is retracted only after the
+   * replacement is accepted. Rows are left for the worker, so the work drains at its pace.
+   */
+  async function redate(input: { dryRun?: boolean } = {}): Promise<ActivityRedatePlan> {
+    const dryRun = input.dryRun ?? true;
+    const report: ActivityRedatePlan = {
+      dryRun,
+      misdated: 0,
+      hidden: 0,
+      enqueued: 0,
+      oldestOccurredAt: null,
+      newestOccurredAt: null,
+    };
+    const rows = await db
+      .select({ outbox: activityGatewayOutbox, legacy: activityEvents })
+      .from(activityGatewayOutbox)
+      .innerJoin(activityEvents, eq(activityEvents.id, activityGatewayOutbox.legacyEventId))
+      .where(
+        and(
+          eq(activityGatewayOutbox.operation, "publish"),
+          eq(activityGatewayOutbox.status, "sent"),
+          isNull(activityGatewayOutbox.occurredAt),
+          isNull(activityGatewayOutbox.supersededAt),
+        ),
+      )
+      .orderBy(asc(activityEvents.createdAt));
+
+    for (const { outbox, legacy } of rows) {
+      if (outbox.createdAt.getTime() - legacy.createdAt.getTime() < REDATE_THRESHOLD_MS) continue;
+      if (legacy.hiddenAt) {
+        report.hidden += 1;
+        continue;
+      }
+      report.misdated += 1;
+      const iso = legacy.createdAt.toISOString();
+      if (!report.oldestOccurredAt || iso < report.oldestOccurredAt) report.oldestOccurredAt = iso;
+      if (!report.newestOccurredAt || iso > report.newestOccurredAt) report.newestOccurredAt = iso;
+      if (dryRun) continue;
+
+      const replacement = await enqueuePublish({
+        legacyEventId: legacy.id,
+        source: outbox.legacySource,
+        type: outbox.legacyType,
+        actor: outbox.actor,
+        payload: outbox.payload,
+        idempotencyKey: `${outbox.idempotencyKey}${REDATED_KEY_SUFFIX}`,
+        occurredAt: legacy.createdAt,
+      });
+      if (replacement) report.enqueued += 1;
+    }
+    return report;
   }
 
   async function status(): Promise<ActivityGatewayStatus> {
@@ -382,6 +509,8 @@ export function createActivityGatewayMethods(
     enqueuePublish,
     enqueueRetract,
     findPublished,
+    legacyIdsFor,
+    redate,
     trySend,
     processDue,
     status,

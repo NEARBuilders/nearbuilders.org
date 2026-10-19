@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { Profile } from "better-near-auth";
 import type { ApiClient, AuthClient } from "@/app";
+import { fetchResolvedNearProfile, type ResolvedNearProfile } from "../near-social/index";
 
 export const PAGE_SIZE = 24;
 
@@ -192,12 +192,12 @@ export function xNominationProposalsOptions(apiClient: ApiClient) {
   };
 }
 
-export function nearProfileOptions(authClient: AuthClient, accountId: string) {
+export function nearProfileOptions(_authClient: AuthClient | null, accountId: string) {
   return {
     queryKey: ["near-profile", accountId] as const,
-    queryFn: async (): Promise<Profile | null> => {
-      const res = await authClient.near.getProfile(accountId);
-      return res.data || null;
+    queryFn: async (): Promise<ResolvedNearProfile | null> => {
+      if (!accountId) return null;
+      return fetchResolvedNearProfile(accountId);
     },
     enabled: !!accountId,
     staleTime: 5 * 60 * 1000,
