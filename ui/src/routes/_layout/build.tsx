@@ -66,7 +66,7 @@ function BuildPage() {
         </div>
       </header>
 
-      <section aria-label="Topics" className="mt-12 grid gap-4 lg:grid-cols-3">
+      <section aria-label="Topics" className="mt-12 grid gap-4 md:grid-cols-3">
         {buildTopics.map((topic) => (
           <TopicCard key={topic.id} topic={topic} />
         ))}
