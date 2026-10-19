@@ -43,6 +43,7 @@
   --color-brand-accent: var(--brand-accent);
   --color-brand-accent-light: var(--brand-accent-light);
   --color-brand-accent-border: var(--brand-accent-border);
+  --color-near-intents: var(--near-intents);
   --color-brand-pink-light: var(--brand-pink-light);
   --color-brand-pink-soft: var(--brand-pink-soft);
   --color-brand-mint-soft: var(--brand-mint-soft);
@@ -154,6 +155,7 @@
   --brand-accent: #00d9a3;
   --brand-accent-light: #00d9a314;
   --brand-accent-border: #00d9a340;
+  --near-intents: #fb4d01;
 
   --sidebar: #ffffff;
   --sidebar-foreground: #1d2b36;
@@ -205,6 +207,7 @@
   --brand-accent: #00d9a3;
   --brand-accent-light: #00d9a31f;
   --brand-accent-border: #00d9a34d;
+  --near-intents: #fb4d01;
 
   --sidebar: #15202c;
   --sidebar-foreground: #e8eef2;
