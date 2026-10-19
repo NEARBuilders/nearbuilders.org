@@ -1,7 +1,7 @@
 import { BarChart2, FileText, Layers, Lock } from "lucide-react";
+import { NewBadge } from "@/components/common/new-badge";
 import type { ProjectDirectoryItem, ProjectKind } from "@/components/project-directory-item";
 import { Badge } from "@/components/ui/badge";
-import { NewBadge } from "@/components/ui/new-badge";
 import { cn } from "@/lib/utils";
 
 export type ProjectTagsSource = Pick<

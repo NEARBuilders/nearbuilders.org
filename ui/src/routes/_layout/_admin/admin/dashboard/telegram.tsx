@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { useConfirmDialog } from "@/components";
+import { CommandCopy } from "@/components/common/command-copy";
 import { Button } from "@/components/ui/button";
-import { CommandCopy } from "@/components/ui/command-copy";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RecordsState } from "../-records-state";
 

@@ -18,13 +18,13 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
 import { BuilderProfileStats } from "@/components/builder-profile-stats";
+import { socialIcon } from "@/components/common/social-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {

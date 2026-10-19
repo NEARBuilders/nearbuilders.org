@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { type ApiClient, useAuthClient } from "@/app";
+import { Markdown } from "@/components/common/markdown";
+import { socialIcon } from "@/components/common/social-icons";
 import { Badge } from "@/components/ui/badge";
-import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import { socialIcon } from "@/components/ui/social-icons";
 import {
   getNearSocialAvatarUrl,
   getNearSocialBannerUrl,

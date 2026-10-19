@@ -27,8 +27,8 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
+import { Markdown } from "@/components/common/markdown";
 import { Label } from "@/components/ui/label";
-import { Markdown } from "@/components/ui/markdown";
 import {
   Select,
   SelectContent,

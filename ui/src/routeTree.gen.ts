@@ -18,13 +18,13 @@ import { Route as LayoutJoinRouteImport } from './routes/_layout/join'
 import { Route as LayoutIronclawRouteImport } from './routes/_layout/ironclaw'
 import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
 import { Route as LayoutBuildRouteImport } from './routes/_layout/build'
-import { Route as LayoutBrandRouteImport } from './routes/_layout/brand'
 import { Route as LayoutAboutRouteImport } from './routes/_layout/about'
 import { Route as LayoutAuthenticatedRouteImport } from './routes/_layout/_authenticated'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/_admin'
 import { Route as LayoutProjectsIndexRouteImport } from './routes/_layout/projects/index'
 import { Route as LayoutEventsIndexRouteImport } from './routes/_layout/events/index'
 import { Route as LayoutBuildersIndexRouteImport } from './routes/_layout/builders/index'
+import { Route as LayoutBrandIndexRouteImport } from './routes/_layout/brand/index'
 import { Route as LayoutAppsIndexRouteImport } from './routes/_layout/apps/index'
 import { Route as LayoutActivityIndexRouteImport } from './routes/_layout/activity/index'
 import { Route as LayoutProjectsNewRouteImport } from './routes/_layout/projects/new'
@@ -32,6 +32,7 @@ import { Route as LayoutEventsNewRouteImport } from './routes/_layout/events/new
 import { Route as LayoutEventsSlugRouteImport } from './routes/_layout/events/$slug'
 import { Route as LayoutBuildersAddRouteImport } from './routes/_layout/builders/add'
 import { Route as LayoutBuildersAccountRouteImport } from './routes/_layout/builders/$account'
+import { Route as LayoutBrandDesignSystemRouteImport } from './routes/_layout/brand/design-system'
 import { Route as LayoutActivityLeaderboardRouteImport } from './routes/_layout/activity/leaderboard'
 import { Route as LayoutAuthenticatedDashboardRouteImport } from './routes/_layout/_authenticated/_dashboard'
 import { Route as LayoutProjectsNewIndexRouteImport } from './routes/_layout/projects/new.index'
@@ -115,11 +116,6 @@ const LayoutBuildRoute = LayoutBuildRouteImport.update({
   path: '/build',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutBrandRoute = LayoutBrandRouteImport.update({
-  id: '/brand',
-  path: '/brand',
-  getParentRoute: () => LayoutRoute,
-} as any)
 const LayoutAboutRoute = LayoutAboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -146,6 +142,11 @@ const LayoutEventsIndexRoute = LayoutEventsIndexRouteImport.update({
 const LayoutBuildersIndexRoute = LayoutBuildersIndexRouteImport.update({
   id: '/builders/',
   path: '/builders/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBrandIndexRoute = LayoutBrandIndexRouteImport.update({
+  id: '/brand/',
+  path: '/brand/',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutAppsIndexRoute = LayoutAppsIndexRouteImport.update({
@@ -181,6 +182,11 @@ const LayoutBuildersAddRoute = LayoutBuildersAddRouteImport.update({
 const LayoutBuildersAccountRoute = LayoutBuildersAccountRouteImport.update({
   id: '/builders/$account',
   path: '/builders/$account',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutBrandDesignSystemRoute = LayoutBrandDesignSystemRouteImport.update({
+  id: '/brand/design-system',
+  path: '/brand/design-system',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutActivityLeaderboardRoute =
@@ -408,7 +414,6 @@ const LayoutAdminAdminDashboardActivityRoute =
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
-  '/brand': typeof LayoutBrandRoute
   '/build': typeof LayoutBuildRoute
   '/events': typeof LayoutEventsRouteWithChildren
   '/ironclaw': typeof LayoutIronclawRoute
@@ -417,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof LayoutProjectsRouteWithChildren
   '/skill': typeof LayoutSkillRoute
   '/activity/leaderboard': typeof LayoutActivityLeaderboardRoute
+  '/brand/design-system': typeof LayoutBrandDesignSystemRoute
   '/builders/$account': typeof LayoutBuildersAccountRoute
   '/builders/add': typeof LayoutBuildersAddRoute
   '/events/$slug': typeof LayoutEventsSlugRoute
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/projects/new': typeof LayoutProjectsNewRouteWithChildren
   '/activity/': typeof LayoutActivityIndexRoute
   '/apps/': typeof LayoutAppsIndexRoute
+  '/brand/': typeof LayoutBrandIndexRoute
   '/builders/': typeof LayoutBuildersIndexRoute
   '/events/': typeof LayoutEventsIndexRoute
   '/projects/': typeof LayoutProjectsIndexRoute
@@ -467,19 +474,20 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/about': typeof LayoutAboutRoute
-  '/brand': typeof LayoutBrandRoute
   '/build': typeof LayoutBuildRoute
   '/ironclaw': typeof LayoutIronclawRoute
   '/join': typeof LayoutJoinRoute
   '/login': typeof LayoutLoginRoute
   '/skill': typeof LayoutSkillRoute
   '/activity/leaderboard': typeof LayoutActivityLeaderboardRoute
+  '/brand/design-system': typeof LayoutBrandDesignSystemRoute
   '/builders/$account': typeof LayoutBuildersAccountRoute
   '/builders/add': typeof LayoutBuildersAddRoute
   '/events/$slug': typeof LayoutEventsSlugRoute
   '/events/new': typeof LayoutEventsNewRoute
   '/activity': typeof LayoutActivityIndexRoute
   '/apps': typeof LayoutAppsIndexRoute
+  '/brand': typeof LayoutBrandIndexRoute
   '/builders': typeof LayoutBuildersIndexRoute
   '/events': typeof LayoutEventsIndexRoute
   '/projects': typeof LayoutProjectsIndexRoute
@@ -524,7 +532,6 @@ export interface FileRoutesById {
   '/_layout/_admin': typeof LayoutAdminRouteWithChildren
   '/_layout/_authenticated': typeof LayoutAuthenticatedRouteWithChildren
   '/_layout/about': typeof LayoutAboutRoute
-  '/_layout/brand': typeof LayoutBrandRoute
   '/_layout/build': typeof LayoutBuildRoute
   '/_layout/events': typeof LayoutEventsRouteWithChildren
   '/_layout/ironclaw': typeof LayoutIronclawRoute
@@ -535,6 +542,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/_authenticated/_dashboard': typeof LayoutAuthenticatedDashboardRouteWithChildren
   '/_layout/activity/leaderboard': typeof LayoutActivityLeaderboardRoute
+  '/_layout/brand/design-system': typeof LayoutBrandDesignSystemRoute
   '/_layout/builders/$account': typeof LayoutBuildersAccountRoute
   '/_layout/builders/add': typeof LayoutBuildersAddRoute
   '/_layout/events/$slug': typeof LayoutEventsSlugRoute
@@ -542,6 +550,7 @@ export interface FileRoutesById {
   '/_layout/projects/new': typeof LayoutProjectsNewRouteWithChildren
   '/_layout/activity/': typeof LayoutActivityIndexRoute
   '/_layout/apps/': typeof LayoutAppsIndexRoute
+  '/_layout/brand/': typeof LayoutBrandIndexRoute
   '/_layout/builders/': typeof LayoutBuildersIndexRoute
   '/_layout/events/': typeof LayoutEventsIndexRoute
   '/_layout/projects/': typeof LayoutProjectsIndexRoute
@@ -587,7 +596,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
-    | '/brand'
     | '/build'
     | '/events'
     | '/ironclaw'
@@ -596,6 +604,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/skill'
     | '/activity/leaderboard'
+    | '/brand/design-system'
     | '/builders/$account'
     | '/builders/add'
     | '/events/$slug'
@@ -603,6 +612,7 @@ export interface FileRouteTypes {
     | '/projects/new'
     | '/activity/'
     | '/apps/'
+    | '/brand/'
     | '/builders/'
     | '/events/'
     | '/projects/'
@@ -646,19 +656,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/brand'
     | '/build'
     | '/ironclaw'
     | '/join'
     | '/login'
     | '/skill'
     | '/activity/leaderboard'
+    | '/brand/design-system'
     | '/builders/$account'
     | '/builders/add'
     | '/events/$slug'
     | '/events/new'
     | '/activity'
     | '/apps'
+    | '/brand'
     | '/builders'
     | '/events'
     | '/projects'
@@ -702,7 +713,6 @@ export interface FileRouteTypes {
     | '/_layout/_admin'
     | '/_layout/_authenticated'
     | '/_layout/about'
-    | '/_layout/brand'
     | '/_layout/build'
     | '/_layout/events'
     | '/_layout/ironclaw'
@@ -713,6 +723,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/_authenticated/_dashboard'
     | '/_layout/activity/leaderboard'
+    | '/_layout/brand/design-system'
     | '/_layout/builders/$account'
     | '/_layout/builders/add'
     | '/_layout/events/$slug'
@@ -720,6 +731,7 @@ export interface FileRouteTypes {
     | '/_layout/projects/new'
     | '/_layout/activity/'
     | '/_layout/apps/'
+    | '/_layout/brand/'
     | '/_layout/builders/'
     | '/_layout/events/'
     | '/_layout/projects/'
@@ -830,13 +842,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutBuildRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/brand': {
-      id: '/_layout/brand'
-      path: '/brand'
-      fullPath: '/brand'
-      preLoaderRoute: typeof LayoutBrandRouteImport
-      parentRoute: typeof LayoutRoute
-    }
     '/_layout/about': {
       id: '/_layout/about'
       path: '/about'
@@ -877,6 +882,13 @@ declare module '@tanstack/react-router' {
       path: '/builders'
       fullPath: '/builders/'
       preLoaderRoute: typeof LayoutBuildersIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/brand/': {
+      id: '/_layout/brand/'
+      path: '/brand'
+      fullPath: '/brand/'
+      preLoaderRoute: typeof LayoutBrandIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/apps/': {
@@ -926,6 +938,13 @@ declare module '@tanstack/react-router' {
       path: '/builders/$account'
       fullPath: '/builders/$account'
       preLoaderRoute: typeof LayoutBuildersAccountRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/brand/design-system': {
+      id: '/_layout/brand/design-system'
+      path: '/brand/design-system'
+      fullPath: '/brand/design-system'
+      preLoaderRoute: typeof LayoutBrandDesignSystemRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/activity/leaderboard': {
@@ -1387,7 +1406,6 @@ interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRouteWithChildren
   LayoutAuthenticatedRoute: typeof LayoutAuthenticatedRouteWithChildren
   LayoutAboutRoute: typeof LayoutAboutRoute
-  LayoutBrandRoute: typeof LayoutBrandRoute
   LayoutBuildRoute: typeof LayoutBuildRoute
   LayoutEventsRoute: typeof LayoutEventsRouteWithChildren
   LayoutIronclawRoute: typeof LayoutIronclawRoute
@@ -1397,10 +1415,12 @@ interface LayoutRouteChildren {
   LayoutSkillRoute: typeof LayoutSkillRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutActivityLeaderboardRoute: typeof LayoutActivityLeaderboardRoute
+  LayoutBrandDesignSystemRoute: typeof LayoutBrandDesignSystemRoute
   LayoutBuildersAccountRoute: typeof LayoutBuildersAccountRoute
   LayoutBuildersAddRoute: typeof LayoutBuildersAddRoute
   LayoutActivityIndexRoute: typeof LayoutActivityIndexRoute
   LayoutAppsIndexRoute: typeof LayoutAppsIndexRoute
+  LayoutBrandIndexRoute: typeof LayoutBrandIndexRoute
   LayoutBuildersIndexRoute: typeof LayoutBuildersIndexRoute
   LayoutAppsAccountIdGatewayIdRoute: typeof LayoutAppsAccountIdGatewayIdRoute
   LayoutBuildersAccountEditRoute: typeof LayoutBuildersAccountEditRoute
@@ -1411,7 +1431,6 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRouteWithChildren,
   LayoutAuthenticatedRoute: LayoutAuthenticatedRouteWithChildren,
   LayoutAboutRoute: LayoutAboutRoute,
-  LayoutBrandRoute: LayoutBrandRoute,
   LayoutBuildRoute: LayoutBuildRoute,
   LayoutEventsRoute: LayoutEventsRouteWithChildren,
   LayoutIronclawRoute: LayoutIronclawRoute,
@@ -1421,10 +1440,12 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutSkillRoute: LayoutSkillRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutActivityLeaderboardRoute: LayoutActivityLeaderboardRoute,
+  LayoutBrandDesignSystemRoute: LayoutBrandDesignSystemRoute,
   LayoutBuildersAccountRoute: LayoutBuildersAccountRoute,
   LayoutBuildersAddRoute: LayoutBuildersAddRoute,
   LayoutActivityIndexRoute: LayoutActivityIndexRoute,
   LayoutAppsIndexRoute: LayoutAppsIndexRoute,
+  LayoutBrandIndexRoute: LayoutBrandIndexRoute,
   LayoutBuildersIndexRoute: LayoutBuildersIndexRoute,
   LayoutAppsAccountIdGatewayIdRoute: LayoutAppsAccountIdGatewayIdRoute,
   LayoutBuildersAccountEditRoute: LayoutBuildersAccountEditRoute,

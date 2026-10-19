@@ -4,20 +4,14 @@ import { Edit2, Key, LogOut, Mail, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
+import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components";
 import {
   ApiKeyForm,
   type ApiKeyFormValues,
   ApiKeyReveal,
   type ApiKeyRevealProps,
-  Button,
-  Input,
-  InvitationCard,
-  MemberCard,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components";
+} from "@/components/api-key-manager";
+import { InvitationCard, MemberCard } from "@/components/member-card";
 
 type AuthClientType = import("@/app").AuthClient;
 

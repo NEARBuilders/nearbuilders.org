@@ -3,11 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowRight, ExternalLink, FolderPlus, KeyRound, Send } from "lucide-react";
 import type { ComponentType } from "react";
 import { useApiClient } from "@/app";
+import { CommandCopy } from "@/components/common/command-copy";
 import { GetInvolvedCard, GetInvolvedCardSkeleton } from "@/components/get-involved-card";
 import { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "@/components/near-logos";
 import { SiteLink } from "@/components/site-link";
 import { Button } from "@/components/ui/button";
-import { CommandCopy } from "@/components/ui/command-copy";
 import {
   type BuildGetInvolvedAction,
   type BuildLink,
