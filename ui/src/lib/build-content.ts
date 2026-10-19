@@ -41,7 +41,6 @@ export type BuildFooterLink =
 
 export const buildPage = {
   label: "Build on NEAR",
-  navLabel: "Build",
   cardTagline: "Topics and docs to start",
   eyebrow: "Build on NEAR",
   title: "Start building on NEAR",
@@ -49,12 +48,42 @@ export const buildPage = {
     "Pick a topic, open the docs, and start shipping. Kept current by the builder community.",
   metaTitle: "Build on NEAR | NEAR Builders",
   metaDescription:
-    "Where to start building on NEAR: Private Cloud, Agentic Commerce and Smart Contracts, with the docs and tools for each.",
+    "Where to start building on NEAR: Smart Contracts, Private Cloud and Agentic Commerce, with the docs and tools for each.",
   joinAction: { label: "Join NEAR Builders", to: JOIN_PATH },
   browseAction: { label: "Browse projects", to: "/projects" },
+  banner: {
+    title: "Start building on NEAR",
+    description: "Docs, API keys and starter tools in one place.",
+    action: "Start building",
+  },
 } as const;
 
 export const buildTopics: BuildTopic[] = [
+  {
+    id: "smart-contracts",
+    title: "Smart Contracts",
+    logo: "near-protocol",
+    summary: "Write, test and deploy contracts and apps on NEAR Protocol.",
+    primaryLink: { label: "NEAR Docs", href: "https://docs.near.org" },
+    links: [],
+    tools: [
+      {
+        id: "near-contracts",
+        name: "Write a contract",
+        summary:
+          "Learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.",
+        links: [
+          {
+            label: "What is a smart contract",
+            href: "https://docs.near.org/smart-contracts/what-is",
+          },
+          { label: "SDK libraries", href: "https://docs.near.org/tools/sdk" },
+          { label: "Reference contracts", href: "https://docs.near.org/tools/contracts-list" },
+          { label: "Testnet faucet", href: "https://near-faucet.io" },
+        ],
+      },
+    ],
+  },
   {
     id: "private-cloud",
     title: "Private Cloud",
@@ -117,31 +146,6 @@ export const buildTopics: BuildTopic[] = [
           baseUrlStep: "Point your agent at the base URL.",
           baseUrl: "https://api.demo.agentsonintents.com",
         },
-      },
-    ],
-  },
-  {
-    id: "smart-contracts",
-    title: "Smart Contracts",
-    logo: "near-protocol",
-    summary: "Write, test and deploy contracts and apps on NEAR Protocol.",
-    primaryLink: { label: "NEAR Docs", href: "https://docs.near.org" },
-    links: [],
-    tools: [
-      {
-        id: "near-contracts",
-        name: "Write a contract",
-        summary:
-          "Learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.",
-        links: [
-          {
-            label: "What is a smart contract",
-            href: "https://docs.near.org/smart-contracts/what-is",
-          },
-          { label: "SDK libraries", href: "https://docs.near.org/tools/sdk" },
-          { label: "Reference contracts", href: "https://docs.near.org/tools/contracts-list" },
-          { label: "Testnet faucet", href: "https://near-faucet.io" },
-        ],
       },
     ],
   },

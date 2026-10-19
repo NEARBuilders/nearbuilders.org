@@ -12,8 +12,8 @@ import { SiteLink } from "@/components/site-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/user-nav";
-import { buildPage, getBuildFooterLinks } from "@/lib/build-content";
-import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
+import { getBuildFooterLinks } from "@/lib/build-content";
+import { JOIN_PATH } from "@/lib/site-paths";
 
 export const Route = createFileRoute("/_layout")({
   beforeLoad: async ({ context }) => {
@@ -30,7 +30,6 @@ export const Route = createFileRoute("/_layout")({
 });
 
 const navLinks = [
-  { label: buildPage.navLabel, to: BUILD_PAGE_PATH },
   { label: "Builders", to: "/builders" },
   { label: "Projects", to: "/projects" },
   { label: "Events", to: "/events" },

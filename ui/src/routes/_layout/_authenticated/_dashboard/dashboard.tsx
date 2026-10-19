@@ -20,6 +20,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { BuildBanner } from "@/components/build-banner";
 import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { NearProfile } from "@/components/near-profile";
@@ -209,6 +210,8 @@ function Dashboard() {
   }
   return (
     <DashboardPageFrame>
+      <BuildBanner />
+
       <DashboardHeader
         nearAccountId={nearAccountId}
         nearProfile={nearProfile}

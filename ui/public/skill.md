@@ -31,6 +31,19 @@ A nomination is someone vouching that a NEAR account should become a builder.
 
 The build page groups building on NEAR into three topics. These are the same links as [nearbuilders.org/build](https://nearbuilders.org/build).
 
+### Smart Contracts
+
+Write, test and deploy contracts and apps on NEAR Protocol.
+
+- [NEAR Docs](https://docs.near.org)
+
+**Write a contract**: learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.
+
+- [What is a smart contract](https://docs.near.org/smart-contracts/what-is)
+- [SDK libraries](https://docs.near.org/tools/sdk)
+- [Reference contracts](https://docs.near.org/tools/contracts-list)
+- [Testnet faucet](https://near-faucet.io): get testnet NEAR to deploy and test contracts
+
 ### Private Cloud
 
 Run AI models and agents on private, verifiable compute with NEAR AI.
@@ -64,19 +77,6 @@ To get access:
 
 1. [Get an API key](https://partners.demo.agentsonintents.com/) from the partner portal.
 2. Point your agent at the base URL: `https://api.demo.agentsonintents.com`
-
-### Smart Contracts
-
-Write, test and deploy contracts and apps on NEAR Protocol.
-
-- [NEAR Docs](https://docs.near.org)
-
-**Write a contract**: learn how contracts work on NEAR, pick an SDK, start from a reference contract, and get testnet NEAR to deploy it.
-
-- [What is a smart contract](https://docs.near.org/smart-contracts/what-is)
-- [SDK libraries](https://docs.near.org/tools/sdk)
-- [Reference contracts](https://docs.near.org/tools/contracts-list)
-- [Testnet faucet](https://near-faucet.io): get testnet NEAR to deploy and test contracts
 
 ## Get involved
 

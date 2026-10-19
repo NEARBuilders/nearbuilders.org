@@ -4,6 +4,7 @@ export {
   ApiKeyReveal,
   type ApiKeyRevealProps,
 } from "./api-key-manager";
+export { BuildBanner } from "./build-banner";
 export { CatalogClaimActivity } from "./catalog-claim-activity";
 export { CatalogClaimFlow } from "./catalog-claim-flow";
 export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";

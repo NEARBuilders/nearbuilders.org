@@ -2,7 +2,7 @@
 
 > NEAR Builders (nearbuilders.org) is an open network where people building on NEAR find each other, make their work visible, and find where to start building. Builders join with their NEAR account, share projects, and follow what others are shipping.
 
-Start with the build page to pick a topic (Private Cloud, Agentic Commerce, Smart Contracts), then join. Point a coding agent at skill.md for step-by-step instructions.
+Start with the build page to pick a topic (Smart Contracts, Private Cloud, Agentic Commerce), then join. Point a coding agent at skill.md for step-by-step instructions.
 
 ## Start here
 

@@ -66,13 +66,10 @@ function BuildPage() {
         </div>
       </header>
 
-      <section className="mt-12">
-        <SectionHeading title="Topics" />
-        <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          {buildTopics.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
-          ))}
-        </div>
+      <section aria-label="Topics" className="mt-12 grid gap-4 lg:grid-cols-3">
+        {buildTopics.map((topic) => (
+          <TopicCard key={topic.id} topic={topic} />
+        ))}
       </section>
 
       {buildTopics.flatMap((topic) =>
@@ -144,9 +141,9 @@ const topicLogos: Record<
   BuildTopicLogo,
   { Logo: ComponentType<{ className?: string }>; className: string }
 > = {
-  "near-ai": { Logo: NearAiLogo, className: "h-8" },
-  "near-intents": { Logo: NearIntentsLogo, className: "h-8" },
-  "near-protocol": { Logo: NearProtocolLogo, className: "h-11" },
+  "near-ai": { Logo: NearAiLogo, className: "h-7.5" },
+  "near-intents": { Logo: NearIntentsLogo, className: "h-13" },
+  "near-protocol": { Logo: NearProtocolLogo, className: "h-10" },
 };
 
 function TopicCard({ topic }: { topic: BuildTopic }) {

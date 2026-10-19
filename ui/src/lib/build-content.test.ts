@@ -15,11 +15,11 @@ function isHttpsUrl(value: string) {
 }
 
 describe("build topics", () => {
-  it("lists Private Cloud, Agentic Commerce and Smart Contracts in order", () => {
+  it("lists Smart Contracts first, then Private Cloud and Agentic Commerce", () => {
     expect(buildTopics.map((topic) => topic.title)).toEqual([
+      "Smart Contracts",
       "Private Cloud",
       "Agentic Commerce",
-      "Smart Contracts",
     ]);
   });
 
@@ -39,9 +39,9 @@ describe("build topics", () => {
 
   it("gives each topic its own logo", () => {
     expect(buildTopics.map((topic) => topic.logo)).toEqual([
+      "near-protocol",
       "near-ai",
       "near-intents",
-      "near-protocol",
     ]);
   });
 

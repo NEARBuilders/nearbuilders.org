@@ -4,7 +4,7 @@ NEAR Builders (`nearbuilders.org`) is an open network where people building on N
 
 ## Start here
 
-- [Build on NEAR](https://nearbuilders.org/build): pick a topic (Private Cloud, Agentic Commerce, Smart Contracts) and open its docs and tools
+- [Build on NEAR](https://nearbuilders.org/build): pick a topic (Smart Contracts, Private Cloud, Agentic Commerce) and open its docs and tools
 - [Join NEAR Builders](https://nearbuilders.org/join): connect your NEAR account and submit your builder profile for review
 - [skill.md](https://nearbuilders.org/skill.md): point your coding agent here to get started
 
