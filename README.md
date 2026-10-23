@@ -72,6 +72,28 @@ bun run dev:ui     # local UI, remote API
 bun run dev:api    # remote UI, local API
 ```
 
+### Admin approval
+
+Admin approval of builder profiles and projects is behind the `REQUIRE_ADMIN_APPROVAL` API secret, and it is off by default.
+
+| `REQUIRE_ADMIN_APPROVAL` | Builder profiles (`/join`) | Projects, ideas and scopes made public |
+|--------------------------|----------------------------|----------------------------------------|
+| unset, empty, `false` (default) | Listed straight away. The proposal is approved by the system actor `Auto-approved (admin approval off)`, so the audit log, activity and notifications stay the same as an admin approval. | Made public straight away, with no proposal. |
+| `true`, `1`, `yes` or `on` | Stay pending until an admin approves them on `/admin` or from the Telegram review bot. | Stay private, with a pending proposal, until an admin approves them. |
+
+Any other value counts as off. Admin approval routes, the admin queue, the Telegram review bot, approval notifications and the review digest work in both modes. The UI reads the current mode from `GET /api/approval/settings`.
+
+What stays the same with the flag off:
+
+- Proposals that are already pending stay in the admin queue. Nothing is migrated or approved in bulk, so admins still approve, reject or remove them as before. A project owner can also make a pending project public themselves, and the old proposal stays in the queue until an admin closes it.
+- A builder profile that an admin rejected or removed is not auto-approved when it is submitted again. It goes back to the admin queue.
+- A project whose latest proposal an admin rejected or removed cannot be made public by its members. It still needs an admin.
+- Builder nominations from other people (web, Telegram and X) still create pending proposals. A nominee who opens their nomination link and submits their own profile is listed straight away. Without the link, the pending nomination blocks a self-submission until an admin handles it.
+- Events keep their current review flow.
+- If auto-approval fails, for example because the builders plugin is down, the proposal stays visible to admins as pending or failed, so they can approve or retry it.
+
+Set `REQUIRE_ADMIN_APPROVAL=true` in `.env` locally, or in the Railway service variables, to bring back the full review flow. The value is read when the API starts, so restart the dev server or redeploy after changing it.
+
 ### Plugins
 
 Business logic lives in independent plugins loaded via Module Federation:
@@ -202,6 +224,10 @@ Required runtime vars (in addition to inherited ones):
 - `BUILDERS_DATABASE_URL` — Builders plugin database
 - `NOMINATION_TOKEN_SECRET` — Nomination token signing secret, at least 32 characters
 - `BETTER_AUTH_SECRET` — Session encryption key
+
+Optional runtime vars:
+
+- `REQUIRE_ADMIN_APPROVAL` — set to `true` to require admin approval for builder profiles and public projects. Unset means off, so new profiles and projects go live right away. See [Admin approval](#admin-approval).
 
 ## Lint Setup
 

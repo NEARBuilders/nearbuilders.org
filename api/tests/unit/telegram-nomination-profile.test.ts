@@ -98,7 +98,10 @@ describe("Builder profile submission", () => {
       "api",
       {
         variables: {},
-        secrets: { API_DATABASE_URL: "pglite:.bos/api/:memory:" },
+        secrets: {
+          API_DATABASE_URL: "pglite:.bos/api/:memory:",
+          REQUIRE_ADMIN_APPROVAL: "true",
+        },
       },
       pluginFactories(builders, proposals, votes) as never,
     );
@@ -489,7 +492,10 @@ describe("Builder profile submission", () => {
       "api",
       {
         variables: {},
-        secrets: { API_DATABASE_URL: "pglite:.bos/api/:memory:" },
+        secrets: {
+          API_DATABASE_URL: "pglite:.bos/api/:memory:",
+          REQUIRE_ADMIN_APPROVAL: "true",
+        },
       },
       {
         auth: emptyClient,

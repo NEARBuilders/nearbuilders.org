@@ -26,6 +26,10 @@ import {
   normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import { cn } from "@/lib/utils";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
@@ -85,6 +89,8 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
+  const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));
+  const reviewRequired = requiresAdminApproval(approvalSettingsQuery.data);
   const search = Route.useSearch();
   const { tab } = search;
   const defaultOwnerId =
@@ -133,7 +139,8 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
 
   const createMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      const submitForReview = values.visibility === "public" && !isAdmin && routeKind !== "result";
+      const submitForReview =
+        reviewRequired && values.visibility === "public" && !isAdmin && routeKind !== "result";
       const collaborators = (values.collaborators ?? [])
         .map((c) => c.trim())
         .filter((c) => c.length > 0 && c !== (defaultOwnerId || undefined));

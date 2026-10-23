@@ -12,6 +12,13 @@ import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-types.gen";
+import {
+  autoApprovalContext,
+  parseRequireAdminApproval,
+  resolveContentCreationVisibility,
+  shouldAutoApproveBuilderProfile,
+  wasModeratedByAdmin,
+} from "./services/approval-settings";
 import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
 import { createProposalActivity } from "./services/proposal-activity";
@@ -107,6 +114,7 @@ function enforceContentCreationVisibility(
   user: { role?: string | null } | undefined | null,
   near: { primaryAccountId?: string | null } | undefined | null,
   inputVisibility: VisibilityValue | undefined,
+  allowPublic = false,
 ): VisibilityValue {
   const isAdmin = user?.role === "admin";
   if (!isAdmin && !near?.primaryAccountId) {
@@ -114,7 +122,7 @@ function enforceContentCreationVisibility(
       message: "Link a NEAR account to create content",
     });
   }
-  return !isAdmin && inputVisibility === "public" ? "private" : (inputVisibility ?? "private");
+  return resolveContentCreationVisibility({ isAdmin, allowPublic, inputVisibility });
 }
 
 export default createPlugin.withPlugins<PluginsClient>()({
@@ -134,6 +142,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     NEARAI_API_KEY: z.string().default(""),
     NEARAI_MODEL: z.string().default(""),
     GITHUB_TOKEN: z.string().default(""),
+    REQUIRE_ADMIN_APPROVAL: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -166,6 +175,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
         config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
       );
+      const requireAdminApproval = parseRequireAdminApproval(config.secrets.REQUIRE_ADMIN_APPROVAL);
+      console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
       console.log("[API] Services Initialized");
       console.log("[API] Auth client available:", Boolean(auth));
       console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
@@ -178,6 +189,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         catalogClaims,
         reviewEvaluation,
         chiefBotUsername: config.variables.chiefBotUsername,
+        requireAdminApproval,
       };
     }),
 
@@ -433,6 +445,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         timestamp: new Date().toISOString(),
       })),
 
+      getApprovalSettings: builder.getApprovalSettings.handler(async () => ({
+        requireAdminApproval: services.requireAdminApproval,
+      })),
+
       authHealth: builder.authHealth.use(requireAuth).handler(async () => ({
         status: "ok",
         emailConfigured: !!process.env.EMAIL_PROVIDER,
@@ -491,13 +507,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
             : null;
           const nomination = nominationResolution?.status === "ready" ? nominationResolution : null;
           const proposalsClient = services.plugins.proposals(context);
-          const pendingProfiles = await proposalsClient.getProposals({
+          const existingProposals = await proposalsClient.getProposals({
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
-            reviewStatus: "pending",
             limit: 1,
           });
-          if (pendingProfiles.data.length > 0 && !nomination) {
+          const previousProposal = existingProposals.data[0];
+          if (previousProposal?.reviewStatus === "pending" && !nomination) {
             throw new ORPCError("BAD_REQUEST", {
               message: "A builder profile is already pending review for this NEAR account",
             });
@@ -539,6 +555,40 @@ export default createPlugin.withPlugins<PluginsClient>()({
               token: input.nominationToken,
               proposalId: proposal.data.id,
             });
+          }
+
+          if (
+            shouldAutoApproveBuilderProfile({
+              requireAdminApproval: services.requireAdminApproval,
+              previous: previousProposal,
+              submitted: proposal.data,
+            })
+          ) {
+            try {
+              const approved = await approveProposal(
+                {
+                  pluginId: "builders",
+                  entityId: proposal.data.entityId,
+                  expectedUpdatedAt: proposal.data.updatedAt,
+                },
+                autoApprovalContext(context),
+              );
+              return {
+                data: approved.data,
+                nominationId: nomination?.nominationId ?? null,
+              };
+            } catch (error) {
+              console.error("[Builders] Auto-approval failed, left for admin review:", error);
+              const current = await proposalsClient
+                .getProposals({ pluginId: "builders", entityId: proposal.data.entityId, limit: 1 })
+                .catch(() => null);
+              if (current?.data[0]) {
+                return {
+                  data: current.data[0],
+                  nominationId: nomination?.nominationId ?? null,
+                };
+              }
+            }
           }
 
           return {
@@ -1003,6 +1053,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           context.user,
           context.near,
           input.visibility,
+          !services.requireAdminApproval,
         );
         const created = await services.plugins
           .projects(context)
@@ -1032,7 +1083,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.projects(context).updateProject(input);
+        // With approval off, members may publish directly, except projects an admin
+        // has already rejected or removed: those still need an admin to make them public.
+        let allowPublicVisibility = false;
+        if (!services.requireAdminApproval && input.visibility === "public") {
+          const latest = await services.plugins
+            .proposals(evaluatorContext)
+            .getProposals({ pluginId: "projects", entityId: input.id, limit: 1 });
+          allowPublicVisibility = !wasModeratedByAdmin(latest.data[0]);
+        }
+        return await services.plugins
+          .projects({ ...context, allowPublicVisibility })
+          .updateProject(input);
       }),
 
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {

@@ -19,6 +19,10 @@ import {
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
 } from "@/lib/nomination-token";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
@@ -42,7 +46,20 @@ type NominationReferralContext = {
 type ProfileSubmission = {
   nominationAttached: boolean;
   nominationSource?: NominationSource;
+  publishedAccount: string | null;
 };
+
+type SubmittedProposal = {
+  entityId: string;
+  reviewStatus: string;
+  applyStatus: string;
+};
+
+function publishedBuilderAccount(proposal: SubmittedProposal) {
+  return proposal.reviewStatus === "approved" && proposal.applyStatus === "applied"
+    ? proposal.entityId
+    : null;
+}
 
 type JoinSearch = {
   nomination?: string;
@@ -97,6 +114,8 @@ function JoinPage() {
   }, [navigate, nomination]);
 
   const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
+  const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));
+  const reviewRequired = requiresAdminApproval(approvalSettingsQuery.data);
   const nominationQuery = useQuery({
     queryKey: ["nomination", nominationToken],
     queryFn: () =>
@@ -189,6 +208,7 @@ function JoinPage() {
       <ProfileSubmitted
         nominationAttached={submission.nominationAttached}
         nominationSource={submission.nominationSource}
+        publishedAccount={submission.publishedAccount}
       />
     );
   }
@@ -275,7 +295,14 @@ function JoinPage() {
       nominationStatus={nominationStatus}
       nominationSource={nominationSource}
       referralContext={referralContext}
-      onSubmitted={() => setSubmission({ nominationAttached, nominationSource })}
+      reviewRequired={reviewRequired}
+      onSubmitted={(proposal) =>
+        setSubmission({
+          nominationAttached,
+          nominationSource,
+          publishedAccount: publishedBuilderAccount(proposal),
+        })
+      }
     />
   );
 }
@@ -288,6 +315,7 @@ function BuilderProfileForm({
   nominationStatus,
   nominationSource,
   referralContext,
+  reviewRequired,
   onSubmitted,
 }: {
   accountId: string;
@@ -297,7 +325,8 @@ function BuilderProfileForm({
   nominationStatus?: NominationStatus;
   nominationSource?: NominationSource;
   referralContext?: NominationReferralContext;
-  onSubmitted: () => void;
+  reviewRequired: boolean;
+  onSubmitted: (proposal: SubmittedProposal) => void;
 }) {
   const queryClient = useQueryClient();
   const nominationAttached = Boolean(nominationToken);
@@ -312,12 +341,13 @@ function BuilderProfileForm({
         location: normalizeLocation(values.location) ?? undefined,
         links: composeLinks(values.links),
       }),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
-      onSubmitted();
+      onSubmitted(result.data);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
         queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["builders"] }),
       ]);
     },
     onError: (error: Error) => {
@@ -359,7 +389,9 @@ function BuilderProfileForm({
           Create your builder profile
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Complete the details that will be reviewed for the NEAR Builders directory.
+          {reviewRequired
+            ? "Complete the details that will be reviewed for the NEAR Builders directory."
+            : "Complete the details that will appear in the NEAR Builders directory."}
         </p>
         <LegacySocialImportPrompt profile={socialProfile} className="mt-5" />
       </div>
@@ -391,7 +423,11 @@ function BuilderProfileForm({
                 className="w-full rounded-full font-bold"
               >
                 {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {mutation.isPending ? "Submitting…" : "Submit profile for review"}
+                {mutation.isPending
+                  ? "Submitting…"
+                  : reviewRequired
+                    ? "Submit profile for review"
+                    : "Publish profile"}
               </Button>
             )}
           </form.Subscribe>
@@ -404,10 +440,34 @@ function BuilderProfileForm({
 function ProfileSubmitted({
   nominationAttached,
   nominationSource,
+  publishedAccount,
 }: {
   nominationAttached: boolean;
   nominationSource?: NominationSource;
+  publishedAccount: string | null;
 }) {
+  if (publishedAccount) {
+    return (
+      <JoinShell>
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">
+          <Check className="size-6 text-brand-green" />
+        </div>
+        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
+          Your profile is live
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Your builder profile is now listed in the NEAR Builders directory.
+        </p>
+        <Button asChild size="lg" className="mt-8 w-full rounded-full font-bold">
+          <Link to="/builders/$account" params={{ account: publishedAccount }}>
+            View builder profile
+          </Link>
+        </Button>
+        <JoinNextSteps />
+      </JoinShell>
+    );
+  }
+
   return (
     <JoinShell>
       <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">

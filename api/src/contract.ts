@@ -684,6 +684,12 @@ export const contract = oc.router({
     }),
   ),
 
+  getApprovalSettings: oc.route({ method: "GET", path: "/approval/settings" }).output(
+    z.object({
+      requireAdminApproval: z.boolean(),
+    }),
+  ),
+
   authHealth: oc
     .route({ method: "GET", path: "/auth/health" })
     .output(

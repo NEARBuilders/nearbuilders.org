@@ -4,8 +4,14 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
-import { ContextSchema } from "./lib/context";
+import type { AuthContext } from "./lib/auth";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
+
+type ProjectsContext = AuthContext & {
+  allowPublicVisibility?: boolean;
+};
+
+const ProjectsContextSchema = z.custom<ProjectsContext>();
 
 export default createPlugin({
   variables: z.object({}),
@@ -14,7 +20,7 @@ export default createPlugin({
     PROJECTS_DATABASE_URL: z.string().default("pglite:.bos/projects/:memory:"),
   }),
 
-  context: ContextSchema,
+  context: ProjectsContextSchema,
 
   contract,
 
@@ -175,6 +181,7 @@ export default createPlugin({
               context.near?.primaryAccountId ?? context.userId ?? undefined,
               context.user.role ?? undefined,
               getAlternateOwnerId(context),
+              context.allowPublicVisibility === true,
             ),
           );
 

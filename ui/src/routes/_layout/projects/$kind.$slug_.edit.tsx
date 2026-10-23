@@ -8,6 +8,10 @@ import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { normalizeDomain } from "@/lib/project-form-validation";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import { isProjectKind, parseProjectListSearch } from "./-search";
 
 function isCurrentUserOwner(
@@ -71,6 +75,8 @@ function EditProjectPage() {
   const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
+  const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));
+  const reviewRequired = requiresAdminApproval(approvalSettingsQuery.data);
 
   const projectQuery = useQuery({
     queryKey: ["project", slug],
@@ -99,6 +105,7 @@ function EditProjectPage() {
   const updateMutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
       const submitForReview =
+        reviewRequired &&
         !isAdmin &&
         values.visibility === "public" &&
         project?.visibility !== "public" &&

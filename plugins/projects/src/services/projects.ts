@@ -350,6 +350,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       userId: string,
       userRole?: string,
       alternateUserId?: string,
+      allowPublicVisibility?: boolean,
     ) => Effect.Effect<Project, ORPCError<string, unknown>>;
 
     deleteProject: (
@@ -975,7 +976,7 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      updateProject: (id, input, userId, userRole, alternateUserId) =>
+      updateProject: (id, input, userId, userRole, alternateUserId, allowPublicVisibility) =>
         Effect.gen(function* () {
           const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserId);
           if (!canEdit) {
@@ -997,7 +998,8 @@ export const ProjectServiceLive = Layer.effect(
           if (
             input.visibility === "public" &&
             existing.visibility !== "public" &&
-            userRole !== "admin"
+            userRole !== "admin" &&
+            !allowPublicVisibility
           ) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {

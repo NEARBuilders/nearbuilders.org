@@ -42,7 +42,8 @@
         "API_DATABASE_URL",
         "NEARAI_API_KEY",
         "NEARAI_MODEL",
-        "GITHUB_TOKEN"
+        "GITHUB_TOKEN",
+        "REQUIRE_ADMIN_APPROVAL"
       ]
     },
     "auth": {
