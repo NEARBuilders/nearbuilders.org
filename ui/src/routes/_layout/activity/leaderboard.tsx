@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SegmentedFilter } from "@/components/ui/segmented-filter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   LEADERBOARD_PAGE_SIZE,
   type LeaderboardEntry,
@@ -27,15 +28,7 @@ export const Route = createFileRoute("/_layout/activity/leaderboard")({
     const { queryClient, apiClient } = context;
     void queryClient.prefetchQuery(leaderboardQueryOptions(apiClient, "all-time"));
   },
-  head: () => ({
-    meta: [
-      { title: "Leaderboard | NEAR Builders" },
-      {
-        name: "description",
-        content: "The builders contributing most across the NEAR Builders ecosystem.",
-      },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.leaderboard) }),
   component: LeaderboardPage,
 });
 

@@ -61,6 +61,7 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -89,15 +90,7 @@ const PAGE_SIZE = 24;
 
 export const Route = createFileRoute("/_layout/projects/")({
   validateSearch: parseProjectListSearch,
-  head: () => ({
-    meta: [
-      { title: "Projects | NearBuilders" },
-      {
-        name: "description",
-        content: "Find projects, ideas, scopes, and results from the NEAR builder network.",
-      },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.projects) }),
   loaderDeps: ({ search }) => ({
     kind: search.kind,
     personal: search.personal,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { exportXNominationTable } from "@/lib/export-csv";
+import { pageHead } from "@/lib/page-meta";
 import {
   X_NOMINATION_QUEUE_KEY,
   xNominationProposalsOptions,
@@ -29,7 +30,7 @@ const NOUN = { singular: "X Nomination", plural: "X Nominations" };
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard/x-nominations")({
   validateSearch: parseNominationsSearch,
   head: () => ({
-    meta: [{ title: "X Nominations · Admin Dashboard | NEAR Builders" }],
+    meta: pageHead({ title: "X Nominations · Admin Dashboard | NEAR Builders" }),
   }),
   loader: async ({ context }) => {
     const { queryClient, apiClient } = context;

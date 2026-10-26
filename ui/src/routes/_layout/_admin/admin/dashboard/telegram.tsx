@@ -6,12 +6,13 @@ import { useConfirmDialog } from "@/components";
 import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/ui/command-copy";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pageHead } from "@/lib/page-meta";
 import { RecordsState } from "../-records-state";
 
 const REVIEWERS_KEY = ["admin-telegram-reviewers"];
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard/telegram")({
-  head: () => ({ meta: [{ title: "Telegram · Admin Dashboard | NEAR Builders" }] }),
+  head: () => ({ meta: pageHead({ title: "Telegram · Admin Dashboard | NEAR Builders" }) }),
   component: TelegramTab,
 });
 

@@ -14,15 +14,16 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import { pageHead } from "@/lib/page-meta";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
 
 export const Route = createFileRoute("/_layout/builders/$account_/edit")({
   head: ({ params }) => ({
-    meta: [
-      { title: `Edit ${params.account} | NEAR Builders` },
-      { name: "description", content: "Edit your builder profile." },
-    ],
+    meta: pageHead({
+      title: `Edit ${params.account} | NEAR Builders`,
+      description: "Edit your builder profile.",
+    }),
   }),
   component: EditBuilderProfilePage,
 });
