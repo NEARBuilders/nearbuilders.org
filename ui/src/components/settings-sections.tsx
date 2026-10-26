@@ -125,9 +125,18 @@ export function AuthMethodsPanel({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MethodCard
           title="email"
-          status={user.emailVerified || user.email ? (user.emailVerified ? "verified" : "linked") : "missing"}
+          status={
+            user.emailVerified || user.email
+              ? user.emailVerified
+                ? "verified"
+                : "linked"
+              : "missing"
+          }
         >
-          <NotificationEmailSettings authEmail={user.email} authEmailVerified={user.emailVerified} />
+          <NotificationEmailSettings
+            authEmail={user.email}
+            authEmailVerified={user.emailVerified}
+          />
         </MethodCard>
 
         <MethodCard

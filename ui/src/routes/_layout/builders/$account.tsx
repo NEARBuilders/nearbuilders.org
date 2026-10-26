@@ -27,12 +27,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   getNearSocialAvatarUrl,
   getNearSocialBannerUrl,
   type ResolvedNearProfile,
 } from "@/lib/near-social";
-import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {

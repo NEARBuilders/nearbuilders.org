@@ -20,13 +20,13 @@ import {
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
   normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
-import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
