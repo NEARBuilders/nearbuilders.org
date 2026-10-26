@@ -12,8 +12,22 @@ import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  type BuilderCatalogFormValues,
+  getBuilderCatalogErrors,
+  PREFERRED_CONTACTS,
+  type PreferredContact,
+  validateBuilderCatalog,
+} from "@/lib/builder-catalog";
 import { SOCIAL_LINKS, validateHandle } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 import { ErrorText, fieldError, HelperText, validateOptionalMaxLength } from "./project-form";
@@ -24,6 +38,7 @@ export type BuilderFormValues = {
   skills: string;
   location: string;
   links: Record<string, string>;
+  catalog: BuilderCatalogFormValues;
 };
 
 export function parseSkills(raw: string): string[] {
@@ -271,6 +286,105 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
             );
           })}
         </div>
+      </div>
+
+      <form.Field
+        name="catalog"
+        validators={{
+          onChange: ({ value }: any) => validateBuilderCatalog(value, form.getFieldValue("links")),
+          onSubmit: ({ value }: any) => validateBuilderCatalog(value, form.getFieldValue("links")),
+        }}
+      >
+        {(field: any) => <BuilderCatalogFields form={form} field={field} />}
+      </form.Field>
+    </div>
+  );
+}
+
+const NO_CONTACT = "none";
+
+function BuilderCatalogFields({ form, field }: { form: any; field: any }) {
+  const links = useStore(form.store, (s: any) => s.values.links ?? {});
+  const value = field.state.value as BuilderCatalogFormValues;
+  const errors = getBuilderCatalogErrors(value, links);
+  const showErrors = field.state.meta.isTouched || form.state.submissionAttempts > 0;
+  const update = (patch: Partial<BuilderCatalogFormValues>) =>
+    field.handleChange({ ...value, ...patch });
+  const errorFor = (key: keyof typeof errors) => (showErrors ? errors[key] : undefined);
+  const textFields = [
+    { key: "organization", label: "Organization", placeholder: "Where you work or build" },
+    { key: "team", label: "Team", placeholder: "Team inside the organization" },
+    { key: "jobTitle", label: "Job title", placeholder: "Founder, Engineer…" },
+    { key: "publicEmail", label: "Public email", placeholder: "you@example.com" },
+  ] as const;
+
+  return (
+    <div className="space-y-4 border-t border-border pt-6">
+      <div>
+        <Label>Also list me on NEAR Catalog</Label>
+        <HelperText>
+          Optional. NEAR Catalog&apos;s people directory asks for these. The public email is shown
+          on your profile only if you add it here.
+        </HelperText>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="catalog-preferred-contact">Preferred contact</Label>
+        <Select
+          value={value.preferredContact || NO_CONTACT}
+          onValueChange={(next) =>
+            update({ preferredContact: next === NO_CONTACT ? "" : (next as PreferredContact) })
+          }
+        >
+          <SelectTrigger id="catalog-preferred-contact" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_CONTACT}>Not set</SelectItem>
+            {PREFERRED_CONTACTS.map((contact) => (
+              <SelectItem key={contact.value} value={contact.value}>
+                {contact.value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errorFor("preferredContact") && <ErrorText>{errorFor("preferredContact")}</ErrorText>}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {textFields.map(({ key, label, placeholder }) => (
+          <div key={key} className="space-y-1.5">
+            <Label htmlFor={`catalog-${key}`}>{label}</Label>
+            <Input
+              id={`catalog-${key}`}
+              type={key === "publicEmail" ? "email" : "text"}
+              value={value[key]}
+              onChange={(e) => update({ [key]: e.target.value })}
+              onBlur={field.handleBlur}
+              placeholder={placeholder}
+              aria-invalid={Boolean(errorFor(key))}
+            />
+            {errorFor(key) && <ErrorText>{errorFor(key)}</ErrorText>}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="catalog-avatarUrl">Avatar URL</Label>
+        <Input
+          id="catalog-avatarUrl"
+          value={value.avatarUrl}
+          onChange={(e) => update({ avatarUrl: e.target.value })}
+          onBlur={field.handleBlur}
+          placeholder="https://example.com/avatar.png"
+          className="font-mono text-sm"
+          aria-invalid={Boolean(errorFor("avatarUrl"))}
+        />
+        {errorFor("avatarUrl") ? (
+          <ErrorText>{errorFor("avatarUrl")}</ErrorText>
+        ) : (
+          <HelperText>Leave empty to use your NEAR Social profile image.</HelperText>
+        )}
       </div>
     </div>
   );

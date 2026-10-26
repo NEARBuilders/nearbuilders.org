@@ -37,6 +37,7 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0002_chunky_roxanne_simpson.sql",
     "0003_slimy_talos.sql",
     "0004_nervous_tiger_shark.sql",
+    "0005_builder_catalog_metadata.sql",
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),

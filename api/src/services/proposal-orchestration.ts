@@ -37,9 +37,13 @@ type ProjectCatalogInput = Parameters<
   ReturnType<Omit<PluginsClient, "auth">["projects"]>["createProject"]
 >[0]["catalog"];
 
-function readProjectCatalog(value: unknown): ProjectCatalogInput {
+type BuilderCatalogInput = Parameters<
+  ReturnType<Omit<PluginsClient, "auth">["builders"]>["createBuilder"]
+>[0]["catalog"];
+
+function readObject<T>(value: unknown): T | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  return value as ProjectCatalogInput;
+  return value as T;
 }
 
 const IMPLICIT_ACCOUNT_ID_RE = /^[0-9a-f]{64}$/;
@@ -121,6 +125,7 @@ const createCallbacks: Record<string, CreateCallback> = {
         payload.links && typeof payload.links === "object" && !Array.isArray(payload.links)
           ? (payload.links as Record<string, string>)
           : undefined,
+      catalog: readObject<BuilderCatalogInput>(payload.catalog),
     });
     return result.data.nearAccount;
   },
@@ -148,7 +153,7 @@ const createCallbacks: Record<string, CreateCallback> = {
         repository: readString(payload.repository),
         domain: readString(payload.domain),
         logoUrl: readString(payload.logoUrl),
-        catalog: readProjectCatalog(payload.catalog),
+        catalog: readObject<ProjectCatalogInput>(payload.catalog),
       });
       assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;
@@ -169,7 +174,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       organizationId: readString(payload.organizationId),
       domain: readString(payload.domain),
       logoUrl: readString(payload.logoUrl),
-      catalog: readProjectCatalog(payload.catalog),
+      catalog: readObject<ProjectCatalogInput>(payload.catalog),
     });
     assertProjectProposalOwner(result.ownerId, ownerId);
     return result.id;

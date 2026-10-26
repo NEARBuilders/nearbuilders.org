@@ -68,6 +68,38 @@ function normalizedBuilderProfile(input: { skills?: string[]; location?: string 
   };
 }
 
+const PREFERRED_CONTACT_LINK_KEYS = {
+  Telegram: "telegram",
+  Discord: "discord",
+  X: "twitter",
+  Website: "website",
+} as const;
+
+function assertPreferredContact(
+  catalog:
+    | {
+        preferredContact?: keyof typeof PREFERRED_CONTACT_LINK_KEYS | "Email";
+        publicEmail?: string;
+      }
+    | undefined,
+  links: Record<string, string> | undefined,
+) {
+  const contact = catalog?.preferredContact;
+  if (!contact) return;
+  const filled =
+    contact === "Email"
+      ? Boolean(catalog?.publicEmail?.trim())
+      : Boolean(links?.[PREFERRED_CONTACT_LINK_KEYS[contact]]?.trim());
+  if (!filled) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        contact === "Email"
+          ? "Add a public email to use email as your preferred contact"
+          : `Add your ${contact} link to use ${contact} as your preferred contact`,
+    });
+  }
+}
+
 function notificationContext(context: Context) {
   return {
     ...context,
@@ -530,6 +562,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
+          assertPreferredContact(input.catalog, input.links);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -540,6 +573,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               skills: tags.skills,
               location: tags.location,
               links: input.links,
+              catalog: input.catalog,
             },
             source: nomination?.source ?? "web",
             ...(nomination

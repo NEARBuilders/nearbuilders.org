@@ -50,6 +50,13 @@ export type {
   XNominationMetrics,
   XNominationQueueRecord,
 } from "./x-nomination-admin";
+
+import {
+  type BuilderCatalogMetadata,
+  normalizeBuilderCatalog,
+  preferredContactError,
+} from "./catalog-metadata";
+
 export { XNominationEngagementStatus } from "./x-nomination-admin";
 
 function toIsoString(value: Date | string | null | undefined): string {
@@ -106,6 +113,7 @@ export interface Builder {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  catalog: BuilderCatalogMetadata | null;
   withdrawnAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -141,6 +149,7 @@ function rowToBuilder(row: any): Builder {
     skills: parseSkills(row.skills),
     location: row.location ?? null,
     links: parseLinks(row.links),
+    catalog: normalizeBuilderCatalog(row.catalog),
     withdrawnAt: row.withdrawnAt ? toIsoString(row.withdrawnAt) : null,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
@@ -352,6 +361,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       skills?: string[];
       location?: string;
       links?: Record<string, string>;
+      catalog?: BuilderCatalogMetadata | null;
     }) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
     updateBuilderProfile: (
@@ -362,6 +372,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
         skills?: string[];
         location?: string;
         links?: Record<string, string>;
+        catalog?: BuilderCatalogMetadata | null;
       },
       userId: string,
       walletAddress?: string,
@@ -536,6 +547,22 @@ export const BuilderServiceLive = Layer.effect(
             db.select().from(builders).where(eq(builders.nearAccount, input.nearAccount)).limit(1),
           );
 
+          const catalog =
+            input.catalog !== undefined
+              ? normalizeBuilderCatalog(input.catalog)
+              : normalizeBuilderCatalog(existing?.catalog);
+          const contactError = preferredContactError(
+            catalog,
+            input.links !== undefined
+              ? (input.links ?? null)
+              : existing
+                ? parseLinks(existing.links)
+                : null,
+          );
+          if (contactError) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: contactError }));
+          }
+
           if (existing) {
             const now = new Date();
             yield* Effect.promise(() =>
@@ -549,6 +576,7 @@ export const BuilderServiceLive = Layer.effect(
                     tags.skills !== undefined ? serializeSkills(tags.skills) : existing.skills,
                   location: tags.location !== undefined ? tags.location : existing.location,
                   links: input.links !== undefined ? serializeLinks(input.links) : existing.links,
+                  catalog,
                   updatedAt: now,
                 })
                 .where(eq(builders.nearAccount, input.nearAccount)),
@@ -591,6 +619,7 @@ export const BuilderServiceLive = Layer.effect(
               skills: serializeSkills(tags.skills),
               location: tags.location ?? null,
               links: serializeLinks(input.links),
+              catalog,
               createdAt: now,
               updatedAt: now,
             }),
@@ -607,6 +636,7 @@ export const BuilderServiceLive = Layer.effect(
             skills: tags.skills ?? [],
             location: tags.location ?? null,
             links: input.links && Object.keys(input.links).length > 0 ? input.links : null,
+            catalog,
             withdrawnAt: null,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
@@ -651,6 +681,17 @@ export const BuilderServiceLive = Layer.effect(
           if (tags.skills !== undefined) updates.skills = serializeSkills(tags.skills);
           if (tags.location !== undefined) updates.location = tags.location;
           if (input.links !== undefined) updates.links = serializeLinks(input.links);
+          if (input.catalog !== undefined) updates.catalog = normalizeBuilderCatalog(input.catalog);
+
+          const contactError = preferredContactError(
+            input.catalog !== undefined
+              ? updates.catalog
+              : normalizeBuilderCatalog(existing.catalog),
+            input.links !== undefined ? (input.links ?? null) : parseLinks(existing.links),
+          );
+          if (contactError) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: contactError }));
+          }
 
           yield* Effect.promise(() =>
             db.update(builders).set(updates).where(eq(builders.nearAccount, nearAccount)),

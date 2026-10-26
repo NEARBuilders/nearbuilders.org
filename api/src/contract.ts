@@ -122,6 +122,29 @@ const XNominationInput = z
     },
   );
 
+const BuilderCatalog = z.object({
+  preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]).optional(),
+  organization: z.string().trim().max(100).optional(),
+  team: z.string().trim().max(100).optional(),
+  jobTitle: z.string().trim().max(80).optional(),
+  publicEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .refine((value) => value.length === 0 || z.email().safeParse(value).success, {
+      message: "Enter a valid email address",
+    })
+    .optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((value) => value.length === 0 || HttpUrl.safeParse(value).success, {
+      message: "Avatar URL must be an absolute http(s) URL",
+    })
+    .optional(),
+});
+
 const BuilderProfileSubmissionInput = z.object({
   nominationToken: z.string().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(100),
@@ -129,6 +152,7 @@ const BuilderProfileSubmissionInput = z.object({
   skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
+  catalog: BuilderCatalog.optional(),
 });
 
 const BuilderNominationInput = z.object({
@@ -663,6 +687,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  catalog: BuilderCatalog.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -1933,6 +1958,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        catalog: BuilderCatalog.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))
