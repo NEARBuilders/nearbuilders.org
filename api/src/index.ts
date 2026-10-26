@@ -209,11 +209,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
-    const assertKnownCityNode = async (
-      slug: string | null | undefined,
-      current?: string | null,
-    ) => {
-      const error = await services.cityNodes.assertKnown(slug, current);
+    const assertKnownCityNode = async (key: string | null | undefined) => {
+      const error = await services.cityNodes.assertKnown(key);
       if (error) throw new ORPCError("BAD_REQUEST", { message: error });
     };
     const approveProposal = async (
@@ -1101,13 +1098,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
-        if (input.cityNode) {
-          const current = await services.plugins
-            .projects(context)
-            .getProject({ id: input.id })
-            .catch(() => null);
-          await assertKnownCityNode(input.cityNode, current?.data.cityNode);
-        }
+        await assertKnownCityNode(input.cityNode);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;
@@ -1302,13 +1293,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          if (input.cityNode) {
-            const current = await services.plugins
-              .builders(context)
-              .getBuilder({ nearAccount: input.nearAccount })
-              .catch(() => null);
-            await assertKnownCityNode(input.cityNode, current?.data.cityNode);
-          }
+          await assertKnownCityNode(input.cityNode);
           return await services.plugins.builders(context).updateBuilderProfile(input);
         }),
 

@@ -21,12 +21,14 @@ function isAbsoluteHttpUrl(value: string) {
   }
 }
 
-const cityNodeSlugSchema = z
+const cityNodeKeySchema = z
   .string()
   .trim()
   .toLowerCase()
-  .max(100)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: "City node must be a community slug" });
+  .max(200)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/, {
+    message: "City node must be a citynode.app community path",
+  });
 
 const projectSchema = z.object({
   id: z.string(),
@@ -74,7 +76,7 @@ export const contract = oc.router({
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
         slugs: z.string().max(10_100).optional(),
-        cityNode: z.string().trim().toLowerCase().max(100).optional(),
+        cityNode: z.string().trim().toLowerCase().max(200).optional(),
         limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -155,7 +157,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
-        cityNode: cityNodeSlugSchema.nullable().optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -177,7 +179,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
-        cityNode: cityNodeSlugSchema.nullable().optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
       }),
     )
     .output(projectSchema)

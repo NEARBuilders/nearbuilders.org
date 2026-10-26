@@ -44,11 +44,24 @@ describe("buildCityNodeTree", () => {
         parentId: node.parentId,
       })),
     );
-    expect(tree.map((node) => [node.slug, node.depth, node.parentSlug])).toEqual([
-      ["freedonia", 0, null],
-      ["west-province", 1, "freedonia"],
-      ["hill-valley", 2, "west-province"],
-      ["lakeside", 0, null],
+    expect(tree.map((node) => [node.key, node.depth, node.parentKey, node.parentId])).toEqual([
+      ["freedonia", 0, null, null],
+      ["freedonia/west-province", 1, "freedonia", "k-1"],
+      ["freedonia/west-province/hill-valley", 2, "freedonia/west-province", "s-1"],
+      ["lakeside", 0, null, null],
+    ]);
+  });
+
+  it("gives child nodes with the same slug different keys", () => {
+    const tree = buildCityNodeTree([
+      { id: "s-1", slug: "north", name: "North", kind: "state", parentId: null },
+      { id: "s-2", slug: "south", name: "South", kind: "state", parentId: null },
+      { id: "c-1", slug: "springfield", name: "Springfield", kind: "city", parentId: "s-1" },
+      { id: "c-2", slug: "springfield", name: "Springfield", kind: "city", parentId: "s-2" },
+    ]);
+    expect(tree.filter((node) => node.slug === "springfield").map((node) => node.key)).toEqual([
+      "north/springfield",
+      "south/springfield",
     ]);
   });
 
@@ -57,7 +70,15 @@ describe("buildCityNodeTree", () => {
       { id: "c-9", slug: "orphan-town", name: "Orphan Town", kind: "city", parentId: "gone" },
     ]);
     expect(tree).toEqual([
-      { slug: "orphan-town", name: "Orphan Town", kind: "city", parentSlug: null, depth: 0 },
+      {
+        key: "orphan-town",
+        slug: "orphan-town",
+        name: "Orphan Town",
+        kind: "city",
+        parentKey: null,
+        parentId: null,
+        depth: 0,
+      },
     ]);
   });
 });
@@ -82,7 +103,31 @@ describe("createCityNodeDirectory", () => {
     expect(first.data).toHaveLength(4);
   });
 
+  it("serves the stale list while refreshing in the background", async () => {
+    let now = 0;
+    let release: (response: Response) => void = () => {};
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(summaries))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => (release = resolve)));
+    const directory = createCityNodeDirectory({
+      baseUrl: "https://citynode.test",
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      now: () => now,
+    });
+    await directory.list();
+
+    now = 60 * 60_000;
+    const stale = await directory.list();
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(stale.data).toHaveLength(4);
+    release(jsonResponse(summaries.slice(0, 1)));
+    await vi.waitFor(async () => expect((await directory.list()).data).toHaveLength(1));
+  });
+
   it("keeps the last good list when citynode.app goes down", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     let now = 0;
     let up = true;
     const fetch = vi.fn(async () => (up ? jsonResponse(summaries) : jsonResponse({}, 502)));
@@ -95,11 +140,12 @@ describe("createCityNodeDirectory", () => {
 
     up = false;
     now = 60 * 60_000;
+    await directory.list();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     const stale = await directory.list();
 
-    expect(fetch).toHaveBeenCalledTimes(2);
     expect(stale.meta.available).toBe(true);
-    expect(stale.data.map((node) => node.slug)).toContain("lakeside");
+    expect(stale.data.map((node) => node.key)).toContain("lakeside");
     await expect(directory.assertKnown("lakeside")).resolves.toBeNull();
   });
 
@@ -124,7 +170,6 @@ describe("createCityNodeDirectory", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(directory.assertKnown(undefined)).resolves.toBeNull();
     await expect(directory.assertKnown("lakeside")).resolves.toMatch(/can't be checked/);
-    await expect(directory.assertKnown("lakeside", "lakeside")).resolves.toBeNull();
   });
 
   it("rejects slugs that are not on citynode.app", async () => {
@@ -132,7 +177,10 @@ describe("createCityNodeDirectory", () => {
       baseUrl: "https://citynode.test",
       fetch: (async () => jsonResponse(summaries)) as unknown as typeof globalThis.fetch,
     });
-    await expect(directory.assertKnown("hill-valley")).resolves.toBeNull();
+    await expect(directory.assertKnown("freedonia/west-province/hill-valley")).resolves.toBeNull();
+    await expect(directory.assertKnown("hill-valley")).resolves.toBe(
+      "Unknown city node: hill-valley",
+    );
     await expect(directory.assertKnown("atlantis")).resolves.toBe("Unknown city node: atlantis");
   });
 });

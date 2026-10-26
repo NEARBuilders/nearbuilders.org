@@ -1,10 +1,12 @@
 export type CityNodeKind = "country" | "state" | "city" | string;
 
 export type CityNode = {
+  key: string;
   slug: string;
   name: string;
   kind: CityNodeKind;
-  parentSlug: string | null;
+  parentKey: string | null;
+  parentId: string | null;
   depth: number;
 };
 
@@ -58,24 +60,27 @@ export function buildCityNodeTree(raw: RawNode[]): CityNode[] {
   }
   const ordered: CityNode[] = [];
   const seen = new Set<string>();
-  const walk = (parentId: string | null, depth: number) => {
+  const walk = (parentId: string | null, parentKey: string | null, depth: number) => {
     const siblings = [...(children.get(parentId) ?? [])].sort((a, b) =>
       a.name.localeCompare(b.name),
     );
     for (const node of siblings) {
       if (seen.has(node.id)) continue;
       seen.add(node.id);
+      const key = parentKey ? `${parentKey}/${node.slug}` : node.slug;
       ordered.push({
+        key,
         slug: node.slug,
         name: node.name,
         kind: node.kind,
-        parentSlug: parentId ? (byId.get(parentId)?.slug ?? null) : null,
+        parentKey,
+        parentId,
         depth,
       });
-      walk(node.id, depth + 1);
+      walk(node.id, key, depth + 1);
     }
   };
-  walk(null, 0);
+  walk(null, null, 0);
   return ordered;
 }
 
@@ -116,7 +121,7 @@ export function createCityNodeDirectory(options: {
       inflight ??= refresh().finally(() => {
         inflight = null;
       });
-      await inflight;
+      if (!cached) await inflight;
     }
     return {
       data: cached?.nodes ?? [],
@@ -128,14 +133,14 @@ export function createCityNodeDirectory(options: {
     };
   };
 
-  const assertKnown = async (slug: string | null | undefined, current?: string | null) => {
-    if (!slug || slug === current) return null;
+  const assertKnown = async (key: string | null | undefined) => {
+    if (!key) return null;
     const { data, meta } = await list();
     if (!meta.available) {
       return "City nodes can't be checked right now. Clear the city node or try again later.";
     }
-    if (!data.some((node) => node.slug === slug)) {
-      return `Unknown city node: ${slug}`;
+    if (!data.some((node) => node.key === key)) {
+      return `Unknown city node: ${key}`;
     }
     return null;
   };

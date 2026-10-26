@@ -142,7 +142,8 @@ function EditForm({
         name: values.name.trim() || undefined,
         bio: values.bio,
         location: normalizeLocation(values.location) ?? undefined,
-        cityNode: values.cityNode || null,
+        cityNode:
+          values.cityNode !== (builder.cityNode ?? "") ? values.cityNode || null : undefined,
         skills: parseBuilderSkills(values.skills),
         links: composeLinks(values.links, builder.links),
       }),

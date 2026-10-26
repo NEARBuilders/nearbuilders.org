@@ -20,13 +20,19 @@ export function cityNodesQueryOptions(apiClient: CityNodesApiClient) {
   };
 }
 
-export function cityNodeUrl(slug: string, baseUrl: string = DEFAULT_CITY_NODE_BASE_URL) {
-  return `${baseUrl.replace(/\/+$/, "")}/n/${encodeURIComponent(slug)}`;
+export function cityNodeUrl(
+  key: string,
+  node?: Pick<CityNode, "slug" | "parentId">,
+  baseUrl: string = DEFAULT_CITY_NODE_BASE_URL,
+) {
+  const slug = node?.slug ?? key.split("/").pop() ?? key;
+  const query = node?.parentId ? `?parentId=${encodeURIComponent(node.parentId)}` : "";
+  return `${baseUrl.replace(/\/+$/, "")}/n/${encodeURIComponent(slug)}${query}`;
 }
 
-export function findCityNode(nodes: readonly CityNode[] | undefined, slug: string | null) {
-  if (!slug) return undefined;
-  return nodes?.find((node) => node.slug === slug);
+export function findCityNode(nodes: readonly CityNode[] | undefined, key: string | null) {
+  if (!key) return undefined;
+  return nodes?.find((node) => node.key === key);
 }
 
 function comparable(value: string) {
@@ -43,27 +49,23 @@ export function suggestCityNode(
   nodes: readonly CityNode[] | undefined,
 ): CityNode | undefined {
   if (!location?.trim() || !nodes?.length) return undefined;
-  const parts = location
-    .split(",")
-    .map((part) => comparable(part))
-    .filter(Boolean);
-  for (const part of parts) {
-    const match = nodes.find((node) => comparable(node.name) === part || node.slug === part);
-    if (match) return match;
-  }
-  return undefined;
+  const city = comparable(location.split(",")[0] ?? "");
+  if (!city) return undefined;
+  return nodes.find(
+    (node) => node.kind === "city" && (comparable(node.name) === city || node.slug === city),
+  );
 }
 
 export function cityNodePath(node: CityNode, nodes: readonly CityNode[] | undefined) {
   const names = [node.name];
-  let parentSlug = node.parentSlug;
-  const seen = new Set([node.slug]);
-  while (parentSlug && !seen.has(parentSlug)) {
-    seen.add(parentSlug);
-    const parent = findCityNode(nodes, parentSlug);
+  let parentKey = node.parentKey;
+  const seen = new Set([node.key]);
+  while (parentKey && !seen.has(parentKey)) {
+    seen.add(parentKey);
+    const parent = findCityNode(nodes, parentKey);
     if (!parent) break;
     names.unshift(parent.name);
-    parentSlug = parent.parentSlug;
+    parentKey = parent.parentKey;
   }
   return names.join(" / ");
 }

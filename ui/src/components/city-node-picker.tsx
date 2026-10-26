@@ -60,12 +60,12 @@ export function CityNodePicker({
           {value && !selected ? <SelectItem value={value}>{value}</SelectItem> : null}
           {nodes.map((node) => (
             <SelectItem
-              key={node.slug}
-              value={node.slug}
+              key={node.key}
+              value={node.key}
               className={DEPTH_INDENT[Math.min(node.depth, DEPTH_INDENT.length - 1)]}
+              hint={<span className="text-xs capitalize text-muted-foreground">{node.kind}</span>}
             >
-              <span>{node.name}</span>
-              <span className="text-xs capitalize text-muted-foreground">{node.kind}</span>
+              {node.name}
             </SelectItem>
           ))}
         </SelectContent>
@@ -78,7 +78,7 @@ export function CityNodePicker({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-xs"
-            onClick={() => onChange(suggestion.slug)}
+            onClick={() => onChange(suggestion.key)}
           >
             Use {suggestion.name}
           </Button>

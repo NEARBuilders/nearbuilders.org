@@ -472,7 +472,7 @@ function LoadedProfile({
                 )}
                 {builder.cityNode && (
                   <div className="mt-2">
-                    <CityNodeChip slug={builder.cityNode} />
+                    <CityNodeChip cityNode={builder.cityNode} />
                   </div>
                 )}
               </div>

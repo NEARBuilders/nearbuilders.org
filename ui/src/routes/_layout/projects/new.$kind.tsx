@@ -174,6 +174,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
             logoUrl: project.logoUrl ?? undefined,
+            cityNode: project.cityNode ?? undefined,
           },
         });
       }

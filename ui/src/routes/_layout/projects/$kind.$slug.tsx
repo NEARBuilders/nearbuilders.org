@@ -465,7 +465,7 @@ function ProjectDetailPage() {
                   <StatusChip status={project.status} />
                   <ProjectActivityBadge projectId={project.id} />
                   <NewBadge createdAt={project.createdAt} />
-                  <CityNodeChip slug={project.cityNode} />
+                  <CityNodeChip cityNode={project.cityNode} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {projectImageUrl && (

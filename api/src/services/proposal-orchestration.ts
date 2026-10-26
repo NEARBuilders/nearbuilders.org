@@ -160,6 +160,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       organizationId: readString(payload.organizationId),
       domain: readString(payload.domain),
       logoUrl: readString(payload.logoUrl),
+      cityNode: readString(payload.cityNode),
     });
     assertProjectProposalOwner(result.ownerId, ownerId);
     return result.id;

@@ -99,16 +99,16 @@ describe.sequential("Builder city node", () => {
 
     const moved = await owner.updateBuilderProfile({
       nearAccount: "mover.near",
-      cityNode: "hill-valley",
+      cityNode: "west-province/hill-valley",
     });
-    expect(moved.data.cityNode).toBe("hill-valley");
+    expect(moved.data.cityNode).toBe("west-province/hill-valley");
 
     const kept = await owner.updateBuilderProfile({ nearAccount: "mover.near", bio: "Still here" });
-    expect(kept.data.cityNode).toBe("hill-valley");
+    expect(kept.data.cityNode).toBe("west-province/hill-valley");
 
     const cleared = await owner.updateBuilderProfile({ nearAccount: "mover.near", cityNode: null });
     expect(cleared.data.cityNode).toBeNull();
-    const list = await anonClient().listBuilders({ cityNode: "hill-valley" });
+    const list = await anonClient().listBuilders({ cityNode: "west-province/hill-valley" });
     expect(list.data.map((b) => b.nearAccount)).not.toContain("mover.near");
   });
 

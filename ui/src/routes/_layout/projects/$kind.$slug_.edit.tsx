@@ -124,7 +124,8 @@ function EditProjectPage() {
         status: values.kind !== "result" ? values.status : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || "",
-        cityNode: values.cityNode || null,
+        cityNode:
+          values.cityNode !== (project?.cityNode ?? "") ? values.cityNode || null : undefined,
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
@@ -188,6 +189,7 @@ function EditProjectPage() {
             ownerId: updated.ownerId,
             domain: updated.domain ?? undefined,
             logoUrl: updated.logoUrl ?? undefined,
+            cityNode: updated.cityNode ?? undefined,
           },
         });
       }

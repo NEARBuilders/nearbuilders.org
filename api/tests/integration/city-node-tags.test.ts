@@ -36,6 +36,21 @@ const nodeSummaries = [
     childrenCount: 0,
     validatorCount: 0,
   },
+  {
+    node: {
+      id: "node-2",
+      kind: "city",
+      slug: "harbor",
+      name: "Harbor",
+      parentId: "node-1",
+      tenantId: null,
+      metadata: {},
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    childrenCount: 0,
+    validatorCount: 0,
+  },
 ];
 
 function projectRecord(input: Record<string, unknown>, cityNode: string | null = null) {
@@ -67,9 +82,9 @@ describe("city node tags", () => {
     ...projectRecord(input),
     collaborators: [],
   }));
-  const updateProject = vi.fn(async (input: Record<string, unknown>) =>
-    projectRecord(input, "retired-node"),
-  );
+  const updateProject = vi.fn(async (input: Record<string, unknown>) => projectRecord(input));
+  const getProject = vi.fn();
+  const getBuilder = vi.fn();
   const updateBuilderProfile = vi.fn(async (input: Record<string, unknown>) => ({
     data: {
       id: "builder-1",
@@ -100,7 +115,7 @@ describe("city node tags", () => {
         activity: () => ({}),
         builders: () => ({
           getMyBuilderProfile: async () => ({ data: null }),
-          getBuilder: async () => ({ data: { cityNode: "retired-node" } }),
+          getBuilder,
           updateBuilderProfile,
         }),
         events: () => ({}),
@@ -109,9 +124,7 @@ describe("city node tags", () => {
         projects: () => ({
           createProject,
           updateProject,
-          getProject: async ({ id }: { id: string }) => ({
-            data: projectRecord({ id }, "retired-node"),
-          }),
+          getProject,
         }),
         proposals: () => ({
           getProposals: async () => ({
@@ -161,7 +174,24 @@ describe("city node tags", () => {
   it("serves the cached citynode.app list", async () => {
     const result = await loaded.createClient().listCityNodes();
     expect(result.data).toEqual([
-      { slug: "lakeside", name: "Lakeside", kind: "city", parentSlug: null, depth: 0 },
+      {
+        key: "lakeside",
+        slug: "lakeside",
+        name: "Lakeside",
+        kind: "city",
+        parentKey: null,
+        parentId: null,
+        depth: 0,
+      },
+      {
+        key: "lakeside/harbor",
+        slug: "harbor",
+        name: "Harbor",
+        kind: "city",
+        parentKey: "lakeside",
+        parentId: "node-1",
+        depth: 1,
+      },
     ]);
     expect(result.meta).toMatchObject({ baseUrl: "https://citynode.test", available: true });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -199,7 +229,7 @@ describe("city node tags", () => {
     expect(updateBuilderProfile).not.toHaveBeenCalled();
   });
 
-  it("accepts a known node, a cleared node, and an unchanged node that left citynode.app", async () => {
+  it("accepts known and nested nodes and clears without reading the current tag", async () => {
     const created = await member().createProject({
       kind: "idea",
       title: "Alpha",
@@ -209,13 +239,18 @@ describe("city node tags", () => {
     expect(created.cityNode).toBe("lakeside");
 
     await expect(
+      member().updateProject({ id: "project-1", cityNode: "lakeside/harbor" }),
+    ).resolves.toMatchObject({ cityNode: "lakeside/harbor" });
+    await expect(
+      member().updateProject({ id: "project-1", cityNode: "harbor" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
       member().updateProject({ id: "project-1", cityNode: null }),
     ).resolves.toMatchObject({ cityNode: null });
     await expect(
-      member().updateProject({ id: "project-1", cityNode: "retired-node" }),
-    ).resolves.toMatchObject({ cityNode: "retired-node" });
-    await expect(
-      member().updateBuilderProfile({ nearAccount: "alice.near", cityNode: "retired-node" }),
-    ).resolves.toMatchObject({ data: { cityNode: "retired-node" } });
+      member().updateBuilderProfile({ nearAccount: "alice.near", cityNode: "lakeside/harbor" }),
+    ).resolves.toMatchObject({ data: { cityNode: "lakeside/harbor" } });
+    expect(getProject).not.toHaveBeenCalled();
+    expect(getBuilder).not.toHaveBeenCalled();
   });
 });

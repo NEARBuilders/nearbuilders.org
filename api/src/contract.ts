@@ -1,3 +1,4 @@
+import { cityNodeFilterSchema, cityNodeKeySchema } from "@everything-dev/builders-plugin/city-node";
 import {
   BAD_REQUEST,
   CONNECTION_ERROR,
@@ -122,20 +123,13 @@ const XNominationInput = z
     },
   );
 
-const CityNodeSlug = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .max(100)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: "City node must be a community slug" });
-
-const CityNodeFilter = z.string().trim().toLowerCase().max(100).optional();
-
 const CityNodeOutput = z.object({
+  key: z.string(),
   slug: z.string(),
   name: z.string(),
   kind: z.string(),
-  parentSlug: z.string().nullable(),
+  parentKey: z.string().nullable(),
+  parentId: z.string().nullable(),
   depth: z.number().int().nonnegative(),
 });
 
@@ -146,7 +140,7 @@ const BuilderProfileSubmissionInput = z.object({
   skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
-  cityNode: CityNodeSlug.optional(),
+  cityNode: cityNodeKeySchema.optional(),
 });
 
 const BuilderNominationInput = z.object({
@@ -1521,7 +1515,7 @@ export const contract = oc.router({
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
         slugs: z.string().max(10_100).optional(),
-        cityNode: CityNodeFilter,
+        cityNode: cityNodeFilterSchema,
         limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -1557,7 +1551,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
-        cityNode: CityNodeSlug.nullable().optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -1623,7 +1617,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
-        cityNode: CityNodeSlug.nullable().optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
       }),
     )
     .output(ProjectOutput)
@@ -1849,7 +1843,7 @@ export const contract = oc.router({
       z.object({
         search: z.string().optional(),
         skill: z.string().optional(),
-        cityNode: CityNodeFilter,
+        cityNode: cityNodeFilterSchema,
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -1906,7 +1900,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
-        cityNode: CityNodeSlug.nullable().optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))
