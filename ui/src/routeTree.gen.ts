@@ -68,6 +68,7 @@ import { Route as LayoutAdminAdminDashboardXNominationsRouteImport } from './rou
 import { Route as LayoutAdminAdminDashboardTelegramRouteImport } from './routes/_layout/_admin/admin/dashboard/telegram'
 import { Route as LayoutAdminAdminDashboardProjectsRouteImport } from './routes/_layout/_admin/admin/dashboard/projects'
 import { Route as LayoutAdminAdminDashboardEventsRouteImport } from './routes/_layout/_admin/admin/dashboard/events'
+import { Route as LayoutAdminAdminDashboardCatalogRouteImport } from './routes/_layout/_admin/admin/dashboard/catalog'
 import { Route as LayoutAdminAdminDashboardBuildersRouteImport } from './routes/_layout/_admin/admin/dashboard/builders'
 import { Route as LayoutAdminAdminDashboardActivityRouteImport } from './routes/_layout/_admin/admin/dashboard/activity'
 
@@ -392,6 +393,12 @@ const LayoutAdminAdminDashboardEventsRoute =
     path: '/events',
     getParentRoute: () => LayoutAdminAdminDashboardRoute,
   } as any)
+const LayoutAdminAdminDashboardCatalogRoute =
+  LayoutAdminAdminDashboardCatalogRouteImport.update({
+    id: '/catalog',
+    path: '/catalog',
+    getParentRoute: () => LayoutAdminAdminDashboardRoute,
+  } as any)
 const LayoutAdminAdminDashboardBuildersRoute =
   LayoutAdminAdminDashboardBuildersRouteImport.update({
     id: '/builders',
@@ -445,6 +452,7 @@ export interface FileRoutesByFullPath {
   '/projects/new/': typeof LayoutProjectsNewIndexRoute
   '/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/admin/dashboard/catalog': typeof LayoutAdminAdminDashboardCatalogRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
   '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
@@ -499,6 +507,7 @@ export interface FileRoutesByTo {
   '/projects/new': typeof LayoutProjectsNewIndexRoute
   '/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
   '/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/admin/dashboard/catalog': typeof LayoutAdminAdminDashboardCatalogRoute
   '/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
   '/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
@@ -563,6 +572,7 @@ export interface FileRoutesById {
   '/_layout/projects/new/': typeof LayoutProjectsNewIndexRoute
   '/_layout/_admin/admin/dashboard/activity': typeof LayoutAdminAdminDashboardActivityRoute
   '/_layout/_admin/admin/dashboard/builders': typeof LayoutAdminAdminDashboardBuildersRoute
+  '/_layout/_admin/admin/dashboard/catalog': typeof LayoutAdminAdminDashboardCatalogRoute
   '/_layout/_admin/admin/dashboard/events': typeof LayoutAdminAdminDashboardEventsRoute
   '/_layout/_admin/admin/dashboard/projects': typeof LayoutAdminAdminDashboardProjectsRoute
   '/_layout/_admin/admin/dashboard/telegram': typeof LayoutAdminAdminDashboardTelegramRoute
@@ -624,6 +634,7 @@ export interface FileRouteTypes {
     | '/projects/new/'
     | '/admin/dashboard/activity'
     | '/admin/dashboard/builders'
+    | '/admin/dashboard/catalog'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
     | '/admin/dashboard/telegram'
@@ -678,6 +689,7 @@ export interface FileRouteTypes {
     | '/projects/new'
     | '/admin/dashboard/activity'
     | '/admin/dashboard/builders'
+    | '/admin/dashboard/catalog'
     | '/admin/dashboard/events'
     | '/admin/dashboard/projects'
     | '/admin/dashboard/telegram'
@@ -741,6 +753,7 @@ export interface FileRouteTypes {
     | '/_layout/projects/new/'
     | '/_layout/_admin/admin/dashboard/activity'
     | '/_layout/_admin/admin/dashboard/builders'
+    | '/_layout/_admin/admin/dashboard/catalog'
     | '/_layout/_admin/admin/dashboard/events'
     | '/_layout/_admin/admin/dashboard/projects'
     | '/_layout/_admin/admin/dashboard/telegram'
@@ -1180,6 +1193,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminAdminDashboardEventsRouteImport
       parentRoute: typeof LayoutAdminAdminDashboardRoute
     }
+    '/_layout/_admin/admin/dashboard/catalog': {
+      id: '/_layout/_admin/admin/dashboard/catalog'
+      path: '/catalog'
+      fullPath: '/admin/dashboard/catalog'
+      preLoaderRoute: typeof LayoutAdminAdminDashboardCatalogRouteImport
+      parentRoute: typeof LayoutAdminAdminDashboardRoute
+    }
     '/_layout/_admin/admin/dashboard/builders': {
       id: '/_layout/_admin/admin/dashboard/builders'
       path: '/builders'
@@ -1200,6 +1220,7 @@ declare module '@tanstack/react-router' {
 interface LayoutAdminAdminDashboardRouteChildren {
   LayoutAdminAdminDashboardActivityRoute: typeof LayoutAdminAdminDashboardActivityRoute
   LayoutAdminAdminDashboardBuildersRoute: typeof LayoutAdminAdminDashboardBuildersRoute
+  LayoutAdminAdminDashboardCatalogRoute: typeof LayoutAdminAdminDashboardCatalogRoute
   LayoutAdminAdminDashboardEventsRoute: typeof LayoutAdminAdminDashboardEventsRoute
   LayoutAdminAdminDashboardProjectsRoute: typeof LayoutAdminAdminDashboardProjectsRoute
   LayoutAdminAdminDashboardTelegramRoute: typeof LayoutAdminAdminDashboardTelegramRoute
@@ -1213,6 +1234,8 @@ const LayoutAdminAdminDashboardRouteChildren: LayoutAdminAdminDashboardRouteChil
       LayoutAdminAdminDashboardActivityRoute,
     LayoutAdminAdminDashboardBuildersRoute:
       LayoutAdminAdminDashboardBuildersRoute,
+    LayoutAdminAdminDashboardCatalogRoute:
+      LayoutAdminAdminDashboardCatalogRoute,
     LayoutAdminAdminDashboardEventsRoute: LayoutAdminAdminDashboardEventsRoute,
     LayoutAdminAdminDashboardProjectsRoute:
       LayoutAdminAdminDashboardProjectsRoute,

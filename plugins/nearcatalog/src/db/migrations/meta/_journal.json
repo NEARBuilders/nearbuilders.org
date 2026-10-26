@@ -15,6 +15,13 @@
       "when": 1783697310496,
       "tag": "0001_plain_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793030234143,
+      "tag": "0002_catalog_listings",
+      "breakpoints": true
     }
   ]
 }

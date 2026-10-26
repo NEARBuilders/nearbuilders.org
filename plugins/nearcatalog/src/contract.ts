@@ -69,6 +69,92 @@ export const CatalogCategorySchema = z.object({
   label: z.string(),
 });
 
+export const CATALOG_LISTING_SYNC = Symbol.for("nearbuilders.nearcatalog.listingSync");
+
+export const CatalogListingKindSchema = z.enum(["project", "person"]);
+export const CatalogListingStatusSchema = z.enum([
+  "none",
+  "pending",
+  "approved",
+  "rejected",
+  "published",
+]);
+export const CatalogPreferredContactSchema = z.enum([
+  "Email",
+  "Telegram",
+  "Discord",
+  "X",
+  "Website",
+]);
+
+const CatalogExportUrl = z.union([z.literal(""), z.url({ protocol: /^https?$/ })]);
+
+export const CatalogExportProjectSchema = z.strictObject({
+  slug: z.string().min(1).max(120),
+  title: z.string().min(1).max(400),
+  oneliner: z.string().min(1).max(400),
+  description: z.string().min(1).max(2000),
+  logo: z.url({ protocol: /^https?$/ }),
+  categories: z.array(z.string().min(1).max(60)).min(1).max(6),
+  website: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  medium: CatalogExportUrl,
+  telegram: CatalogExportUrl,
+  github: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  whitepaper: CatalogExportUrl,
+  "token-address": z.string().max(64),
+  "coingecko-address": z.string().max(100),
+  "nearsocial-address": CatalogExportUrl,
+  dapp: CatalogExportUrl,
+  phase: z.string().max(40),
+  source: z.strictObject({
+    site: z.string().min(1),
+    url: z.url(),
+    nearAccount: z.string(),
+    updatedAt: z.iso.datetime(),
+  }),
+});
+
+export const CatalogExportPersonSchema = z.strictObject({
+  name: z.string().min(1).max(100),
+  preferredContact: CatalogPreferredContactSchema,
+  description: z.string().min(1).max(2000),
+  organization: z.string().max(100),
+  team: z.string().max(100),
+  jobTitle: z.string().max(80),
+  email: z.union([z.literal(""), z.email()]),
+  telegram: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  website: CatalogExportUrl,
+  avatar: CatalogExportUrl,
+  nearProjects: z.string(),
+  nearAccount: z.string().min(1).max(100),
+});
+
+export const CatalogListingSchema = z.object({
+  id: z.string(),
+  kind: CatalogListingKindSchema,
+  entityId: z.string(),
+  ownerId: z.string(),
+  slug: z.string(),
+  status: CatalogListingStatusSchema,
+  record: z.record(z.string(), z.unknown()).nullable(),
+  approvedBy: z.string().nullable(),
+  approvedAt: z.iso.datetime().nullable(),
+  publishedAt: z.iso.datetime().nullable(),
+  removedAt: z.iso.datetime().nullable(),
+  changedAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+const CatalogListingTargetSchema = z.object({
+  kind: CatalogListingKindSchema,
+  entityId: z.string().trim().min(1).max(255),
+});
+
 export const ClaimedCatalogProjectSchema = z.object({
   project: CatalogProjectSchema,
   contributors: z.array(CatalogContributorSchema),
@@ -182,6 +268,54 @@ export const contract = oc.router({
     .input(z.object({ id: z.string().min(1).max(255) }))
     .output(z.object({ data: CatalogClaimSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  getCatalogListing: oc
+    .route({ method: "GET", path: "/v1/internal/nearcatalog/listings/{kind}/{entityId}" })
+    .input(CatalogListingTargetSchema)
+    .output(z.object({ data: CatalogListingSchema.nullable() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  markCatalogListingPending: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/pending" })
+    .input(
+      CatalogListingTargetSchema.extend({
+        ownerId: z.string().trim().min(1).max(255),
+        slug: z.string().trim().min(1).max(120),
+      }),
+    )
+    .output(z.object({ data: CatalogListingSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  approveCatalogListing: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/approve" })
+    .input(
+      CatalogListingTargetSchema.extend({
+        ownerId: z.string().trim().min(1).max(255),
+        slug: z.string().trim().min(1).max(120),
+        record: z.record(z.string(), z.unknown()),
+        approvedBy: z.string().trim().min(1).max(255),
+      }),
+    )
+    .output(z.object({ data: CatalogListingSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  rejectCatalogListing: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/reject" })
+    .input(CatalogListingTargetSchema)
+    .output(z.object({ data: CatalogListingSchema.nullable() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  withdrawCatalogListing: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/withdraw" })
+    .input(CatalogListingTargetSchema)
+    .output(z.object({ data: CatalogListingSchema.nullable() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  refreshCatalogListingRecord: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/refresh" })
+    .input(CatalogListingTargetSchema.extend({ record: z.record(z.string(), z.unknown()) }))
+    .output(z.object({ data: CatalogListingSchema.nullable() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 });
 
 export type ContractType = typeof contract;

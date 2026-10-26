@@ -20,6 +20,7 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { CatalogListingPanel } from "@/components/catalog-listing-panel";
 import { NostrFeed } from "@/components/nostr-feed";
 import {
   ProjectActivityAction,
@@ -518,6 +519,14 @@ function ProjectDetailPage() {
                 )}
                 {project.kind === "project" && <ProjectCatalogDetails catalog={project.catalog} />}
               </div>
+
+              {project.kind === "project" && project.visibility === "public" && isOwner && (
+                <CatalogListingPanel
+                  target={{ kind: "project", projectId: project.id }}
+                  visible={isOwner}
+                  version={project.updatedAt}
+                />
+              )}
 
               {project.kind === "project" && canManage && (
                 <ProjectCatalogReadiness

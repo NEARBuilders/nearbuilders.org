@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createProposalCsvData, escapeCsvField, serializeCsv } from "../../../../lib/export-csv";
 import {
+  getProposalDescriptor,
   getProposalState,
   getProposalTitle,
+  getProposalTypeLabel,
   hasCanonicalPage,
   isLifecycleStalled,
   type ProposalRecord,
@@ -113,6 +115,22 @@ describe("admin proposal dashboard", () => {
     ).toBe(true);
     expect(hasCanonicalPage(proposal({ pluginId: "builders" }))).toBe(true);
     expect(hasCanonicalPage(proposal({ pluginId: "nearcatalog" }))).toBe(false);
+    expect(hasCanonicalPage(proposal({ pluginId: "nearcatalog-listing" }))).toBe(false);
+  });
+
+  it("describes NEAR Catalog listings from the export record", () => {
+    const listing = proposal({
+      pluginId: "nearcatalog-listing",
+      entityId: "project:project-1",
+      payload: {
+        kind: "project",
+        title: "Lantern Pay",
+        record: { title: "Lantern Pay", oneliner: "Payments for small shops" },
+      },
+    });
+    expect(getProposalTitle(listing)).toBe("Lantern Pay");
+    expect(getProposalDescriptor(listing)).toBe("Payments for small shops");
+    expect(getProposalTypeLabel(listing)).toBe("Catalog project");
   });
 });
 

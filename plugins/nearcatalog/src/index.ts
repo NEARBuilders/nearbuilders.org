@@ -2,11 +2,12 @@ import { createPlugin } from "every-plugin";
 import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { contract } from "./contract";
+import { CATALOG_LISTING_SYNC, contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { CatalogService, CatalogServiceLive } from "./services/catalog";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
+import { ListingService, ListingServiceLive } from "./services/listings";
 
 async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
   const exit = await Effect.runPromiseExit(effect);
@@ -90,12 +91,29 @@ export default createPlugin({
       const Catalog = CatalogServiceLive(config.variables.baseUrl);
       const catalog = yield* tools.buildService(CatalogService, Catalog);
       const claims = yield* tools.buildService(ClaimService, Claims);
+      const listings = yield* tools.buildService(
+        ListingService,
+        ListingServiceLive.pipe(Layer.provide(Database)),
+      );
 
-      return { catalog, claims };
+      return { catalog, claims, listings };
     }),
 
   createRouter: (services, builder) => {
     const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context });
+    });
+
+    const requireListingSync = builder.middleware(async ({ context, next }) => {
+      if ((context as Record<symbol, unknown>)[CATALOG_LISTING_SYNC] === true) {
+        return next({ context });
+      }
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
       }
@@ -190,6 +208,42 @@ export default createPlugin({
         .use(requireAdmin)
         .handler(async ({ input }) => ({
           data: await runEffect(services.claims.revokeClaim(input.id)),
+        })),
+
+      getCatalogListing: builder.getCatalogListing
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.getListing(input)),
+        })),
+
+      markCatalogListingPending: builder.markCatalogListingPending
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.markPending(input)),
+        })),
+
+      approveCatalogListing: builder.approveCatalogListing
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.approve(input)),
+        })),
+
+      rejectCatalogListing: builder.rejectCatalogListing
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.reject(input)),
+        })),
+
+      withdrawCatalogListing: builder.withdrawCatalogListing
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.withdraw(input)),
+        })),
+
+      refreshCatalogListingRecord: builder.refreshCatalogListingRecord
+        .use(requireListingSync)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.refreshRecord(input)),
         })),
     };
   },

@@ -42,3 +42,31 @@ export const nearcatalogClaimHistory = pgTable(
     index("nearcatalog_claim_history_project_slug_idx").on(table.projectSlug),
   ],
 );
+
+export const nearcatalogListings = pgTable(
+  "nearcatalog_listings",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").$type<"project" | "person">().notNull(),
+    entityId: text("entity_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    slug: text("slug").notNull(),
+    status: text("status")
+      .$type<"none" | "pending" | "approved" | "rejected" | "published">()
+      .notNull(),
+    record: jsonb("record").$type<Record<string, unknown>>(),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { mode: "date", withTimezone: true }),
+    publishedAt: timestamp("published_at", { mode: "date", withTimezone: true }),
+    removedAt: timestamp("removed_at", { mode: "date", withTimezone: true }),
+    changedAt: timestamp("changed_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("nearcatalog_listings_kind_entity_unique").on(table.kind, table.entityId),
+    index("nearcatalog_listings_kind_slug_idx").on(table.kind, table.slug),
+    index("nearcatalog_listings_status_idx").on(table.status),
+    index("nearcatalog_listings_changed_at_idx").on(table.changedAt),
+  ],
+);

@@ -131,6 +131,7 @@
       "variables": {
         "privatePluginIds": [
           "nearcatalog",
+          "nearcatalog-listing",
           "projects",
           "events"
         ]

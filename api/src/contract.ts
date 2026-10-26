@@ -235,7 +235,13 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
-export const REVIEW_DIGEST_PLUGIN_IDS = ["builders", "projects", "events", "nearcatalog"] as const;
+export const REVIEW_DIGEST_PLUGIN_IDS = [
+  "builders",
+  "projects",
+  "events",
+  "nearcatalog",
+  "nearcatalog-listing",
+] as const;
 const ReviewDigestPluginId = z.enum(REVIEW_DIGEST_PLUGIN_IDS);
 const ReviewVerdict = z.enum(["ready", "review", "spam"]);
 
@@ -477,6 +483,32 @@ const ClaimedCatalogProjectSchema = z.object({
       updatedAt: z.iso.datetime(),
     }),
   ),
+});
+
+const CatalogListingKind = z.enum(["project", "person"]);
+
+const CatalogListingTarget = z
+  .object({
+    kind: CatalogListingKind,
+    projectId: z.string().trim().min(1).max(255).optional(),
+  })
+  .refine((value) => value.kind === "person" || Boolean(value.projectId), {
+    message: "projectId is required for project listings",
+    path: ["projectId"],
+  });
+
+const CatalogListingStatusSchema = z.object({
+  kind: CatalogListingKind,
+  entityId: z.string(),
+  status: z.enum(["none", "pending", "approved", "rejected", "published"]),
+  slug: z.string().nullable(),
+  listed: z.boolean(),
+  rejectionReason: z.string().nullable(),
+  eligible: z.boolean(),
+  ineligibleReason: z.string().nullable(),
+  missing: z.array(z.string()),
+  record: z.record(z.string(), z.unknown()),
+  approvedRecord: z.record(z.string(), z.unknown()).nullable(),
 });
 
 const CatalogClaimProposalSchema = z.object({
@@ -1320,6 +1352,24 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/nearcatalog/claim-proposals/me" })
     .output(z.object({ data: z.array(CatalogClaimProposalSchema) }))
     .errors({ UNAUTHORIZED }),
+
+  getMyCatalogListing: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings/me" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  submitCatalogListing: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/me" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  withdrawMyCatalogListing: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/me/withdraw" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   listCatalogClaims: oc
     .route({ method: "GET", path: "/v1/nearcatalog/claims" })
