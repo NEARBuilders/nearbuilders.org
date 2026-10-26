@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { getEventFormErrorMessage, normalizeEventFormValues } from "./-event-form-utils";
 
 type Visibility = "private" | "unlisted" | "public";
@@ -194,6 +195,7 @@ function EditEventForm({ event, isAdmin }: { event: EventRecord; isAdmin: boolea
       return { updated, needsReview };
     },
     onSuccess: ({ updated, needsReview }) => {
+      if (needsReview) clearEmailPromptDismissal();
       toast.success(needsReview ? "Submitted for review" : "Event updated");
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["event", updated.slug] });

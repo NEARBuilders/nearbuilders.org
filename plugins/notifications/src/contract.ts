@@ -1,4 +1,4 @@
-import { FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
@@ -12,6 +12,13 @@ export const NotificationSchema = z.object({
   link: z.string(),
   read: z.boolean(),
   createdAt: z.iso.datetime(),
+});
+
+export const EmailPreferenceSchema = z.object({
+  email: z.string().nullable(),
+  verified: z.boolean(),
+  enabled: z.boolean(),
+  pendingEmail: z.string().nullable(),
 });
 
 export const contract = oc.router({
@@ -66,6 +73,43 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/notifications/stream" })
     .output(eventIterator(NotificationSchema))
     .errors({ UNAUTHORIZED }),
+
+  getEmailPreference: oc
+    .route({ method: "GET", path: "/v1/notifications/email" })
+    .input(z.object({ userId: z.string() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  setEmailNotificationsEnabled: oc
+    .route({ method: "POST", path: "/v1/notifications/email/enabled" })
+    .input(z.object({ userId: z.string(), enabled: z.boolean() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  setEmailChallenge: oc
+    .route({ method: "POST", path: "/v1/notifications/email/challenge" })
+    .input(
+      z.object({
+        userId: z.string(),
+        pendingEmail: z.string().email(),
+        codeHash: z.string(),
+        codeExpiresAt: z.iso.datetime(),
+      }),
+    )
+    .output(z.object({ pendingEmail: z.string() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  confirmEmailCode: oc
+    .route({ method: "POST", path: "/v1/notifications/email/confirm" })
+    .input(z.object({ userId: z.string(), codeHash: z.string() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+
+  syncVerifiedEmail: oc
+    .route({ method: "POST", path: "/v1/notifications/email/sync" })
+    .input(z.object({ userId: z.string(), email: z.string().email() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 });
 
 export type ContractType = typeof contract;

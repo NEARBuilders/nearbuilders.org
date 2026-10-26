@@ -325,6 +325,13 @@ export const ProposalEventSchema = z.object({
   timestamp: z.iso.datetime(),
 });
 
+export const EmailPreferenceSchema = z.object({
+  email: z.string().nullable(),
+  verified: z.boolean(),
+  enabled: z.boolean(),
+  pendingEmail: z.string().nullable(),
+});
+
 export const NotificationSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -1440,6 +1447,35 @@ export const contract = oc.router({
     )
     .output(ActivityImportPlanSchema)
     .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  getMyEmailPreference: oc
+    .route({ method: "GET", path: "/v1/notifications/email" })
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED }),
+
+  setEmailNotificationsEnabled: oc
+    .route({ method: "POST", path: "/v1/notifications/email/enabled" })
+    .input(z.object({ enabled: z.boolean() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED }),
+
+  requestNotificationEmailCode: oc
+    .route({ method: "POST", path: "/v1/notifications/email/code" })
+    .input(z.object({ email: z.string().email() }))
+    .output(z.object({ sent: z.boolean() }))
+    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE }),
+
+  confirmNotificationEmailCode: oc
+    .route({ method: "POST", path: "/v1/notifications/email/confirm" })
+    .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+
+  syncVerifiedNotificationEmail: oc
+    .route({ method: "POST", path: "/v1/notifications/email/sync" })
+    .input(z.object({ email: z.string().email() }))
+    .output(EmailPreferenceSchema)
+    .errors({ UNAUTHORIZED }),
 
   getMyNotifications: oc
     .route({ method: "GET", path: "/v1/notifications/me" })

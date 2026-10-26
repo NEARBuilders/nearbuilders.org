@@ -7,6 +7,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { normalizeDomain } from "@/lib/project-form-validation";
 import {
   approvalSettingsQueryOptions,
@@ -193,6 +194,7 @@ function EditProjectPage() {
       return { submitForReview };
     },
     onSuccess: ({ submitForReview }: { submitForReview: boolean }) => {
+      if (submitForReview) clearEmailPromptDismissal();
       toast.success(submitForReview ? "Saved \u2014 submitted for review to go public" : "Saved");
       queryClient.invalidateQueries({ queryKey: ["project", slug] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });

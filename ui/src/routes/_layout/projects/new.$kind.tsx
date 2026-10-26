@@ -26,6 +26,7 @@ import {
   normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
@@ -186,6 +187,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         result: "Result",
       };
       const label = kindLabels[routeKind as ProjectKind];
+      if (submitForReview) clearEmailPromptDismissal();
       toast.success(
         submitForReview
           ? `${label} created \u2014 submitted for review to go public`

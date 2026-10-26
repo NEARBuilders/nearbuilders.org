@@ -32,6 +32,7 @@ import {
   getNearSocialBannerUrl,
   type ResolvedNearProfile,
 } from "@/lib/near-social";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { activityFeedQueryOptions } from "@/lib/queries/activity";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
@@ -184,6 +185,7 @@ function BuilderProfilePage() {
       if (data.alreadyNominated) {
         toast.info("You've already nominated this builder");
       } else {
+        clearEmailPromptDismissal();
         toast.success("Nomination recorded");
       }
     },

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { getEventFormErrorMessage, normalizeEventFormValues } from "./-event-form-utils";
 
 type Visibility = "private" | "unlisted" | "public";
@@ -136,6 +137,7 @@ function NewEventPage() {
       return { event, submitForReview, reviewFailed: false };
     },
     onSuccess: ({ event, submitForReview, reviewFailed }) => {
+      if (submitForReview && !reviewFailed) clearEmailPromptDismissal();
       toast.success(
         reviewFailed
           ? "Event created privately — review submission failed. Edit to resubmit."
