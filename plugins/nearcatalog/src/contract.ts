@@ -170,6 +170,14 @@ const CatalogExportMetaSchema = z.object({
   count: z.number().int().nonnegative(),
 });
 
+export const PublicCatalogListingSchema = z.object({
+  kind: CatalogListingKindSchema,
+  entityId: z.string(),
+  slug: z.string(),
+  status: z.enum(["approved", "published"]),
+  catalogUrl: z.string().url().nullable(),
+});
+
 const CatalogListingTargetSchema = z.object({
   kind: CatalogListingKindSchema,
   entityId: z.string().trim().min(1).max(255),
@@ -312,6 +320,21 @@ export const contract = oc.router({
       }),
     )
     .errors({ BAD_REQUEST }),
+
+  listCatalogListings: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings" })
+    .input(z.object({ kind: CatalogListingKindSchema }))
+    .output(z.object({ data: z.array(PublicCatalogListingSchema) })),
+
+  markCatalogListingPublished: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/published" })
+    .input(
+      CatalogListingTargetSchema.extend({
+        slug: z.string().trim().min(1).max(120).optional(),
+      }),
+    )
+    .output(z.object({ data: CatalogListingSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   getCatalogListing: oc
     .route({ method: "GET", path: "/v1/internal/nearcatalog/listings/{kind}/{entityId}" })

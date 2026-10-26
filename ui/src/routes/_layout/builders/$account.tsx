@@ -23,6 +23,7 @@ import { CatalogListingPanel } from "@/components/catalog-listing-panel";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
+import { CatalogListedBadge } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -476,6 +477,7 @@ function LoadedProfile({
                     <CheckCircle2 className="size-3" />
                     Approved
                   </Badge>
+                  <CatalogListedBadge kind="person" entityId={account} linked />
                   {activeProposal && (
                     <Badge
                       variant="secondary"

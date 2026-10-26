@@ -1435,6 +1435,35 @@ export const contract = oc.router({
     )
     .errors({ BAD_REQUEST }),
 
+  listCatalogListings: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings" })
+    .input(z.object({ kind: CatalogListingKind }))
+    .output(
+      z.object({
+        data: z.array(
+          z.object({
+            kind: CatalogListingKind,
+            entityId: z.string(),
+            slug: z.string(),
+            status: z.enum(["approved", "published"]),
+            catalogUrl: z.string().url().nullable(),
+          }),
+        ),
+      }),
+    ),
+
+  markCatalogListingPublished: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/published" })
+    .input(
+      z.object({
+        kind: CatalogListingKind,
+        entityId: z.string().trim().min(1).max(255),
+        slug: z.string().trim().min(1).max(120).optional(),
+      }),
+    )
+    .output(z.object({ data: z.object({ status: z.string(), slug: z.string() }) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
   getMyCatalogListing: oc
     .route({ method: "GET", path: "/v1/nearcatalog/listings/me" })
     .input(CatalogListingTarget)

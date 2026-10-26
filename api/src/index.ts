@@ -969,6 +969,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.nearcatalog().exportCatalogPeople(input);
       }),
 
+      listCatalogListings: builder.listCatalogListings.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listCatalogListings(input);
+      }),
+
+      markCatalogListingPublished: builder.markCatalogListingPublished
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await services.plugins
+            .nearcatalog(context)
+            .markCatalogListingPublished(input);
+          return { data: { status: result.data.status, slug: result.data.slug } };
+        }),
+
       getMyCatalogListing: builder.getMyCatalogListing
         .use(requireAuth)
         .handler(async ({ input, context }) => {

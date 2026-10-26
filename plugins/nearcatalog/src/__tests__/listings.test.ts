@@ -161,4 +161,49 @@ describe("Catalog listings", { timeout: 15_000 }, () => {
       await cleanup();
     }
   });
+
+  it("lists approved and published listings for badges", async () => {
+    const { listings, cleanup } = await createService();
+    try {
+      await Effect.runPromise(
+        listings.markPending({ ...project, ownerId: "maker.testnet", slug: "lantern-pay" }),
+      );
+      expect(await Effect.runPromise(listings.listListed("project"))).toEqual([]);
+
+      await Effect.runPromise(
+        listings.approve({
+          ...project,
+          ownerId: "maker.testnet",
+          slug: "lantern-pay",
+          record: projectRecord,
+          approvedBy: "reviewer.testnet",
+        }),
+      );
+      expect(await Effect.runPromise(listings.listListed("project"))).toEqual([
+        {
+          kind: "project",
+          entityId: "project-1",
+          slug: "lantern-pay",
+          status: "approved",
+          catalogUrl: null,
+        },
+      ]);
+
+      const published = await Effect.runPromise(listings.markPublished(project));
+      expect(published).toMatchObject({ status: "published" });
+      expect(await Effect.runPromise(listings.listListed("project"))).toEqual([
+        expect.objectContaining({
+          status: "published",
+          catalogUrl: "https://nearcatalog.xyz/project/lantern-pay",
+        }),
+      ]);
+
+      await Effect.runPromise(listings.withdraw(project));
+      expect(await Effect.runPromise(listings.listListed("project"))).toEqual([]);
+      const exit = await Effect.runPromiseExit(listings.markPublished(project));
+      expect(Exit.isFailure(exit)).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
 });

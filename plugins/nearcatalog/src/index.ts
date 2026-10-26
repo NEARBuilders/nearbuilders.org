@@ -218,6 +218,16 @@ export default createPlugin({
         return await runEffect(services.listings.exportPeople(input.since));
       }),
 
+      listCatalogListings: builder.listCatalogListings.handler(async ({ input }) => ({
+        data: await runEffect(services.listings.listListed(input.kind)),
+      })),
+
+      markCatalogListingPublished: builder.markCatalogListingPublished
+        .use(requireAdmin)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.markPublished(input)),
+        })),
+
       getCatalogListing: builder.getCatalogListing
         .use(requireListingSync)
         .handler(async ({ input }) => ({

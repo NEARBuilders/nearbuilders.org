@@ -31,6 +31,7 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
+import { CatalogListedBadge } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -933,6 +934,9 @@ function BuilderCard({
             {nearAccount}
           </p>
         </div>
+        {!isNominated && (
+          <CatalogListedBadge kind="person" entityId={nearAccount} className="mt-2" />
+        )}
         {resolvedBio ? (
           <p
             className={cn(

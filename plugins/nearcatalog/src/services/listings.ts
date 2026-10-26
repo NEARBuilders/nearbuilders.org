@@ -253,6 +253,71 @@ export function createListingMethods(db: Database) {
         });
       }),
 
+    listListed: (kind: CatalogListingKind) =>
+      Effect.gen(function* () {
+        const rows = yield* Effect.promise(() =>
+          db
+            .select()
+            .from(nearcatalogListings)
+            .where(
+              and(
+                eq(nearcatalogListings.kind, kind),
+                isNotNull(nearcatalogListings.record),
+                inArray(nearcatalogListings.status, [...LISTED_STATUSES]),
+              ),
+            )
+            .orderBy(asc(nearcatalogListings.entityId)),
+        );
+        return rows.map((row) => {
+          const published = row.status === "published" || Boolean(row.publishedAt);
+          return {
+            kind: row.kind,
+            entityId: row.entityId,
+            slug: row.slug,
+            status: published ? ("published" as const) : ("approved" as const),
+            catalogUrl:
+              published && row.kind === "project"
+                ? `https://nearcatalog.xyz/project/${encodeURIComponent(row.slug)}`
+                : null,
+          };
+        });
+      }),
+
+    markPublished: (target: ListingTarget & { slug?: string }) =>
+      Effect.gen(function* () {
+        const existing = yield* load(target);
+        if (!existing) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Catalog listing not found" }),
+          );
+        }
+        if (
+          !existing.record ||
+          (existing.status !== "approved" && existing.status !== "published")
+        ) {
+          return yield* Effect.fail(
+            new ORPCError("BAD_REQUEST", {
+              message: "Only approved listings can be marked as published",
+            }),
+          );
+        }
+        const now = new Date();
+        const slug = target.slug ?? existing.slug;
+        const updated = yield* update(target, {
+          status: "published",
+          slug,
+          publishedAt: existing.publishedAt ?? now,
+          changedAt: slug !== existing.slug ? now : existing.changedAt,
+          updatedAt: now,
+        });
+        if (!updated) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Catalog listing not found" }),
+          );
+        }
+        return updated;
+      }),
+
     refreshRecord: (target: ListingTarget & { record: Record<string, unknown> }) =>
       Effect.gen(function* () {
         const record = yield* parseCatalogRecord(target.kind, target.record);

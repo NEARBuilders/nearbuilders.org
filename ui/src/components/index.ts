@@ -14,6 +14,7 @@ export { InvitationCard, MemberCard } from "./member-card";
 export { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "./near-logos";
 export { OrgSwitcher } from "./org-switcher";
 export {
+  CatalogListedBadge,
   KindBadge,
   PrivateIndicator,
   ProjectTags,

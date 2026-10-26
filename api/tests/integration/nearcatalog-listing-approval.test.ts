@@ -231,6 +231,12 @@ describe("NEAR Catalog listing approval", () => {
           refreshCatalogListingRecord: async (input: never) => ({
             data: await track(listingMethods.refreshRecord(input)),
           }),
+          listCatalogListings: async ({ kind }: { kind: "project" | "person" }) => ({
+            data: await runListing(listingMethods.listListed(kind)),
+          }),
+          markCatalogListingPublished: async (input: never) => ({
+            data: await runListing(listingMethods.markPublished(input)),
+          }),
           exportCatalogProjects: async ({ since }: { since?: string }) =>
             await runListing(exportMethods.exportProjects(since)),
           exportCatalogPeople: async ({ since }: { since?: string }) =>
@@ -650,6 +656,42 @@ describe("NEAR Catalog listing approval", () => {
       const serialized = JSON.stringify(people);
       expect(serialized).not.toContain("owner-user@example.com");
       expect(serialized).not.toContain("linkedin");
+    });
+  });
+
+  describe("badge listings", () => {
+    it("lists a project for the badge once approved and lets only admins mark it published", async () => {
+      const api = await loadApi();
+      const anonymous = api.client({});
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await expect(anonymous.listCatalogListings({ kind: "project" })).resolves.toEqual({
+        data: [],
+      });
+
+      await approveProject(api);
+      await expect(anonymous.listCatalogListings({ kind: "project" })).resolves.toEqual({
+        data: [
+          {
+            kind: "project",
+            entityId: "project-1",
+            slug: "lantern-pay",
+            status: "approved",
+            catalogUrl: null,
+          },
+        ],
+      });
+
+      await expect(
+        api.client(owner()).markCatalogListingPublished({ kind: "project", entityId: "project-1" }),
+      ).rejects.toThrow();
+      await api
+        .client(admin())
+        .markCatalogListingPublished({ kind: "project", entityId: "project-1" });
+      const listed = await anonymous.listCatalogListings({ kind: "project" });
+      expect(listed.data[0]).toMatchObject({
+        status: "published",
+        catalogUrl: "https://nearcatalog.xyz/project/lantern-pay",
+      });
     });
   });
 });
