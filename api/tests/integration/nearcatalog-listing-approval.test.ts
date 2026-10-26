@@ -7,6 +7,7 @@ import { Effect } from "every-plugin/effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CATALOG_LISTING_SYNC } from "../../../plugins/nearcatalog/src/contract";
 import { createDatabaseDriver } from "../../../plugins/nearcatalog/src/db";
+import { createCatalogSubmitClientFromConfig } from "../../../plugins/nearcatalog/src/services/catalog-submit";
 import {
   createExportMethods,
   createListingMethods,
@@ -44,10 +45,11 @@ type TestContext = {
 };
 
 const timestamp = "2026-10-26T00:00:00.000Z";
-const migration = join(
-  import.meta.dirname,
-  "../../../plugins/nearcatalog/src/db/migrations/0002_catalog_listings.sql",
+const migrations = ["0002_catalog_listings.sql", "0003_catalog_listing_sends.sql"].map((file) =>
+  join(import.meta.dirname, "../../../plugins/nearcatalog/src/db/migrations", file),
 );
+const submitUrl = "https://submit.catalog.example/v1";
+const submitToken = "nc-test-token-7f3a9e";
 
 function userContext(userId: string, nearAccount: string | null, role = "member") {
   return {
@@ -132,13 +134,24 @@ describe("NEAR Catalog listing approval", () => {
     await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
   });
 
-  async function loadApi(options: { requireAdminApproval?: string } = {}) {
+  async function loadApi(
+    options: { requireAdminApproval?: string; submitFetch?: typeof fetch } = {},
+  ) {
     const dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-catalog-listing-"));
     const driver = await createDatabaseDriver(`pglite:${dataDir}`);
-    for (const statement of (await readFile(migration, "utf8")).split("--> statement-breakpoint")) {
-      await driver.db.execute(sql.raw(statement));
+    for (const file of migrations) {
+      for (const statement of (await readFile(file, "utf8")).split("--> statement-breakpoint")) {
+        await driver.db.execute(sql.raw(statement));
+      }
     }
-    const listingMethods = createListingMethods(driver.db);
+    const submitter = options.submitFetch
+      ? createCatalogSubmitClientFromConfig({
+          url: submitUrl,
+          token: submitToken,
+          fetchImplementation: options.submitFetch,
+        })
+      : null;
+    const listingMethods = createListingMethods(driver.db, submitter);
     const exportMethods = createExportMethods(driver.db);
     const syncFlags: boolean[] = [];
 
@@ -236,6 +249,10 @@ describe("NEAR Catalog listing approval", () => {
           }),
           markCatalogListingPublished: async (input: never) => ({
             data: await runListing(listingMethods.markPublished(input)),
+          }),
+          listCatalogListingSends: async () => await runListing(listingMethods.listSends()),
+          retryCatalogListingSend: async (input: never) => ({
+            data: await runListing(listingMethods.retrySend(input)),
           }),
           exportCatalogProjects: async ({ since }: { since?: string }) =>
             await runListing(exportMethods.exportProjects(since)),
@@ -692,6 +709,239 @@ describe("NEAR Catalog listing approval", () => {
         status: "published",
         catalogUrl: "https://nearcatalog.xyz/project/lantern-pay",
       });
+    });
+  });
+  describe("sending to NEAR Catalog", () => {
+    type SentRequest = { method: string; url: string; authorization: string | null; body: any };
+
+    function catalogApi(replies: Array<() => Response | Promise<Response>> = []) {
+      const requests: SentRequest[] = [];
+      const submitFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        requests.push({
+          method: String(init?.method),
+          url: String(input),
+          authorization: headers.get("authorization"),
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+        const reply = replies.shift();
+        if (reply) return await reply();
+        return Response.json({ slug: "lantern-pay-nc" });
+      });
+      return { requests, submitFetch: submitFetch as unknown as typeof fetch };
+    }
+
+    it("sends nothing and stores no error when it isn't set up", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const api = await loadApi();
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+
+      const listing = await api.listing("project", "project-1");
+      expect(listing).toMatchObject({ status: "approved", sendStatus: null, sendError: null });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      await expect(api.client(admin()).listCatalogListingSends({})).resolves.toMatchObject({
+        enabled: false,
+      });
+      await expect(
+        api.client(admin()).retryCatalogListingSend({ kind: "project", entityId: "project-1" }),
+      ).rejects.toThrow(/not set up/);
+      fetchSpy.mockRestore();
+    });
+
+    it("sends the approved record and marks the listing published", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      expect(requests).toHaveLength(0);
+
+      await approveProject(api);
+
+      expect(requests).toEqual([
+        {
+          method: "PUT",
+          url: `${submitUrl}/projects/project%3Aproject-1`,
+          authorization: `Bearer ${submitToken}`,
+          body: {
+            source: "nearbuilders",
+            externalId: "project:project-1",
+            kind: "project",
+            record: api.records.get("project:project-1")?.payload.record,
+          },
+        },
+      ]);
+      expect(await api.listing("project", "project-1")).toMatchObject({
+        status: "published",
+        slug: "lantern-pay-nc",
+        catalogUrl: "https://nearcatalog.xyz/project/lantern-pay-nc",
+        sendStatus: "sent",
+        sendAction: "upsert",
+      });
+      const listed = await api.client({}).listCatalogListings({ kind: "project" });
+      expect(listed.data[0]).toMatchObject({
+        status: "published",
+        catalogUrl: "https://nearcatalog.xyz/project/lantern-pay-nc",
+      });
+    });
+
+    it("updates small edits, waits on big edits until re-approved, then updates", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+
+      await api.client(owner()).updateProject({
+        id: "project-1",
+        description: "Lantern Pay lets small shops and markets take NEAR payments.",
+      });
+      expect(requests).toHaveLength(2);
+      expect(requests[1]?.body.record.description).toBe(
+        "Lantern Pay lets small shops and markets take NEAR payments.",
+      );
+
+      await api.client(owner()).updateProject({ id: "project-1", title: "Lantern Checkout" });
+      expect(requests).toHaveLength(2);
+      expect((await api.listing("project", "project-1"))?.status).toBe("pending");
+
+      await approveProject(api);
+      expect(requests).toHaveLength(3);
+      expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual(
+        Array(3).fill(`PUT ${submitUrl}/projects/project%3Aproject-1`),
+      );
+      expect(requests[2]?.body.record.title).toBe("Lantern Checkout");
+    });
+
+    it("removes a sent project when it is made private, and a person when withdrawn", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+      await api.client(owner()).submitCatalogListing({ kind: "person" });
+      await api.client(admin()).approve({
+        pluginId: "nearcatalog-listing",
+        entityId: "person:maker.testnet",
+        expectedUpdatedAt: api.records.get("person:maker.testnet")!.updatedAt,
+      });
+
+      await api.client(owner()).updateProject({ id: "project-1", visibility: "private" });
+      await api.client(owner()).withdrawMyBuilderProfile({});
+
+      expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+        `PUT ${submitUrl}/projects/project%3Aproject-1`,
+        `PUT ${submitUrl}/people/person%3Amaker.testnet`,
+        `DELETE ${submitUrl}/projects/project%3Aproject-1`,
+        `DELETE ${submitUrl}/people/person%3Amaker.testnet`,
+      ]);
+      expect(await api.listing("project", "project-1")).toMatchObject({
+        status: "none",
+        catalogUrl: null,
+        sendStatus: "sent",
+        sendAction: "remove",
+      });
+    });
+
+    it("never sends a removal for a listing that was never sent", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      const proposal = api.records.get("project:project-1")!;
+      await api.client(admin()).reject({
+        pluginId: "nearcatalog-listing",
+        entityId: "project:project-1",
+        expectedUpdatedAt: proposal.updatedAt,
+        reason: "Logo is a placeholder",
+      });
+
+      expect(requests).toHaveLength(0);
+      expect((await api.listing("project", "project-1"))?.sendStatus).toBeNull();
+    });
+
+    it("keeps the approval when NEAR Catalog fails and lets an admin retry once", async () => {
+      const { requests, submitFetch } = catalogApi([
+        () => new Response(`upstream error for ${submitToken}`, { status: 502 }),
+      ]);
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+
+      const approved = await approveProject(api);
+
+      expect(approved.data.applyStatus).toBe("applied");
+      const failed = await api.listing("project", "project-1");
+      expect(failed).toMatchObject({
+        status: "approved",
+        sendStatus: "failed",
+        sendAction: "upsert",
+      });
+      expect(failed?.sendError).toContain("NEAR Catalog returned 502");
+      expect(failed?.sendError).not.toContain(submitToken);
+
+      const sends = await api.client(admin()).listCatalogListingSends({});
+      expect(sends.enabled).toBe(true);
+      expect(sends.data[0]).toMatchObject({
+        kind: "project",
+        entityId: "project-1",
+        title: "Lantern Pay",
+        sendStatus: "failed",
+      });
+      await expect(
+        api.client(owner()).retryCatalogListingSend({ kind: "project", entityId: "project-1" }),
+      ).rejects.toThrow();
+
+      const retried = await api
+        .client(admin())
+        .retryCatalogListingSend({ kind: "project", entityId: "project-1" });
+
+      expect(retried.data).toMatchObject({ status: "published", sendStatus: "sent" });
+      expect(requests.map((request) => request.body.externalId)).toEqual([
+        "project:project-1",
+        "project:project-1",
+      ]);
+      await expect(
+        api.client(admin()).retryCatalogListingSend({ kind: "project", entityId: "project-1" }),
+      ).rejects.toThrow(/Nothing to send/);
+      expect(requests).toHaveLength(2);
+    });
+
+    it("times out quickly when NEAR Catalog doesn't answer", async () => {
+      const api = await loadApi({
+        submitFetch: ((_input: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+          })) as typeof fetch,
+      });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+
+      const started = Date.now();
+      await approveProject(api);
+
+      expect(Date.now() - started).toBeLessThan(8000);
+      expect((await api.listing("project", "project-1"))?.sendError).toMatch(/timed out/);
+    }, 15_000);
+
+    it("never returns or logs the token", async () => {
+      const logged = (["log", "info", "warn", "error", "debug"] as const).map((level) =>
+        vi.spyOn(console, level),
+      );
+      const { submitFetch } = catalogApi([
+        () => new Response(`bad token ${submitToken}`, { status: 401 }),
+      ]);
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+
+      const responses = await Promise.all([
+        api.client(admin()).listCatalogListingSends({}),
+        api.client(owner()).getMyCatalogListing({ kind: "project", projectId: "project-1" }),
+        api.client({}).listCatalogListings({ kind: "project" }),
+        api.client({}).exportCatalogProjects({}),
+      ]);
+      for (const response of responses) {
+        expect(JSON.stringify(response)).not.toContain(submitToken);
+      }
+      for (const spy of logged) {
+        expect(JSON.stringify(spy.mock.calls)).not.toContain(submitToken);
+        spy.mockRestore();
+      }
     });
   });
 });

@@ -26,6 +26,7 @@ import {
   type CatalogListingKind,
   createCatalogListings,
   isSystemActor,
+  toCatalogListingSend,
 } from "./services/catalog-listings";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
@@ -980,6 +981,20 @@ export default createPlugin.withPlugins<PluginsClient>()({
             .nearcatalog(context)
             .markCatalogListingPublished(input);
           return { data: { status: result.data.status, slug: result.data.slug } };
+        }),
+
+      listCatalogListingSends: builder.listCatalogListingSends
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          const result = await services.plugins.nearcatalog(context).listCatalogListingSends({});
+          return { enabled: result.enabled, data: result.data.map(toCatalogListingSend) };
+        }),
+
+      retryCatalogListingSend: builder.retryCatalogListingSend
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await services.plugins.nearcatalog(context).retryCatalogListingSend(input);
+          return { data: toCatalogListingSend(result.data) };
         }),
 
       getMyCatalogListing: builder.getMyCatalogListing

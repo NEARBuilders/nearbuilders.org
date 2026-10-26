@@ -6,6 +6,7 @@ import { CATALOG_LISTING_SYNC, contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { CatalogService, CatalogServiceLive } from "./services/catalog";
+import { createCatalogSubmitClientFromConfig } from "./services/catalog-submit";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
 import { ListingService, ListingServiceLive } from "./services/listings";
 
@@ -78,6 +79,8 @@ export default createPlugin({
 
   secrets: z.object({
     NEARCATALOG_DATABASE_URL: z.string().default("pglite:.bos/nearcatalog/:memory:"),
+    NEARCATALOG_SUBMIT_URL: z.string().optional(),
+    NEARCATALOG_SUBMIT_TOKEN: z.string().optional(),
   }),
 
   context: ContextSchema,
@@ -91,9 +94,13 @@ export default createPlugin({
       const Catalog = CatalogServiceLive(config.variables.baseUrl);
       const catalog = yield* tools.buildService(CatalogService, Catalog);
       const claims = yield* tools.buildService(ClaimService, Claims);
+      const submitter = createCatalogSubmitClientFromConfig({
+        url: config.secrets.NEARCATALOG_SUBMIT_URL,
+        token: config.secrets.NEARCATALOG_SUBMIT_TOKEN,
+      });
       const listings = yield* tools.buildService(
         ListingService,
-        ListingServiceLive.pipe(Layer.provide(Database)),
+        ListingServiceLive(submitter).pipe(Layer.provide(Database)),
       );
 
       return { catalog, claims, listings };
@@ -256,6 +263,16 @@ export default createPlugin({
         .use(requireListingSync)
         .handler(async ({ input }) => ({
           data: await runEffect(services.listings.withdraw(input)),
+        })),
+
+      listCatalogListingSends: builder.listCatalogListingSends
+        .use(requireAdmin)
+        .handler(async () => await runEffect(services.listings.listSends())),
+
+      retryCatalogListingSend: builder.retryCatalogListingSend
+        .use(requireAdmin)
+        .handler(async ({ input }) => ({
+          data: await runEffect(services.listings.retrySend(input)),
         })),
 
       refreshCatalogListingRecord: builder.refreshCatalogListingRecord

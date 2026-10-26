@@ -232,6 +232,24 @@ export async function resolveNearSocialAvatar(
   }
 }
 
+export function toCatalogListingSend(listing: Listing) {
+  const record = listing.record ?? {};
+  const title = readString(record.title) || readString(record.name) || listing.entityId;
+  return {
+    kind: listing.kind,
+    entityId: listing.entityId,
+    title,
+    slug: listing.slug,
+    status: listing.status,
+    catalogUrl: listing.catalogUrl,
+    sendStatus: listing.sendStatus,
+    sendAction: listing.sendAction,
+    sendError: listing.sendError,
+    sendAttemptedAt: listing.sendAttemptedAt,
+    sentAt: listing.sentAt,
+  };
+}
+
 export function readCatalogListingPayload(payload: unknown) {
   const data = requireObjectPayload(payload);
   const kind: CatalogListingKind | null =

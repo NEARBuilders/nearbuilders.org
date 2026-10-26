@@ -173,7 +173,9 @@
         "baseUrl": "https://api.nearcatalog.xyz"
       },
       "secrets": [
-        "NEARCATALOG_DATABASE_URL"
+        "NEARCATALOG_DATABASE_URL",
+        "NEARCATALOG_SUBMIT_URL",
+        "NEARCATALOG_SUBMIT_TOKEN"
       ]
     },
     "nostr": {

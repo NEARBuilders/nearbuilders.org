@@ -109,7 +109,7 @@ Business logic lives in independent plugins loaded via Module Federation:
 | `bookmarks` | Bookmarks | `BOOKMARKS_DATABASE_URL` |
 | `notifications` | Per-user notifications with SSE | `NOTIFICATIONS_DATABASE_URL` |
 | `activity` | Activity feed with leaderboard and endorsement scores | `ACTIVITY_DATABASE_URL` |
-| `nearcatalog` | NEAR Catalog search and project claims | `NEARCATALOG_DATABASE_URL` |
+| `nearcatalog` | NEAR Catalog search, project claims, listings and sending them to NEAR Catalog ([README](plugins/nearcatalog/README.md)) | `NEARCATALOG_DATABASE_URL`, optional `NEARCATALOG_SUBMIT_URL` + `NEARCATALOG_SUBMIT_TOKEN` |
 | `nostr` | Nostr integration, extended from `bos://nearbuilding.near/nostr.nearbuilders.org` | — |
 
 The API plugin receives typed client factories for all other plugins via `createPlugin.withPlugins<PluginsClient>()`, enabling in-process composition without HTTP roundtrips. The UI accesses plugin routes via namespaced clients: `apiClient.<plugin>.<method>()`.
@@ -227,6 +227,7 @@ Required runtime vars (in addition to inherited ones):
 
 Optional runtime vars:
 
+- `NEARCATALOG_SUBMIT_URL` and `NEARCATALOG_SUBMIT_TOKEN` — NEAR Catalog's API and our token for it. Both set turns on sending approved NEAR Catalog listings. Unset means off. See [plugins/nearcatalog/README.md](plugins/nearcatalog/README.md#sending-listings-to-near-catalog).
 - `REQUIRE_ADMIN_APPROVAL` — set to `true` to require admin approval for builder profiles and public projects. Unset means off, so new profiles and projects go live right away. See [Admin approval](#admin-approval).
 
 ## Lint Setup
