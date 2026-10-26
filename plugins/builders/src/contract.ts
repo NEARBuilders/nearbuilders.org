@@ -22,6 +22,13 @@ const NOMINATION_NOT_FOUND = {
   message: "Nomination not found",
 } as const;
 
+export const cityNodeSlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: "City node must be a community slug" });
+
 const BuilderOutput = z.object({
   id: z.string(),
   nearAccount: z.string(),
@@ -31,6 +38,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  cityNode: z.string().nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -398,6 +406,7 @@ export const contract = oc.router({
       z.object({
         search: z.string().optional(),
         skill: z.string().optional(),
+        cityNode: z.string().trim().toLowerCase().max(100).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -449,6 +458,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        cityNode: cityNodeSlugSchema.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))
@@ -464,6 +474,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        cityNode: cityNodeSlugSchema.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))

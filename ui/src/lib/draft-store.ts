@@ -13,6 +13,7 @@ export type ProjectDraft = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  cityNode?: string;
 };
 
 type DraftState = Record<ProjectKind, ProjectDraft | null>;

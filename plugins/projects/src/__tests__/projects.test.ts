@@ -32,10 +32,11 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0006_global_project_slugs.sql",
     "0007_project_logo_url.sql",
     "0008_project_collaborators.sql",
+    "0009_project_city_node.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000, 1781900000000, 1782000000000,
+    1781818000000, 1781900000000, 1782000000000, 1793100000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -645,6 +646,44 @@ describe("project collaborators", () => {
 
     const own = await frank.listProjects({ collaboratorId: "frank.near" });
     expect(own.data.map((p) => p.id)).toEqual(expect.arrayContaining([pub.id, priv.id]));
+  });
+
+  it("sets, filters, changes and clears a project's city node", async () => {
+    const owner = loaded.createClient(ownerCtx());
+    const tagged = await owner.createProject({
+      kind: "idea",
+      title: "Lakeside meetup kit",
+      slug: "lakeside-meetup-kit",
+      content: "Kit for a made-up city node",
+      visibility: "public",
+      cityNode: "Lakeside",
+    });
+    expect(tagged.cityNode).toBe("lakeside");
+    await owner.createProject({
+      kind: "idea",
+      title: "Untagged idea",
+      slug: "untagged-city-idea",
+      content: "No city node",
+      visibility: "public",
+    });
+
+    const anonymous = loaded.createClient();
+    const filtered = await anonymous.listProjects({ cityNode: "lakeside" });
+    expect(filtered.data.map((p) => p.slug)).toEqual(["lakeside-meetup-kit"]);
+
+    const moved = await owner.updateProject({ id: tagged.id, cityNode: "hill-valley" });
+    expect(moved.cityNode).toBe("hill-valley");
+    const untouched = await owner.updateProject({ id: tagged.id, title: "Lakeside meetup kit v2" });
+    expect(untouched.cityNode).toBe("hill-valley");
+    expect((await anonymous.listProjects({ cityNode: "lakeside" })).data).toHaveLength(0);
+
+    const cleared = await owner.updateProject({ id: tagged.id, cityNode: null });
+    expect(cleared.cityNode).toBeNull();
+    expect((await anonymous.listProjects({ cityNode: "hill-valley" })).data).toHaveLength(0);
+
+    await expect(
+      owner.updateProject({ id: tagged.id, cityNode: "not a slug!" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("lets admins delete projects", async () => {

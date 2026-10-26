@@ -124,6 +124,7 @@ function EditProjectPage() {
         status: values.kind !== "result" ? values.status : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || "",
+        cityNode: values.cityNode || null,
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
@@ -333,6 +334,7 @@ function EditFormInner({
       ownerId: project.ownerId ?? "",
       domain: project.domain ?? "",
       logoUrl: project.logoUrl ?? "",
+      cityNode: project.cityNode ?? "",
       collaborators: (
         (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
           .collaborators ?? []

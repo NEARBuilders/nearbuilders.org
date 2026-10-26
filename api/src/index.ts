@@ -21,6 +21,7 @@ import {
 } from "./services/approval-settings";
 import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
+import { createCityNodeDirectory } from "./services/city-nodes";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -135,6 +136,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       .string()
       .regex(/^[A-Za-z0-9_]*$/)
       .default(""),
+    cityNodeUrl: z.url().default("https://citynode.app"),
   }),
 
   secrets: z.object({
@@ -156,6 +158,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const notifications = createProposalNotifications(restPlugins);
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
+      const cityNodes = createCityNodeDirectory({ baseUrl: config.variables.cityNodeUrl });
       const reviewModel = config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
       const reviewEvaluation = createReviewEvaluationSweep({
         plugins: restPlugins,
@@ -187,6 +190,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         notifications,
         orchestration,
         catalogClaims,
+        cityNodes,
         reviewEvaluation,
         chiefBotUsername: config.variables.chiefBotUsername,
         requireAdminApproval,
@@ -205,6 +209,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const assertKnownCityNode = async (
+      slug: string | null | undefined,
+      current?: string | null,
+    ) => {
+      const error = await services.cityNodes.assertKnown(slug, current);
+      if (error) throw new ORPCError("BAD_REQUEST", { message: error });
+    };
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
@@ -519,6 +530,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
+          await assertKnownCityNode(input.cityNode);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -529,6 +541,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               skills: tags.skills,
               location: tags.location,
               links: input.links,
+              cityNode: input.cityNode,
             },
             source: nomination?.source ?? "web",
             ...(nomination
@@ -1036,6 +1049,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
         }),
 
+      listCityNodes: builder.listCityNodes.handler(async () => {
+        return await services.cityNodes.list();
+      }),
+
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjects(input);
       }),
@@ -1049,6 +1066,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCityNode(input.cityNode);
         const visibility = enforceContentCreationVisibility(
           context.user,
           context.near,
@@ -1083,6 +1101,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
+        if (input.cityNode) {
+          const current = await services.plugins
+            .projects(context)
+            .getProject({ id: input.id })
+            .catch(() => null);
+          await assertKnownCityNode(input.cityNode, current?.data.cityNode);
+        }
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;
@@ -1277,6 +1302,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
+          if (input.cityNode) {
+            const current = await services.plugins
+              .builders(context)
+              .getBuilder({ nearAccount: input.nearAccount })
+              .catch(() => null);
+            await assertKnownCityNode(input.cityNode, current?.data.cityNode);
+          }
           return await services.plugins.builders(context).updateBuilderProfile(input);
         }),
 

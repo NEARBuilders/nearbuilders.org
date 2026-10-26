@@ -147,6 +147,7 @@ export interface Project {
   repository: string | null;
   domain: string | null;
   logoUrl: string | null;
+  cityNode: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -281,6 +282,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         query?: string;
         sort?: "newest" | "oldest";
         slugs?: string;
+        cityNode?: string;
         limit?: number;
         cursor?: string;
       },
@@ -323,6 +325,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         ownerId?: string;
         domain?: string;
         logoUrl?: string;
+        cityNode?: string | null;
         collaborators?: string[];
       },
       userId: string,
@@ -346,6 +349,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         ownerId?: string;
         domain?: string;
         logoUrl?: string;
+        cityNode?: string | null;
       },
       userId: string,
       userRole?: string,
@@ -576,6 +580,7 @@ function mapProject(p: any): Project {
     repository: p.repository ?? null,
     domain: p.domain ?? null,
     logoUrl: p.logoUrl ?? null,
+    cityNode: p.cityNode ?? null,
     createdAt: toIsoString(p.createdAt),
     updatedAt: toIsoString(p.updatedAt),
   };
@@ -692,6 +697,10 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.status) {
             conditions.push(eq(projects.status, input.status));
+          }
+
+          if (input.cityNode) {
+            conditions.push(eq(projects.cityNode, input.cityNode));
           }
 
           if (input.query?.trim()) {
@@ -922,6 +931,7 @@ export const ProjectServiceLive = Layer.effect(
               repository,
               domain,
               logoUrl,
+              cityNode: input.cityNode ?? null,
               createdAt: now,
               updatedAt: now,
             }),
@@ -970,6 +980,7 @@ export const ProjectServiceLive = Layer.effect(
             repository,
             domain,
             logoUrl,
+            cityNode: input.cityNode ?? null,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
             collaborators: createdCollaborators,
@@ -1047,6 +1058,7 @@ export const ProjectServiceLive = Layer.effect(
           if (input.repository !== undefined) updates.repository = nextRepository;
           if (input.domain !== undefined) updates.domain = nextDomain;
           if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
+          if (input.cityNode !== undefined) updates.cityNode = input.cityNode;
           if (userRole === "admin" && input.ownerId !== undefined)
             updates.ownerId = input.ownerId.trim();
 
@@ -1069,6 +1081,7 @@ export const ProjectServiceLive = Layer.effect(
             repository: updates.repository ?? existing.repository ?? null,
             domain: nextDomain,
             logoUrl: nextLogoUrl,
+            cityNode: input.cityNode !== undefined ? input.cityNode : (existing.cityNode ?? null),
             createdAt: toIsoString(existing.createdAt),
             updatedAt: toIsoString(now),
           };

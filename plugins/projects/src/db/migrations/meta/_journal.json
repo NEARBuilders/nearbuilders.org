@@ -64,6 +64,13 @@
       "when": 1782000000000,
       "tag": "0008_project_collaborators",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0009_project_city_node",
+      "breakpoints": true
     }
   ]
 }

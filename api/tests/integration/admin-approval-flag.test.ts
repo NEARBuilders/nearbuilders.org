@@ -89,6 +89,7 @@ function projectRecord(input: Record<string, unknown>) {
     repository: "",
     domain: "",
     logoUrl: "",
+    cityNode: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };

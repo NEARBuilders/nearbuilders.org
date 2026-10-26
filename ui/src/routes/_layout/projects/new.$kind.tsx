@@ -46,6 +46,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   ownerId: "",
   domain: "",
   logoUrl: "",
+  cityNode: "",
   collaborators: [],
 });
 
@@ -155,6 +156,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
+        cityNode: values.cityNode || undefined,
         collaborators: collaborators.length > 0 ? collaborators : undefined,
       });
       if (submitForReview) {

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
 import { BuilderProfileStats } from "@/components/builder-profile-stats";
+import { CityNodeChip } from "@/components/city-node-chip";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
@@ -467,6 +468,11 @@ function LoadedProfile({
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1.5">
                     <MapPin size={13} />
                     {builder.location}
+                  </div>
+                )}
+                {builder.cityNode && (
+                  <div className="mt-2">
+                    <CityNodeChip slug={builder.cityNode} />
                   </div>
                 )}
               </div>

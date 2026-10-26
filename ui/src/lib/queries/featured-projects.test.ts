@@ -25,6 +25,7 @@ function project(slug: string, overrides: Partial<FeaturedProject> = {}): Featur
     repository: null,
     domain: null,
     logoUrl: null,
+    cityNode: null,
     createdAt: "2026-10-01T00:00:00.000Z",
     updatedAt: "2026-10-01T00:00:00.000Z",
     ...overrides,

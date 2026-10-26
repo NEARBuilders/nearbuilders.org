@@ -9,6 +9,7 @@ export type ProjectFormValues = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  cityNode?: string;
   collaborators?: string[];
 };
 
@@ -102,6 +103,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   ownerId: "Owner",
   domain: "Domain",
   logoUrl: "Logo URL",
+  cityNode: "City node",
   collaborators: "Collaborators",
 };
 

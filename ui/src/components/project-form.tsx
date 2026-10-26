@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Input } from "@/components";
+import { CityNodePicker } from "@/components/city-node-picker";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
@@ -905,6 +906,21 @@ export function ProjectFormLayout({
                   </>
                 );
               }}
+            </form.Field>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <FieldLabel htmlFor="cityNode">City node</FieldLabel>
+            <form.Field name="cityNode">
+              {(field: any) => (
+                <div className="mt-3">
+                  <CityNodePicker
+                    id="cityNode"
+                    value={field.state.value ?? ""}
+                    onChange={(value) => field.handleChange(value)}
+                  />
+                </div>
+              )}
             </form.Field>
           </section>
 

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const projects = pgTable(
   "projects",
@@ -16,13 +16,17 @@ export const projects = pgTable(
     repository: text("repository"),
     domain: text("domain"),
     logoUrl: text("logo_url"),
+    cityNode: text("city_node"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("projects_slug_unique").on(table.slug)],
+  (table) => [
+    uniqueIndex("projects_slug_unique").on(table.slug),
+    index("projects_city_node_idx").on(table.cityNode),
+  ],
 );
 
 export const projectApps = pgTable(
