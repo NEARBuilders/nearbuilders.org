@@ -490,6 +490,60 @@ function isAbsoluteHttpUrl(value: string) {
   }
 }
 
+const ProjectCatalogLinkUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Links must be absolute http(s) URLs",
+  });
+
+const ProjectCatalog = z.object({
+  tagline: z.string().trim().max(140).optional(),
+  categories: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(60)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    )
+    .max(6)
+    .optional(),
+  phase: z.enum(["mainnet", "testnet", "prototype", "still building", "inactive"]).optional(),
+  links: z
+    .partialRecord(
+      z.enum([
+        "twitter",
+        "telegram",
+        "discord",
+        "github",
+        "medium",
+        "whitepaper",
+        "nearsocial",
+        "linkedin",
+        "youtube",
+      ]),
+      ProjectCatalogLinkUrl,
+    )
+    .optional(),
+  tokenContract: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*$/, {
+      message: "Token contract must be a NEAR account id",
+    })
+    .optional(),
+  coingeckoId: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, { message: "CoinGecko id must use lowercase letters, digits and -" })
+    .optional(),
+});
+
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -504,6 +558,7 @@ const ProjectOutput = z.object({
   repository: z.string().nullable(),
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
+  catalog: ProjectCatalog.nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -1209,6 +1264,11 @@ export const contract = oc.router({
     .output(z.object({ data: z.array(CatalogProjectSchema) }))
     .errors({ BAD_REQUEST, ...CatalogErrors }),
 
+  listCatalogCategories: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/categories" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(z.object({ id: z.string(), label: z.string() })) })),
+
   getCatalogProject: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/{slug}" })
     .input(
@@ -1525,6 +1585,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        catalog: ProjectCatalog.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -1590,6 +1651,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        catalog: ProjectCatalog.nullable().optional(),
       }),
     )
     .output(ProjectOutput)

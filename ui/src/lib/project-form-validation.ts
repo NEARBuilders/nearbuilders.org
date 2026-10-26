@@ -1,3 +1,5 @@
+import { type ProjectCatalogFormValues, validateProjectCatalog } from "./project-catalog";
+
 export type ProjectFormValues = {
   kind: "project" | "idea" | "scope" | "result";
   title: string;
@@ -9,6 +11,7 @@ export type ProjectFormValues = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  catalog?: ProjectCatalogFormValues;
   collaborators?: string[];
 };
 
@@ -102,6 +105,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   ownerId: "Owner",
   domain: "Domain",
   logoUrl: "Logo URL",
+  catalog: "NEAR Catalog",
   collaborators: "Collaborators",
 };
 
@@ -134,6 +138,7 @@ export function getProjectFormValidation(
   );
   setError("domain", validateDomain(values.domain, kind));
   setError("logoUrl", validateLogoUrl(values.logoUrl));
+  if (kind === "project") setError("catalog", validateProjectCatalog(values.catalog));
   setError("ownerId", validateOptionalMaxLength(values.ownerId, 255, "Max 255 characters"));
 
   const missingFieldKeys = [

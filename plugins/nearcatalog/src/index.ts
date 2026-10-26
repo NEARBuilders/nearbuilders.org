@@ -110,6 +110,10 @@ export default createPlugin({
         data: await runEffect(services.catalog.searchProjects(input.query)),
       })),
 
+      listCatalogCategories: builder.listCatalogCategories.handler(async () => ({
+        data: await runEffect(services.catalog.listCategories()),
+      })),
+
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => ({
         data: await runEffect(services.catalog.getProject(input.slug)),
       })),

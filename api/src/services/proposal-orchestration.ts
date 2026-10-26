@@ -33,6 +33,15 @@ type RemoveCallback = (
   context: Context,
 ) => Promise<void>;
 
+type ProjectCatalogInput = Parameters<
+  ReturnType<Omit<PluginsClient, "auth">["projects"]>["createProject"]
+>[0]["catalog"];
+
+function readProjectCatalog(value: unknown): ProjectCatalogInput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as ProjectCatalogInput;
+}
+
 const IMPLICIT_ACCOUNT_ID_RE = /^[0-9a-f]{64}$/;
 const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
 
@@ -139,6 +148,7 @@ const createCallbacks: Record<string, CreateCallback> = {
         repository: readString(payload.repository),
         domain: readString(payload.domain),
         logoUrl: readString(payload.logoUrl),
+        catalog: readProjectCatalog(payload.catalog),
       });
       assertProjectProposalOwner(updated.ownerId, ownerId);
       return updated.id;
@@ -159,6 +169,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       organizationId: readString(payload.organizationId),
       domain: readString(payload.domain),
       logoUrl: readString(payload.logoUrl),
+      catalog: readProjectCatalog(payload.catalog),
     });
     assertProjectProposalOwner(result.ownerId, ownerId);
     return result.id;

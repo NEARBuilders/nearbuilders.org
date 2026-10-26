@@ -20,6 +20,7 @@ import {
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
+import { emptyProjectCatalog, projectCatalogFromFormValues } from "@/lib/project-catalog";
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
@@ -46,6 +47,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   ownerId: "",
   domain: "",
   logoUrl: "",
+  catalog: emptyProjectCatalog(),
   collaborators: [],
 });
 
@@ -155,6 +157,10 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
+        catalog:
+          routeKind === "project"
+            ? (projectCatalogFromFormValues(values.catalog) ?? undefined)
+            : undefined,
         collaborators: collaborators.length > 0 ? collaborators : undefined,
       });
       if (submitForReview) {
@@ -172,6 +178,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
             logoUrl: project.logoUrl ?? undefined,
+            catalog: project.catalog ?? undefined,
           },
         });
       }

@@ -32,10 +32,11 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0006_global_project_slugs.sql",
     "0007_project_logo_url.sql",
     "0008_project_collaborators.sql",
+    "0009_project_catalog_metadata.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000, 1781900000000, 1782000000000,
+    1781818000000, 1781900000000, 1782000000000, 1793000000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -369,6 +370,78 @@ describe("project identity fields", () => {
         logoUrl: `https://cdn.example.com/${"a".repeat(2000)}`,
       }),
     ).rejects.toThrow();
+  });
+
+  it("stores, normalizes and clears NEAR Catalog metadata", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "project",
+      title: "Catalog product",
+      slug: "catalog-product",
+      repository: "https://github.com/example/catalog",
+      domain: "catalog.example.com",
+      catalog: {
+        tagline: "  One line about it  ",
+        categories: ["defi", "dex", "defi"],
+        phase: "testnet",
+        links: { twitter: "https://x.com/example", telegram: " " },
+        tokenContract: "Token.Example.near",
+        coingeckoId: "example-token",
+      },
+    });
+    expect(created.catalog).toEqual({
+      tagline: "One line about it",
+      categories: ["defi", "dex"],
+      phase: "testnet",
+      links: { twitter: "https://x.com/example" },
+      tokenContract: "token.example.near",
+      coingeckoId: "example-token",
+    });
+
+    const read = await loaded.createClient().getProjectBySlug({ slug: "catalog-product" });
+    expect(read.data.catalog).toEqual(created.catalog);
+
+    const renamed = await owner.updateProject({ id: created.id, title: "Catalog product 2" });
+    expect(renamed.catalog).toEqual(created.catalog);
+
+    const updated = await owner.updateProject({
+      id: created.id,
+      catalog: { tagline: "New line", categories: ["wallet"] },
+    });
+    expect(updated.catalog).toEqual({ tagline: "New line", categories: ["wallet"] });
+
+    const cleared = await owner.updateProject({ id: created.id, catalog: null });
+    expect(cleared.catalog).toBeNull();
+    expect((await loaded.createClient().getProject({ id: created.id })).data.catalog).toBeNull();
+
+    const emptied = await owner.updateProject({ id: created.id, catalog: { tagline: " " } });
+    expect(emptied.catalog).toBeNull();
+  });
+
+  it("rejects invalid NEAR Catalog metadata", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Catalog validation idea",
+      slug: "catalog-validation-idea",
+      content: "Idea content",
+    });
+    expect(created.catalog).toBeNull();
+
+    const invalid = [
+      { tagline: "a".repeat(141) },
+      { categories: ["Not A Slug"] },
+      { categories: ["a", "b", "c", "d", "e", "f", "g"] },
+      { links: { twitter: "ftp://x.com/example" } },
+      { links: { myspace: "https://myspace.com/example" } },
+      { tokenContract: "not a contract" },
+      { coingeckoId: "Bad Id!" },
+    ];
+    for (const catalog of invalid) {
+      await expect(
+        owner.updateProject({ id: created.id, catalog: catalog as never }),
+      ).rejects.toThrow();
+    }
   });
 
   it("returns slug batches in request order and omits unknown or private rows", async () => {

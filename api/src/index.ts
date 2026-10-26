@@ -205,6 +205,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const assertKnownCatalogCategories = async (categories?: string[]) => {
+      if (!categories || categories.length === 0) return;
+      const known = await services.plugins.nearcatalog().listCatalogCategories({});
+      const ids = new Set(known.data.map((category) => category.id));
+      const unknown = categories.filter((category) => !ids.has(category.trim()));
+      if (unknown.length > 0) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: `Unknown NEAR Catalog categories: ${unknown.join(", ")}`,
+        });
+      }
+    };
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
@@ -865,6 +876,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.nearcatalog().searchCatalogProjects(input);
       }),
 
+      listCatalogCategories: builder.listCatalogCategories.handler(async () => {
+        return await services.plugins.nearcatalog().listCatalogCategories({});
+      }),
+
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().getCatalogProject(input);
       }),
@@ -1049,6 +1064,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         const visibility = enforceContentCreationVisibility(
           context.user,
           context.near,
@@ -1083,6 +1099,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;
