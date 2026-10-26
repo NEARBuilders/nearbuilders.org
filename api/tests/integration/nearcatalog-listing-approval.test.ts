@@ -7,7 +7,10 @@ import { Effect } from "every-plugin/effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CATALOG_LISTING_SYNC } from "../../../plugins/nearcatalog/src/contract";
 import { createDatabaseDriver } from "../../../plugins/nearcatalog/src/db";
-import { createListingMethods } from "../../../plugins/nearcatalog/src/services/listings";
+import {
+  createExportMethods,
+  createListingMethods,
+} from "../../../plugins/nearcatalog/src/services/listings";
 import ApiPlugin from "../../src/index";
 import { AUTO_APPROVAL_ACTOR_ID } from "../../src/services/approval-settings";
 
@@ -136,6 +139,7 @@ describe("NEAR Catalog listing approval", () => {
       await driver.db.execute(sql.raw(statement));
     }
     const listingMethods = createListingMethods(driver.db);
+    const exportMethods = createExportMethods(driver.db);
     const syncFlags: boolean[] = [];
 
     const projects = new Map<string, ReturnType<typeof catalogProject>>();
@@ -227,6 +231,10 @@ describe("NEAR Catalog listing approval", () => {
           refreshCatalogListingRecord: async (input: never) => ({
             data: await track(listingMethods.refreshRecord(input)),
           }),
+          exportCatalogProjects: async ({ since }: { since?: string }) =>
+            await runListing(exportMethods.exportProjects(since)),
+          exportCatalogPeople: async ({ since }: { since?: string }) =>
+            await runListing(exportMethods.exportPeople(since)),
         };
       },
       notifications: () => ({ createNotification }),
@@ -575,5 +583,73 @@ describe("NEAR Catalog listing approval", () => {
         payload: {},
       }),
     ).rejects.toThrow(/NEAR Catalog listing endpoint/);
+  });
+
+  describe("export", () => {
+    it("leaves out projects and profiles nobody submitted or approved", async () => {
+      const api = await loadApi();
+      const anonymous = api.client({});
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+
+      await expect(anonymous.exportCatalogProjects({})).resolves.toMatchObject({ data: [] });
+      await expect(anonymous.exportCatalogPeople({})).resolves.toMatchObject({ data: [] });
+    });
+
+    it("exports an approved project and reports it as removed once it goes private", async () => {
+      const api = await loadApi();
+      const anonymous = api.client({});
+      const since = new Date(Date.now() - 60_000).toISOString();
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+
+      const listed = await anonymous.exportCatalogProjects({});
+      expect(listed.data).toEqual([api.records.get("project:project-1")?.payload.record]);
+
+      await api.client(owner()).updateProject({ id: "project-1", visibility: "private" });
+
+      const after = await anonymous.exportCatalogProjects({ since });
+      expect(after.data).toEqual([]);
+      expect(after.removed).toEqual([
+        expect.objectContaining({ slug: "lantern-pay", nearAccount: "maker.testnet" }),
+      ]);
+    });
+
+    it("never exports the sign-in email or other private profile fields", async () => {
+      const api = await loadApi();
+      api.builders.set(
+        "maker.testnet",
+        catalogBuilder({
+          catalog: { preferredContact: "Telegram", organization: "Lantern" },
+          links: { telegram: "https://t.me/robinmaker", linkedin: "https://linkedin.com/in/r" },
+        }),
+      );
+      const resolveAvatar = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            "maker.testnet": { profile: { image: { ipfs_cid: "bafyexample" } } },
+          }),
+        ),
+      );
+      try {
+        await api.client(owner()).submitCatalogListing({ kind: "person" });
+        await api.client(admin()).approve({
+          pluginId: "nearcatalog-listing",
+          entityId: "person:maker.testnet",
+          expectedUpdatedAt: api.records.get("person:maker.testnet")!.updatedAt,
+        });
+      } finally {
+        resolveAvatar.mockRestore();
+      }
+
+      const people = await api.client({}).exportCatalogPeople({});
+      expect(people.data).toHaveLength(1);
+      expect(people.data[0]).toMatchObject({
+        email: "",
+        avatar: "https://ipfs.near.social/ipfs/bafyexample",
+      });
+      const serialized = JSON.stringify(people);
+      expect(serialized).not.toContain("owner-user@example.com");
+      expect(serialized).not.toContain("linkedin");
+    });
   });
 });

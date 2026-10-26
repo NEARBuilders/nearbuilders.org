@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { z } from "every-plugin/zod";
@@ -16,6 +16,15 @@ export type CatalogListing = z.infer<typeof CatalogListingSchema>;
 export type CatalogListingKind = z.infer<typeof CatalogListingKindSchema>;
 type ListingRow = typeof nearcatalogListings.$inferSelect;
 type ListingTarget = { kind: CatalogListingKind; entityId: string };
+type ExportedProject = z.infer<typeof CatalogExportProjectSchema>;
+type ExportedPerson = z.infer<typeof CatalogExportPersonSchema>;
+
+const LISTED_STATUSES = ["approved", "published", "pending"] as const;
+const REMOVED_STATUSES = ["none", "rejected"] as const;
+
+function readText(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
 
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : String(value);
@@ -257,7 +266,95 @@ export function createListingMethods(db: Database) {
   };
 }
 
-type ListingMethods = ReturnType<typeof createListingMethods>;
+export function createExportMethods(db: Database) {
+  const loadRows = (
+    kind: CatalogListingKind,
+    statuses: ReadonlyArray<ListingRow["status"]>,
+    since?: string,
+  ) =>
+    Effect.promise(() =>
+      db
+        .select()
+        .from(nearcatalogListings)
+        .where(
+          and(
+            eq(nearcatalogListings.kind, kind),
+            isNotNull(nearcatalogListings.record),
+            inArray(nearcatalogListings.status, [...statuses]),
+            since ? gt(nearcatalogListings.changedAt, new Date(since)) : undefined,
+          ),
+        )
+        .orderBy(asc(nearcatalogListings.changedAt), asc(nearcatalogListings.id)),
+    );
+
+  const meta = (since: string | undefined, count: number) => ({
+    generatedAt: new Date().toISOString(),
+    since: since ?? null,
+    count,
+  });
+
+  return {
+    exportProjects: (since?: string) =>
+      Effect.gen(function* () {
+        const [listed, removed] = yield* Effect.all([
+          loadRows("project", LISTED_STATUSES, since),
+          since ? loadRows("project", REMOVED_STATUSES, since) : Effect.succeed([]),
+        ]);
+        const data = listed.flatMap((row) => {
+          const parsed = CatalogExportProjectSchema.safeParse({ ...row.record, slug: row.slug });
+          return parsed.success ? [parsed.data as ExportedProject] : [];
+        });
+        return {
+          data,
+          removed: removed.map((row) => {
+            const source = (row.record?.source ?? {}) as Record<string, unknown>;
+            return {
+              slug: row.slug,
+              nearAccount: readText(source.nearAccount) || row.ownerId,
+              removedAt: toIso(row.removedAt ?? row.changedAt),
+            };
+          }),
+          meta: meta(since, data.length),
+        };
+      }),
+
+    exportPeople: (since?: string) =>
+      Effect.gen(function* () {
+        const [listed, removed, projects] = yield* Effect.all([
+          loadRows("person", LISTED_STATUSES, since),
+          since ? loadRows("person", REMOVED_STATUSES, since) : Effect.succeed([]),
+          loadRows("project", LISTED_STATUSES),
+        ]);
+        const projectsByOwner = new Map<string, string[]>();
+        for (const project of projects) {
+          const owner = project.ownerId.toLowerCase();
+          const titles = projectsByOwner.get(owner) ?? [];
+          titles.push(readText(project.record?.title) || project.slug);
+          projectsByOwner.set(owner, titles);
+        }
+        const data = listed.flatMap((row) => {
+          const parsed = CatalogExportPersonSchema.safeParse({
+            ...row.record,
+            nearAccount: row.entityId,
+            nearProjects: (projectsByOwner.get(row.entityId.toLowerCase()) ?? []).join(", "),
+          });
+          return parsed.success ? [parsed.data as ExportedPerson] : [];
+        });
+        return {
+          data,
+          removed: removed.map((row) => ({
+            nearAccount: row.entityId,
+            name: readText(row.record?.name),
+            removedAt: toIso(row.removedAt ?? row.changedAt),
+          })),
+          meta: meta(since, data.length),
+        };
+      }),
+  };
+}
+
+type ListingMethods = ReturnType<typeof createListingMethods> &
+  ReturnType<typeof createExportMethods>;
 
 export class ListingService extends Context.Tag("nearcatalog/ListingService")<
   ListingService,
@@ -268,6 +365,6 @@ export const ListingServiceLive = Layer.effect(
   ListingService,
   Effect.gen(function* () {
     const db = yield* DatabaseTag;
-    return createListingMethods(db);
+    return { ...createListingMethods(db), ...createExportMethods(db) };
   }),
 );

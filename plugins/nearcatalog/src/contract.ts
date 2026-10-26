@@ -150,6 +150,26 @@ export const CatalogListingSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const CatalogExportProjectRemovalSchema = z.object({
+  slug: z.string(),
+  nearAccount: z.string(),
+  removedAt: z.iso.datetime(),
+});
+
+export const CatalogExportPersonRemovalSchema = z.object({
+  nearAccount: z.string(),
+  name: z.string(),
+  removedAt: z.iso.datetime(),
+});
+
+const CatalogExportInputSchema = z.object({ since: z.iso.datetime().optional() });
+
+const CatalogExportMetaSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  since: z.iso.datetime().nullable(),
+  count: z.number().int().nonnegative(),
+});
+
 const CatalogListingTargetSchema = z.object({
   kind: CatalogListingKindSchema,
   entityId: z.string().trim().min(1).max(255),
@@ -268,6 +288,30 @@ export const contract = oc.router({
     .input(z.object({ id: z.string().min(1).max(255) }))
     .output(z.object({ data: CatalogClaimSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  exportCatalogProjects: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/projects" })
+    .input(CatalogExportInputSchema)
+    .output(
+      z.object({
+        data: z.array(CatalogExportProjectSchema),
+        removed: z.array(CatalogExportProjectRemovalSchema),
+        meta: CatalogExportMetaSchema,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  exportCatalogPeople: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/people" })
+    .input(CatalogExportInputSchema)
+    .output(
+      z.object({
+        data: z.array(CatalogExportPersonSchema),
+        removed: z.array(CatalogExportPersonRemovalSchema),
+        meta: CatalogExportMetaSchema,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
 
   getCatalogListing: oc
     .route({ method: "GET", path: "/v1/internal/nearcatalog/listings/{kind}/{entityId}" })

@@ -485,6 +485,60 @@ const ClaimedCatalogProjectSchema = z.object({
   ),
 });
 
+const CatalogExportUrl = z.union([z.literal(""), z.url({ protocol: /^https?$/ })]);
+
+const CatalogExportProjectSchema = z.strictObject({
+  slug: z.string().min(1).max(120),
+  title: z.string().min(1).max(400),
+  oneliner: z.string().min(1).max(400),
+  description: z.string().min(1).max(2000),
+  logo: z.url({ protocol: /^https?$/ }),
+  categories: z.array(z.string().min(1).max(60)).min(1).max(6),
+  website: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  medium: CatalogExportUrl,
+  telegram: CatalogExportUrl,
+  github: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  whitepaper: CatalogExportUrl,
+  "token-address": z.string().max(64),
+  "coingecko-address": z.string().max(100),
+  "nearsocial-address": CatalogExportUrl,
+  dapp: CatalogExportUrl,
+  phase: z.string().max(40),
+  source: z.strictObject({
+    site: z.string().min(1),
+    url: z.url(),
+    nearAccount: z.string(),
+    updatedAt: z.iso.datetime(),
+  }),
+});
+
+const CatalogExportPersonSchema = z.strictObject({
+  name: z.string().min(1).max(100),
+  preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]),
+  description: z.string().min(1).max(2000),
+  organization: z.string().max(100),
+  team: z.string().max(100),
+  jobTitle: z.string().max(80),
+  email: z.union([z.literal(""), z.email()]),
+  telegram: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  website: CatalogExportUrl,
+  avatar: CatalogExportUrl,
+  nearProjects: z.string(),
+  nearAccount: z.string().min(1).max(100),
+});
+
+const CatalogExportInput = z.object({ since: z.iso.datetime().optional() });
+
+const CatalogExportMeta = z.object({
+  generatedAt: z.iso.datetime(),
+  since: z.iso.datetime().nullable(),
+  count: z.number().int().nonnegative(),
+});
+
 const CatalogListingKind = z.enum(["project", "person"]);
 
 const CatalogListingTarget = z
@@ -1352,6 +1406,34 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/nearcatalog/claim-proposals/me" })
     .output(z.object({ data: z.array(CatalogClaimProposalSchema) }))
     .errors({ UNAUTHORIZED }),
+
+  exportCatalogProjects: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/projects" })
+    .input(CatalogExportInput)
+    .output(
+      z.object({
+        data: z.array(CatalogExportProjectSchema),
+        removed: z.array(
+          z.object({ slug: z.string(), nearAccount: z.string(), removedAt: z.iso.datetime() }),
+        ),
+        meta: CatalogExportMeta,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  exportCatalogPeople: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/people" })
+    .input(CatalogExportInput)
+    .output(
+      z.object({
+        data: z.array(CatalogExportPersonSchema),
+        removed: z.array(
+          z.object({ nearAccount: z.string(), name: z.string(), removedAt: z.iso.datetime() }),
+        ),
+        meta: CatalogExportMeta,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
 
   getMyCatalogListing: oc
     .route({ method: "GET", path: "/v1/nearcatalog/listings/me" })

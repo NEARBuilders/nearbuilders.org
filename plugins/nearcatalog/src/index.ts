@@ -210,6 +210,14 @@ export default createPlugin({
           data: await runEffect(services.claims.revokeClaim(input.id)),
         })),
 
+      exportCatalogProjects: builder.exportCatalogProjects.handler(async ({ input }) => {
+        return await runEffect(services.listings.exportProjects(input.since));
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.handler(async ({ input }) => {
+        return await runEffect(services.listings.exportPeople(input.since));
+      }),
+
       getCatalogListing: builder.getCatalogListing
         .use(requireListingSync)
         .handler(async ({ input }) => ({

@@ -961,6 +961,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
           return await catalogClaims.getMine(context);
         }),
 
+      exportCatalogProjects: builder.exportCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogProjects(input);
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogPeople(input);
+      }),
+
       getMyCatalogListing: builder.getMyCatalogListing
         .use(requireAuth)
         .handler(async ({ input, context }) => {
