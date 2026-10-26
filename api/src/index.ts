@@ -103,7 +103,12 @@ async function readAuthEmail(auth: PluginsClient["auth"], userId: string) {
     const result =
       (await client.getUser?.({ userId })) ?? (await client.admin?.getUser?.({ id: userId }));
     if (!result || typeof result !== "object") return null;
-    const record = result as { email?: unknown; emailVerified?: unknown; user?: unknown; data?: unknown };
+    const record = result as {
+      email?: unknown;
+      emailVerified?: unknown;
+      user?: unknown;
+      data?: unknown;
+    };
     const user =
       record.user && typeof record.user === "object"
         ? (record.user as { email?: unknown; emailVerified?: unknown })
@@ -225,8 +230,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const notifications = createProposalNotifications(restPlugins, {
         sendEmail,
         siteOrigin: config.secrets.APP_PUBLIC_URL,
-        loadRecipient: (userId) =>
-          loadDecisionRecipient(restPlugins, auth, userId),
+        loadRecipient: (userId) => loadDecisionRecipient(restPlugins, auth, userId),
       });
       const orchestration = createProposalOrchestration(restPlugins);
       const catalogClaims = createCatalogClaims(restPlugins);
@@ -1129,10 +1133,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .handler(async ({ input, context }) => {
           const userId = notificationContext(context).userId;
           if (!userId) throw new ORPCError("UNAUTHORIZED");
-          return await services.plugins.notifications(notificationContext(context)).confirmEmailCode({
-            userId,
-            codeHash: hashEmailCode(input.code),
-          });
+          return await services.plugins
+            .notifications(notificationContext(context))
+            .confirmEmailCode({
+              userId,
+              codeHash: hashEmailCode(input.code),
+            });
         }),
 
       syncVerifiedNotificationEmail: builder.syncVerifiedNotificationEmail
@@ -1147,12 +1153,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
           const sessionEmail = sessionUser?.email;
           const verified = sessionUser?.emailVerified === true;
           if (!verified || sessionEmail !== input.email) {
-            throw new ORPCError("FORBIDDEN", { message: "Only a verified sign-in email can be synced" });
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only a verified sign-in email can be synced",
+            });
           }
-          return await services.plugins.notifications(notificationContext(context)).syncVerifiedEmail({
-            userId,
-            email: input.email,
-          });
+          return await services.plugins
+            .notifications(notificationContext(context))
+            .syncVerifiedEmail({
+              userId,
+              email: input.email,
+            });
         }),
 
       getMyNotifications: builder.getMyNotifications

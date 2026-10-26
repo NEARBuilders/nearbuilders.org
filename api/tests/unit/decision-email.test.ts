@@ -14,7 +14,9 @@ const proposal = {
 };
 
 function harness(recipient: EmailRecipient | null) {
-  const sendEmail = vi.fn(async (_input: { to: string; subject: string; text: string }) => undefined);
+  const sendEmail = vi.fn(
+    async (_input: { to: string; subject: string; text: string }) => undefined,
+  );
   const createNotification = vi.fn(async (input: { type: string }) => input);
   const notifications = createProposalNotifications(
     {
