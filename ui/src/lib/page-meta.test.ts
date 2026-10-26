@@ -55,29 +55,28 @@ function rootHead(pathname: string) {
 }
 
 describe("page open graph metadata", () => {
-  it.each(Object.values(publicPages))(
-    "uses the page title, description, and canonical url for $pathname",
-    (page) => {
-      const merged = mergeMeta([rootHead(page.pathname), pageHead(page)]);
-      const canonicalUrl = `https://nearbuilders.org${page.pathname}`;
+  it.each(
+    Object.values(publicPages),
+  )("uses the page title, description, and canonical url for $pathname", (page) => {
+    const merged = mergeMeta([rootHead(page.pathname), pageHead(page)]);
+    const canonicalUrl = `https://nearbuilders.org${page.pathname}`;
 
-      expect(content(merged, { title: true })).toBe(page.title);
-      expect(content(merged, { name: "description" })).toBe(page.description);
-      expect(content(merged, { property: "og:title" })).toBe(page.title);
-      expect(content(merged, { property: "og:description" })).toBe(page.description);
-      expect(content(merged, { name: "twitter:title" })).toBe(page.title);
-      expect(content(merged, { name: "twitter:description" })).toBe(page.description);
-      expect(content(merged, { property: "og:url" })).toBe(canonicalUrl);
-      expect(content(merged, { property: "og:image" })).toBe("https://nearbuilders.org/metadata.png");
-      expect(content(merged, { property: "og:image:alt" })).toBe(page.description);
-      expect(content(merged, { name: "twitter:image:alt" })).toBe(page.description);
-      expect(content(merged, { property: "og:type" })).toBe("website");
-      expect(merged.filter((item) => item.property === "og:title")).toHaveLength(1);
-      expect(merged.filter((item) => item.property === "og:image:alt")).toHaveLength(1);
-      expect(merged.filter((item) => item.name === "twitter:image:alt")).toHaveLength(1);
-      expect(merged.filter((item) => item.property === "og:url")).toHaveLength(1);
-    },
-  );
+    expect(content(merged, { title: true })).toBe(page.title);
+    expect(content(merged, { name: "description" })).toBe(page.description);
+    expect(content(merged, { property: "og:title" })).toBe(page.title);
+    expect(content(merged, { property: "og:description" })).toBe(page.description);
+    expect(content(merged, { name: "twitter:title" })).toBe(page.title);
+    expect(content(merged, { name: "twitter:description" })).toBe(page.description);
+    expect(content(merged, { property: "og:url" })).toBe(canonicalUrl);
+    expect(content(merged, { property: "og:image" })).toBe("https://nearbuilders.org/metadata.png");
+    expect(content(merged, { property: "og:image:alt" })).toBe(page.description);
+    expect(content(merged, { name: "twitter:image:alt" })).toBe(page.description);
+    expect(content(merged, { property: "og:type" })).toBe("website");
+    expect(merged.filter((item) => item.property === "og:title")).toHaveLength(1);
+    expect(merged.filter((item) => item.property === "og:image:alt")).toHaveLength(1);
+    expect(merged.filter((item) => item.name === "twitter:image:alt")).toHaveLength(1);
+    expect(merged.filter((item) => item.property === "og:url")).toHaveLength(1);
+  });
 
   it("keeps the runtime title, description, and social image when a route does not define its own", () => {
     const merged = rootHead("/about");
@@ -88,7 +87,9 @@ describe("page open graph metadata", () => {
     expect(content(merged, { property: "og:description" })).toBe("The NEAR builder network.");
     expect(content(merged, { property: "og:url" })).toBe("https://nearbuilders.org/about");
     expect(content(merged, { property: "og:image" })).toBe("https://nearbuilders.org/metadata.png");
-    expect(content(merged, { name: "twitter:image" })).toBe("https://nearbuilders.org/metadata.png");
+    expect(content(merged, { name: "twitter:image" })).toBe(
+      "https://nearbuilders.org/metadata.png",
+    );
     expect(content(merged, { property: "og:image:alt" })).toBe("The NEAR builder network.");
     expect(content(merged, { name: "twitter:image:alt" })).toBe("The NEAR builder network.");
   });
