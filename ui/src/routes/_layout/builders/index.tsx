@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
@@ -429,6 +430,7 @@ function BuildersPage() {
       if (data.alreadyNominated) {
         toast.info("You've already nominated this builder");
       } else {
+        clearEmailPromptDismissal();
         toast.success("Nomination recorded");
       }
     },

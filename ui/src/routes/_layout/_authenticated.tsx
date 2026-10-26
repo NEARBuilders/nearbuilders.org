@@ -1,5 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { type SessionData, sessionQueryOptions } from "@/app";
+import { useEffect } from "react";
+import { type SessionData, sessionQueryOptions, useApiClient } from "@/app";
+import { EmailSetupBanner } from "@/components/email-setup-banner";
 
 interface AuthContext {
   isAuthenticated: boolean;
@@ -53,5 +55,21 @@ export const Route = createFileRoute("/_layout/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  return <Outlet />;
+  const { auth } = Route.useRouteContext();
+  const apiClient = useApiClient();
+  const user = auth.user as { email?: string | null; emailVerified?: boolean | null } | null;
+  const email = user?.email;
+  const emailVerified = user?.emailVerified === true;
+
+  useEffect(() => {
+    if (!email || !emailVerified) return;
+    void apiClient.syncVerifiedNotificationEmail({ email }).catch(() => undefined);
+  }, [apiClient, email, emailVerified]);
+
+  return (
+    <>
+      <EmailSetupBanner email={email} emailVerified={emailVerified} />
+      <Outlet />
+    </>
+  );
 }

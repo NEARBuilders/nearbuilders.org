@@ -43,7 +43,10 @@
         "NEARAI_API_KEY",
         "NEARAI_MODEL",
         "GITHUB_TOKEN",
-        "REQUIRE_ADMIN_APPROVAL"
+        "REQUIRE_ADMIN_APPROVAL",
+        "RESEND_API_KEY",
+        "EMAIL_FROM",
+        "APP_PUBLIC_URL"
       ]
     },
     "auth": {

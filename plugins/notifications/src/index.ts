@@ -96,6 +96,57 @@ export default createPlugin({
             yield event;
           }
         }),
+
+      getEmailPreference: builder.getEmailPreference
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          assertOwnEmailUser(input.userId, context);
+          return await runEffect(services.notification.getEmailPreference(input.userId));
+        }),
+
+      setEmailNotificationsEnabled: builder.setEmailNotificationsEnabled
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          assertOwnEmailUser(input.userId, context);
+          return await runEffect(
+            services.notification.setEmailNotificationsEnabled(input.userId, input.enabled),
+          );
+        }),
+
+      setEmailChallenge: builder.setEmailChallenge
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          assertOwnEmailUser(input.userId, context);
+          return await runEffect(services.notification.setEmailChallenge(input));
+        }),
+
+      confirmEmailCode: builder.confirmEmailCode
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          assertOwnEmailUser(input.userId, context);
+          return await runEffect(services.notification.confirmEmailCode(input));
+        }),
+
+      syncVerifiedEmail: builder.syncVerifiedEmail
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          assertOwnEmailUser(input.userId, context);
+          return await runEffect(services.notification.syncVerifiedEmail(input));
+        }),
     };
   },
 });
+
+function assertOwnEmailUser(
+  userId: string,
+  context: {
+    userId?: string | null;
+    user?: { role?: string | null } | null;
+    serverNotification?: boolean;
+  },
+) {
+  const serverCall = context.serverNotification === true;
+  if (!serverCall && userId !== context.userId && context.user?.role !== "admin") {
+    throw new ORPCError("FORBIDDEN", { message: "Cannot change another user's email settings" });
+  }
+}

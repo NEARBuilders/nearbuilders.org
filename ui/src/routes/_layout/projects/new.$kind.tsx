@@ -20,6 +20,7 @@ import {
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   filterProjectFormValidation,
   getProjectFormValidation,
@@ -186,6 +187,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         result: "Result",
       };
       const label = kindLabels[routeKind as ProjectKind];
+      if (submitForReview) clearEmailPromptDismissal();
       toast.success(
         submitForReview
           ? `${label} created \u2014 submitted for review to go public`

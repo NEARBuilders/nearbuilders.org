@@ -1,8 +1,9 @@
+import { timingSafeEqual } from "node:crypto";
 import { and, count, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { DatabaseTag } from "../db/layer";
-import { notifications } from "../db/schema";
+import { emailPreferences, notifications } from "../db/schema";
 
 export interface NotificationRecord {
   id: string;
@@ -29,6 +30,36 @@ export interface ListNotificationsInput {
   read?: boolean;
   limit?: number;
   cursor?: string;
+}
+
+export interface EmailPreferenceRecord {
+  email: string | null;
+  verified: boolean;
+  enabled: boolean;
+  pendingEmail: string | null;
+}
+
+function emptyEmailPreference(): EmailPreferenceRecord {
+  return { email: null, verified: false, enabled: true, pendingEmail: null };
+}
+
+function rowToEmailPreference(
+  row: typeof emailPreferences.$inferSelect | undefined,
+): EmailPreferenceRecord {
+  if (!row) return emptyEmailPreference();
+  return {
+    email: row.email,
+    verified: Boolean(row.email && row.verifiedAt),
+    enabled: row.enabled,
+    pendingEmail: row.pendingEmail,
+  };
+}
+
+function hashesMatch(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function generateId(): string {
@@ -78,6 +109,27 @@ export class NotificationService extends Context.Tag("notifications/Notification
     markAllAsRead: (
       userId: string,
     ) => Effect.Effect<{ updated: number }, ORPCError<string, unknown>>;
+    getEmailPreference: (
+      userId: string,
+    ) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    setEmailNotificationsEnabled: (
+      userId: string,
+      enabled: boolean,
+    ) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    setEmailChallenge: (input: {
+      userId: string;
+      pendingEmail: string;
+      codeHash: string;
+      codeExpiresAt: string;
+    }) => Effect.Effect<{ pendingEmail: string }, ORPCError<string, unknown>>;
+    confirmEmailCode: (input: {
+      userId: string;
+      codeHash: string;
+    }) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    syncVerifiedEmail: (input: {
+      userId: string;
+      email: string;
+    }) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
   }
 >() {}
 
@@ -180,6 +232,123 @@ export const NotificationServiceLive = Layer.effect(
           );
 
           return { updated: updated.length };
+        }),
+
+      getEmailPreference: (userId) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db.select().from(emailPreferences).where(eq(emailPreferences.userId, userId)).limit(1),
+          );
+          return rowToEmailPreference(row);
+        }),
+
+      setEmailNotificationsEnabled: (userId, enabled) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({ userId, enabled })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: { enabled },
+              })
+              .returning(),
+          );
+          return rowToEmailPreference(row);
+        }),
+
+      setEmailChallenge: (input) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({
+                userId: input.userId,
+                pendingEmail: input.pendingEmail,
+                codeHash: input.codeHash,
+                codeExpiresAt: new Date(input.codeExpiresAt),
+              })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: {
+                  pendingEmail: input.pendingEmail,
+                  codeHash: input.codeHash,
+                  codeExpiresAt: new Date(input.codeExpiresAt),
+                },
+              }),
+          );
+          return { pendingEmail: input.pendingEmail };
+        }),
+
+      confirmEmailCode: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(emailPreferences)
+              .where(eq(emailPreferences.userId, input.userId))
+              .limit(1),
+          );
+          const expiresAt = row?.codeExpiresAt ? new Date(row.codeExpiresAt).getTime() : 0;
+          if (
+            !row?.pendingEmail ||
+            !row.codeHash ||
+            !hashesMatch(row.codeHash, input.codeHash) ||
+            expiresAt <= Date.now()
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "That code is invalid or expired" }),
+            );
+          }
+
+          const [updated] = yield* Effect.promise(() =>
+            db
+              .update(emailPreferences)
+              .set({
+                email: row.pendingEmail,
+                verifiedAt: new Date(),
+                pendingEmail: null,
+                codeHash: null,
+                codeExpiresAt: null,
+                enabled: true,
+              })
+              .where(eq(emailPreferences.userId, input.userId))
+              .returning(),
+          );
+          return rowToEmailPreference(updated);
+        }),
+
+      syncVerifiedEmail: (input) =>
+        Effect.gen(function* () {
+          const [existing] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(emailPreferences)
+              .where(eq(emailPreferences.userId, input.userId))
+              .limit(1),
+          );
+          if (existing?.email && existing.verifiedAt && existing.email !== input.email) {
+            return rowToEmailPreference(existing);
+          }
+          const [row] = yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({
+                userId: input.userId,
+                email: input.email,
+                verifiedAt: new Date(),
+                enabled: existing?.enabled ?? true,
+              })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: {
+                  email: input.email,
+                  verifiedAt: new Date(),
+                },
+              })
+              .returning(),
+          );
+          return rowToEmailPreference(row);
         }),
     };
   }),
