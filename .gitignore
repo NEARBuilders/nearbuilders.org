@@ -368,3 +368,5 @@ packages/every-plugin/src/**/*.d.ts.map
 
 Dockerfile.railway
 infra/.alchemy/
+
+.agents/
