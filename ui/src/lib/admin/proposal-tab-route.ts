@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import type { DashboardStatus, ProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 import type { ProposalTabActions } from "@/components/admin/proposal-tab";
+import type { DashboardStatus, ProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 
 type SlugStatus = Exclude<DashboardStatus, "all">;
 

@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import type { ColumnDef } from "@tanstack/react-table";
 import {
   Archive,
   ArrowUpRight,
@@ -12,11 +11,16 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo } from "react";
+import { type ColumnMeta, DataTable, type DataTableColumnDef } from "@/components/admin/data-table";
+import {
+  currentEvaluation,
+  EvaluationBadge,
+  type ProposalEvaluation,
+} from "@/components/admin/proposal-evaluation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type ColumnMeta, DataTable } from "@/components/admin/data-table";
 import {
   formatDate,
   getProjectKind,
@@ -30,11 +34,6 @@ import {
   readPayload,
   readString,
 } from "@/lib/admin/proposal-dashboard";
-import {
-  currentEvaluation,
-  EvaluationBadge,
-  type ProposalEvaluation,
-} from "@/components/admin/proposal-evaluation";
 
 export function ProposalStatusBadge({ state }: { state: ProposalState }) {
   const icon =
@@ -167,7 +166,7 @@ export function ProposalTable({
   approvingEntityId?: string;
   evaluations?: Map<string, ProposalEvaluation>;
 }) {
-  const columns = useMemo<ColumnDef<ProposalRecord, any>[]>(
+  const columns = useMemo<DataTableColumnDef<ProposalRecord>[]>(
     () => [
       {
         id: "item",

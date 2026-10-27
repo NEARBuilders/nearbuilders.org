@@ -1,4 +1,5 @@
 import "@orpc/openapi/extensions/route";
+import { oc } from "@orpc/contract";
 import {
   BAD_REQUEST,
   CONNECTION_ERROR,
@@ -9,7 +10,6 @@ import {
   TIMEOUT,
   UNAUTHORIZED,
 } from "every-plugin/errors";
-import { oc } from "@orpc/contract";
 import { z } from "zod";
 
 const CatalogProjectSlugPattern = /^(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/;

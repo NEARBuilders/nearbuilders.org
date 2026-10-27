@@ -1,6 +1,6 @@
-import { createPlugin } from "every-plugin";
-import { Effect, Layer } from "effect";
 import { ORPCError } from "@orpc/server";
+import { Effect, Layer } from "effect";
+import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
@@ -40,14 +40,15 @@ export default createPlugin({
         const bookmarks = yield* BookmarkService;
         return yield* Effect.promise(() => bookmarks.unbookmark(input.entityId, context.userId!));
       }),
-      getUserBookmark: builder.getUserBookmark
-        .use(requireAuth)
-        .effect(function* ({ input, context }) {
-          const bookmarks = yield* BookmarkService;
-          return yield* Effect.promise(() =>
-            bookmarks.getUserBookmark(input.entityId, context.userId!),
-          );
-        }),
+      getUserBookmark: builder.getUserBookmark.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const bookmarks = yield* BookmarkService;
+        return yield* Effect.promise(() =>
+          bookmarks.getUserBookmark(input.entityId, context.userId!),
+        );
+      }),
     };
   },
 });

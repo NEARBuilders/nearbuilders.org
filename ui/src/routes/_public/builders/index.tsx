@@ -382,9 +382,7 @@ function BuildersPage() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const { data: latestVote } = useQuery(
-    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
-  );
+  const { data: latestVote } = useQuery(orpc.subscribeUpvotes.liveOptions({ retry: true }));
 
   useEffect(() => {
     if (!latestVote) return;

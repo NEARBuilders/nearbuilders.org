@@ -8,11 +8,11 @@ import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { normalizeDomain } from "@/lib/project-form-validation";
+import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
-import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,

@@ -23,6 +23,8 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ApiClient } from "@/app";
 import { useApiClient } from "@/app";
+import { EvaluationPanel } from "@/components/admin/proposal-evaluation";
+import { ProposalStatusBadge } from "@/components/admin/proposal-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -37,8 +39,6 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { isSafeImageUrl } from "@/lib/image-url";
-import { cn } from "@/lib/utils";
 import {
   formatAuditAction,
   formatDateTime,
@@ -54,8 +54,8 @@ import {
   readString,
   readStringArray,
 } from "@/lib/admin/proposal-dashboard";
-import { EvaluationPanel } from "@/components/admin/proposal-evaluation";
-import { ProposalStatusBadge } from "@/components/admin/proposal-table";
+import { isSafeImageUrl } from "@/lib/image-url";
+import { cn } from "@/lib/utils";
 
 type CatalogProject = Awaited<ReturnType<ApiClient["getCatalogProject"]>>["data"];
 type AdminAction = "approve" | "reject" | "reopen" | "remove" | "dismiss";

@@ -46,7 +46,7 @@
     "@tanstack/react-query-devtools": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "catalog:",
     "@tanstack/store": "catalog:",
     "@tanstack/zod-form-adapter": "catalog:",
     "better-auth": "catalog:",
@@ -85,7 +85,8 @@
     "@pingpay/onramp-types": "^0.0.3",
     "cn": "^0.4.0",
     "leaflet": "1.9.4",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "@tanstack/query-core": "5.102.8"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",

@@ -1,6 +1,6 @@
+import { MemoryPublisher } from "@orpc/publisher/memory";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { MemoryPublisher } from "@orpc/publisher/memory";
 import type { z } from "zod";
 import type { VoteEventSchema } from "../contract";
 import { DatabaseTag } from "../db/layer";
@@ -164,16 +164,18 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
 
 type VoteMethods = ReturnType<typeof createVoteMethods>;
 
-export class VoteService extends Context.Tag("votes/VoteService")<
+export class VoteService extends Context.Service<
   VoteService,
   VoteMethods & { publisher: MemoryPublisher<VoteEvents> }
->() {}
+>()("votes/VoteService") {}
 
 export const VoteServiceLive = Layer.effect(
   VoteService,
   Effect.gen(function* () {
     const db = yield* DatabaseTag;
-    const publisher = new MemoryPublisher<VoteEvents>({ resumeRetentionSeconds: 120 });
+    const publisher = new MemoryPublisher<VoteEvents>({
+      resume: { enabled: true, seconds: 120 },
+    });
     const methods = createVoteMethods(db, publisher);
     return { ...methods, publisher };
   }),

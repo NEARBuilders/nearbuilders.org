@@ -1,5 +1,5 @@
-import { Context, Effect, Layer } from "effect";
 import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
 import { z } from "zod";
 import { type CatalogProjectSchema, CatalogProjectSlugSchema } from "../contract";
 import { catalogProjectReference } from "../project-reference";
@@ -187,10 +187,9 @@ export function createCatalogMethods(
 
 type CatalogMethods = ReturnType<typeof createCatalogMethods>;
 
-export class CatalogService extends Context.Tag("nearcatalog/CatalogService")<
-  CatalogService,
-  CatalogMethods
->() {}
+export class CatalogService extends Context.Service<CatalogService, CatalogMethods>()(
+  "nearcatalog/CatalogService",
+) {}
 
 export const CatalogServiceLive = (baseUrl: string) =>
   Layer.succeed(CatalogService, createCatalogMethods(baseUrl));

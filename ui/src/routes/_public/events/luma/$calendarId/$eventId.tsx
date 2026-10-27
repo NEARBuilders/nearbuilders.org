@@ -5,11 +5,11 @@ import { ExternalLink } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
+import { EventDetail, formatEventDate } from "@/components/events/event-detail";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
-import { EventDetail, formatEventDate } from "@/components/events/event-detail";
 
 const LUMA_EVENT_STALE_TIME_MS = 2 * 60 * 1000;
 

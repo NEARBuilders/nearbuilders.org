@@ -1,41 +1,12 @@
-import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "effect";
 import { ORPCError } from "@orpc/server";
+import { Effect, Layer } from "effect";
+import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { CatalogService, CatalogServiceLive } from "./services/catalog";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
-
-async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isFailure(exit)) {
-    const squashed = Cause.squash(exit.cause);
-    if (squashed instanceof ORPCError) throw squashed;
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: squashed instanceof Error ? squashed.message : String(squashed),
-    });
-  }
-  return exit.value;
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-  const worker = async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
-      results[index] = await mapper(items[index]!);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
 
 function matchesProjectQuery(
   project: {
@@ -83,18 +54,15 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
-    Effect.gen(function* () {
-      const Database = DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL);
-      const Claims = ClaimServiceLive.pipe(Layer.provide(Database));
-      const Catalog = CatalogServiceLive(config.variables.baseUrl);
-      const catalog = yield* tools.buildService(CatalogService, Catalog);
-      const claims = yield* tools.buildService(ClaimService, Claims);
+  initialize: (config) =>
+    Effect.sync(() =>
+      Layer.mergeAll(
+        CatalogServiceLive(config.variables.baseUrl),
+        ClaimServiceLive.pipe(Layer.provide(DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL))),
+      ),
+    ),
 
-      return { catalog, claims };
-    }),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAdmin = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
@@ -106,29 +74,30 @@ export default createPlugin({
     });
 
     return {
-      searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => ({
-        data: await runEffect(services.catalog.searchProjects(input.query)),
-      })),
-
-      getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => ({
-        data: await runEffect(services.catalog.getProject(input.slug)),
-      })),
-
-      listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
-        return await runEffect(services.claims.listClaims(input));
+      searchCatalogProjects: builder.searchCatalogProjects.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.searchProjects(input.query) };
       }),
 
-      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.handler(async ({ input }) => {
-        const claimsByProject = await runEffect(
-          services.claims.listClaimsByProject(input.nearAccount),
-        );
-        const projects = await mapWithConcurrency(
+      getCatalogProject: builder.getCatalogProject.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.getProject(input.slug) };
+      }),
+
+      listCatalogClaims: builder.listCatalogClaims.effect(function* ({ input }) {
+        const claims = yield* ClaimService;
+        return yield* claims.listClaims(input);
+      }),
+
+      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        const claimService = yield* ClaimService;
+        const claimsByProject = yield* claimService.listClaimsByProject(input.nearAccount);
+        const projects = yield* Effect.forEach(
           Array.from(claimsByProject),
-          5,
-          async ([slug, claims]) => {
-            try {
-              const project = await runEffect(services.catalog.getProject(slug));
-              return {
+          ([slug, claims]) =>
+            catalog.getProject(slug).pipe(
+              Effect.map((project) => ({
                 project,
                 contributors: claims.map(({ id, nearAccount, roles, createdAt, updatedAt }) => ({
                   id,
@@ -137,12 +106,10 @@ export default createPlugin({
                   createdAt,
                   updatedAt,
                 })),
-              };
-            } catch (error) {
-              if (error instanceof ORPCError) return null;
-              throw error;
-            }
-          },
+              })),
+              Effect.catchCause(() => Effect.succeed(null)),
+            ),
+          { concurrency: 5 },
         );
         const available = projects
           .filter((project) => project !== null)
@@ -165,28 +132,33 @@ export default createPlugin({
         };
       }),
 
-      getCatalogClaimHistory: builder.getCatalogClaimHistory
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.getClaimHistory(input.id)),
-        })),
-
-      applyCatalogClaim: builder.applyCatalogClaim.use(requireAdmin).handler(async ({ input }) => {
-        await runEffect(services.catalog.getProject(input.projectSlug));
-        return { data: await runEffect(services.claims.applyClaim(input)) };
+      getCatalogClaimHistory: builder.getCatalogClaimHistory.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.getClaimHistory(input.id) };
       }),
 
-      setCatalogClaimActivity: builder.setCatalogClaimActivity
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.setClaimActivity(input.id, input.activityEventId)),
-        })),
+      applyCatalogClaim: builder.applyCatalogClaim.use(requireAdmin).effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        const claims = yield* ClaimService;
+        yield* catalog.getProject(input.projectSlug);
+        return { data: yield* claims.applyClaim(input) };
+      }),
 
-      revokeCatalogClaim: builder.revokeCatalogClaim
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.revokeClaim(input.id)),
-        })),
+      setCatalogClaimActivity: builder.setCatalogClaimActivity.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.setClaimActivity(input.id, input.activityEventId) };
+      }),
+
+      revokeCatalogClaim: builder.revokeCatalogClaim.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.revokeClaim(input.id) };
+      }),
     };
   },
 });

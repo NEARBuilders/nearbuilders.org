@@ -1,12 +1,24 @@
-import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "effect";
 import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
+import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { EventService, EventServiceLive } from "./services/events";
 import { LumaService, parseLumaApiKeys } from "./services/luma";
+
+class Luma extends Context.Service<Luma, LumaService>()("events/LumaService") {}
+
+const internalError = (defect: unknown) =>
+  defect instanceof ORPCError
+    ? defect
+    : new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: defect instanceof Error ? defect.message : String(defect),
+      });
+
+const runEvent = <A, E>(effect: Effect.Effect<A, E>) =>
+  effect.pipe(Effect.catchDefect((defect) => Effect.fail(internalError(defect))));
 
 export default createPlugin({
   variables: z.object({}),
@@ -20,20 +32,20 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.EVENTS_DATABASE_URL);
-      const EventServices = EventServiceLive.pipe(Layer.provide(Database));
-      const event = yield* tools.buildService(EventService, EventServices);
       const luma = new LumaService(parseLumaApiKeys(config.secrets.LUMA_CALENDAR_API_KEYS));
 
       console.log("[Events] Services Initialized");
-      return { event, luma };
+      return Layer.mergeAll(
+        EventServiceLive.pipe(Layer.provide(Database)),
+        Layer.succeed(Luma, luma),
+        Layer.effectDiscard(Effect.addFinalizer(() => Effect.log("[Events] Shutdown"))),
+      );
     }),
 
-  shutdown: () => Effect.log("[Events] Shutdown"),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -61,53 +73,47 @@ export default createPlugin({
         ? (context.userId ?? undefined)
         : undefined;
 
-    const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
-      const exit = await Effect.runPromiseExit(effect);
-      if (Exit.isFailure(exit)) {
-        const squashed = Cause.squash(exit.cause);
-        if (squashed instanceof ORPCError) throw squashed;
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: squashed instanceof Error ? squashed.message : String(squashed),
-        });
-      }
-      return exit.value;
-    };
-
     return {
-      listLumaCalendars: builder.listLumaCalendars.handler(async () => {
-        return await services.luma.listCalendars();
+      listLumaCalendars: builder.listLumaCalendars.effect(function* () {
+        const luma = yield* Luma;
+        return yield* Effect.promise(() => luma.listCalendars());
       }),
 
-      listLumaEvents: builder.listLumaEvents.handler(async ({ input, errors, context }) => {
-        try {
-          return await services.luma.listEvents({
-            ...input,
-            isAdmin: context.user?.role === "admin",
-          });
-        } catch (error) {
-          throw errors.BAD_REQUEST({
-            message: error instanceof Error ? error.message : "Could not list Luma events",
-            data: {},
-          });
-        }
+      listLumaEvents: builder.listLumaEvents.effect(function* ({ input, errors, context }) {
+        const luma = yield* Luma;
+        return yield* Effect.tryPromise({
+          try: () =>
+            luma.listEvents({
+              ...input,
+              isAdmin: context.user?.role === "admin",
+            }),
+          catch: (error) =>
+            errors.BAD_REQUEST({
+              message: error instanceof Error ? error.message : "Could not list Luma events",
+              data: {},
+            }),
+        });
       }),
 
-      getLumaEvent: builder.getLumaEvent.handler(async ({ input, errors, context }) => {
-        try {
-          return await services.luma.getEvent(input.calendarId, input.eventId, {
-            isAdmin: context.user?.role === "admin",
-          });
-        } catch {
-          throw errors.NOT_FOUND({
-            message: "Luma event not found",
-            data: { resource: "luma-event", resourceId: input.eventId },
-          });
-        }
+      getLumaEvent: builder.getLumaEvent.effect(function* ({ input, errors, context }) {
+        const luma = yield* Luma;
+        return yield* Effect.tryPromise({
+          try: () =>
+            luma.getEvent(input.calendarId, input.eventId, {
+              isAdmin: context.user?.role === "admin",
+            }),
+          catch: () =>
+            errors.NOT_FOUND({
+              message: "Luma event not found",
+              data: { resource: "luma-event", resourceId: input.eventId },
+            }),
+        });
       }),
 
-      listEvents: builder.listEvents.handler(async ({ input, context }) => {
-        return await runEffect(
-          services.event.listEvents(
+      listEvents: builder.listEvents.effect(function* ({ input, context }) {
+        const event = yield* EventService;
+        return yield* runEvent(
+          event.listEvents(
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
@@ -116,9 +122,10 @@ export default createPlugin({
         );
       }),
 
-      getEvent: builder.getEvent.handler(async ({ input, errors, context }) => {
-        const result = await runEffect(
-          services.event.getEvent(
+      getEvent: builder.getEvent.effect(function* ({ input, errors, context }) {
+        const event = yield* EventService;
+        const result = yield* runEvent(
+          event.getEvent(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
@@ -126,17 +133,20 @@ export default createPlugin({
           ),
         );
         if (!result) {
-          throw errors.NOT_FOUND({
-            message: "Event not found",
-            data: { resource: "event", resourceId: input.id },
-          });
+          return yield* Effect.fail(
+            errors.NOT_FOUND({
+              message: "Event not found",
+              data: { resource: "event", resourceId: input.id },
+            }),
+          );
         }
         return { data: result };
       }),
 
-      getEventBySlug: builder.getEventBySlug.handler(async ({ input, errors, context }) => {
-        const result = await runEffect(
-          services.event.getEventBySlug(
+      getEventBySlug: builder.getEventBySlug.effect(function* ({ input, errors, context }) {
+        const event = yield* EventService;
+        const result = yield* runEvent(
+          event.getEventBySlug(
             input.slug,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
@@ -144,88 +154,93 @@ export default createPlugin({
           ),
         );
         if (!result) {
-          throw errors.NOT_FOUND({
-            message: "Event not found",
-            data: { resource: "event", resourceId: input.slug },
-          });
+          return yield* Effect.fail(
+            errors.NOT_FOUND({
+              message: "Event not found",
+              data: { resource: "event", resourceId: input.slug },
+            }),
+          );
         }
         return { data: result };
       }),
 
-      listEventParticipants: builder.listEventParticipants.handler(
-        async ({ input, errors, context }) => {
-          try {
-            return {
-              data: await runEffect(
-                services.event.listEventParticipants(
-                  input.eventId,
-                  context.near?.primaryAccountId ?? context.userId ?? undefined,
-                  getAlternateOwnerId(context),
-                  context.user?.role ?? undefined,
-                ),
-              ),
-            };
-          } catch (error) {
-            if (error instanceof ORPCError && error.code === "NOT_FOUND") {
-              throw errors.NOT_FOUND({
-                message: "Event not found",
-                data: { resource: "event", resourceId: input.eventId },
-              });
-            }
-            throw error;
-          }
-        },
-      ),
-
-      joinEvent: builder.joinEvent.use(requireAuth).handler(async ({ input, context, errors }) => {
-        try {
-          return {
-            data: await runEffect(
-              services.event.joinEvent(
-                input.eventId,
-                context.near?.primaryAccountId ?? context.userId ?? undefined,
-                context.near?.primaryAccountId ?? undefined,
-                context.user.name ?? context.user.email,
-                getAlternateOwnerId(context),
-              ),
-            ),
-          };
-        } catch (error) {
-          if (error instanceof ORPCError && error.code === "NOT_FOUND") {
-            throw errors.NOT_FOUND({
-              message: "Event not found",
-              data: { resource: "event", resourceId: input.eventId },
-            });
-          }
-          throw error;
-        }
+      listEventParticipants: builder.listEventParticipants.effect(function* ({
+        input,
+        errors,
+        context,
+      }) {
+        const event = yield* EventService;
+        const data = yield* runEvent(
+          event.listEventParticipants(
+            input.eventId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+            context.user?.role ?? undefined,
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
+            error.code === "NOT_FOUND"
+              ? errors.NOT_FOUND({
+                  message: "Event not found",
+                  data: { resource: "event", resourceId: input.eventId },
+                })
+              : error,
+          ),
+        );
+        return { data };
       }),
 
-      leaveEvent: builder.leaveEvent
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          try {
-            return await runEffect(
-              services.event.leaveEvent(
-                input.eventId,
-                context.near?.primaryAccountId ?? context.userId ?? undefined,
-                getAlternateOwnerId(context),
-              ),
-            );
-          } catch (error) {
-            if (error instanceof ORPCError && error.code === "NOT_FOUND") {
-              throw errors.NOT_FOUND({
-                message: "Event not found",
-                data: { resource: "event", resourceId: input.eventId },
-              });
-            }
-            throw error;
-          }
-        }),
+      joinEvent: builder.joinEvent.use(requireAuth).effect(function* ({ input, context, errors }) {
+        const event = yield* EventService;
+        const data = yield* runEvent(
+          event.joinEvent(
+            input.eventId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.near?.primaryAccountId ?? undefined,
+            context.user.name ?? context.user.email,
+            getAlternateOwnerId(context),
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
+            error.code === "NOT_FOUND"
+              ? errors.NOT_FOUND({
+                  message: "Event not found",
+                  data: { resource: "event", resourceId: input.eventId },
+                })
+              : error,
+          ),
+        );
+        return { data };
+      }),
 
-      createEvent: builder.createEvent.use(requireAuth).handler(async ({ input, context }) => {
-        return await runEffect(
-          services.event.createEvent(
+      leaveEvent: builder.leaveEvent.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const event = yield* EventService;
+        return yield* runEvent(
+          event.leaveEvent(
+            input.eventId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
+            error.code === "NOT_FOUND"
+              ? errors.NOT_FOUND({
+                  message: "Event not found",
+                  data: { resource: "event", resourceId: input.eventId },
+                })
+              : error,
+          ),
+        );
+      }),
+
+      createEvent: builder.createEvent.use(requireAuth).effect(function* ({ input, context }) {
+        const event = yield* EventService;
+        return yield* runEvent(
+          event.createEvent(
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
@@ -234,59 +249,62 @@ export default createPlugin({
         );
       }),
 
-      updateEvent: builder.updateEvent
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          try {
-            return await runEffect(
-              services.event.updateEvent(
-                input.id,
-                input,
-                context.near?.primaryAccountId ?? context.userId ?? undefined,
-                context.user.role ?? undefined,
-                getAlternateOwnerId(context),
-              ),
-            );
-          } catch (error) {
-            if (error instanceof ORPCError && error.code === "NOT_FOUND") {
-              throw errors.NOT_FOUND({
-                message: "Event not found",
-                data: { resource: "event", resourceId: input.id },
-              });
-            }
-            throw error;
-          }
-        }),
+      updateEvent: builder.updateEvent.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const event = yield* EventService;
+        return yield* runEvent(
+          event.updateEvent(
+            input.id,
+            input,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
+            error.code === "NOT_FOUND"
+              ? errors.NOT_FOUND({
+                  message: "Event not found",
+                  data: { resource: "event", resourceId: input.id },
+                })
+              : error,
+          ),
+        );
+      }),
 
-      applyReviewedEvent: builder.applyReviewedEvent
-        .use(requireAdmin)
-        .handler(async ({ input }) => {
-          return await runEffect(
-            services.event.updateEvent(input.id, input, input.ownerId, undefined),
-          );
-        }),
+      applyReviewedEvent: builder.applyReviewedEvent.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const event = yield* EventService;
+        return yield* runEvent(event.updateEvent(input.id, input, input.ownerId, undefined));
+      }),
 
-      deleteEvent: builder.deleteEvent
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          try {
-            return await runEffect(
-              services.event.deleteEvent(
-                input.id,
-                context.near?.primaryAccountId ?? context.userId ?? undefined,
-                getAlternateOwnerId(context),
-              ),
-            );
-          } catch (error) {
-            if (error instanceof ORPCError && error.code === "NOT_FOUND") {
-              throw errors.NOT_FOUND({
-                message: "Event not found",
-                data: { resource: "event", resourceId: input.id },
-              });
-            }
-            throw error;
-          }
-        }),
+      deleteEvent: builder.deleteEvent.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const event = yield* EventService;
+        return yield* runEvent(
+          event.deleteEvent(
+            input.id,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
+            error.code === "NOT_FOUND"
+              ? errors.NOT_FOUND({
+                  message: "Event not found",
+                  data: { resource: "event", resourceId: input.id },
+                })
+              : error,
+          ),
+        );
+      }),
     };
   },
 });

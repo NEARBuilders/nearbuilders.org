@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
-import { FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "@orpc/contract";
+import { FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 
 export const NotificationSchema = z.object({

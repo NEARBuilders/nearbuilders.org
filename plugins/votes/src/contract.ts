@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
-import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "@orpc/contract";
+import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 
 export const VoteEventSchema = z.object({

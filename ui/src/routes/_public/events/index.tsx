@@ -15,12 +15,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
-import { Button } from "@/components/ui/button";
-import { useBookmark } from "@/lib/bookmarks";
-import { downloadIcsFile } from "@/lib/ics";
-import { cn } from "@/lib/utils";
 import { CalendarFilters } from "@/components/events/calendar-filters";
 import { EventDayGroup, type EventDayGroupData } from "@/components/events/event-day-group";
+import { LumaEventCard } from "@/components/events/luma-event-card";
+import { Button } from "@/components/ui/button";
+import { useBookmark } from "@/lib/bookmarks";
 import {
   buildTimelineEvents,
   type EventRecord,
@@ -28,7 +27,8 @@ import {
   formatEventTimeRange,
   type TimelineEvent,
 } from "@/lib/events/event-sources";
-import { LumaEventCard } from "@/components/events/luma-event-card";
+import { downloadIcsFile } from "@/lib/ics";
+import { cn } from "@/lib/utils";
 
 type EventProposalStatus = "pending" | "approved" | "rejected" | "removed";
 const LUMA_QUERY_STALE_TIME_MS = 60 * 1000;

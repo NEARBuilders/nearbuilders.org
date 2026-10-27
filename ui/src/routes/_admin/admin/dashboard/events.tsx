@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parseProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 import { getProposalQueryOptions, ProposalTab } from "@/components/admin/proposal-tab";
+import { parseProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 import { dashboardTabTitle, useProposalTabActions } from "@/lib/admin/proposal-tab-route";
 
 export const Route = createFileRoute("/_admin/admin/dashboard/events")({

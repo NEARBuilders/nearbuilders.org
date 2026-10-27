@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { ORPCError } from "@orpc/server";
 import type { z } from "zod";
 import type { CatalogClaimHistorySchema, CatalogClaimSchema } from "../contract";
 import type { Database } from "../db";
@@ -283,10 +283,9 @@ export function createClaimMethods(db: Database) {
 
 type ClaimMethods = ReturnType<typeof createClaimMethods>;
 
-export class ClaimService extends Context.Tag("nearcatalog/ClaimService")<
-  ClaimService,
-  ClaimMethods
->() {}
+export class ClaimService extends Context.Service<ClaimService, ClaimMethods>()(
+  "nearcatalog/ClaimService",
+) {}
 
 export const ClaimServiceLive = Layer.effect(
   ClaimService,

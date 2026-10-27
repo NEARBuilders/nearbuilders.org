@@ -3,10 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { useConfirmDialog } from "@/components";
+import { RecordsState } from "@/components/admin/records-state";
 import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/ui/command-copy";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RecordsState } from "@/components/admin/records-state";
 
 const REVIEWERS_KEY = ["admin-telegram-reviewers"];
 

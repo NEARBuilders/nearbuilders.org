@@ -1,6 +1,7 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const contract: {
-    createTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    createTelegramNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         headers: z.ZodObject<{
             "idempotency-key": z.ZodString;
         }, z.core.$strip>;
@@ -18,9 +19,9 @@ export declare const contract: {
         body: z.ZodObject<{
             nominationId: z.ZodString;
             status: z.ZodEnum<{
-                submitted: "submitted";
                 awaiting_claim: "awaiting_claim";
                 awaiting_profile: "awaiting_profile";
+                submitted: "submitted";
             }>;
             joinUrl: z.ZodOptional<z.ZodString>;
             proposalId: z.ZodNullable<z.ZodString>;
@@ -32,15 +33,15 @@ export declare const contract: {
         body: z.ZodObject<{
             nominationId: z.ZodString;
             status: z.ZodEnum<{
-                submitted: "submitted";
                 awaiting_claim: "awaiting_claim";
                 awaiting_profile: "awaiting_profile";
+                submitted: "submitted";
             }>;
             joinUrl: z.ZodOptional<z.ZodString>;
             proposalId: z.ZodNullable<z.ZodString>;
             proposalEntityId: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>]>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>]>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -75,8 +76,8 @@ export declare const contract: {
             readonly status: 409;
             readonly message: "Idempotency key conflicts with an existing nomination";
         };
-    }>>, Record<never, never>>;
-    createXNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    createXNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         headers: z.ZodObject<{
             "idempotency-key": z.ZodString;
         }, z.core.$strip>;
@@ -105,7 +106,7 @@ export declare const contract: {
         body: z.ZodObject<{
             nominationId: z.ZodString;
         }, z.core.$strip>;
-    }, z.core.$strip>]>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>]>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -140,22 +141,22 @@ export declare const contract: {
             readonly status: 409;
             readonly message: "Idempotency key conflicts with an existing nomination";
         };
-    }>>, Record<never, never>>;
-    claimTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    claimTelegramNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nominationId: z.ZodOptional<z.ZodString>;
         nomineeTelegramId: z.ZodNumber;
         nomineeUsername: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         nominationId: z.ZodString;
         status: z.ZodEnum<{
-            submitted: "submitted";
             awaiting_claim: "awaiting_claim";
             awaiting_profile: "awaiting_profile";
+            submitted: "submitted";
         }>;
         joinUrl: z.ZodOptional<z.ZodString>;
         proposalId: z.ZodNullable<z.ZodString>;
         proposalEntityId: z.ZodNullable<z.ZodString>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -179,8 +180,8 @@ export declare const contract: {
             readonly status: 404;
             readonly message: "Nomination not found";
         };
-    }>>, Record<never, never>>;
-    resolveTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    resolveTelegramNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         token: z.ZodString;
     }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
         nominationId: z.ZodString;
@@ -192,8 +193,8 @@ export declare const contract: {
         status: z.ZodLiteral<"submitted">;
     }, z.core.$strip>, z.ZodObject<{
         status: z.ZodLiteral<"invalid">;
-    }, z.core.$strip>], "status">, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    resolveNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }, z.core.$strip>], "status">, object>;
+    resolveNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         token: z.ZodString;
         recordOpen: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -238,14 +239,14 @@ export declare const contract: {
         }, z.core.$strip>>;
     }, z.core.$strip>, z.ZodObject<{
         status: z.ZodLiteral<"invalid">;
-    }, z.core.$strip>], "status">, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    finalizeTelegramNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }, z.core.$strip>], "status">, object>;
+    finalizeTelegramNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         token: z.ZodString;
         proposalId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         nominationId: z.ZodString;
         source: z.ZodLiteral<"telegram">;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -273,8 +274,8 @@ export declare const contract: {
             readonly status: 409;
             readonly message: "Nomination was submitted by another builder";
         };
-    }>>, Record<never, never>>;
-    finalizeNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    finalizeNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         token: z.ZodString;
         proposalId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
@@ -284,7 +285,7 @@ export declare const contract: {
             telegram: "telegram";
             x: "x";
         }>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -312,13 +313,13 @@ export declare const contract: {
             readonly status: 409;
             readonly message: "Nomination was submitted by another builder";
         };
-    }>>, Record<never, never>>;
-    listXNominationQueue: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    listXNominationQueue: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         status: z.ZodOptional<z.ZodEnum<{
-            pending_contact: "pending_contact";
-            contacted: "contacted";
-            rejected: "rejected";
             completed: "completed";
+            contacted: "contacted";
+            pending_contact: "pending_contact";
+            rejected: "rejected";
         }>>;
         search: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
@@ -346,10 +347,10 @@ export declare const contract: {
             sourceReferralCount: z.ZodNumber;
             joinUrl: z.ZodNullable<z.ZodString>;
             engagementStatus: z.ZodEnum<{
-                pending_contact: "pending_contact";
-                contacted: "contacted";
-                rejected: "rejected";
                 completed: "completed";
+                contacted: "contacted";
+                pending_contact: "pending_contact";
+                rejected: "rejected";
             }>;
             replyUrl: z.ZodNullable<z.ZodString>;
             contactedAt: z.ZodNullable<z.ZodISODateTime>;
@@ -364,8 +365,8 @@ export declare const contract: {
             submittedNearAccount: z.ZodNullable<z.ZodString>;
             submittedAt: z.ZodNullable<z.ZodISODateTime>;
             profileStatus: z.ZodEnum<{
-                submitted: "submitted";
                 not_started: "not_started";
+                submitted: "submitted";
             }>;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -374,7 +375,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -394,8 +395,8 @@ export declare const contract: {
                 action: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    updateXNomination: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    updateXNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nominationId: z.ZodString;
         expectedEngagementUpdatedAt: z.ZodISODateTime;
         action: z.ZodEnum<{
@@ -426,10 +427,10 @@ export declare const contract: {
         sourceReferralCount: z.ZodNumber;
         joinUrl: z.ZodNullable<z.ZodString>;
         engagementStatus: z.ZodEnum<{
-            pending_contact: "pending_contact";
-            contacted: "contacted";
-            rejected: "rejected";
             completed: "completed";
+            contacted: "contacted";
+            pending_contact: "pending_contact";
+            rejected: "rejected";
         }>;
         replyUrl: z.ZodNullable<z.ZodString>;
         contactedAt: z.ZodNullable<z.ZodISODateTime>;
@@ -444,11 +445,11 @@ export declare const contract: {
         submittedNearAccount: z.ZodNullable<z.ZodString>;
         submittedAt: z.ZodNullable<z.ZodISODateTime>;
         profileStatus: z.ZodEnum<{
-            submitted: "submitted";
             not_started: "not_started";
+            submitted: "submitted";
         }>;
         createdAt: z.ZodISODateTime;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -490,8 +491,8 @@ export declare const contract: {
             readonly status: 409;
             readonly message: "Nomination was submitted by another builder";
         };
-    }>>, Record<never, never>>;
-    getXNominationMetrics: import("@orpc/contract").ContractProcedure<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+    }>;
+    getXNominationMetrics: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         totalNominations: z.ZodNumber;
         uniqueNominees: z.ZodNumber;
         pendingReviewCount: z.ZodNumber;
@@ -513,7 +514,7 @@ export declare const contract: {
             opens: z.ZodNumber;
             profileSubmitted: z.ZodBoolean;
         }, z.core.$strip>>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -533,8 +534,8 @@ export declare const contract: {
                 action: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    listBuilders: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    listBuilders: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         search: z.ZodOptional<z.ZodString>;
         skill: z.ZodOptional<z.ZodString>;
         limit: z.ZodOptional<z.ZodNumber>;
@@ -558,7 +559,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -570,8 +571,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getBuilder: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getBuilder: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nearAccount: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -587,7 +588,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         NOT_FOUND: {
             readonly status: 404;
             readonly data: z.ZodObject<{
@@ -595,8 +596,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getMyBuilderProfile: import("@orpc/contract").ContractProcedure<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+    }>;
+    getMyBuilderProfile: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         data: z.ZodNullable<z.ZodObject<{
             id: z.ZodString;
             nearAccount: z.ZodString;
@@ -610,7 +611,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -623,8 +624,8 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    withdrawMyBuilderProfile: import("@orpc/contract").ContractProcedure<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+    }>;
+    withdrawMyBuilderProfile: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
             nearAccount: z.ZodString;
@@ -638,7 +639,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -658,8 +659,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    restoreMyBuilderProfile: import("@orpc/contract").ContractProcedure<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+    }>;
+    restoreMyBuilderProfile: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
             nearAccount: z.ZodString;
@@ -673,7 +674,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -693,8 +694,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    createBuilder: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    createBuilder: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nearAccount: z.ZodString;
         userId: z.ZodOptional<z.ZodString>;
         name: z.ZodOptional<z.ZodString>;
@@ -716,7 +717,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -747,8 +748,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    updateBuilderProfile: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    updateBuilderProfile: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nearAccount: z.ZodString;
         name: z.ZodOptional<z.ZodString>;
         bio: z.ZodOptional<z.ZodString>;
@@ -769,7 +770,7 @@ export declare const contract: {
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -796,12 +797,12 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    deleteBuilder: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    deleteBuilder: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         nearAccount: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         deleted: z.ZodBoolean;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -828,6 +829,6 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
+    }>;
 };
 export type ContractType = typeof contract;

@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { ORPCError } from "@orpc/server";
 import { DatabaseTag } from "../db/layer";
 import {
   proposalAuditLog,
@@ -139,7 +139,7 @@ async function appendAudit(
   });
 }
 
-export class ProposalService extends Context.Tag("proposals/ProposalService")<
+export class ProposalService extends Context.Service<
   ProposalService,
   {
     propose: (input: {
@@ -300,7 +300,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       telegramId: number;
     }) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
   }
->() {}
+>()("proposals/ProposalService") {}
 
 function isUniqueViolation(error: unknown): boolean {
   let current: unknown = error;

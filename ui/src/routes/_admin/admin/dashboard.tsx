@@ -12,7 +12,11 @@ import {
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ADMIN_TABS, type AdminTabConfig, type ProposalPluginId } from "@/lib/admin/proposal-dashboard";
+import {
+  ADMIN_TABS,
+  type AdminTabConfig,
+  type ProposalPluginId,
+} from "@/lib/admin/proposal-dashboard";
 
 export const Route = createFileRoute("/_admin/admin/dashboard")({
   head: () => ({ meta: [{ title: "Admin Dashboard | NEAR Builders" }] }),
@@ -54,7 +58,7 @@ function AdminDashboardLayout() {
   });
 
   const { data: latestProposalEvent } = useQuery(
-    orpc.subscribeProposals.experimental_liveOptions({ input: {}, retry: true }),
+    orpc.subscribeProposals.liveOptions({ input: {}, retry: true }),
   );
 
   useEffect(() => {

@@ -1,13 +1,12 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import { Check, CheckCircle2, Clock3, ExternalLink, Send, XCircle } from "lucide-react";
 import { useMemo } from "react";
+import { DataTable, type DataTableColumnDef } from "@/components/admin/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type XNominationRecord, xNominationContext } from "@/lib/x-nomination-queue";
-import { DataTable } from "@/components/admin/data-table";
 import { formatDate } from "@/lib/admin/proposal-dashboard";
+import { type XNominationRecord, xNominationContext } from "@/lib/x-nomination-queue";
 
 type XNominationStatus = XNominationRecord["engagementStatus"];
 
@@ -59,7 +58,7 @@ export function XNominationTable({
   selectedId?: string;
   onSelect: (row: XNominationRecord) => void;
 }) {
-  const columns = useMemo<ColumnDef<XNominationRecord, any>[]>(
+  const columns = useMemo<DataTableColumnDef<XNominationRecord>[]>(
     () => [
       {
         id: "nominee",

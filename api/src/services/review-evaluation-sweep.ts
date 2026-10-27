@@ -4,7 +4,7 @@ import { ORPCError } from "@orpc/server";
 import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import { REVIEW_DIGEST_PLUGIN_IDS } from "../contract";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { type CheckDependencies, runReviewChecks } from "./review-checks";
 import { evaluatorContext } from "./review-context";
 import { collectPages, loadEvaluations } from "./review-digest";

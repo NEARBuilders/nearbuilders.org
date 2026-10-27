@@ -14,8 +14,8 @@ import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { formatDateTime, type ProposalRecord } from "@/lib/admin/proposal-dashboard";
+import { cn } from "@/lib/utils";
 
 export type ProposalEvaluation = Awaited<
   ReturnType<ApiClient["getReviewEvaluations"]>

@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { ORPCError } from "@orpc/server";
 import { DatabaseTag } from "../db/layer";
 import { projectApps, projectCollaborators, projectMentions, projects } from "../db/schema";
 
@@ -267,7 +267,7 @@ const isAcceptedCollaborator = (
   alternateUserId?: string,
 ) => isProjectCollaborator(db, projectId, ["accepted"], userId, alternateUserId);
 
-export class ProjectService extends Context.Tag("projects/ProjectService")<
+export class ProjectService extends Context.Service<
   ProjectService,
   {
     listProjects: (
@@ -436,7 +436,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       limit?: number,
     ) => Effect.Effect<CollaborationWithProject[], ORPCError<string, unknown>>;
   }
->() {}
+>()("projects/ProjectService") {}
 
 function isProjectOwner(projectOwnerId: string, userId?: string, alternateUserId?: string) {
   return projectOwnerId === userId || projectOwnerId === alternateUserId;

@@ -1,4 +1,10 @@
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import {
+  type ColumnDef,
+  flexRender,
+  type RowData,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -15,9 +21,15 @@ export type ColumnMeta = {
   tdClassName?: string;
 };
 
-export type DataTableProps<T> = {
+const dataTableFeatures = tableFeatures({
+  columnMeta: {} as ColumnMeta,
+});
+
+export type DataTableColumnDef<T extends RowData> = ColumnDef<typeof dataTableFeatures, T, any>;
+
+export type DataTableProps<T extends RowData> = {
   data: T[];
-  columns: ColumnDef<T, any>[];
+  columns: DataTableColumnDef<T>[];
   rowId: (row: T) => string;
   ariaLabel: string;
   selectedKey?: string;
@@ -26,7 +38,7 @@ export type DataTableProps<T> = {
   actionColumnId?: string;
 };
 
-export function DataTable<T>({
+export function DataTable<T extends RowData>({
   data,
   columns,
   rowId,
@@ -36,10 +48,10 @@ export function DataTable<T>({
   onRowClick,
   actionColumnId = "actions",
 }: DataTableProps<T>) {
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
     getRowId: rowId,
   });
   const isSelected = (row: T) => selectedKey !== undefined && getSelectedKey?.(row) === selectedKey;
@@ -57,9 +69,7 @@ export function DataTable<T>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className={cn(
-                      (header.column.columnDef.meta as ColumnMeta | undefined)?.thClassName,
-                    )}
+                    className={cn(header.column.columnDef.meta?.thClassName)}
                   >
                     {header.isPlaceholder
                       ? null
@@ -77,13 +87,10 @@ export function DataTable<T>({
                 className="cursor-pointer"
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
               >
-                {row.getVisibleCells().map((cell) => (
+                {row.getAllCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className={cn(
-                      "min-w-0 py-3",
-                      (cell.column.columnDef.meta as ColumnMeta | undefined)?.tdClassName,
-                    )}
+                    className={cn("min-w-0 py-3", cell.column.columnDef.meta?.tdClassName)}
                     onClick={
                       cell.column.id === actionColumnId
                         ? (event) => event.stopPropagation()

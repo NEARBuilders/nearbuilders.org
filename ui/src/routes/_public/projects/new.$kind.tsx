@@ -26,12 +26,12 @@ import {
   normalizeDomain,
   type ProjectFormValidation,
 } from "@/lib/project-form-validation";
+import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
 import { cn } from "@/lib/utils";
-import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 
 const LAST_KIND_KEY = "projects:last-kind";
 type DraftStatus = "idle" | "restored" | "saving" | "saved" | "error";

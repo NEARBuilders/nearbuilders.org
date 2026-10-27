@@ -67,7 +67,7 @@ export function ActivityFeed({
   }, [events, sort, counts]);
 
   const { data: latestEvent } = useQuery(
-    orpc.subscribeActivity.experimental_liveOptions({ input: filters, retry: true }),
+    orpc.subscribeActivity.liveOptions({ input: filters, retry: true }),
   );
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export function ActivityFeed({
   }, [latestEvent, queryClient, feedKey, auth]);
 
   const { data: latestVote } = useQuery({
-    ...orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
+    ...orpc.subscribeUpvotes.liveOptions({ retry: true }),
   });
 
   useEffect(() => {

@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { VoteButton } from "@/components/ui/vote-button";
 import { isSafeImageUrl } from "@/lib/image-url";
 import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
@@ -45,7 +46,6 @@ import {
   mostRecentIsoDate,
 } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
-import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 
 export const Route = createFileRoute("/_public/projects/$kind/$slug")({
   validateSearch: parseProjectListSearch,

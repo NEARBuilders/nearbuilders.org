@@ -31,10 +31,9 @@ export interface RegistryConfig {
   relayNetwork?: NetworkId;
 }
 
-export class RegistryConfigService extends Context.Tag("registry/RegistryConfigService")<
-  RegistryConfigService,
-  RegistryConfig
->() {
+export class RegistryConfigService extends Context.Service<RegistryConfigService, RegistryConfig>()(
+  "registry/RegistryConfigService",
+) {
   static Live = (config: {
     namespace?: string;
     relayAccountId?: string;

@@ -1,6 +1,7 @@
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import ApiPlugin from "../../src/index";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 const entityId = "claim:alice.near:ref-finance";
 const timestamp = "2026-07-13T00:00:00.000Z";
@@ -18,6 +19,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -108,7 +110,7 @@ describe("Catalog claim approval lifecycle", () => {
     loaded = await runtime.usePlugin(
       "api",
       { variables: {}, secrets: { API_DATABASE_URL: "pglite::memory:" } },
-      {
+      asPluginEntries({
         activity: () => ({
           emitTrustedActivity: emitTrustedActivityMock,
           hideActivity: hideActivityMock,
@@ -165,7 +167,7 @@ describe("Catalog claim approval lifecycle", () => {
           markRemoveFailed: markRemoveFailedMock,
         }),
         votes: () => ({}),
-      } as never,
+      } as never),
     );
   });
 

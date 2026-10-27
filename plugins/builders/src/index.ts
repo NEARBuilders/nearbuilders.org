@@ -1,11 +1,26 @@
-import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "effect";
 import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
+import { buildScoped, createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { BuilderService, BuilderServiceLive } from "./services/builders";
+
+class NominationConfig extends Context.Service<
+  NominationConfig,
+  { joinBaseUrl: string; tokenSecret: string }
+>()("builders/NominationConfig") {}
+
+const toORPCError = (defect: unknown) =>
+  defect instanceof ORPCError
+    ? defect
+    : new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: defect instanceof Error ? defect.message : String(defect),
+      });
+
+const runService = <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) =>
+  effect.pipe(Effect.catchDefect((defect) => Effect.fail(toORPCError(defect))));
 
 export default createPlugin({
   variables: z.object({
@@ -21,24 +36,26 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config) =>
     Effect.gen(function* () {
-      const Database = DatabaseLive(config.secrets.BUILDERS_DATABASE_URL);
-      const BuilderServices = BuilderServiceLive.pipe(Layer.provide(Database));
-      const builder = yield* tools.buildService(BuilderService, BuilderServices);
+      const builder = yield* buildScoped(
+        BuilderService,
+        BuilderServiceLive.pipe(Layer.provide(DatabaseLive(config.secrets.BUILDERS_DATABASE_URL))),
+      );
       yield* builder.backfillNormalizedTags();
+      yield* Effect.addFinalizer(() => Effect.log("[Builders] Shutdown"));
 
       console.log("[Builders] Services Initialized");
-      return {
-        builder,
-        nominationJoinBaseUrl: config.variables.nominationJoinBaseUrl,
-        nominationTokenSecret: config.secrets.NOMINATION_TOKEN_SECRET,
-      };
+      return Layer.mergeAll(
+        Layer.succeed(BuilderService, builder),
+        Layer.succeed(NominationConfig, {
+          joinBaseUrl: config.variables.nominationJoinBaseUrl,
+          tokenSecret: config.secrets.NOMINATION_TOKEN_SECRET,
+        }),
+      );
     }),
 
-  shutdown: () => Effect.log("[Builders] Shutdown"),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -67,22 +84,12 @@ export default createPlugin({
       return next({ context: { ...context, apiKey: context.apiKey } });
     });
 
-    const runEffect = async <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) => {
-      const exit = await Effect.runPromiseExit(effect);
-      if (Exit.isFailure(exit)) {
-        const squashed = Cause.squash(exit.cause);
-        if (squashed instanceof ORPCError) throw squashed;
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: squashed instanceof Error ? squashed.message : String(squashed),
-        });
-      }
-      return exit.value;
-    };
-
     return {
       createTelegramNomination: builder.createTelegramNomination
         .use(requireApiKey)
-        .handler(async ({ input, context, errors }) => {
+        .effect(function* ({ input, context, errors }) {
+          const builders = yield* BuilderService;
+          const nominationConfig = yield* NominationConfig;
           const expectedIdempotencyKey = `telegram-nomination:${input.body.sourceNominationId}`;
           if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
             throw errors.BAD_REQUEST({
@@ -91,12 +98,12 @@ export default createPlugin({
             });
           }
 
-          const result = await runEffect(
-            services.builder.createTelegramNomination({
+          const result = yield* runService(
+            builders.createTelegramNomination({
               nomination: input.body,
               apiKeyId: context.apiKey.id,
-              joinBaseUrl: services.nominationJoinBaseUrl,
-              tokenSecret: services.nominationTokenSecret,
+              joinBaseUrl: nominationConfig.joinBaseUrl,
+              tokenSecret: nominationConfig.tokenSecret,
             }),
           );
 
@@ -115,63 +122,70 @@ export default createPlugin({
           };
         }),
 
-      createXNomination: builder.createXNomination
-        .use(requireApiKey)
-        .handler(async ({ input, context, errors }) => {
-          const expectedIdempotencyKey = `x-nomination:${input.body.sourceNominationId}`;
-          if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
-            throw errors.BAD_REQUEST({
-              message: "Invalid idempotency-key header",
-              data: { invalidFields: ["idempotency-key"] },
-            });
-          }
-          const result = await runEffect(
-            services.builder.createXNomination({
-              nomination: input.body,
-              apiKeyId: context.apiKey.id,
-              tokenSecret: services.nominationTokenSecret,
-            }),
-          );
-          return {
-            status: result.created ? (201 as const) : (200 as const),
-            headers: { "cache-control": "no-store" },
-            body: { nominationId: result.nominationId },
-          };
-        }),
+      createXNomination: builder.createXNomination.use(requireApiKey).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const builders = yield* BuilderService;
+        const nominationConfig = yield* NominationConfig;
+        const expectedIdempotencyKey = `x-nomination:${input.body.sourceNominationId}`;
+        if (input.headers["idempotency-key"] !== expectedIdempotencyKey) {
+          throw errors.BAD_REQUEST({
+            message: "Invalid idempotency-key header",
+            data: { invalidFields: ["idempotency-key"] },
+          });
+        }
+        const result = yield* runService(
+          builders.createXNomination({
+            nomination: input.body,
+            apiKeyId: context.apiKey.id,
+            tokenSecret: nominationConfig.tokenSecret,
+          }),
+        );
+        return {
+          status: result.created ? (201 as const) : (200 as const),
+          headers: { "cache-control": "no-store" },
+          body: { nominationId: result.nominationId },
+        };
+      }),
 
       claimTelegramNomination: builder.claimTelegramNomination
         .use(requireApiKey)
-        .handler(async ({ input }) => {
-          return await runEffect(
-            services.builder.claimTelegramNomination({
+        .effect(function* ({ input }) {
+          const builders = yield* BuilderService;
+          const nominationConfig = yield* NominationConfig;
+          return yield* runService(
+            builders.claimTelegramNomination({
               ...input,
-              joinBaseUrl: services.nominationJoinBaseUrl,
-              tokenSecret: services.nominationTokenSecret,
+              joinBaseUrl: nominationConfig.joinBaseUrl,
+              tokenSecret: nominationConfig.tokenSecret,
             }),
           );
         }),
 
-      resolveTelegramNomination: builder.resolveTelegramNomination.handler(async ({ input }) => {
-        return await runEffect(services.builder.resolveTelegramNomination(input.token));
+      resolveTelegramNomination: builder.resolveTelegramNomination.effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        return yield* runService(builders.resolveTelegramNomination(input.token));
       }),
 
-      resolveNomination: builder.resolveNomination.handler(async ({ input }) => {
-        return await runEffect(
-          services.builder.resolveNomination(input.token, input.recordOpen ?? true),
-        );
+      resolveNomination: builder.resolveNomination.effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        return yield* runService(builders.resolveNomination(input.token, input.recordOpen ?? true));
       }),
 
       finalizeTelegramNomination: builder.finalizeTelegramNomination
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
+        .effect(function* ({ input, context }) {
+          const builders = yield* BuilderService;
           const nearAccount = context.near?.primaryAccountId;
           if (!nearAccount) {
             throw new ORPCError("FORBIDDEN", {
               message: "A linked NEAR account is required",
             });
           }
-          return await runEffect(
-            services.builder.finalizeTelegramNomination(
+          return yield* runService(
+            builders.finalizeTelegramNomination(
               input.token,
               input.proposalId,
               nearAccount,
@@ -180,61 +194,66 @@ export default createPlugin({
           );
         }),
 
-      finalizeNomination: builder.finalizeNomination
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const nearAccount = context.near?.primaryAccountId;
-          if (!nearAccount) {
-            throw new ORPCError("FORBIDDEN", {
-              message: "A linked NEAR account is required",
-            });
-          }
-          return await runEffect(
-            services.builder.finalizeNomination(
-              input.token,
-              input.proposalId,
-              nearAccount,
-              context.userId,
-            ),
-          );
-        }),
-
-      listXNominationQueue: builder.listXNominationQueue
-        .use(requireAdmin)
-        .handler(async ({ input }) => {
-          return await runEffect(
-            services.builder.listXNominationQueue({
-              ...input,
-              joinBaseUrl: services.nominationJoinBaseUrl,
-              tokenSecret: services.nominationTokenSecret,
-            }),
-          );
-        }),
-
-      updateXNomination: builder.updateXNomination
-        .use(requireAdmin)
-        .handler(async ({ input, context }) => {
-          return await runEffect(
-            services.builder.updateXNomination({
-              ...input,
-              actorUserId: context.userId,
-              joinBaseUrl: services.nominationJoinBaseUrl,
-              tokenSecret: services.nominationTokenSecret,
-            }),
-          );
-        }),
-
-      getXNominationMetrics: builder.getXNominationMetrics
-        .use(requireAdmin)
-        .handler(async () => await runEffect(services.builder.getXNominationMetrics())),
-
-      listBuilders: builder.listBuilders.handler(async ({ input }) => {
-        return await runEffect(services.builder.listBuilders(input));
+      finalizeNomination: builder.finalizeNomination.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const builders = yield* BuilderService;
+        const nearAccount = context.near?.primaryAccountId;
+        if (!nearAccount) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "A linked NEAR account is required",
+          });
+        }
+        return yield* runService(
+          builders.finalizeNomination(input.token, input.proposalId, nearAccount, context.userId),
+        );
       }),
 
-      getBuilder: builder.getBuilder.handler(async ({ input, context, errors }) => {
-        const result = await runEffect(
-          services.builder.getBuilder(input.nearAccount, {
+      listXNominationQueue: builder.listXNominationQueue.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const builders = yield* BuilderService;
+        const nominationConfig = yield* NominationConfig;
+        return yield* runService(
+          builders.listXNominationQueue({
+            ...input,
+            joinBaseUrl: nominationConfig.joinBaseUrl,
+            tokenSecret: nominationConfig.tokenSecret,
+          }),
+        );
+      }),
+
+      updateXNomination: builder.updateXNomination.use(requireAdmin).effect(function* ({
+        input,
+        context,
+      }) {
+        const builders = yield* BuilderService;
+        const nominationConfig = yield* NominationConfig;
+        return yield* runService(
+          builders.updateXNomination({
+            ...input,
+            actorUserId: context.userId,
+            joinBaseUrl: nominationConfig.joinBaseUrl,
+            tokenSecret: nominationConfig.tokenSecret,
+          }),
+        );
+      }),
+
+      getXNominationMetrics: builder.getXNominationMetrics.use(requireAdmin).effect(function* () {
+        const builders = yield* BuilderService;
+        return yield* runService(builders.getXNominationMetrics());
+      }),
+
+      listBuilders: builder.listBuilders.effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        return yield* runService(builders.listBuilders(input));
+      }),
+
+      getBuilder: builder.getBuilder.effect(function* ({ input, context, errors }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(
+          builders.getBuilder(input.nearAccount, {
             userId: context.userId,
             walletAddress: context.near?.primaryAccountId ?? undefined,
             role: context.user?.role ?? undefined,
@@ -249,23 +268,22 @@ export default createPlugin({
         return { data: result };
       }),
 
-      getMyBuilderProfile: builder.getMyBuilderProfile
-        .use(requireAuth)
-        .handler(async ({ context }) => {
-          const result = await runEffect(
-            services.builder.getBuilderByUserId(
-              context.userId,
-              context.near?.primaryAccountId ?? undefined,
-            ),
-          );
-          return { data: result };
-        }),
+      getMyBuilderProfile: builder.getMyBuilderProfile.use(requireAuth).effect(function* ({
+        context,
+      }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(
+          builders.getBuilderByUserId(context.userId, context.near?.primaryAccountId ?? undefined),
+        );
+        return { data: result };
+      }),
 
       withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
         .use(requireAuth)
-        .handler(async ({ context }) => {
-          const result = await runEffect(
-            services.builder.setBuilderWithdrawn(
+        .effect(function* ({ context }) {
+          const builders = yield* BuilderService;
+          const result = yield* runService(
+            builders.setBuilderWithdrawn(
               {
                 userId: context.userId,
                 walletAddress: context.near?.primaryAccountId ?? undefined,
@@ -276,49 +294,55 @@ export default createPlugin({
           return { data: result };
         }),
 
-      restoreMyBuilderProfile: builder.restoreMyBuilderProfile
-        .use(requireAuth)
-        .handler(async ({ context }) => {
-          const result = await runEffect(
-            services.builder.setBuilderWithdrawn(
-              {
-                userId: context.userId,
-                walletAddress: context.near?.primaryAccountId ?? undefined,
-              },
-              false,
-            ),
-          );
-          return { data: result };
-        }),
-
-      createBuilder: builder.createBuilder.use(requireAdmin).handler(async ({ input }) => {
-        const result = await runEffect(services.builder.createBuilder(input));
+      restoreMyBuilderProfile: builder.restoreMyBuilderProfile.use(requireAuth).effect(function* ({
+        context,
+      }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(
+          builders.setBuilderWithdrawn(
+            {
+              userId: context.userId,
+              walletAddress: context.near?.primaryAccountId ?? undefined,
+            },
+            false,
+          ),
+        );
         return { data: result };
       }),
 
-      updateBuilderProfile: builder.updateBuilderProfile
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const result = await runEffect(
-            services.builder.updateBuilderProfile(
-              input.nearAccount,
-              input,
-              context.userId,
-              context.near?.primaryAccountId ?? undefined,
-              context.user.role ?? undefined,
-            ),
-          );
-          if (!result) {
-            throw errors.NOT_FOUND({
-              message: "Builder not found",
-              data: { resource: "builder", resourceId: input.nearAccount },
-            });
-          }
-          return { data: result };
-        }),
+      createBuilder: builder.createBuilder.use(requireAdmin).effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(builders.createBuilder(input));
+        return { data: result };
+      }),
 
-      deleteBuilder: builder.deleteBuilder.use(requireAdmin).handler(async ({ input }) => {
-        return await runEffect(services.builder.deleteBuilder(input.nearAccount));
+      updateBuilderProfile: builder.updateBuilderProfile.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(
+          builders.updateBuilderProfile(
+            input.nearAccount,
+            input,
+            context.userId,
+            context.near?.primaryAccountId ?? undefined,
+            context.user.role ?? undefined,
+          ),
+        );
+        if (!result) {
+          throw errors.NOT_FOUND({
+            message: "Builder not found",
+            data: { resource: "builder", resourceId: input.nearAccount },
+          });
+        }
+        return { data: result };
+      }),
+
+      deleteBuilder: builder.deleteBuilder.use(requireAdmin).effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        return yield* runService(builders.deleteBuilder(input.nearAccount));
       }),
     };
   },

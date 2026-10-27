@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
-import { FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE, UNAUTHORIZED } from "every-plugin/errors";
 import { eventIterator, oc } from "@orpc/contract";
+import { FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 
 export const ActivityEventSchema = z.object({

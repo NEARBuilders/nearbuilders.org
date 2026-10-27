@@ -61,6 +61,12 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
+import {
+  type ProjectKindFilter,
+  type ProjectSort,
+  type ProjectStatusFilter,
+  parseProjectListSearch,
+} from "@/lib/project-search";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,
@@ -68,12 +74,6 @@ import {
   mostRecentIsoDate,
 } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
-import {
-  type ProjectKindFilter,
-  type ProjectSort,
-  type ProjectStatusFilter,
-  parseProjectListSearch,
-} from "@/lib/project-search";
 
 type RankedProject = ProjectDirectoryItem;
 
@@ -1004,9 +1004,7 @@ function ProjectsList() {
   });
   const userVoteMap = userVoteStates.data ?? {};
 
-  const { data: latestVote } = useQuery(
-    orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
-  );
+  const { data: latestVote } = useQuery(orpc.subscribeUpvotes.liveOptions({ retry: true }));
 
   useEffect(() => {
     if (!latestVote) return;

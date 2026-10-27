@@ -72,7 +72,6 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
     { userId: string; user: RequestAuthUser },
     any,
     any,
-    any,
     any
   >;
   type OrgMiddleware = DecoratedMiddleware<
@@ -85,7 +84,6 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
         organization: (AuthOrganizationSummary & { metadata: TOrgMeta | null }) | null;
       };
     },
-    any,
     any,
     any,
     any
@@ -103,13 +101,11 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
     },
     any,
     any,
-    any,
     any
   >;
   type ApiKeyMiddleware = DecoratedMiddleware<
     AuthContext,
     { apiKey: ApiKeyContext },
-    any,
     any,
     any,
     any
@@ -137,7 +133,7 @@ export function createAuthMiddleware<TOrgMetaSchema extends z.ZodType | undefine
       }
       return next({ context });
     },
-  ) as DecoratedMiddleware<AuthContext, Record<string, never>, any, any, any, any>;
+  ) as DecoratedMiddleware<any, Record<never, never>, any, any, any>;
 
   const requireRole = <TRoles extends readonly string[]>(...roles: TRoles) =>
     builder.middleware(async ({ context, next }: { context: AuthContext; next: any }) => {

@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { buildProposalApproval, type ProposalApprovalData } from "./proposal-approval";
 
 type ProposalActivityData = ProposalApprovalData &

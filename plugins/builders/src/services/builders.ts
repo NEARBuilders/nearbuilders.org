@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { ORPCError } from "@orpc/server";
 import { DatabaseTag } from "../db/layer";
 import { builderNominations, builders } from "../db/schema";
 import {
@@ -313,7 +313,7 @@ function nominationResult(
   };
 }
 
-export class BuilderService extends Context.Tag("builders/BuilderService")<
+export class BuilderService extends Context.Service<
   BuilderService,
   {
     listBuilders: (input: {
@@ -436,7 +436,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       userId: string,
     ) => Effect.Effect<TelegramNominationMetadata, ORPCError<string, unknown>>;
   }
->() {}
+>()("builders/BuilderService") {}
 
 export const BuilderServiceLive = Layer.effect(
   BuilderService,

@@ -8,8 +8,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
-import { exportProposalTable, type ProposalExportOptions } from "@/lib/export-csv";
 import { FilterBar } from "@/components/admin/filter-bar";
+import { useProposalEvaluations } from "@/components/admin/proposal-evaluation";
+import { ProposalReviewSheet } from "@/components/admin/proposal-review-sheet";
+import { ProposalTable, ProposalTableSkeleton } from "@/components/admin/proposal-table";
+import { RecordsState } from "@/components/admin/records-state";
 import {
   DASHBOARD_STATUSES,
   type DashboardStatus,
@@ -19,10 +22,7 @@ import {
   type ProposalTabSearch,
   titleCase,
 } from "@/lib/admin/proposal-dashboard";
-import { useProposalEvaluations } from "@/components/admin/proposal-evaluation";
-import { ProposalReviewSheet } from "@/components/admin/proposal-review-sheet";
-import { ProposalTable, ProposalTableSkeleton } from "@/components/admin/proposal-table";
-import { RecordsState } from "@/components/admin/records-state";
+import { exportProposalTable, type ProposalExportOptions } from "@/lib/export-csv";
 
 const STATUS_FILTERS = DASHBOARD_STATUSES.map((status) => ({
   value: status,

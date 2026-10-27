@@ -5,13 +5,13 @@ import { ExternalLink, Loader2, Lock, Pencil, Trash2, Users, X } from "lucide-re
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { EventDetail, formatEventDate } from "@/components/events/event-detail";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
-import { EventDetail, formatEventDate } from "@/components/events/event-detail";
 
 export const Route = createFileRoute("/_public/events/$slug")({
   loader: async ({ params, context }) => {

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { XNominationStatusBadge } from "@/components/admin/x-nomination-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,14 +26,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { formatDateTime } from "@/lib/admin/proposal-dashboard";
 import {
   suggestedXReply,
   type XNominationRecord,
   type XNominationUpdate,
   xNominationContext,
 } from "@/lib/x-nomination-queue";
-import { formatDateTime } from "@/lib/admin/proposal-dashboard";
-import { XNominationStatusBadge } from "@/components/admin/x-nomination-table";
 
 type ProposalLifecycle = {
   reviewStatus: string;

@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import { ORPCError } from "@orpc/server";
 import { DatabaseTag } from "../db/layer";
 import { notifications } from "../db/schema";
 
@@ -55,7 +55,7 @@ function listWhere(userId: string, read?: boolean) {
     : and(eq(notifications.userId, userId), eq(notifications.read, read));
 }
 
-export class NotificationService extends Context.Tag("notifications/NotificationService")<
+export class NotificationService extends Context.Service<
   NotificationService,
   {
     createNotification: (
@@ -79,7 +79,7 @@ export class NotificationService extends Context.Tag("notifications/Notification
       userId: string,
     ) => Effect.Effect<{ updated: number }, ORPCError<string, unknown>>;
   }
->() {}
+>()("notifications/NotificationService") {}
 
 export const NotificationServiceLive = Layer.effect(
   NotificationService,

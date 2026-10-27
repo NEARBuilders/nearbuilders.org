@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 import type { EventTab, TimelineEvent } from "@/lib/events/event-sources";
+import { cn } from "@/lib/utils";
 
 export type EventDayGroupData = {
   key: string;

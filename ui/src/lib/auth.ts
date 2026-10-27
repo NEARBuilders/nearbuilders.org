@@ -39,7 +39,7 @@ export function requireSession(args: { context: { session: SessionData | null | 
  * then run `pnpm run typecheck`.
  */
 export function resolveSessionFromCache(
-  queryClient: { getQueryData: (key: unknown[]) => unknown },
+  queryClient: { getQueryData: (key: readonly unknown[]) => unknown },
   session: SessionData | null | undefined,
 ): SessionData | null {
   const cached = queryClient.getQueryData(sessionQueryKey);

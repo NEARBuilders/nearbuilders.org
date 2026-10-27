@@ -170,7 +170,7 @@ export interface PreparedKvWrite {
   attachedDeposit: string;
 }
 
-export class RegistryService extends Context.Tag("registry/RegistryService")<
+export class RegistryService extends Context.Service<
   RegistryService,
   {
     listRegistryApps: (input: RegistryListInput) => Promise<{
@@ -206,7 +206,7 @@ export class RegistryService extends Context.Tag("registry/RegistryService")<
     kvPrepareWrite: (entries: KvWriteEntry[]) => PreparedKvWrite;
     kvRelayWrite: (signedDelegateActionPayload: string) => Promise<RegistryRelayResult>;
   }
->() {
+>()("registry/RegistryService") {
   static Live = Layer.effect(
     RegistryService,
     Effect.gen(function* () {
