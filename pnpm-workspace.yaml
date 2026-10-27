@@ -8,8 +8,8 @@ allowBuilds:
   protobufjs: true
   "@openapitools/openapi-generator-cli": true
 overrides:
-  "@tanstack/router-core": 1.171.38
-  "@tanstack/react-router": 1.170.45
+  "@tanstack/router-core": 1.171.27
+  "@tanstack/react-router": 1.170.32
 catalog:
   "@better-auth/api-key": 1.7.7
   "@better-auth/core": 1.7.7
