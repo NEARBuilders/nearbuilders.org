@@ -1,0 +1,976 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { getSocialImageMeta } from "everything-dev/ui/metadata";
+import {
+  BarChart2,
+  Check,
+  ExternalLink,
+  FileCode2,
+  FileText,
+  Globe,
+  Info,
+  Layers,
+  Lock,
+  Pencil,
+  Share2,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+} from "lucide-react";
+import { type ReactNode, useCallback, useState } from "react";
+import { toast } from "sonner";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { NostrFeed } from "@/components/nostr-feed";
+import {
+  ProjectActivityAction,
+  ProjectActivityBadge,
+  ProjectActivityRejected,
+} from "@/components/project-activity";
+import { ProjectActivityFeed } from "@/components/project-activity-feed";
+import { ProjectReviewStatus } from "@/components/project-review-status";
+import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
+import { NewBadge } from "@/components/ui/new-badge";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { VoteButton } from "@/components/ui/vote-button";
+import { isSafeImageUrl } from "@/lib/image-url";
+import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { nearProfileOptions } from "@/lib/queries/builders";
+import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  fetchRepositoryLastCommitDate,
+  fetchRepositoryReadme,
+  mostRecentIsoDate,
+} from "@/lib/repository-content";
+import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
+import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
+
+export const Route = createFileRoute("/_public/projects/$kind/$slug")({
+  validateSearch: parseProjectListSearch,
+  beforeLoad: async ({ params }) => {
+    if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
+  },
+  loader: async ({ params, context }) => {
+    const project = await context.queryClient
+      .ensureQueryData({
+        queryKey: ["project", params.slug],
+        queryFn: () => context.apiClient.getProjectBySlug({ slug: params.slug }),
+      })
+      .then((r) => r?.data ?? null)
+      .catch(() => null);
+
+    return {
+      project,
+      siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders",
+      siteUrl: getSiteUrl(context.runtimeConfig, `/projects/${params.kind}/${params.slug}`),
+      imageUrl: getAssetUrl(context.runtimeConfig, "/metadata.png"),
+    };
+  },
+  head: ({ loaderData }) => {
+    const project = loaderData?.project;
+    const siteName = loaderData?.siteName ?? "NEAR Builders";
+    const title = project ? `${project.title} | ${siteName}` : `Project | ${siteName}`;
+    const description =
+      project?.description?.trim() ||
+      (project ? `${project.title} on ${siteName}.` : "Project details on NEAR Builders.");
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        ...getSocialImageMeta({
+          imageUrl: loaderData?.imageUrl ?? "/metadata.png",
+          title: project?.title ?? "Project",
+          description,
+          siteName,
+          siteUrl: loaderData?.siteUrl,
+          type: "article",
+          alt: description,
+        }),
+      ],
+    };
+  },
+  component: ProjectDetailPage,
+});
+
+function isGithubUrl(url: string) {
+  return /github\.com/i.test(url);
+}
+
+function GithubIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577v-2.165c-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.085 1.84 1.237 1.84 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.76-1.605-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.52 11.52 0 0 1 12 6.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.218.694.825.576C20.565 21.796 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+    </svg>
+  );
+}
+
+function isCurrentUserOwner(
+  ownerId: string | null | undefined,
+  user:
+    | { id?: string | null; walletAddress?: string | null; role?: string | null }
+    | null
+    | undefined,
+  nearAccountId?: string | null,
+) {
+  if (!ownerId) return false;
+  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
+}
+
+function isCurrentUserCollaborator(
+  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
+  user: { id?: string | null; walletAddress?: string | null } | null | undefined,
+  nearAccountId?: string | null,
+) {
+  if (!collaborators) return false;
+  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
+  return collaborators.some((c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId));
+}
+
+function ProjectDetailPage() {
+  const { slug } = Route.useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const search = Route.useSearch();
+  const listSearch = { ...search, preview: undefined };
+
+  const [copied, setCopied] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const nearAccountId = auth.near.getAccountId();
+
+  const projectQuery = useQuery({
+    queryKey: ["project", slug],
+    queryFn: () => apiClient.getProjectBySlug({ slug }),
+  });
+
+  const project = projectQuery.data?.data;
+  const projectId = project?.id;
+  const projectSocialAccount =
+    resolveProjectNearAccount({
+      ownerId: project?.ownerId,
+      apps: (project as { apps?: Array<{ accountId: string }> } | undefined)?.apps,
+    }) ?? "";
+  const { data: projectSocialProfile } = useQuery(nearProfileOptions(auth, projectSocialAccount));
+  const canParticipate = Boolean(session?.user && !session.user.isAnonymous);
+
+  const readmeQuery = useQuery({
+    queryKey: ["readme", project?.id, project?.repository],
+    queryFn: async () => {
+      if (!project?.repository) return null;
+      return await fetchRepositoryReadme(project.repository);
+    },
+    enabled: project?.kind === "project" && Boolean(project?.repository),
+  });
+
+  const lastCommitQuery = useQuery({
+    queryKey: ["lastCommit", project?.id, project?.repository],
+    queryFn: async () => {
+      if (!project?.repository) return null;
+      return await fetchRepositoryLastCommitDate(project.repository);
+    },
+    enabled: project?.kind === "project" && Boolean(project?.repository),
+    staleTime: 5 * 60_000,
+  });
+
+  const upvoteCountQuery = useQuery({
+    queryKey: ["upvoteCount", projectId],
+    queryFn: () => apiClient.getUpvoteCount({ entityId: projectId! }),
+    enabled: Boolean(projectId),
+  });
+
+  const userVoteQuery = useQuery({
+    queryKey: ["userVoteState", projectId],
+    queryFn: () => apiClient.getUserVote({ entityId: projectId! }),
+    select: (data): "up" | "down" | null => (data.hasUpvote ? "up" : null),
+    enabled: canParticipate && Boolean(projectId),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.deleteProject({ id: projectId! }),
+    onSuccess: () => {
+      toast.success("Deleted");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      navigate({
+        to: "/projects",
+        search: listSearch,
+      });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to delete"),
+  });
+
+  const upvoteMutation = useMutation({
+    mutationFn: () => apiClient.upvote({ entityId: projectId! }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upvoteCount", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["upvoteCounts"] });
+      queryClient.setQueryData(["userVoteState", projectId], {
+        entityId: projectId,
+        hasUpvote: true,
+      });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to upvote"),
+  });
+
+  const downvoteMutation = useMutation({
+    mutationFn: () => apiClient.downvote({ entityId: projectId! }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upvoteCount", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["upvoteCounts"] });
+      queryClient.setQueryData(["userVoteState", projectId], {
+        entityId: projectId,
+        hasUpvote: false,
+      });
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to downvote"),
+  });
+
+  const runVote = (direction: "up" | "down") => {
+    if (!canParticipate) {
+      toast.error("Link an identity in settings before voting.");
+      return;
+    }
+    if (direction === "up") upvoteMutation.mutate();
+    else downvoteMutation.mutate();
+  };
+
+  const handleShare = useCallback(async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Copying links is unavailable in this browser.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  }, []);
+
+  if (projectQuery.isLoading) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+          <div className="h-5 w-30 rounded animate-pulse bg-secondary" />
+        </div>
+        <div className="flex flex-1 flex-col gap-4 p-6">
+          <div className="h-8 w-60 rounded-md animate-pulse bg-secondary" />
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- skeleton line width varies for visual texture; 70% isn't one of Tailwind's default fraction steps */}
+          <div className="h-4 w-[70%] rounded animate-pulse bg-secondary" />
+          <div className="h-4 w-1/2 rounded animate-pulse bg-secondary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (projectQuery.isError || !project) {
+    return (
+      <div className="flex min-h-page-compact flex-col items-center justify-center gap-4 p-6">
+        <p className="text-base font-semibold text-foreground">Project not found.</p>
+        <Link
+          to="/projects"
+          search={listSearch}
+          className="text-sm font-bold text-brand-accent hover:underline"
+        >
+          {"\u2190"} Back to projects
+        </Link>
+      </div>
+    );
+  }
+
+  const effectiveUpdatedAt =
+    mostRecentIsoDate(project.updatedAt, lastCommitQuery.data) ?? project.updatedAt;
+  const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
+  const isAdmin = session?.user?.role === "admin";
+  const collaborators =
+    (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
+      .collaborators ?? [];
+  const acceptedCollaborators = collaborators.filter((c) => c.status === "accepted");
+  const isCollaborator = isCurrentUserCollaborator(collaborators, session?.user, nearAccountId);
+  const canManage = isOwner || isCollaborator;
+  const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
+  const voteCountAvailable = !upvoteCountQuery.isLoading && !upvoteCountQuery.isError;
+  const voteDirection = userVoteQuery.data ?? null;
+
+  const renderedContent =
+    project.kind === "idea" || project.kind === "scope" || project.kind === "result"
+      ? project.content
+      : (readmeQuery.data ?? project.description ?? null);
+  const readmeUnavailable = project.kind === "project" && readmeQuery.isError && !readmeQuery.data;
+  const projectImageUrl = isSafeImageUrl(project.logoUrl)
+    ? project.logoUrl
+    : getNearSocialAvatarUrl(projectSocialProfile);
+
+  const metaItems = (
+    <div className="space-y-4">
+      <MetaSectionLabel>Details</MetaSectionLabel>
+      <MetaItem label="Status" value={project.status} />
+      <MetaItem label="Visibility" value={project.visibility} />
+      <MetaLinkItem
+        label="Owner / builder"
+        to="/builders/$account"
+        params={{ account: project.ownerId }}
+        value={shortenId(project.ownerId)}
+        mono
+      />
+      {acceptedCollaborators.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-semibold text-muted-foreground">Collaborators</div>
+          <div className="flex flex-wrap gap-1.5">
+            {acceptedCollaborators.map((c) => (
+              <Link
+                key={c.collaboratorOwnerId}
+                to="/builders/$account"
+                params={{ account: c.collaboratorOwnerId }}
+                className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-xs text-foreground hover:bg-muted"
+              >
+                {shortenId(c.collaboratorOwnerId)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      <MetaItem label="Slug" value={project.slug} mono />
+      {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
+      <MetaItem label="Created" value={formatDate(project.createdAt)} />
+      <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
+    </div>
+  );
+
+  return (
+    <TooltipProvider>
+      <div className="min-h-page bg-muted/30">
+        {/* top bar */}
+        <div className="border-b border-border bg-background">
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+            <PageBreadcrumb
+              parentLabel="Projects"
+              parentTo="/projects"
+              parentSearch={{ ...listSearch, preview: project.id }}
+              current={project.slug}
+            />
+
+            {/* actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* vote widget */}
+              <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-card px-1 py-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <VoteButton
+                      size="compact"
+                      icon={<ThumbsUp size={18} strokeWidth={2.25} />}
+                      onClick={() => runVote("up")}
+                      label="Upvote"
+                      disabled={!canParticipate || upvoteMutation.isPending}
+                      active={voteDirection === "up"}
+                      activeColor="text-brand-accent"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Endorse this entry</TooltipContent>
+                </Tooltip>
+                <span className="min-w-5 text-center text-13 font-bold text-foreground">
+                  {voteCountAvailable ? voteCount : "—"}
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <VoteButton
+                      size="compact"
+                      icon={<ThumbsDown size={18} strokeWidth={2.25} />}
+                      onClick={() => runVote("down")}
+                      label="Downvote"
+                      disabled={!canParticipate || downvoteMutation.isPending}
+                      active={voteDirection === "down"}
+                      activeColor="text-destructive"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Remove your endorsement</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* share */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={handleShare}
+                aria-label={copied ? "Link copied" : "Copy link"}
+              >
+                {copied ? <Check size={14} /> : <Share2 size={14} />}
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-sm"
+                className="sm:hidden"
+                onClick={() => setDetailsOpen(true)}
+                aria-label="Show details"
+              >
+                <Info size={15} />
+              </Button>
+
+              <ProjectActivityAction project={project} isOwner={isOwner} />
+
+              {canManage && (
+                <>
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to="/projects/$kind/$slug/edit"
+                      params={{ kind: project.kind, slug: project.slug }}
+                      search={{ ...listSearch, tab: "write" }}
+                    >
+                      <Pencil size={13} />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Link>
+                  </Button>
+                  {(isOwner || isAdmin) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (confirm("Delete this project permanently?")) deleteMutation.mutate();
+                      }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 size={13} />
+                      <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* body */}
+        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
+        <div className="mx-auto grid w-full max-w-7xl gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-9 lg:px-8">
+          {/* main content */}
+          <div className="min-w-0">
+            <div className="mx-auto max-w-4xl space-y-6">
+              <ProjectReviewStatus projectId={project.id} visible={isOwner} />
+              <ProjectActivityRejected projectId={project.id} visible={isOwner} />
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <KindChip kind={project.kind} />
+                  <StatusChip status={project.status} />
+                  <ProjectActivityBadge projectId={project.id} />
+                  <NewBadge createdAt={project.createdAt} />
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {projectImageUrl && (
+                    <img
+                      src={projectImageUrl}
+                      alt=""
+                      className="size-12 shrink-0 rounded-md border border-border object-cover"
+                    />
+                  )}
+                  <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+                    {project.title}
+                  </h1>
+                  {project.visibility === "private" && <PrivateIndicator />}
+                </div>
+                {project.description && (
+                  <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                    {project.description}
+                  </p>
+                )}
+                {!canParticipate && (
+                  <p className="text-xs text-muted-foreground">
+                    Link an identity to endorse entries.
+                  </p>
+                )}
+                {project.domain && (
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <a href={`https://${project.domain}`} target="_blank" rel="noopener noreferrer">
+                      <Globe size={13} />
+                      <span className="max-w-55 truncate">{project.domain}</span>
+                      <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
+                    </a>
+                  </Button>
+                )}
+                {project.repository && (
+                  <Button asChild size="sm" variant="outline" className="w-fit">
+                    <a href={project.repository} target="_blank" rel="noopener noreferrer">
+                      {isGithubUrl(project.repository) ? (
+                        <GithubIcon size={13} />
+                      ) : (
+                        <Globe size={13} />
+                      )}
+                      <span className="max-w-55 truncate">
+                        {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                      </span>
+                      <ExternalLink size={11} className="text-muted-foreground shrink-0" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+
+              <section className="border-t border-border pt-6">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
+                      {project.kind === "project" ? "README" : "Entry details"}
+                    </p>
+                    <h2 className="mt-1 text-xl font-semibold text-foreground">
+                      {project.kind === "project" ? "About this project" : "What was shared"}
+                    </h2>
+                  </div>
+                  {project.kind === "project" && project.repository && (
+                    <span className="text-xs text-muted-foreground">
+                      Fetched from the default branch
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+                  {readmeUnavailable && (
+                    <p className="mb-5 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                      README unavailable. Showing the project description instead.
+                    </p>
+                  )}
+                  {project.kind === "project" && readmeQuery.isLoading ? (
+                    <div className="space-y-3">
+                      <div className="h-5 w-1/3 animate-pulse rounded bg-border" />
+                      <div className="h-3 w-full animate-pulse rounded bg-border" />
+                      <div className="h-3 w-5/6 animate-pulse rounded bg-border" />
+                    </div>
+                  ) : renderedContent ? (
+                    <Markdown content={renderedContent} />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+                      {project.kind === "project"
+                        ? "No README available for this repository."
+                        : project.kind === "scope"
+                          ? "This scope has no content yet."
+                          : project.kind === "result"
+                            ? "This result has no content yet."
+                            : "This idea has no content yet."}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <ProjectActivityFeed projectId={project.id} />
+
+              <NostrFeed target={project.slug} targetType={project.kind} requireBound />
+
+              <CollaboratorsSection
+                projectId={project.id}
+                ownerId={project.ownerId}
+                isOwner={isOwner}
+                canManage={canManage}
+              />
+
+              {(project.kind === "scope" || project.kind === "result") && (
+                <MentionsSection projectId={project.id} />
+              )}
+            </div>
+          </div>
+
+          {/* desktop sidebar */}
+          <div className="hidden rounded-2xl border border-border bg-card p-5 shadow-sm sm:block lg:sticky lg:top-24 lg:self-start">
+            {metaItems}
+          </div>
+        </div>
+        {/* mobile details sheet */}
+        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <SheetContent side="bottom" hideCloseButton={false}>
+            <SheetHeader>
+              <SheetTitle>Details</SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto px-5 pb-2 pt-1">
+              <div className="space-y-4">
+                <MetaItem label="Visibility" value={project.visibility} />
+                <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
+                <MetaLinkItem
+                  label="Builder"
+                  to="/builders/$account"
+                  params={{ account: project.ownerId }}
+                  value={shortenId(project.ownerId)}
+                  mono
+                />
+                <MetaItem label="Slug" value={project.slug} mono />
+                {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
+                <MetaItem label="Created" value={formatDate(project.createdAt)} />
+                <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
+              </div>
+            </div>
+            <div
+              className="shrink-0 px-5 pt-3"
+              style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <SheetClose asChild>
+                <Button variant="outline" className="w-full">
+                  Close
+                </Button>
+              </SheetClose>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+function PrivateIndicator() {
+  return (
+    <span
+      title="Private"
+      role="img"
+      aria-label="Private"
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-secondary p-1 text-muted-foreground"
+    >
+      <Lock size={12} />
+    </span>
+  );
+}
+
+function KindChip({ kind }: { kind: "project" | "idea" | "scope" | "result" }) {
+  const icons = {
+    idea: <FileText size={11} />,
+    project: <FileCode2 size={11} />,
+    scope: <Layers size={11} />,
+    result: <BarChart2 size={11} />,
+  };
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">
+      {icons[kind]}
+      {kind}
+    </span>
+  );
+}
+
+function CollaboratorsSection({
+  projectId,
+  ownerId,
+  isOwner,
+  canManage,
+}: {
+  projectId: string;
+  ownerId: string;
+  isOwner: boolean;
+  canManage: boolean;
+}) {
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const queryClient = useQueryClient();
+  const nearAccountId = auth.near.getAccountId();
+  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const [inviteHandle, setInviteHandle] = useState("");
+
+  const collaboratorsQuery = useQuery({
+    queryKey: ["project-collaborators", projectId],
+    queryFn: () => apiClient.listCollaborators({ projectId }),
+  });
+
+  const collaborations = collaboratorsQuery.data?.data ?? [];
+  const myIds = [
+    nearAccountId,
+    (session?.user as { walletAddress?: string } | undefined)?.walletAddress,
+    session?.user?.id,
+  ].filter(Boolean) as string[];
+  const myPending = collaborations.find(
+    (c) => c.status === "pending" && myIds.includes(c.collaboratorOwnerId),
+  );
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["project-collaborators", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["project"] });
+    queryClient.invalidateQueries({ queryKey: ["projects"] });
+    queryClient.invalidateQueries({ queryKey: ["collaborations"] });
+  };
+
+  const inviteMutation = useMutation({
+    mutationFn: (handle: string) =>
+      apiClient.inviteCollaborator({ projectId, collaboratorOwnerId: handle.trim() }),
+    onSuccess: () => {
+      toast.success("Collaborator invited");
+      setInviteHandle("");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to invite"),
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: (action: "accept" | "decline") =>
+      apiClient.respondCollaborator({ projectId, action }),
+    onSuccess: (_, action) => {
+      toast.success(action === "accept" ? "Invitation accepted" : "Invitation declined");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to respond"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (handle: string) =>
+      apiClient.removeCollaborator({ projectId, collaboratorOwnerId: handle }),
+    onSuccess: () => {
+      toast.success("Collaborator removed");
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to remove"),
+  });
+
+  if (collaborations.length === 0 && !isOwner) return null;
+
+  return (
+    <section
+      className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+      aria-label="Collaborators"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-bold text-foreground">Collaborators</h2>
+        <span className="text-xs text-muted-foreground">{collaborations.length}</span>
+      </div>
+      {myPending && (
+        <div className="mt-3 rounded-xl border border-brand-accent/40 bg-brand-accent-light p-3">
+          <p className="text-xs font-semibold text-foreground">
+            You were invited to collaborate on this project.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => respondMutation.mutate("accept")}
+              disabled={respondMutation.isPending}
+            >
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => respondMutation.mutate("decline")}
+              disabled={respondMutation.isPending}
+            >
+              Decline
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2">
+          <Link
+            to="/builders/$account"
+            params={{ account: ownerId }}
+            className="truncate font-mono text-xs font-semibold text-foreground hover:underline"
+          >
+            {ownerId}
+          </Link>
+          <span className="shrink-0 text-2xs font-bold uppercase tracking-wide text-muted-foreground">
+            Owner
+          </span>
+        </div>
+        {collaborations.map((c) => {
+          const canRemove = isOwner || myIds.includes(c.collaboratorOwnerId);
+          return (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+            >
+              <Link
+                to="/builders/$account"
+                params={{ account: c.collaboratorOwnerId }}
+                className="min-w-0 truncate font-mono text-xs font-semibold text-foreground hover:underline"
+              >
+                {c.collaboratorOwnerId}
+              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-2xs font-semibold text-muted-foreground">{c.status}</span>
+                {canRemove && canManage && (
+                  <button
+                    type="button"
+                    onClick={() => removeMutation.mutate(c.collaboratorOwnerId)}
+                    disabled={removeMutation.isPending}
+                    className="text-2xs font-semibold text-destructive hover:underline disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {isOwner && (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (inviteHandle.trim()) inviteMutation.mutate(inviteHandle);
+          }}
+        >
+          <input
+            value={inviteHandle}
+            onChange={(e) => setInviteHandle(e.target.value)}
+            placeholder="Invite by handle, e.g. bob.near"
+            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 font-mono text-xs text-foreground outline-none focus:border-brand-accent"
+            aria-label="Invite collaborator"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!inviteHandle.trim() || inviteMutation.isPending}
+          >
+            Invite
+          </Button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+function MentionsSection({ projectId }: { projectId: string }) {
+  const apiClient = useApiClient();
+
+  const mentionedByQuery = useQuery({
+    queryKey: ["mentionedBy", projectId],
+    queryFn: () => apiClient.listMentionedBy({ id: projectId }),
+  });
+
+  const mentionsQuery = useQuery({
+    queryKey: ["mentions", projectId],
+    queryFn: () => apiClient.listMentions({ id: projectId }),
+  });
+
+  const mentioned = mentionedByQuery.data?.data ?? [];
+  const mentioners = mentionsQuery.data?.data ?? [];
+
+  if (mentioned.length === 0 && mentioners.length === 0) return null;
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="h-px bg-border" />
+      {mentioned.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">
+            Mentions
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {mentioned.map((item) => (
+              <MentionChip key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+      {mentioners.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">
+            Referenced by
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {mentioners.map((item) => (
+              <MentionChip key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MentionChip({
+  item,
+}: {
+  item: { id: string; kind: string; title: string; slug: string };
+}) {
+  const kindIcons: Record<string, ReactNode> = {
+    idea: <FileText size={11} />,
+    project: <FileCode2 size={11} />,
+    scope: <Layers size={11} />,
+    result: <BarChart2 size={11} />,
+  };
+  return (
+    <Link
+      to="/projects/$kind/$slug"
+      params={{ kind: item.kind, slug: item.slug }}
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+    >
+      <span className="text-muted-foreground">{kindIcons[item.kind]}</span>
+      {item.title}
+    </Link>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    active: "border-brand-accent-border bg-brand-accent-light text-foreground",
+    paused: "border-border bg-secondary text-foreground",
+    archived: "border-destructive/40 bg-destructive/10 text-destructive",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${variants[status] ?? "border-border bg-muted text-muted-foreground"}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function MetaSectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-2xs font-bold uppercase tracking-6 text-muted-foreground">{children}</div>
+  );
+}
+
+function MetaItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-2xs font-semibold text-muted-foreground">{label}</div>
+      <div className={`break-words text-13 text-foreground ${mono ? "font-mono" : ""}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MetaLinkItem({
+  label,
+  to,
+  params,
+  value,
+  mono,
+}: {
+  label: string;
+  to: string;
+  params: Record<string, string>;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-2xs font-semibold text-muted-foreground">{label}</div>
+      <Link
+        to={to}
+        params={params}
+        className={`break-words text-13 text-brand-cyan hover:underline ${mono ? "font-mono" : ""}`}
+      >
+        {value}
+      </Link>
+    </div>
+  );
+}
+
+function shortenId(id: string): string {
+  if (id.length <= 20) return id;
+  return `${id.slice(0, 8)}\u2026${id.slice(-6)}`;
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
