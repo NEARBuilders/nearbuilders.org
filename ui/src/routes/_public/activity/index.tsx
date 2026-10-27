@@ -47,7 +47,7 @@ export const Route = createFileRoute("/_public/activity/")({
 
 function ActivityPage() {
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 
   const [source, setSource] = useState<SourceFilter>("all");

@@ -168,13 +168,14 @@ function PhoneMethod({
   );
 }
 
-function PasskeysMethod({ passkeys }: { passkeys: Array<{ id: string; name?: string }> }) {
+function PasskeysMethod({ passkeys }: { passkeys: Array<{ id: string; name?: string | null }> }) {
   const auth = useAuthClient();
   const queryClient = useQueryClient();
   const [passkeyName, setPasskeyName] = useState("");
-  const [passkeyToDelete, setPasskeyToDelete] = useState<{ id: string; name?: string } | null>(
-    null,
-  );
+  const [passkeyToDelete, setPasskeyToDelete] = useState<{
+    id: string;
+    name?: string | null;
+  } | null>(null);
   const passkeyQueryKey = ["passkeys"] as const;
 
   const addPasskeyMutation = useMutation({

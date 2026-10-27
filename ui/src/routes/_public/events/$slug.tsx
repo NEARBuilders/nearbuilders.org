@@ -16,7 +16,7 @@ import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 export const Route = createFileRoute("/_public/events/$slug")({
   loader: async ({ params, context }) => {
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     const viewerKey = session?.user?.id ?? "anonymous";
     const event = await context.queryClient
@@ -88,7 +88,7 @@ function EventDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
     ?.walletAddress;

@@ -20,8 +20,7 @@ export const Route = createFileRoute("/_public/login")({
     const { queryClient, authClient } = context;
     const initialSession = context.session;
     const session =
-      initialSession ??
-      queryClient.getQueryData(sessionQueryOptions(authClient, initialSession).queryKey);
+      initialSession ?? queryClient.getQueryData(sessionQueryOptions(authClient).queryKey);
 
     if (session?.user) {
       const redirectTo = search.redirect?.startsWith("/") ? search.redirect : "/dashboard";
@@ -29,8 +28,7 @@ export const Route = createFileRoute("/_public/login")({
     }
   },
   loader: ({ context }) => {
-    const initialSession = context.session;
-    void context.queryClient.prefetchQuery(sessionQueryOptions(context.authClient, initialSession));
+    void context.queryClient.prefetchQuery(sessionQueryOptions(context.authClient));
   },
   component: LoginPage,
 });
@@ -38,7 +36,7 @@ export const Route = createFileRoute("/_public/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const { redirect } = Route.useSearch();
   const queryClient = useQueryClient();
 
@@ -47,7 +45,7 @@ function LoginPage() {
   const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
 
   useEffect(() => {
-    auth.near.detectNearAccount().then((result) => {
+    auth.near.detectNearAccount().then((result: { accountId?: string | null } | null) => {
       if (result?.accountId) {
         setDetectedAccount(result.accountId);
       }

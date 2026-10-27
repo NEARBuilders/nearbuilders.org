@@ -37,7 +37,7 @@ export function ActivityFeed({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const userId = session?.user?.id;
 

@@ -136,7 +136,7 @@ function BuilderProfilePage() {
   const { account } = Route.useParams();
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const navigate = useNavigate();
 

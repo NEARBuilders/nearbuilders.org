@@ -31,9 +31,7 @@ function EditBuilderProfilePage() {
   const { account } = Route.useParams();
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { data: session, isLoading: sessionLoading } = useQuery(
-    sessionQueryOptions(auth, undefined),
-  );
+  const { data: session, isLoading: sessionLoading } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 

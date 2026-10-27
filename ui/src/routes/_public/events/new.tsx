@@ -24,7 +24,7 @@ type Visibility = "private" | "unlisted" | "public";
 export const Route = createFileRoute("/_public/events/new")({
   beforeLoad: async ({ context, location }) => {
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     if (!session?.user || session.user.isAnonymous) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
@@ -66,7 +66,7 @@ function NewEventPage() {
   const auth = useAuthClient();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
   const defaultOwnerId =

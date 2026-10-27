@@ -141,7 +141,7 @@ function ProjectDetailPage() {
   const [copied, setCopied] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
 
   const projectQuery = useQuery({
@@ -664,7 +664,7 @@ function CollaboratorsSection({
   const auth = useAuthClient();
   const queryClient = useQueryClient();
   const nearAccountId = auth.near.getAccountId();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const [inviteHandle, setInviteHandle] = useState("");
 
   const collaboratorsQuery = useQuery({

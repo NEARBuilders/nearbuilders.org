@@ -17,9 +17,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/organizations/"
     meta: [{ name: "description", content: "Manage your organizations and teams." }],
   }),
   loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
-    );
+    await context.queryClient.ensureQueryData(sessionQueryOptions(context.authClient));
     await context.queryClient.ensureQueryData({
       queryKey: ["organizations"],
       queryFn: async () => {
@@ -278,11 +276,13 @@ function OrganizationsList() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button asChild>
-                        <Link to="/organizations/$slug" params={{ slug: org.slug }}>
-                          open org
-                        </Link>
-                      </Button>
+                      {org.slug && (
+                        <Button asChild>
+                          <Link to="/organizations/$slug" params={{ slug: org.slug }}>
+                            open org
+                          </Link>
+                        </Button>
+                      )}
                       {!isActive && (
                         <Button
                           onClick={() => switchOrgMutation.mutate(org.id)}

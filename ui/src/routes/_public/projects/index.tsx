@@ -760,7 +760,7 @@ function ProjectsList() {
   const [queryInput, setQueryInput] = useState(search.query ?? "");
   const [copied, setCopied] = useState(false);
 
-  const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
+  const sessionQuery = useQuery(sessionQueryOptions(auth));
   const { data: session } = sessionQuery;
   const user = session?.user;
   const userId = user?.id;

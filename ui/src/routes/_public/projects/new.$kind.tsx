@@ -61,7 +61,7 @@ export const Route = createFileRoute("/_public/projects/new/$kind")({
   beforeLoad: async ({ params, context, location }) => {
     if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
@@ -86,7 +86,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const queryClient = useQueryClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
   const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));

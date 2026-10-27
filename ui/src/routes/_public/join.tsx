@@ -113,7 +113,7 @@ function JoinPage() {
     setNominationInitialized(true);
   }, [navigate, nomination]);
 
-  const sessionQuery = useQuery(sessionQueryOptions(auth, undefined));
+  const sessionQuery = useQuery(sessionQueryOptions(auth));
   const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));
   const reviewRequired = requiresAdminApproval(approvalSettingsQuery.data);
   const nominationQuery = useQuery({

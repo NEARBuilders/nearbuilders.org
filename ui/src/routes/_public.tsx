@@ -5,9 +5,7 @@ import { SiteShell } from "@/components/site-shell";
 export const Route = createFileRoute("/_public")({
   beforeLoad: async ({ context }) => {
     const { queryClient, authClient } = context;
-    const session = await queryClient.ensureQueryData(
-      sessionQueryOptions(authClient, context.session),
-    );
+    const session = await queryClient.ensureQueryData(sessionQueryOptions(authClient));
     return {
       runtimeConfig: context.runtimeConfig,
       session,

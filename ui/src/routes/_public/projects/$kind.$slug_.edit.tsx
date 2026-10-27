@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_public/projects/$kind/$slug_/edit")({
   beforeLoad: async ({ params, context, location }) => {
     if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
@@ -72,7 +72,7 @@ function EditProjectPage() {
   const search = Route.useSearch();
   const { tab } = search;
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const isAdmin = session?.user?.role === "admin";
   const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));

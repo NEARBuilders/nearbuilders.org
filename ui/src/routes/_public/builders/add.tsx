@@ -55,9 +55,7 @@ function NominateBuilderPage() {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [nearPending, setNearPending] = useState(false);
-  const { data: session, isLoading: sessionLoading } = useQuery(
-    sessionQueryOptions(auth, undefined),
-  );
+  const { data: session, isLoading: sessionLoading } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
 

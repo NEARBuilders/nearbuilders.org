@@ -36,7 +36,7 @@ const LUMA_QUERY_STALE_TIME_MS = 60 * 1000;
 export const Route = createFileRoute("/_public/events/")({
   loader: async ({ context }) => {
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     const viewerKey = session?.user?.id ?? "anonymous";
     const timeBoundary = new Date().toISOString();
@@ -110,7 +110,7 @@ function EventsPage() {
   }, []);
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const viewerKey = session?.user?.id ?? "anonymous";
   const canCreate = Boolean(session?.user && !session.user.isAnonymous);

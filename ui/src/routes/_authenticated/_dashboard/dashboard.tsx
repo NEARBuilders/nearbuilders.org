@@ -61,7 +61,7 @@ const PROJECT_KIND_TABS: Array<{ kind: ProjectKind; label: string }> = [
 function Dashboard() {
   const auth = useAuthClient();
   const apiClient = useApiClient();
-  const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
   const user = session?.user;
   const { accountId: nearAccountId, isLoading: nearAccountLoading } = useNearAccount(Boolean(user));
 

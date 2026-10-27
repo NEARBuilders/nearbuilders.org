@@ -66,7 +66,7 @@ function AppDetailPage() {
   const [copiedUri, setCopiedUri] = useState(false);
   const [configExpanded, setConfigExpanded] = useState(false);
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const user = session?.user;
 

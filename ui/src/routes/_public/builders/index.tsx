@@ -152,7 +152,7 @@ export const Route = createFileRoute("/_public/builders/")({
 function BuildersPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const nearAccountId = auth.near.getAccountId();
 

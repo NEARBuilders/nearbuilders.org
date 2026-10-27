@@ -26,7 +26,7 @@ type EventRecord = Awaited<ReturnType<ReturnType<typeof useApiClient>["getEventB
 export const Route = createFileRoute("/_public/events/$slug_/edit")({
   beforeLoad: async ({ context, location }) => {
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     if (!session?.user || session.user.isAnonymous) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_public/events/$slug_/edit")({
   },
   loader: async ({ params, context }) => {
     const session = await context.queryClient.ensureQueryData(
-      sessionQueryOptions(context.authClient, context.session),
+      sessionQueryOptions(context.authClient),
     );
     const viewerKey = session?.user?.id ?? "anonymous";
 
@@ -66,7 +66,7 @@ function EditEventPage() {
   const { slug } = Route.useParams();
   const apiClient = useApiClient();
   const auth = useAuthClient();
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
   const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
     ?.walletAddress;
