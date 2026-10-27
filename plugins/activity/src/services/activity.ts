@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { Context, Effect, Layer } from "effect";
+import { ORPCError } from "@orpc/server";
+import type { z } from "zod";
 import type { ActivityEventSchema, ActivityFeedInputSchema } from "../contract";
 import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";

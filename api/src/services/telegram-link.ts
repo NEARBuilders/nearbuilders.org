@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import type { Context } from "../lib/context";
 import type { PluginsClient } from "../lib/plugins-types.gen";
 import { evaluatorContext } from "./review-context";

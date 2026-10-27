@@ -21,7 +21,11 @@
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "drizzle-orm": "catalog:",
-    "pg": "catalog:"
+    "pg": "catalog:",
+    "zod": "catalog:",
+    "effect": "catalog:",
+    "@orpc/publisher": "catalog:",
+    "@orpc/openapi": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

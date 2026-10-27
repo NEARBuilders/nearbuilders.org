@@ -1,6 +1,7 @@
+import "@orpc/openapi/extensions/route";
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
-import { oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { oc } from "@orpc/contract";
+import { z } from "zod";
 
 const kindEnum = z.enum(["project", "idea", "scope", "result"]);
 

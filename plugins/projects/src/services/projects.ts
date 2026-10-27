@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
+import { ORPCError } from "@orpc/server";
 import { DatabaseTag } from "../db/layer";
 import { projectApps, projectCollaborators, projectMentions, projects } from "../db/schema";
 

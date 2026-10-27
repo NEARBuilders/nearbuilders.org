@@ -1,5 +1,5 @@
 import { and, asc, gte, inArray, isNotNull } from "drizzle-orm";
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import type { ActivityImportPlanSchema } from "../contract";
 import type { Database } from "../db";
 import { activityEvents, activityGatewayOutbox } from "../db/schema";

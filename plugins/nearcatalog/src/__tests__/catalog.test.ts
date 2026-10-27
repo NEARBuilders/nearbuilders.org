@@ -1,5 +1,5 @@
-import { Cause, Effect, Exit } from "every-plugin/effect";
-import type { ORPCError } from "every-plugin/orpc";
+import { Cause, Effect, Exit } from "effect";
+import type { ORPCError } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import { createCatalogMethods } from "../services/catalog";
 

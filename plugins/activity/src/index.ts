@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { Cause, Effect, Exit, Layer } from "effect";
+import { MemoryPublisher } from "@orpc/publisher/memory";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { type ActivityEventSchema, contract } from "./contract";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import { ContextSchema } from "./lib/context";

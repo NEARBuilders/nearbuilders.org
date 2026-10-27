@@ -1,6 +1,6 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { Context, Effect, Layer } from "effect";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { type CatalogProjectSchema, CatalogProjectSlugSchema } from "../contract";
 import { catalogProjectReference } from "../project-reference";
 

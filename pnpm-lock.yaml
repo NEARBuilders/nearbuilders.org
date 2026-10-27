@@ -218,6 +218,9 @@ catalogs:
     '@orpc/openapi':
       specifier: 2.0.0-beta.35
       version: 2.0.0-beta.35
+    '@orpc/publisher':
+      specifier: 2.0.0-beta.35
+      version: 2.0.0-beta.35
     '@orpc/server':
       specifier: 2.0.0-beta.35
       version: 2.0.0-beta.35
@@ -526,18 +529,30 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
+      '@orpc/publisher':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35(redis@6.3.0(@opentelemetry/api@1.10.0))
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -584,15 +599,24 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       near-kit:
         specifier: 'catalog:'
         version: 0.20.2(@hot-labs/near-connect@0.11.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -633,18 +657,27 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -694,18 +727,27 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -755,18 +797,27 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -816,18 +867,27 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -877,18 +937,30 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
+      '@orpc/publisher':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35(redis@6.3.0(@opentelemetry/api@1.10.0))
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -938,18 +1010,27 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -999,18 +1080,30 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
+      '@orpc/publisher':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35(redis@6.3.0(@opentelemetry/api@1.10.0))
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1
@@ -1060,18 +1153,30 @@ importers:
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@orpc/openapi':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35
+      '@orpc/publisher':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.35(redis@6.3.0(@opentelemetry/api@1.10.0))
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@effect/language-service':
         specifier: ^0.85.1

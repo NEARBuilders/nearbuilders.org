@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { MemoryPublisher } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { Context, Effect, Layer } from "effect";
+import { MemoryPublisher } from "@orpc/publisher/memory";
+import type { z } from "zod";
 import type { VoteEventSchema } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import { upvotes } from "../db/schema";

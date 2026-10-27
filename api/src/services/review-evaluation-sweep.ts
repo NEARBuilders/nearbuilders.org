@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import { REVIEW_DIGEST_PLUGIN_IDS } from "../contract";
 import type { PluginsClient } from "../lib/plugins-types.gen";

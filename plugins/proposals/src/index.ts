@@ -1,7 +1,8 @@
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { Cause, Effect, Exit, Layer } from "effect";
+import { MemoryPublisher } from "@orpc/publisher/memory";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { contract, type ProposalEventSchema, REVIEW_EVALUATOR } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";

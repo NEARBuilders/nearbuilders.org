@@ -1,4 +1,4 @@
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import { REVIEW_DIGEST_PLUGIN_IDS, type ReviewDigestSchema } from "../contract";
 import type { PluginsClient } from "../lib/plugins-types.gen";

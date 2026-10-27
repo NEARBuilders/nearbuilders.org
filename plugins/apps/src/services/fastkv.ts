@@ -1,4 +1,4 @@
-import { Context, Layer } from "every-plugin/effect";
+import { Context, Layer } from "effect";
 
 export type NetworkId = "mainnet" | "testnet";
 

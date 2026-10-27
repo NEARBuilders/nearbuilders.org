@@ -5,9 +5,9 @@ import {
   normalizeSkills,
 } from "@everything-dev/builders-plugin/builder-tags";
 import { createPlugin } from "every-plugin";
-import { Effect } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { Effect } from "effect";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";

@@ -5,9 +5,9 @@
  * Prefer upstream changes at https://github.com/nearbuilders/everything-dev
  */
 
-import type { DecoratedMiddleware } from "every-plugin/orpc";
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import type { DecoratedMiddleware } from "@orpc/server";
+import { ORPCError } from "@orpc/server";
+import type { z } from "zod";
 import type {
   AuthOrganizationContext,
   AuthOrganizationSummary,

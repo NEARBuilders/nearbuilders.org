@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, or, sql } from "drizzle-orm";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import type { Database } from "../db";
 import { builderNominations, builders, builderXIdentities } from "../db/schema";
 

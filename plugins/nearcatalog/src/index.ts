@@ -1,7 +1,7 @@
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { Cause, Effect, Exit, Layer } from "effect";
+import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";

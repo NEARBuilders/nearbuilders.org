@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 import type { BosConfigInput } from "everything-dev";
 import { mergeBosConfigWithExtends, resolveExtendsRef } from "everything-dev/config";
 import { decodeSignedDelegateAction, isPrivateKey, Near } from "near-kit";
