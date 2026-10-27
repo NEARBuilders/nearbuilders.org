@@ -9,10 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AdminRouteImport } from './routes/_admin'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/_dashboard'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
-import { Route as PublicAdminRouteImport } from './routes/_public/_admin'
-import { Route as PublicAuthenticatedRouteImport } from './routes/_public/_authenticated'
 import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as PublicBrandRouteImport } from './routes/_public/brand'
 import { Route as PublicBuildRouteImport } from './routes/_public/build'
@@ -22,7 +23,14 @@ import { Route as PublicJoinRouteImport } from './routes/_public/join'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as PublicProjectsRouteImport } from './routes/_public/projects'
 import { Route as PublicSkillRouteImport } from './routes/_public/skill'
-import { Route as PublicAuthenticatedDashboardRouteImport } from './routes/_public/_authenticated/_dashboard'
+import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin/index'
+import { Route as AdminAdminDashboardRouteImport } from './routes/_admin/admin/dashboard'
+import { Route as AuthenticatedDashboardDashboardRouteImport } from './routes/_authenticated/_dashboard/dashboard'
+import { Route as AuthenticatedDashboardNotificationsRouteImport } from './routes/_authenticated/_dashboard/notifications'
+import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/_dashboard/profile'
+import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/_dashboard/settings'
+import { Route as AuthenticatedAcceptInvitationIdRouteImport } from './routes/_authenticated/accept-invitation.$id'
+import { Route as AuthenticatedProfileActivityRouteImport } from './routes/_authenticated/profile.activity'
 import { Route as PublicActivityIndexRouteImport } from './routes/_public/activity/index'
 import { Route as PublicActivityLeaderboardRouteImport } from './routes/_public/activity/leaderboard'
 import { Route as PublicAppsIndexRouteImport } from './routes/_public/apps/index'
@@ -34,14 +42,24 @@ import { Route as PublicEventsSlugRouteImport } from './routes/_public/events/$s
 import { Route as PublicEventsNewRouteImport } from './routes/_public/events/new'
 import { Route as PublicProjectsIndexRouteImport } from './routes/_public/projects/index'
 import { Route as PublicProjectsNewRouteImport } from './routes/_public/projects/new'
-import { Route as PublicAdminAdminIndexRouteImport } from './routes/_public/_admin/admin/index'
-import { Route as PublicAdminAdminDashboardRouteImport } from './routes/_public/_admin/admin/dashboard'
-import { Route as PublicAuthenticatedDashboardDashboardRouteImport } from './routes/_public/_authenticated/_dashboard/dashboard'
-import { Route as PublicAuthenticatedDashboardNotificationsRouteImport } from './routes/_public/_authenticated/_dashboard/notifications'
-import { Route as PublicAuthenticatedDashboardProfileRouteImport } from './routes/_public/_authenticated/_dashboard/profile'
-import { Route as PublicAuthenticatedDashboardSettingsRouteImport } from './routes/_public/_authenticated/_dashboard/settings'
-import { Route as PublicAuthenticatedAcceptInvitationIdRouteImport } from './routes/_public/_authenticated/accept-invitation.$id'
-import { Route as PublicAuthenticatedProfileActivityRouteImport } from './routes/_public/_authenticated/profile.activity'
+import { Route as AdminAdminDashboardIndexRouteImport } from './routes/_admin/admin/dashboard/index'
+import { Route as AdminAdminDashboardActivityRouteImport } from './routes/_admin/admin/dashboard/activity'
+import { Route as AdminAdminDashboardBuildersRouteImport } from './routes/_admin/admin/dashboard/builders'
+import { Route as AdminAdminDashboardEventsRouteImport } from './routes/_admin/admin/dashboard/events'
+import { Route as AdminAdminDashboardProjectsRouteImport } from './routes/_admin/admin/dashboard/projects'
+import { Route as AdminAdminDashboardTelegramRouteImport } from './routes/_admin/admin/dashboard/telegram'
+import { Route as AdminAdminDashboardXNominationsRouteImport } from './routes/_admin/admin/dashboard/x-nominations'
+import { Route as AuthenticatedDashboardIdeasIndexRouteImport } from './routes/_authenticated/_dashboard/ideas.index'
+import { Route as AuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_authenticated/_dashboard/organizations/index'
+import { Route as AuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_authenticated/_dashboard/organizations/$slug'
+import { Route as AuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_authenticated/_dashboard/organizations/new'
+import { Route as AuthenticatedDashboardResultsIndexRouteImport } from './routes/_authenticated/_dashboard/results.index'
+import { Route as AuthenticatedDashboardScopesIndexRouteImport } from './routes/_authenticated/_dashboard/scopes.index'
+import { Route as AuthenticatedDashboardSettingsIndexRouteImport } from './routes/_authenticated/_dashboard/settings/index'
+import { Route as AuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_authenticated/_dashboard/settings/api-keys'
+import { Route as AuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_authenticated/_dashboard/settings/auth-methods'
+import { Route as AuthenticatedDashboardSettingsProfileRouteImport } from './routes/_authenticated/_dashboard/settings/profile'
+import { Route as AuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_authenticated/_dashboard/settings/security'
 import { Route as PublicAppsAccountIdIndexRouteImport } from './routes/_public/apps/$accountId/index'
 import { Route as PublicAppsAccountIdGatewayIdRouteImport } from './routes/_public/apps/$accountId/$gatewayId'
 import { Route as PublicBuildersAccountEditRouteImport } from './routes/_public/builders/$account_.edit'
@@ -50,42 +68,28 @@ import { Route as PublicProjectsKindIndexRouteImport } from './routes/_public/pr
 import { Route as PublicProjectsKindSlugRouteImport } from './routes/_public/projects/$kind.$slug'
 import { Route as PublicProjectsNewIndexRouteImport } from './routes/_public/projects/new.index'
 import { Route as PublicProjectsNewKindRouteImport } from './routes/_public/projects/new.$kind'
-import { Route as PublicAdminAdminDashboardIndexRouteImport } from './routes/_public/_admin/admin/dashboard/index'
-import { Route as PublicAdminAdminDashboardActivityRouteImport } from './routes/_public/_admin/admin/dashboard/activity'
-import { Route as PublicAdminAdminDashboardBuildersRouteImport } from './routes/_public/_admin/admin/dashboard/builders'
-import { Route as PublicAdminAdminDashboardEventsRouteImport } from './routes/_public/_admin/admin/dashboard/events'
-import { Route as PublicAdminAdminDashboardProjectsRouteImport } from './routes/_public/_admin/admin/dashboard/projects'
-import { Route as PublicAdminAdminDashboardTelegramRouteImport } from './routes/_public/_admin/admin/dashboard/telegram'
-import { Route as PublicAdminAdminDashboardXNominationsRouteImport } from './routes/_public/_admin/admin/dashboard/x-nominations'
-import { Route as PublicAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_public/_authenticated/_dashboard/ideas.index'
-import { Route as PublicAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/index'
-import { Route as PublicAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/$slug'
-import { Route as PublicAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/new'
-import { Route as PublicAuthenticatedDashboardResultsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/results.index'
-import { Route as PublicAuthenticatedDashboardScopesIndexRouteImport } from './routes/_public/_authenticated/_dashboard/scopes.index'
-import { Route as PublicAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/settings/index'
-import { Route as PublicAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_public/_authenticated/_dashboard/settings/api-keys'
-import { Route as PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_public/_authenticated/_dashboard/settings/auth-methods'
-import { Route as PublicAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_public/_authenticated/_dashboard/settings/profile'
-import { Route as PublicAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_public/_authenticated/_dashboard/settings/security'
 import { Route as PublicEventsLumaCalendarIdEventIdRouteImport } from './routes/_public/events/luma/$calendarId/$eventId'
 import { Route as PublicProjectsKindSlugEditRouteImport } from './routes/_public/projects/$kind.$slug_.edit'
 
+const AdminRoute = AdminRouteImport.update({
+  id: '/_admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/_dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicAdminRoute = PublicAdminRouteImport.update({
-  id: '/_admin',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicAuthenticatedRoute = PublicAuthenticatedRouteImport.update({
-  id: '/_authenticated',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicAboutRoute = PublicAboutRouteImport.update({
@@ -133,10 +137,51 @@ const PublicSkillRoute = PublicSkillRouteImport.update({
   path: '/skill',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicAuthenticatedDashboardRoute =
-  PublicAuthenticatedDashboardRouteImport.update({
-    id: '/_dashboard',
-    getParentRoute: () => PublicAuthenticatedRoute,
+const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdminDashboardRoute = AdminAdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AuthenticatedDashboardDashboardRoute =
+  AuthenticatedDashboardDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardNotificationsRoute =
+  AuthenticatedDashboardNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardProfileRoute =
+  AuthenticatedDashboardProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardSettingsRoute =
+  AuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedAcceptInvitationIdRoute =
+  AuthenticatedAcceptInvitationIdRouteImport.update({
+    id: '/accept-invitation/$id',
+    path: '/accept-invitation/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedProfileActivityRoute =
+  AuthenticatedProfileActivityRouteImport.update({
+    id: '/profile/activity',
+    path: '/profile/activity',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const PublicActivityIndexRoute = PublicActivityIndexRouteImport.update({
   id: '/activity/',
@@ -194,52 +239,113 @@ const PublicProjectsNewRoute = PublicProjectsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => PublicProjectsRoute,
 } as any)
-const PublicAdminAdminIndexRoute = PublicAdminAdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => PublicAdminRoute,
-} as any)
-const PublicAdminAdminDashboardRoute =
-  PublicAdminAdminDashboardRouteImport.update({
-    id: '/admin/dashboard',
-    path: '/admin/dashboard',
-    getParentRoute: () => PublicAdminRoute,
+const AdminAdminDashboardIndexRoute =
+  AdminAdminDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AdminAdminDashboardRoute,
   } as any)
-const PublicAuthenticatedDashboardDashboardRoute =
-  PublicAuthenticatedDashboardDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+const AdminAdminDashboardActivityRoute =
+  AdminAdminDashboardActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AdminAdminDashboardRoute,
   } as any)
-const PublicAuthenticatedDashboardNotificationsRoute =
-  PublicAuthenticatedDashboardNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+const AdminAdminDashboardBuildersRoute =
+  AdminAdminDashboardBuildersRouteImport.update({
+    id: '/builders',
+    path: '/builders',
+    getParentRoute: () => AdminAdminDashboardRoute,
   } as any)
-const PublicAuthenticatedDashboardProfileRoute =
-  PublicAuthenticatedDashboardProfileRouteImport.update({
+const AdminAdminDashboardEventsRoute =
+  AdminAdminDashboardEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => AdminAdminDashboardRoute,
+  } as any)
+const AdminAdminDashboardProjectsRoute =
+  AdminAdminDashboardProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => AdminAdminDashboardRoute,
+  } as any)
+const AdminAdminDashboardTelegramRoute =
+  AdminAdminDashboardTelegramRouteImport.update({
+    id: '/telegram',
+    path: '/telegram',
+    getParentRoute: () => AdminAdminDashboardRoute,
+  } as any)
+const AdminAdminDashboardXNominationsRoute =
+  AdminAdminDashboardXNominationsRouteImport.update({
+    id: '/x-nominations',
+    path: '/x-nominations',
+    getParentRoute: () => AdminAdminDashboardRoute,
+  } as any)
+const AuthenticatedDashboardIdeasIndexRoute =
+  AuthenticatedDashboardIdeasIndexRouteImport.update({
+    id: '/ideas/',
+    path: '/ideas/',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardOrganizationsIndexRoute =
+  AuthenticatedDashboardOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardOrganizationsSlugRoute =
+  AuthenticatedDashboardOrganizationsSlugRouteImport.update({
+    id: '/organizations/$slug',
+    path: '/organizations/$slug',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardOrganizationsNewRoute =
+  AuthenticatedDashboardOrganizationsNewRouteImport.update({
+    id: '/organizations/new',
+    path: '/organizations/new',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardResultsIndexRoute =
+  AuthenticatedDashboardResultsIndexRouteImport.update({
+    id: '/results/',
+    path: '/results/',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardScopesIndexRoute =
+  AuthenticatedDashboardScopesIndexRouteImport.update({
+    id: '/scopes/',
+    path: '/scopes/',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardSettingsIndexRoute =
+  AuthenticatedDashboardSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDashboardSettingsRoute,
+  } as any)
+const AuthenticatedDashboardSettingsApiKeysRoute =
+  AuthenticatedDashboardSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => AuthenticatedDashboardSettingsRoute,
+  } as any)
+const AuthenticatedDashboardSettingsAuthMethodsRoute =
+  AuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
+    id: '/auth-methods',
+    path: '/auth-methods',
+    getParentRoute: () => AuthenticatedDashboardSettingsRoute,
+  } as any)
+const AuthenticatedDashboardSettingsProfileRoute =
+  AuthenticatedDashboardSettingsProfileRouteImport.update({
     id: '/profile',
     path: '/profile',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+    getParentRoute: () => AuthenticatedDashboardSettingsRoute,
   } as any)
-const PublicAuthenticatedDashboardSettingsRoute =
-  PublicAuthenticatedDashboardSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedAcceptInvitationIdRoute =
-  PublicAuthenticatedAcceptInvitationIdRouteImport.update({
-    id: '/accept-invitation/$id',
-    path: '/accept-invitation/$id',
-    getParentRoute: () => PublicAuthenticatedRoute,
-  } as any)
-const PublicAuthenticatedProfileActivityRoute =
-  PublicAuthenticatedProfileActivityRouteImport.update({
-    id: '/profile/activity',
-    path: '/profile/activity',
-    getParentRoute: () => PublicAuthenticatedRoute,
+const AuthenticatedDashboardSettingsSecurityRoute =
+  AuthenticatedDashboardSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => AuthenticatedDashboardSettingsRoute,
   } as any)
 const PublicAppsAccountIdIndexRoute =
   PublicAppsAccountIdIndexRouteImport.update({
@@ -284,114 +390,6 @@ const PublicProjectsNewKindRoute = PublicProjectsNewKindRouteImport.update({
   path: '/$kind',
   getParentRoute: () => PublicProjectsNewRoute,
 } as any)
-const PublicAdminAdminDashboardIndexRoute =
-  PublicAdminAdminDashboardIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardActivityRoute =
-  PublicAdminAdminDashboardActivityRouteImport.update({
-    id: '/activity',
-    path: '/activity',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardBuildersRoute =
-  PublicAdminAdminDashboardBuildersRouteImport.update({
-    id: '/builders',
-    path: '/builders',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardEventsRoute =
-  PublicAdminAdminDashboardEventsRouteImport.update({
-    id: '/events',
-    path: '/events',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardProjectsRoute =
-  PublicAdminAdminDashboardProjectsRouteImport.update({
-    id: '/projects',
-    path: '/projects',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardTelegramRoute =
-  PublicAdminAdminDashboardTelegramRouteImport.update({
-    id: '/telegram',
-    path: '/telegram',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardXNominationsRoute =
-  PublicAdminAdminDashboardXNominationsRouteImport.update({
-    id: '/x-nominations',
-    path: '/x-nominations',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardIdeasIndexRoute =
-  PublicAuthenticatedDashboardIdeasIndexRouteImport.update({
-    id: '/ideas/',
-    path: '/ideas/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardOrganizationsIndexRoute =
-  PublicAuthenticatedDashboardOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardOrganizationsSlugRoute =
-  PublicAuthenticatedDashboardOrganizationsSlugRouteImport.update({
-    id: '/organizations/$slug',
-    path: '/organizations/$slug',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardOrganizationsNewRoute =
-  PublicAuthenticatedDashboardOrganizationsNewRouteImport.update({
-    id: '/organizations/new',
-    path: '/organizations/new',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardResultsIndexRoute =
-  PublicAuthenticatedDashboardResultsIndexRouteImport.update({
-    id: '/results/',
-    path: '/results/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardScopesIndexRoute =
-  PublicAuthenticatedDashboardScopesIndexRouteImport.update({
-    id: '/scopes/',
-    path: '/scopes/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsIndexRoute =
-  PublicAuthenticatedDashboardSettingsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsApiKeysRoute =
-  PublicAuthenticatedDashboardSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsAuthMethodsRoute =
-  PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
-    id: '/auth-methods',
-    path: '/auth-methods',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsProfileRoute =
-  PublicAuthenticatedDashboardSettingsProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsSecurityRoute =
-  PublicAuthenticatedDashboardSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
 const PublicEventsLumaCalendarIdEventIdRoute =
   PublicEventsLumaCalendarIdEventIdRouteImport.update({
     id: '/luma/$calendarId/$eventId',
@@ -416,53 +414,53 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/projects': typeof PublicProjectsRouteWithChildren
   '/skill': typeof PublicSkillRoute
+  '/admin/dashboard': typeof AdminAdminDashboardRouteWithChildren
+  '/dashboard': typeof AuthenticatedDashboardDashboardRoute
+  '/notifications': typeof AuthenticatedDashboardNotificationsRoute
+  '/profile': typeof AuthenticatedDashboardProfileRoute
+  '/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
+  '/accept-invitation/$id': typeof AuthenticatedAcceptInvitationIdRoute
+  '/profile/activity': typeof AuthenticatedProfileActivityRoute
   '/activity/leaderboard': typeof PublicActivityLeaderboardRoute
   '/builders/$account': typeof PublicBuildersAccountRoute
   '/builders/add': typeof PublicBuildersAddRoute
   '/events/$slug': typeof PublicEventsSlugRoute
   '/events/new': typeof PublicEventsNewRoute
   '/projects/new': typeof PublicProjectsNewRouteWithChildren
+  '/admin/': typeof AdminAdminIndexRoute
   '/activity/': typeof PublicActivityIndexRoute
   '/apps/': typeof PublicAppsIndexRoute
   '/builders/': typeof PublicBuildersIndexRoute
   '/events/': typeof PublicEventsIndexRoute
   '/projects/': typeof PublicProjectsIndexRoute
-  '/admin/dashboard': typeof PublicAdminAdminDashboardRouteWithChildren
-  '/dashboard': typeof PublicAuthenticatedDashboardDashboardRoute
-  '/notifications': typeof PublicAuthenticatedDashboardNotificationsRoute
-  '/profile': typeof PublicAuthenticatedDashboardProfileRoute
-  '/settings': typeof PublicAuthenticatedDashboardSettingsRouteWithChildren
-  '/accept-invitation/$id': typeof PublicAuthenticatedAcceptInvitationIdRoute
-  '/profile/activity': typeof PublicAuthenticatedProfileActivityRoute
+  '/admin/dashboard/activity': typeof AdminAdminDashboardActivityRoute
+  '/admin/dashboard/builders': typeof AdminAdminDashboardBuildersRoute
+  '/admin/dashboard/events': typeof AdminAdminDashboardEventsRoute
+  '/admin/dashboard/projects': typeof AdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof AdminAdminDashboardTelegramRoute
+  '/admin/dashboard/x-nominations': typeof AdminAdminDashboardXNominationsRoute
+  '/organizations/$slug': typeof AuthenticatedDashboardOrganizationsSlugRoute
+  '/organizations/new': typeof AuthenticatedDashboardOrganizationsNewRoute
+  '/settings/api-keys': typeof AuthenticatedDashboardSettingsApiKeysRoute
+  '/settings/auth-methods': typeof AuthenticatedDashboardSettingsAuthMethodsRoute
+  '/settings/profile': typeof AuthenticatedDashboardSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedDashboardSettingsSecurityRoute
   '/apps/$accountId/$gatewayId': typeof PublicAppsAccountIdGatewayIdRoute
   '/builders/$account/edit': typeof PublicBuildersAccountEditRoute
   '/events/$slug/edit': typeof PublicEventsSlugEditRoute
   '/projects/$kind/$slug': typeof PublicProjectsKindSlugRoute
   '/projects/new/$kind': typeof PublicProjectsNewKindRoute
-  '/admin/': typeof PublicAdminAdminIndexRoute
+  '/admin/dashboard/': typeof AdminAdminDashboardIndexRoute
+  '/ideas/': typeof AuthenticatedDashboardIdeasIndexRoute
+  '/organizations/': typeof AuthenticatedDashboardOrganizationsIndexRoute
+  '/results/': typeof AuthenticatedDashboardResultsIndexRoute
+  '/scopes/': typeof AuthenticatedDashboardScopesIndexRoute
+  '/settings/': typeof AuthenticatedDashboardSettingsIndexRoute
   '/apps/$accountId/': typeof PublicAppsAccountIdIndexRoute
   '/projects/$kind/': typeof PublicProjectsKindIndexRoute
   '/projects/new/': typeof PublicProjectsNewIndexRoute
-  '/admin/dashboard/activity': typeof PublicAdminAdminDashboardActivityRoute
-  '/admin/dashboard/builders': typeof PublicAdminAdminDashboardBuildersRoute
-  '/admin/dashboard/events': typeof PublicAdminAdminDashboardEventsRoute
-  '/admin/dashboard/projects': typeof PublicAdminAdminDashboardProjectsRoute
-  '/admin/dashboard/telegram': typeof PublicAdminAdminDashboardTelegramRoute
-  '/admin/dashboard/x-nominations': typeof PublicAdminAdminDashboardXNominationsRoute
-  '/organizations/$slug': typeof PublicAuthenticatedDashboardOrganizationsSlugRoute
-  '/organizations/new': typeof PublicAuthenticatedDashboardOrganizationsNewRoute
-  '/settings/api-keys': typeof PublicAuthenticatedDashboardSettingsApiKeysRoute
-  '/settings/auth-methods': typeof PublicAuthenticatedDashboardSettingsAuthMethodsRoute
-  '/settings/profile': typeof PublicAuthenticatedDashboardSettingsProfileRoute
-  '/settings/security': typeof PublicAuthenticatedDashboardSettingsSecurityRoute
   '/events/luma/$calendarId/$eventId': typeof PublicEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof PublicProjectsKindSlugEditRoute
-  '/admin/dashboard/': typeof PublicAdminAdminDashboardIndexRoute
-  '/ideas/': typeof PublicAuthenticatedDashboardIdeasIndexRoute
-  '/organizations/': typeof PublicAuthenticatedDashboardOrganizationsIndexRoute
-  '/results/': typeof PublicAuthenticatedDashboardResultsIndexRoute
-  '/scopes/': typeof PublicAuthenticatedDashboardScopesIndexRoute
-  '/settings/': typeof PublicAuthenticatedDashboardSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -473,56 +471,57 @@ export interface FileRoutesByTo {
   '/join': typeof PublicJoinRoute
   '/login': typeof PublicLoginRoute
   '/skill': typeof PublicSkillRoute
+  '/dashboard': typeof AuthenticatedDashboardDashboardRoute
+  '/notifications': typeof AuthenticatedDashboardNotificationsRoute
+  '/profile': typeof AuthenticatedDashboardProfileRoute
+  '/accept-invitation/$id': typeof AuthenticatedAcceptInvitationIdRoute
+  '/profile/activity': typeof AuthenticatedProfileActivityRoute
   '/activity/leaderboard': typeof PublicActivityLeaderboardRoute
   '/builders/$account': typeof PublicBuildersAccountRoute
   '/builders/add': typeof PublicBuildersAddRoute
   '/events/$slug': typeof PublicEventsSlugRoute
   '/events/new': typeof PublicEventsNewRoute
+  '/admin': typeof AdminAdminIndexRoute
   '/activity': typeof PublicActivityIndexRoute
   '/apps': typeof PublicAppsIndexRoute
   '/builders': typeof PublicBuildersIndexRoute
   '/events': typeof PublicEventsIndexRoute
   '/projects': typeof PublicProjectsIndexRoute
-  '/dashboard': typeof PublicAuthenticatedDashboardDashboardRoute
-  '/notifications': typeof PublicAuthenticatedDashboardNotificationsRoute
-  '/profile': typeof PublicAuthenticatedDashboardProfileRoute
-  '/accept-invitation/$id': typeof PublicAuthenticatedAcceptInvitationIdRoute
-  '/profile/activity': typeof PublicAuthenticatedProfileActivityRoute
+  '/admin/dashboard/activity': typeof AdminAdminDashboardActivityRoute
+  '/admin/dashboard/builders': typeof AdminAdminDashboardBuildersRoute
+  '/admin/dashboard/events': typeof AdminAdminDashboardEventsRoute
+  '/admin/dashboard/projects': typeof AdminAdminDashboardProjectsRoute
+  '/admin/dashboard/telegram': typeof AdminAdminDashboardTelegramRoute
+  '/admin/dashboard/x-nominations': typeof AdminAdminDashboardXNominationsRoute
+  '/organizations/$slug': typeof AuthenticatedDashboardOrganizationsSlugRoute
+  '/organizations/new': typeof AuthenticatedDashboardOrganizationsNewRoute
+  '/settings/api-keys': typeof AuthenticatedDashboardSettingsApiKeysRoute
+  '/settings/auth-methods': typeof AuthenticatedDashboardSettingsAuthMethodsRoute
+  '/settings/profile': typeof AuthenticatedDashboardSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedDashboardSettingsSecurityRoute
   '/apps/$accountId/$gatewayId': typeof PublicAppsAccountIdGatewayIdRoute
   '/builders/$account/edit': typeof PublicBuildersAccountEditRoute
   '/events/$slug/edit': typeof PublicEventsSlugEditRoute
   '/projects/$kind/$slug': typeof PublicProjectsKindSlugRoute
   '/projects/new/$kind': typeof PublicProjectsNewKindRoute
-  '/admin': typeof PublicAdminAdminIndexRoute
+  '/admin/dashboard': typeof AdminAdminDashboardIndexRoute
+  '/ideas': typeof AuthenticatedDashboardIdeasIndexRoute
+  '/organizations': typeof AuthenticatedDashboardOrganizationsIndexRoute
+  '/results': typeof AuthenticatedDashboardResultsIndexRoute
+  '/scopes': typeof AuthenticatedDashboardScopesIndexRoute
+  '/settings': typeof AuthenticatedDashboardSettingsIndexRoute
   '/apps/$accountId': typeof PublicAppsAccountIdIndexRoute
   '/projects/$kind': typeof PublicProjectsKindIndexRoute
   '/projects/new': typeof PublicProjectsNewIndexRoute
-  '/admin/dashboard/activity': typeof PublicAdminAdminDashboardActivityRoute
-  '/admin/dashboard/builders': typeof PublicAdminAdminDashboardBuildersRoute
-  '/admin/dashboard/events': typeof PublicAdminAdminDashboardEventsRoute
-  '/admin/dashboard/projects': typeof PublicAdminAdminDashboardProjectsRoute
-  '/admin/dashboard/telegram': typeof PublicAdminAdminDashboardTelegramRoute
-  '/admin/dashboard/x-nominations': typeof PublicAdminAdminDashboardXNominationsRoute
-  '/organizations/$slug': typeof PublicAuthenticatedDashboardOrganizationsSlugRoute
-  '/organizations/new': typeof PublicAuthenticatedDashboardOrganizationsNewRoute
-  '/settings/api-keys': typeof PublicAuthenticatedDashboardSettingsApiKeysRoute
-  '/settings/auth-methods': typeof PublicAuthenticatedDashboardSettingsAuthMethodsRoute
-  '/settings/profile': typeof PublicAuthenticatedDashboardSettingsProfileRoute
-  '/settings/security': typeof PublicAuthenticatedDashboardSettingsSecurityRoute
   '/events/luma/$calendarId/$eventId': typeof PublicEventsLumaCalendarIdEventIdRoute
   '/projects/$kind/$slug/edit': typeof PublicProjectsKindSlugEditRoute
-  '/admin/dashboard': typeof PublicAdminAdminDashboardIndexRoute
-  '/ideas': typeof PublicAuthenticatedDashboardIdeasIndexRoute
-  '/organizations': typeof PublicAuthenticatedDashboardOrganizationsIndexRoute
-  '/results': typeof PublicAuthenticatedDashboardResultsIndexRoute
-  '/scopes': typeof PublicAuthenticatedDashboardScopesIndexRoute
-  '/settings': typeof PublicAuthenticatedDashboardSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_admin': typeof AdminRouteWithChildren
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
-  '/_public/_admin': typeof PublicAdminRouteWithChildren
-  '/_public/_authenticated': typeof PublicAuthenticatedRouteWithChildren
+  '/_authenticated/_dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/_public/about': typeof PublicAboutRoute
   '/_public/brand': typeof PublicBrandRoute
   '/_public/build': typeof PublicBuildRoute
@@ -533,54 +532,53 @@ export interface FileRoutesById {
   '/_public/projects': typeof PublicProjectsRouteWithChildren
   '/_public/skill': typeof PublicSkillRoute
   '/_public/': typeof PublicIndexRoute
-  '/_public/_authenticated/_dashboard': typeof PublicAuthenticatedDashboardRouteWithChildren
+  '/_admin/admin/dashboard': typeof AdminAdminDashboardRouteWithChildren
+  '/_authenticated/_dashboard/dashboard': typeof AuthenticatedDashboardDashboardRoute
+  '/_authenticated/_dashboard/notifications': typeof AuthenticatedDashboardNotificationsRoute
+  '/_authenticated/_dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/_authenticated/_dashboard/settings': typeof AuthenticatedDashboardSettingsRouteWithChildren
+  '/_authenticated/accept-invitation/$id': typeof AuthenticatedAcceptInvitationIdRoute
+  '/_authenticated/profile/activity': typeof AuthenticatedProfileActivityRoute
   '/_public/activity/leaderboard': typeof PublicActivityLeaderboardRoute
   '/_public/builders/$account': typeof PublicBuildersAccountRoute
   '/_public/builders/add': typeof PublicBuildersAddRoute
   '/_public/events/$slug': typeof PublicEventsSlugRoute
   '/_public/events/new': typeof PublicEventsNewRoute
   '/_public/projects/new': typeof PublicProjectsNewRouteWithChildren
+  '/_admin/admin/': typeof AdminAdminIndexRoute
   '/_public/activity/': typeof PublicActivityIndexRoute
   '/_public/apps/': typeof PublicAppsIndexRoute
   '/_public/builders/': typeof PublicBuildersIndexRoute
   '/_public/events/': typeof PublicEventsIndexRoute
   '/_public/projects/': typeof PublicProjectsIndexRoute
-  '/_public/_admin/admin/dashboard': typeof PublicAdminAdminDashboardRouteWithChildren
-  '/_public/_authenticated/_dashboard/dashboard': typeof PublicAuthenticatedDashboardDashboardRoute
-  '/_public/_authenticated/_dashboard/notifications': typeof PublicAuthenticatedDashboardNotificationsRoute
-  '/_public/_authenticated/_dashboard/profile': typeof PublicAuthenticatedDashboardProfileRoute
-  '/_public/_authenticated/_dashboard/settings': typeof PublicAuthenticatedDashboardSettingsRouteWithChildren
-  '/_public/_authenticated/accept-invitation/$id': typeof PublicAuthenticatedAcceptInvitationIdRoute
-  '/_public/_authenticated/profile/activity': typeof PublicAuthenticatedProfileActivityRoute
+  '/_admin/admin/dashboard/activity': typeof AdminAdminDashboardActivityRoute
+  '/_admin/admin/dashboard/builders': typeof AdminAdminDashboardBuildersRoute
+  '/_admin/admin/dashboard/events': typeof AdminAdminDashboardEventsRoute
+  '/_admin/admin/dashboard/projects': typeof AdminAdminDashboardProjectsRoute
+  '/_admin/admin/dashboard/telegram': typeof AdminAdminDashboardTelegramRoute
+  '/_admin/admin/dashboard/x-nominations': typeof AdminAdminDashboardXNominationsRoute
+  '/_authenticated/_dashboard/organizations/$slug': typeof AuthenticatedDashboardOrganizationsSlugRoute
+  '/_authenticated/_dashboard/organizations/new': typeof AuthenticatedDashboardOrganizationsNewRoute
+  '/_authenticated/_dashboard/settings/api-keys': typeof AuthenticatedDashboardSettingsApiKeysRoute
+  '/_authenticated/_dashboard/settings/auth-methods': typeof AuthenticatedDashboardSettingsAuthMethodsRoute
+  '/_authenticated/_dashboard/settings/profile': typeof AuthenticatedDashboardSettingsProfileRoute
+  '/_authenticated/_dashboard/settings/security': typeof AuthenticatedDashboardSettingsSecurityRoute
   '/_public/apps/$accountId/$gatewayId': typeof PublicAppsAccountIdGatewayIdRoute
   '/_public/builders/$account_/edit': typeof PublicBuildersAccountEditRoute
   '/_public/events/$slug_/edit': typeof PublicEventsSlugEditRoute
   '/_public/projects/$kind/$slug': typeof PublicProjectsKindSlugRoute
   '/_public/projects/new/$kind': typeof PublicProjectsNewKindRoute
-  '/_public/_admin/admin/': typeof PublicAdminAdminIndexRoute
+  '/_admin/admin/dashboard/': typeof AdminAdminDashboardIndexRoute
+  '/_authenticated/_dashboard/ideas/': typeof AuthenticatedDashboardIdeasIndexRoute
+  '/_authenticated/_dashboard/organizations/': typeof AuthenticatedDashboardOrganizationsIndexRoute
+  '/_authenticated/_dashboard/results/': typeof AuthenticatedDashboardResultsIndexRoute
+  '/_authenticated/_dashboard/scopes/': typeof AuthenticatedDashboardScopesIndexRoute
+  '/_authenticated/_dashboard/settings/': typeof AuthenticatedDashboardSettingsIndexRoute
   '/_public/apps/$accountId/': typeof PublicAppsAccountIdIndexRoute
   '/_public/projects/$kind/': typeof PublicProjectsKindIndexRoute
   '/_public/projects/new/': typeof PublicProjectsNewIndexRoute
-  '/_public/_admin/admin/dashboard/activity': typeof PublicAdminAdminDashboardActivityRoute
-  '/_public/_admin/admin/dashboard/builders': typeof PublicAdminAdminDashboardBuildersRoute
-  '/_public/_admin/admin/dashboard/events': typeof PublicAdminAdminDashboardEventsRoute
-  '/_public/_admin/admin/dashboard/projects': typeof PublicAdminAdminDashboardProjectsRoute
-  '/_public/_admin/admin/dashboard/telegram': typeof PublicAdminAdminDashboardTelegramRoute
-  '/_public/_admin/admin/dashboard/x-nominations': typeof PublicAdminAdminDashboardXNominationsRoute
-  '/_public/_authenticated/_dashboard/organizations/$slug': typeof PublicAuthenticatedDashboardOrganizationsSlugRoute
-  '/_public/_authenticated/_dashboard/organizations/new': typeof PublicAuthenticatedDashboardOrganizationsNewRoute
-  '/_public/_authenticated/_dashboard/settings/api-keys': typeof PublicAuthenticatedDashboardSettingsApiKeysRoute
-  '/_public/_authenticated/_dashboard/settings/auth-methods': typeof PublicAuthenticatedDashboardSettingsAuthMethodsRoute
-  '/_public/_authenticated/_dashboard/settings/profile': typeof PublicAuthenticatedDashboardSettingsProfileRoute
-  '/_public/_authenticated/_dashboard/settings/security': typeof PublicAuthenticatedDashboardSettingsSecurityRoute
   '/_public/events/luma/$calendarId/$eventId': typeof PublicEventsLumaCalendarIdEventIdRoute
   '/_public/projects/$kind/$slug_/edit': typeof PublicProjectsKindSlugEditRoute
-  '/_public/_admin/admin/dashboard/': typeof PublicAdminAdminDashboardIndexRoute
-  '/_public/_authenticated/_dashboard/ideas/': typeof PublicAuthenticatedDashboardIdeasIndexRoute
-  '/_public/_authenticated/_dashboard/organizations/': typeof PublicAuthenticatedDashboardOrganizationsIndexRoute
-  '/_public/_authenticated/_dashboard/results/': typeof PublicAuthenticatedDashboardResultsIndexRoute
-  '/_public/_authenticated/_dashboard/scopes/': typeof PublicAuthenticatedDashboardScopesIndexRoute
-  '/_public/_authenticated/_dashboard/settings/': typeof PublicAuthenticatedDashboardSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -595,17 +593,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/projects'
     | '/skill'
-    | '/activity/leaderboard'
-    | '/builders/$account'
-    | '/builders/add'
-    | '/events/$slug'
-    | '/events/new'
-    | '/projects/new'
-    | '/activity/'
-    | '/apps/'
-    | '/builders/'
-    | '/events/'
-    | '/projects/'
     | '/admin/dashboard'
     | '/dashboard'
     | '/notifications'
@@ -613,15 +600,18 @@ export interface FileRouteTypes {
     | '/settings'
     | '/accept-invitation/$id'
     | '/profile/activity'
-    | '/apps/$accountId/$gatewayId'
-    | '/builders/$account/edit'
-    | '/events/$slug/edit'
-    | '/projects/$kind/$slug'
-    | '/projects/new/$kind'
+    | '/activity/leaderboard'
+    | '/builders/$account'
+    | '/builders/add'
+    | '/events/$slug'
+    | '/events/new'
+    | '/projects/new'
     | '/admin/'
-    | '/apps/$accountId/'
-    | '/projects/$kind/'
-    | '/projects/new/'
+    | '/activity/'
+    | '/apps/'
+    | '/builders/'
+    | '/events/'
+    | '/projects/'
     | '/admin/dashboard/activity'
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
@@ -634,14 +624,22 @@ export interface FileRouteTypes {
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
-    | '/events/luma/$calendarId/$eventId'
-    | '/projects/$kind/$slug/edit'
+    | '/apps/$accountId/$gatewayId'
+    | '/builders/$account/edit'
+    | '/events/$slug/edit'
+    | '/projects/$kind/$slug'
+    | '/projects/new/$kind'
     | '/admin/dashboard/'
     | '/ideas/'
     | '/organizations/'
     | '/results/'
     | '/scopes/'
     | '/settings/'
+    | '/apps/$accountId/'
+    | '/projects/$kind/'
+    | '/projects/new/'
+    | '/events/luma/$calendarId/$eventId'
+    | '/projects/$kind/$slug/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -652,30 +650,22 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/skill'
-    | '/activity/leaderboard'
-    | '/builders/$account'
-    | '/builders/add'
-    | '/events/$slug'
-    | '/events/new'
-    | '/activity'
-    | '/apps'
-    | '/builders'
-    | '/events'
-    | '/projects'
     | '/dashboard'
     | '/notifications'
     | '/profile'
     | '/accept-invitation/$id'
     | '/profile/activity'
-    | '/apps/$accountId/$gatewayId'
-    | '/builders/$account/edit'
-    | '/events/$slug/edit'
-    | '/projects/$kind/$slug'
-    | '/projects/new/$kind'
+    | '/activity/leaderboard'
+    | '/builders/$account'
+    | '/builders/add'
+    | '/events/$slug'
+    | '/events/new'
     | '/admin'
-    | '/apps/$accountId'
-    | '/projects/$kind'
-    | '/projects/new'
+    | '/activity'
+    | '/apps'
+    | '/builders'
+    | '/events'
+    | '/projects'
     | '/admin/dashboard/activity'
     | '/admin/dashboard/builders'
     | '/admin/dashboard/events'
@@ -688,19 +678,28 @@ export interface FileRouteTypes {
     | '/settings/auth-methods'
     | '/settings/profile'
     | '/settings/security'
-    | '/events/luma/$calendarId/$eventId'
-    | '/projects/$kind/$slug/edit'
+    | '/apps/$accountId/$gatewayId'
+    | '/builders/$account/edit'
+    | '/events/$slug/edit'
+    | '/projects/$kind/$slug'
+    | '/projects/new/$kind'
     | '/admin/dashboard'
     | '/ideas'
     | '/organizations'
     | '/results'
     | '/scopes'
     | '/settings'
+    | '/apps/$accountId'
+    | '/projects/$kind'
+    | '/projects/new'
+    | '/events/luma/$calendarId/$eventId'
+    | '/projects/$kind/$slug/edit'
   id:
     | '__root__'
+    | '/_admin'
+    | '/_authenticated'
     | '/_public'
-    | '/_public/_admin'
-    | '/_public/_authenticated'
+    | '/_authenticated/_dashboard'
     | '/_public/about'
     | '/_public/brand'
     | '/_public/build'
@@ -711,62 +710,77 @@ export interface FileRouteTypes {
     | '/_public/projects'
     | '/_public/skill'
     | '/_public/'
-    | '/_public/_authenticated/_dashboard'
+    | '/_admin/admin/dashboard'
+    | '/_authenticated/_dashboard/dashboard'
+    | '/_authenticated/_dashboard/notifications'
+    | '/_authenticated/_dashboard/profile'
+    | '/_authenticated/_dashboard/settings'
+    | '/_authenticated/accept-invitation/$id'
+    | '/_authenticated/profile/activity'
     | '/_public/activity/leaderboard'
     | '/_public/builders/$account'
     | '/_public/builders/add'
     | '/_public/events/$slug'
     | '/_public/events/new'
     | '/_public/projects/new'
+    | '/_admin/admin/'
     | '/_public/activity/'
     | '/_public/apps/'
     | '/_public/builders/'
     | '/_public/events/'
     | '/_public/projects/'
-    | '/_public/_admin/admin/dashboard'
-    | '/_public/_authenticated/_dashboard/dashboard'
-    | '/_public/_authenticated/_dashboard/notifications'
-    | '/_public/_authenticated/_dashboard/profile'
-    | '/_public/_authenticated/_dashboard/settings'
-    | '/_public/_authenticated/accept-invitation/$id'
-    | '/_public/_authenticated/profile/activity'
+    | '/_admin/admin/dashboard/activity'
+    | '/_admin/admin/dashboard/builders'
+    | '/_admin/admin/dashboard/events'
+    | '/_admin/admin/dashboard/projects'
+    | '/_admin/admin/dashboard/telegram'
+    | '/_admin/admin/dashboard/x-nominations'
+    | '/_authenticated/_dashboard/organizations/$slug'
+    | '/_authenticated/_dashboard/organizations/new'
+    | '/_authenticated/_dashboard/settings/api-keys'
+    | '/_authenticated/_dashboard/settings/auth-methods'
+    | '/_authenticated/_dashboard/settings/profile'
+    | '/_authenticated/_dashboard/settings/security'
     | '/_public/apps/$accountId/$gatewayId'
     | '/_public/builders/$account_/edit'
     | '/_public/events/$slug_/edit'
     | '/_public/projects/$kind/$slug'
     | '/_public/projects/new/$kind'
-    | '/_public/_admin/admin/'
+    | '/_admin/admin/dashboard/'
+    | '/_authenticated/_dashboard/ideas/'
+    | '/_authenticated/_dashboard/organizations/'
+    | '/_authenticated/_dashboard/results/'
+    | '/_authenticated/_dashboard/scopes/'
+    | '/_authenticated/_dashboard/settings/'
     | '/_public/apps/$accountId/'
     | '/_public/projects/$kind/'
     | '/_public/projects/new/'
-    | '/_public/_admin/admin/dashboard/activity'
-    | '/_public/_admin/admin/dashboard/builders'
-    | '/_public/_admin/admin/dashboard/events'
-    | '/_public/_admin/admin/dashboard/projects'
-    | '/_public/_admin/admin/dashboard/telegram'
-    | '/_public/_admin/admin/dashboard/x-nominations'
-    | '/_public/_authenticated/_dashboard/organizations/$slug'
-    | '/_public/_authenticated/_dashboard/organizations/new'
-    | '/_public/_authenticated/_dashboard/settings/api-keys'
-    | '/_public/_authenticated/_dashboard/settings/auth-methods'
-    | '/_public/_authenticated/_dashboard/settings/profile'
-    | '/_public/_authenticated/_dashboard/settings/security'
     | '/_public/events/luma/$calendarId/$eventId'
     | '/_public/projects/$kind/$slug_/edit'
-    | '/_public/_admin/admin/dashboard/'
-    | '/_public/_authenticated/_dashboard/ideas/'
-    | '/_public/_authenticated/_dashboard/organizations/'
-    | '/_public/_authenticated/_dashboard/results/'
-    | '/_public/_authenticated/_dashboard/scopes/'
-    | '/_public/_authenticated/_dashboard/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AdminRoute: typeof AdminRouteWithChildren
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_admin': {
+      id: '/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public': {
       id: '/_public'
       path: ''
@@ -774,25 +788,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_dashboard': {
+      id: '/_authenticated/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_public/': {
       id: '/_public/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/_admin': {
-      id: '/_public/_admin'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicAdminRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/_authenticated': {
-      id: '/_public/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicAuthenticatedRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/about': {
@@ -858,12 +865,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicSkillRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/_authenticated/_dashboard': {
-      id: '/_public/_authenticated/_dashboard'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardRouteImport
-      parentRoute: typeof PublicAuthenticatedRoute
+    '/_admin/admin/': {
+      id: '/_admin/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/admin/dashboard': {
+      id: '/_admin/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminAdminDashboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_authenticated/_dashboard/dashboard': {
+      id: '/_authenticated/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardDashboardRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/notifications': {
+      id: '/_authenticated/_dashboard/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedDashboardNotificationsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/profile': {
+      id: '/_authenticated/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedDashboardProfileRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/settings': {
+      id: '/_authenticated/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/accept-invitation/$id': {
+      id: '/_authenticated/accept-invitation/$id'
+      path: '/accept-invitation/$id'
+      fullPath: '/accept-invitation/$id'
+      preLoaderRoute: typeof AuthenticatedAcceptInvitationIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profile/activity': {
+      id: '/_authenticated/profile/activity'
+      path: '/profile/activity'
+      fullPath: '/profile/activity'
+      preLoaderRoute: typeof AuthenticatedProfileActivityRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_public/activity/': {
       id: '/_public/activity/'
@@ -942,61 +998,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicProjectsNewRouteImport
       parentRoute: typeof PublicProjectsRoute
     }
-    '/_public/_admin/admin/': {
-      id: '/_public/_admin/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof PublicAdminAdminIndexRouteImport
-      parentRoute: typeof PublicAdminRoute
+    '/_admin/admin/dashboard/': {
+      id: '/_admin/admin/dashboard/'
+      path: '/'
+      fullPath: '/admin/dashboard/'
+      preLoaderRoute: typeof AdminAdminDashboardIndexRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
     }
-    '/_public/_admin/admin/dashboard': {
-      id: '/_public/_admin/admin/dashboard'
-      path: '/admin/dashboard'
-      fullPath: '/admin/dashboard'
-      preLoaderRoute: typeof PublicAdminAdminDashboardRouteImport
-      parentRoute: typeof PublicAdminRoute
+    '/_admin/admin/dashboard/activity': {
+      id: '/_admin/admin/dashboard/activity'
+      path: '/activity'
+      fullPath: '/admin/dashboard/activity'
+      preLoaderRoute: typeof AdminAdminDashboardActivityRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
     }
-    '/_public/_authenticated/_dashboard/dashboard': {
-      id: '/_public/_authenticated/_dashboard/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardDashboardRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    '/_admin/admin/dashboard/builders': {
+      id: '/_admin/admin/dashboard/builders'
+      path: '/builders'
+      fullPath: '/admin/dashboard/builders'
+      preLoaderRoute: typeof AdminAdminDashboardBuildersRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
     }
-    '/_public/_authenticated/_dashboard/notifications': {
-      id: '/_public/_authenticated/_dashboard/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardNotificationsRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    '/_admin/admin/dashboard/events': {
+      id: '/_admin/admin/dashboard/events'
+      path: '/events'
+      fullPath: '/admin/dashboard/events'
+      preLoaderRoute: typeof AdminAdminDashboardEventsRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
     }
-    '/_public/_authenticated/_dashboard/profile': {
-      id: '/_public/_authenticated/_dashboard/profile'
+    '/_admin/admin/dashboard/projects': {
+      id: '/_admin/admin/dashboard/projects'
+      path: '/projects'
+      fullPath: '/admin/dashboard/projects'
+      preLoaderRoute: typeof AdminAdminDashboardProjectsRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
+    }
+    '/_admin/admin/dashboard/telegram': {
+      id: '/_admin/admin/dashboard/telegram'
+      path: '/telegram'
+      fullPath: '/admin/dashboard/telegram'
+      preLoaderRoute: typeof AdminAdminDashboardTelegramRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
+    }
+    '/_admin/admin/dashboard/x-nominations': {
+      id: '/_admin/admin/dashboard/x-nominations'
+      path: '/x-nominations'
+      fullPath: '/admin/dashboard/x-nominations'
+      preLoaderRoute: typeof AdminAdminDashboardXNominationsRouteImport
+      parentRoute: typeof AdminAdminDashboardRoute
+    }
+    '/_authenticated/_dashboard/ideas/': {
+      id: '/_authenticated/_dashboard/ideas/'
+      path: '/ideas'
+      fullPath: '/ideas/'
+      preLoaderRoute: typeof AuthenticatedDashboardIdeasIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/organizations/': {
+      id: '/_authenticated/_dashboard/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof AuthenticatedDashboardOrganizationsIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/organizations/$slug': {
+      id: '/_authenticated/_dashboard/organizations/$slug'
+      path: '/organizations/$slug'
+      fullPath: '/organizations/$slug'
+      preLoaderRoute: typeof AuthenticatedDashboardOrganizationsSlugRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/organizations/new': {
+      id: '/_authenticated/_dashboard/organizations/new'
+      path: '/organizations/new'
+      fullPath: '/organizations/new'
+      preLoaderRoute: typeof AuthenticatedDashboardOrganizationsNewRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/results/': {
+      id: '/_authenticated/_dashboard/results/'
+      path: '/results'
+      fullPath: '/results/'
+      preLoaderRoute: typeof AuthenticatedDashboardResultsIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/scopes/': {
+      id: '/_authenticated/_dashboard/scopes/'
+      path: '/scopes'
+      fullPath: '/scopes/'
+      preLoaderRoute: typeof AuthenticatedDashboardScopesIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/_dashboard/settings/': {
+      id: '/_authenticated/_dashboard/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardSettingsRoute
+    }
+    '/_authenticated/_dashboard/settings/api-keys': {
+      id: '/_authenticated/_dashboard/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsApiKeysRouteImport
+      parentRoute: typeof AuthenticatedDashboardSettingsRoute
+    }
+    '/_authenticated/_dashboard/settings/auth-methods': {
+      id: '/_authenticated/_dashboard/settings/auth-methods'
+      path: '/auth-methods'
+      fullPath: '/settings/auth-methods'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsAuthMethodsRouteImport
+      parentRoute: typeof AuthenticatedDashboardSettingsRoute
+    }
+    '/_authenticated/_dashboard/settings/profile': {
+      id: '/_authenticated/_dashboard/settings/profile'
       path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardProfileRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedDashboardSettingsRoute
     }
-    '/_public/_authenticated/_dashboard/settings': {
-      id: '/_public/_authenticated/_dashboard/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/accept-invitation/$id': {
-      id: '/_public/_authenticated/accept-invitation/$id'
-      path: '/accept-invitation/$id'
-      fullPath: '/accept-invitation/$id'
-      preLoaderRoute: typeof PublicAuthenticatedAcceptInvitationIdRouteImport
-      parentRoute: typeof PublicAuthenticatedRoute
-    }
-    '/_public/_authenticated/profile/activity': {
-      id: '/_public/_authenticated/profile/activity'
-      path: '/profile/activity'
-      fullPath: '/profile/activity'
-      preLoaderRoute: typeof PublicAuthenticatedProfileActivityRouteImport
-      parentRoute: typeof PublicAuthenticatedRoute
+    '/_authenticated/_dashboard/settings/security': {
+      id: '/_authenticated/_dashboard/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedDashboardSettingsRoute
     }
     '/_public/apps/$accountId/': {
       id: '/_public/apps/$accountId/'
@@ -1054,132 +1180,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicProjectsNewKindRouteImport
       parentRoute: typeof PublicProjectsNewRoute
     }
-    '/_public/_admin/admin/dashboard/': {
-      id: '/_public/_admin/admin/dashboard/'
-      path: '/'
-      fullPath: '/admin/dashboard/'
-      preLoaderRoute: typeof PublicAdminAdminDashboardIndexRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/activity': {
-      id: '/_public/_admin/admin/dashboard/activity'
-      path: '/activity'
-      fullPath: '/admin/dashboard/activity'
-      preLoaderRoute: typeof PublicAdminAdminDashboardActivityRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/builders': {
-      id: '/_public/_admin/admin/dashboard/builders'
-      path: '/builders'
-      fullPath: '/admin/dashboard/builders'
-      preLoaderRoute: typeof PublicAdminAdminDashboardBuildersRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/events': {
-      id: '/_public/_admin/admin/dashboard/events'
-      path: '/events'
-      fullPath: '/admin/dashboard/events'
-      preLoaderRoute: typeof PublicAdminAdminDashboardEventsRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/projects': {
-      id: '/_public/_admin/admin/dashboard/projects'
-      path: '/projects'
-      fullPath: '/admin/dashboard/projects'
-      preLoaderRoute: typeof PublicAdminAdminDashboardProjectsRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/telegram': {
-      id: '/_public/_admin/admin/dashboard/telegram'
-      path: '/telegram'
-      fullPath: '/admin/dashboard/telegram'
-      preLoaderRoute: typeof PublicAdminAdminDashboardTelegramRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/x-nominations': {
-      id: '/_public/_admin/admin/dashboard/x-nominations'
-      path: '/x-nominations'
-      fullPath: '/admin/dashboard/x-nominations'
-      preLoaderRoute: typeof PublicAdminAdminDashboardXNominationsRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/ideas/': {
-      id: '/_public/_authenticated/_dashboard/ideas/'
-      path: '/ideas'
-      fullPath: '/ideas/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardIdeasIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/': {
-      id: '/_public/_authenticated/_dashboard/organizations/'
-      path: '/organizations'
-      fullPath: '/organizations/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/$slug': {
-      id: '/_public/_authenticated/_dashboard/organizations/$slug'
-      path: '/organizations/$slug'
-      fullPath: '/organizations/$slug'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsSlugRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/new': {
-      id: '/_public/_authenticated/_dashboard/organizations/new'
-      path: '/organizations/new'
-      fullPath: '/organizations/new'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsNewRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/results/': {
-      id: '/_public/_authenticated/_dashboard/results/'
-      path: '/results'
-      fullPath: '/results/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardResultsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/scopes/': {
-      id: '/_public/_authenticated/_dashboard/scopes/'
-      path: '/scopes'
-      fullPath: '/scopes/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardScopesIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/': {
-      id: '/_public/_authenticated/_dashboard/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/api-keys': {
-      id: '/_public/_authenticated/_dashboard/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsApiKeysRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/auth-methods': {
-      id: '/_public/_authenticated/_dashboard/settings/auth-methods'
-      path: '/auth-methods'
-      fullPath: '/settings/auth-methods'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/profile': {
-      id: '/_public/_authenticated/_dashboard/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsProfileRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/security': {
-      id: '/_public/_authenticated/_dashboard/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsSecurityRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
     '/_public/events/luma/$calendarId/$eventId': {
       id: '/_public/events/luma/$calendarId/$eventId'
       path: '/luma/$calendarId/$eventId'
@@ -1197,137 +1197,123 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface PublicAdminAdminDashboardRouteChildren {
-  PublicAdminAdminDashboardActivityRoute: typeof PublicAdminAdminDashboardActivityRoute
-  PublicAdminAdminDashboardBuildersRoute: typeof PublicAdminAdminDashboardBuildersRoute
-  PublicAdminAdminDashboardEventsRoute: typeof PublicAdminAdminDashboardEventsRoute
-  PublicAdminAdminDashboardProjectsRoute: typeof PublicAdminAdminDashboardProjectsRoute
-  PublicAdminAdminDashboardTelegramRoute: typeof PublicAdminAdminDashboardTelegramRoute
-  PublicAdminAdminDashboardXNominationsRoute: typeof PublicAdminAdminDashboardXNominationsRoute
-  PublicAdminAdminDashboardIndexRoute: typeof PublicAdminAdminDashboardIndexRoute
+interface AdminAdminDashboardRouteChildren {
+  AdminAdminDashboardActivityRoute: typeof AdminAdminDashboardActivityRoute
+  AdminAdminDashboardBuildersRoute: typeof AdminAdminDashboardBuildersRoute
+  AdminAdminDashboardEventsRoute: typeof AdminAdminDashboardEventsRoute
+  AdminAdminDashboardProjectsRoute: typeof AdminAdminDashboardProjectsRoute
+  AdminAdminDashboardTelegramRoute: typeof AdminAdminDashboardTelegramRoute
+  AdminAdminDashboardXNominationsRoute: typeof AdminAdminDashboardXNominationsRoute
+  AdminAdminDashboardIndexRoute: typeof AdminAdminDashboardIndexRoute
 }
 
-const PublicAdminAdminDashboardRouteChildren: PublicAdminAdminDashboardRouteChildren =
+const AdminAdminDashboardRouteChildren: AdminAdminDashboardRouteChildren = {
+  AdminAdminDashboardActivityRoute: AdminAdminDashboardActivityRoute,
+  AdminAdminDashboardBuildersRoute: AdminAdminDashboardBuildersRoute,
+  AdminAdminDashboardEventsRoute: AdminAdminDashboardEventsRoute,
+  AdminAdminDashboardProjectsRoute: AdminAdminDashboardProjectsRoute,
+  AdminAdminDashboardTelegramRoute: AdminAdminDashboardTelegramRoute,
+  AdminAdminDashboardXNominationsRoute: AdminAdminDashboardXNominationsRoute,
+  AdminAdminDashboardIndexRoute: AdminAdminDashboardIndexRoute,
+}
+
+const AdminAdminDashboardRouteWithChildren =
+  AdminAdminDashboardRoute._addFileChildren(AdminAdminDashboardRouteChildren)
+
+interface AdminRouteChildren {
+  AdminAdminDashboardRoute: typeof AdminAdminDashboardRouteWithChildren
+  AdminAdminIndexRoute: typeof AdminAdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdminDashboardRoute: AdminAdminDashboardRouteWithChildren,
+  AdminAdminIndexRoute: AdminAdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface AuthenticatedDashboardSettingsRouteChildren {
+  AuthenticatedDashboardSettingsApiKeysRoute: typeof AuthenticatedDashboardSettingsApiKeysRoute
+  AuthenticatedDashboardSettingsAuthMethodsRoute: typeof AuthenticatedDashboardSettingsAuthMethodsRoute
+  AuthenticatedDashboardSettingsProfileRoute: typeof AuthenticatedDashboardSettingsProfileRoute
+  AuthenticatedDashboardSettingsSecurityRoute: typeof AuthenticatedDashboardSettingsSecurityRoute
+  AuthenticatedDashboardSettingsIndexRoute: typeof AuthenticatedDashboardSettingsIndexRoute
+}
+
+const AuthenticatedDashboardSettingsRouteChildren: AuthenticatedDashboardSettingsRouteChildren =
   {
-    PublicAdminAdminDashboardActivityRoute:
-      PublicAdminAdminDashboardActivityRoute,
-    PublicAdminAdminDashboardBuildersRoute:
-      PublicAdminAdminDashboardBuildersRoute,
-    PublicAdminAdminDashboardEventsRoute: PublicAdminAdminDashboardEventsRoute,
-    PublicAdminAdminDashboardProjectsRoute:
-      PublicAdminAdminDashboardProjectsRoute,
-    PublicAdminAdminDashboardTelegramRoute:
-      PublicAdminAdminDashboardTelegramRoute,
-    PublicAdminAdminDashboardXNominationsRoute:
-      PublicAdminAdminDashboardXNominationsRoute,
-    PublicAdminAdminDashboardIndexRoute: PublicAdminAdminDashboardIndexRoute,
+    AuthenticatedDashboardSettingsApiKeysRoute:
+      AuthenticatedDashboardSettingsApiKeysRoute,
+    AuthenticatedDashboardSettingsAuthMethodsRoute:
+      AuthenticatedDashboardSettingsAuthMethodsRoute,
+    AuthenticatedDashboardSettingsProfileRoute:
+      AuthenticatedDashboardSettingsProfileRoute,
+    AuthenticatedDashboardSettingsSecurityRoute:
+      AuthenticatedDashboardSettingsSecurityRoute,
+    AuthenticatedDashboardSettingsIndexRoute:
+      AuthenticatedDashboardSettingsIndexRoute,
   }
 
-const PublicAdminAdminDashboardRouteWithChildren =
-  PublicAdminAdminDashboardRoute._addFileChildren(
-    PublicAdminAdminDashboardRouteChildren,
+const AuthenticatedDashboardSettingsRouteWithChildren =
+  AuthenticatedDashboardSettingsRoute._addFileChildren(
+    AuthenticatedDashboardSettingsRouteChildren,
   )
 
-interface PublicAdminRouteChildren {
-  PublicAdminAdminDashboardRoute: typeof PublicAdminAdminDashboardRouteWithChildren
-  PublicAdminAdminIndexRoute: typeof PublicAdminAdminIndexRoute
+interface AuthenticatedDashboardRouteChildren {
+  AuthenticatedDashboardDashboardRoute: typeof AuthenticatedDashboardDashboardRoute
+  AuthenticatedDashboardNotificationsRoute: typeof AuthenticatedDashboardNotificationsRoute
+  AuthenticatedDashboardProfileRoute: typeof AuthenticatedDashboardProfileRoute
+  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRouteWithChildren
+  AuthenticatedDashboardOrganizationsSlugRoute: typeof AuthenticatedDashboardOrganizationsSlugRoute
+  AuthenticatedDashboardOrganizationsNewRoute: typeof AuthenticatedDashboardOrganizationsNewRoute
+  AuthenticatedDashboardIdeasIndexRoute: typeof AuthenticatedDashboardIdeasIndexRoute
+  AuthenticatedDashboardOrganizationsIndexRoute: typeof AuthenticatedDashboardOrganizationsIndexRoute
+  AuthenticatedDashboardResultsIndexRoute: typeof AuthenticatedDashboardResultsIndexRoute
+  AuthenticatedDashboardScopesIndexRoute: typeof AuthenticatedDashboardScopesIndexRoute
 }
 
-const PublicAdminRouteChildren: PublicAdminRouteChildren = {
-  PublicAdminAdminDashboardRoute: PublicAdminAdminDashboardRouteWithChildren,
-  PublicAdminAdminIndexRoute: PublicAdminAdminIndexRoute,
+const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
+  {
+    AuthenticatedDashboardDashboardRoute: AuthenticatedDashboardDashboardRoute,
+    AuthenticatedDashboardNotificationsRoute:
+      AuthenticatedDashboardNotificationsRoute,
+    AuthenticatedDashboardProfileRoute: AuthenticatedDashboardProfileRoute,
+    AuthenticatedDashboardSettingsRoute:
+      AuthenticatedDashboardSettingsRouteWithChildren,
+    AuthenticatedDashboardOrganizationsSlugRoute:
+      AuthenticatedDashboardOrganizationsSlugRoute,
+    AuthenticatedDashboardOrganizationsNewRoute:
+      AuthenticatedDashboardOrganizationsNewRoute,
+    AuthenticatedDashboardIdeasIndexRoute:
+      AuthenticatedDashboardIdeasIndexRoute,
+    AuthenticatedDashboardOrganizationsIndexRoute:
+      AuthenticatedDashboardOrganizationsIndexRoute,
+    AuthenticatedDashboardResultsIndexRoute:
+      AuthenticatedDashboardResultsIndexRoute,
+    AuthenticatedDashboardScopesIndexRoute:
+      AuthenticatedDashboardScopesIndexRoute,
+  }
+
+const AuthenticatedDashboardRouteWithChildren =
+  AuthenticatedDashboardRoute._addFileChildren(
+    AuthenticatedDashboardRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+  AuthenticatedAcceptInvitationIdRoute: typeof AuthenticatedAcceptInvitationIdRoute
+  AuthenticatedProfileActivityRoute: typeof AuthenticatedProfileActivityRoute
 }
 
-const PublicAdminRouteWithChildren = PublicAdminRoute._addFileChildren(
-  PublicAdminRouteChildren,
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+  AuthenticatedAcceptInvitationIdRoute: AuthenticatedAcceptInvitationIdRoute,
+  AuthenticatedProfileActivityRoute: AuthenticatedProfileActivityRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
 )
-
-interface PublicAuthenticatedDashboardSettingsRouteChildren {
-  PublicAuthenticatedDashboardSettingsApiKeysRoute: typeof PublicAuthenticatedDashboardSettingsApiKeysRoute
-  PublicAuthenticatedDashboardSettingsAuthMethodsRoute: typeof PublicAuthenticatedDashboardSettingsAuthMethodsRoute
-  PublicAuthenticatedDashboardSettingsProfileRoute: typeof PublicAuthenticatedDashboardSettingsProfileRoute
-  PublicAuthenticatedDashboardSettingsSecurityRoute: typeof PublicAuthenticatedDashboardSettingsSecurityRoute
-  PublicAuthenticatedDashboardSettingsIndexRoute: typeof PublicAuthenticatedDashboardSettingsIndexRoute
-}
-
-const PublicAuthenticatedDashboardSettingsRouteChildren: PublicAuthenticatedDashboardSettingsRouteChildren =
-  {
-    PublicAuthenticatedDashboardSettingsApiKeysRoute:
-      PublicAuthenticatedDashboardSettingsApiKeysRoute,
-    PublicAuthenticatedDashboardSettingsAuthMethodsRoute:
-      PublicAuthenticatedDashboardSettingsAuthMethodsRoute,
-    PublicAuthenticatedDashboardSettingsProfileRoute:
-      PublicAuthenticatedDashboardSettingsProfileRoute,
-    PublicAuthenticatedDashboardSettingsSecurityRoute:
-      PublicAuthenticatedDashboardSettingsSecurityRoute,
-    PublicAuthenticatedDashboardSettingsIndexRoute:
-      PublicAuthenticatedDashboardSettingsIndexRoute,
-  }
-
-const PublicAuthenticatedDashboardSettingsRouteWithChildren =
-  PublicAuthenticatedDashboardSettingsRoute._addFileChildren(
-    PublicAuthenticatedDashboardSettingsRouteChildren,
-  )
-
-interface PublicAuthenticatedDashboardRouteChildren {
-  PublicAuthenticatedDashboardDashboardRoute: typeof PublicAuthenticatedDashboardDashboardRoute
-  PublicAuthenticatedDashboardNotificationsRoute: typeof PublicAuthenticatedDashboardNotificationsRoute
-  PublicAuthenticatedDashboardProfileRoute: typeof PublicAuthenticatedDashboardProfileRoute
-  PublicAuthenticatedDashboardSettingsRoute: typeof PublicAuthenticatedDashboardSettingsRouteWithChildren
-  PublicAuthenticatedDashboardOrganizationsSlugRoute: typeof PublicAuthenticatedDashboardOrganizationsSlugRoute
-  PublicAuthenticatedDashboardOrganizationsNewRoute: typeof PublicAuthenticatedDashboardOrganizationsNewRoute
-  PublicAuthenticatedDashboardIdeasIndexRoute: typeof PublicAuthenticatedDashboardIdeasIndexRoute
-  PublicAuthenticatedDashboardOrganizationsIndexRoute: typeof PublicAuthenticatedDashboardOrganizationsIndexRoute
-  PublicAuthenticatedDashboardResultsIndexRoute: typeof PublicAuthenticatedDashboardResultsIndexRoute
-  PublicAuthenticatedDashboardScopesIndexRoute: typeof PublicAuthenticatedDashboardScopesIndexRoute
-}
-
-const PublicAuthenticatedDashboardRouteChildren: PublicAuthenticatedDashboardRouteChildren =
-  {
-    PublicAuthenticatedDashboardDashboardRoute:
-      PublicAuthenticatedDashboardDashboardRoute,
-    PublicAuthenticatedDashboardNotificationsRoute:
-      PublicAuthenticatedDashboardNotificationsRoute,
-    PublicAuthenticatedDashboardProfileRoute:
-      PublicAuthenticatedDashboardProfileRoute,
-    PublicAuthenticatedDashboardSettingsRoute:
-      PublicAuthenticatedDashboardSettingsRouteWithChildren,
-    PublicAuthenticatedDashboardOrganizationsSlugRoute:
-      PublicAuthenticatedDashboardOrganizationsSlugRoute,
-    PublicAuthenticatedDashboardOrganizationsNewRoute:
-      PublicAuthenticatedDashboardOrganizationsNewRoute,
-    PublicAuthenticatedDashboardIdeasIndexRoute:
-      PublicAuthenticatedDashboardIdeasIndexRoute,
-    PublicAuthenticatedDashboardOrganizationsIndexRoute:
-      PublicAuthenticatedDashboardOrganizationsIndexRoute,
-    PublicAuthenticatedDashboardResultsIndexRoute:
-      PublicAuthenticatedDashboardResultsIndexRoute,
-    PublicAuthenticatedDashboardScopesIndexRoute:
-      PublicAuthenticatedDashboardScopesIndexRoute,
-  }
-
-const PublicAuthenticatedDashboardRouteWithChildren =
-  PublicAuthenticatedDashboardRoute._addFileChildren(
-    PublicAuthenticatedDashboardRouteChildren,
-  )
-
-interface PublicAuthenticatedRouteChildren {
-  PublicAuthenticatedDashboardRoute: typeof PublicAuthenticatedDashboardRouteWithChildren
-  PublicAuthenticatedAcceptInvitationIdRoute: typeof PublicAuthenticatedAcceptInvitationIdRoute
-  PublicAuthenticatedProfileActivityRoute: typeof PublicAuthenticatedProfileActivityRoute
-}
-
-const PublicAuthenticatedRouteChildren: PublicAuthenticatedRouteChildren = {
-  PublicAuthenticatedDashboardRoute:
-    PublicAuthenticatedDashboardRouteWithChildren,
-  PublicAuthenticatedAcceptInvitationIdRoute:
-    PublicAuthenticatedAcceptInvitationIdRoute,
-  PublicAuthenticatedProfileActivityRoute:
-    PublicAuthenticatedProfileActivityRoute,
-}
-
-const PublicAuthenticatedRouteWithChildren =
-  PublicAuthenticatedRoute._addFileChildren(PublicAuthenticatedRouteChildren)
 
 interface PublicEventsRouteChildren {
   PublicEventsSlugRoute: typeof PublicEventsSlugRoute
@@ -1384,8 +1370,6 @@ const PublicProjectsRouteWithChildren = PublicProjectsRoute._addFileChildren(
 )
 
 interface PublicRouteChildren {
-  PublicAdminRoute: typeof PublicAdminRouteWithChildren
-  PublicAuthenticatedRoute: typeof PublicAuthenticatedRouteWithChildren
   PublicAboutRoute: typeof PublicAboutRoute
   PublicBrandRoute: typeof PublicBrandRoute
   PublicBuildRoute: typeof PublicBuildRoute
@@ -1408,8 +1392,6 @@ interface PublicRouteChildren {
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
-  PublicAdminRoute: PublicAdminRouteWithChildren,
-  PublicAuthenticatedRoute: PublicAuthenticatedRouteWithChildren,
   PublicAboutRoute: PublicAboutRoute,
   PublicBrandRoute: PublicBrandRoute,
   PublicBuildRoute: PublicBuildRoute,
@@ -1435,6 +1417,8 @@ const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  AdminRoute: AdminRouteWithChildren,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport

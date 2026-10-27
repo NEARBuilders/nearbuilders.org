@@ -34,10 +34,8 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "build": "pnpm run build:types && rspack build",
-    "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "pnpm run build:types && DEPLOY=true rspack build",
-    "dev": "pnpm run build:types && rspack serve",
+    "build": "every-plugin build",
+    "dev": "every-plugin dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",

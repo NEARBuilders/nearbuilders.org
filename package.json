@@ -7,12 +7,12 @@
     "dev:api": "bos dev --ui remote --api local",
     "dev:proxy": "bos dev --proxy",
     "build": "bos build",
-    "deploy": "bos build --deploy",
+    "deploy": "bos deploy",
     "publish": "bos publish",
     "bos": "bos",
     "types:gen": "bos types gen",
-    "typecheck": "pnpm run types:gen && if [ -d ui ]; then pnpm --dir ui run typecheck || exit 1; fi && if [ -d api ]; then pnpm --dir api run typecheck || exit 1; fi && for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then pnpm --dir \"$dir\" run typecheck || exit 1; fi; done",
-    "lint": "biome check . && pnpm --dir ui lint",
+    "typecheck": "pnpm run types:gen && if [ -d ui ]; then pnpm --dir ui run typecheck; fi && if [ -d api ]; then pnpm --dir api run typecheck; fi && if [ -d plugins ]; then for dir in plugins/*; do if [ -f \"$dir/package.json\" ]; then pnpm --dir \"$dir\" --if-present run typecheck && pnpm --dir \"$dir\" --if-present run typecheck:ui; fi; done; fi",
+    "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -21,13 +21,13 @@
     "postinstall": "bos types gen || true",
     "version": "changeset version",
     "release": "echo 'Packages versioned - app release handled by workflow'",
-    "db:push": "pnpm --dir api drizzle-kit push",
+    "db:push": "pnpm --dir api exec drizzle-kit push",
     "db:studio": "bos db:studio",
-    "db:generate": "pnpm --dir api drizzle-kit generate",
-    "db:migrate": "pnpm --dir api drizzle-kit migrate",
-    "test": "pnpm --dir api --if-present run test || exit 1 && pnpm --dir ui --if-present run test || exit 1 && [ -d plugins ] && for d in plugins/*; do if [ -f \"$d/package.json\" ]; then pnpm --dir \"$d\" --if-present run test || exit 1; fi; done || true",
-    "test:api": "pnpm --dir api test",
-    "test:integration": "pnpm --dir api test tests/integration/",
+    "db:generate": "pnpm --dir api exec drizzle-kit generate",
+    "db:migrate": "pnpm --dir api exec drizzle-kit migrate",
+    "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && for d in plugins/*; do [ -f \"$d/package.json\" ] && pnpm --dir \"$d\" --if-present run test; done",
+    "test:api": "pnpm --dir api --if-present run test",
+    "test:integration": "pnpm --dir api --if-present run test tests/integration/",
     "dev:postgres": "docker compose up -d --wait && pnpm run dev",
     "dev:postgres:down": "docker compose down",
     "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait",
@@ -44,7 +44,7 @@
     "test:regression:prod": "pnpm run test:regression:http:prod && pnpm run test:regression:browser:prod",
     "test:regression": "pnpm run test:regression:dev"
   },
-  "packageManager": "pnpm@12.10.1",
+  "packageManager": "pnpm@12.10.1+sha512.ba40a37eb1a370d60fea8c4cf1d364c13bcccef518e98ad2bcee954f539d38da37458e58261a3fa55e06523450ea0ffff9f497b135be41f2c15c1642bacace6c",
   "type": "module",
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
@@ -55,7 +55,11 @@
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "catalog:",
     "@types/pg": "catalog:",
-    "@playwright/test": "^1.58.1"
+    "@playwright/test": "^1.58.1",
+    "@effect/tsgo": "^0.45.0",
+    "@shadcn/lint": "^0.2.0",
+    "oxlint": "1.82.0",
+    "oxlint-tsgolint": "7.0.2001"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
@@ -74,9 +78,13 @@
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
     "pg": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@effect/oxc": "link:repos/effect/packages/tools/oxc"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=20.11"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
   }
 }

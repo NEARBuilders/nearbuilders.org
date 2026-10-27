@@ -10,6 +10,7 @@
  */
 
 import { createRouter as createCoreRouter } from "everything-dev/ui/router-client";
+import { defaultQueryClient } from "everything-dev/ui/router-defaults";
 import type { ApiClient, CreateRouterOptions, SessionData } from "./app";
 import { routeTree } from "./routeTree.gen";
 
@@ -19,6 +20,10 @@ export type {
   RouterContext,
   RouterModule,
 } from "./app";
+
+export function createQueryClient() {
+  return defaultQueryClient();
+}
 
 export function createRouter(opts: CreateRouterOptions) {
   return createCoreRouter<ApiClient, SessionData, typeof routeTree>({
