@@ -11,65 +11,65 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
-import { Route as PublicSkillRouteImport } from './routes/_public/skill'
-import { Route as PublicProjectsRouteImport } from './routes/_public/projects'
-import { Route as PublicLoginRouteImport } from './routes/_public/login'
-import { Route as PublicJoinRouteImport } from './routes/_public/join'
-import { Route as PublicIronclawRouteImport } from './routes/_public/ironclaw'
-import { Route as PublicEventsRouteImport } from './routes/_public/events'
-import { Route as PublicBuildRouteImport } from './routes/_public/build'
-import { Route as PublicBrandRouteImport } from './routes/_public/brand'
-import { Route as PublicAboutRouteImport } from './routes/_public/about'
-import { Route as PublicAuthenticatedRouteImport } from './routes/_public/_authenticated'
 import { Route as PublicAdminRouteImport } from './routes/_public/_admin'
-import { Route as PublicProjectsIndexRouteImport } from './routes/_public/projects/index'
-import { Route as PublicEventsIndexRouteImport } from './routes/_public/events/index'
-import { Route as PublicBuildersIndexRouteImport } from './routes/_public/builders/index'
-import { Route as PublicAppsIndexRouteImport } from './routes/_public/apps/index'
-import { Route as PublicActivityIndexRouteImport } from './routes/_public/activity/index'
-import { Route as PublicProjectsNewRouteImport } from './routes/_public/projects/new'
-import { Route as PublicEventsNewRouteImport } from './routes/_public/events/new'
-import { Route as PublicEventsSlugRouteImport } from './routes/_public/events/$slug'
-import { Route as PublicBuildersAddRouteImport } from './routes/_public/builders/add'
-import { Route as PublicBuildersAccountRouteImport } from './routes/_public/builders/$account'
-import { Route as PublicActivityLeaderboardRouteImport } from './routes/_public/activity/leaderboard'
+import { Route as PublicAuthenticatedRouteImport } from './routes/_public/_authenticated'
+import { Route as PublicAboutRouteImport } from './routes/_public/about'
+import { Route as PublicBrandRouteImport } from './routes/_public/brand'
+import { Route as PublicBuildRouteImport } from './routes/_public/build'
+import { Route as PublicEventsRouteImport } from './routes/_public/events'
+import { Route as PublicIronclawRouteImport } from './routes/_public/ironclaw'
+import { Route as PublicJoinRouteImport } from './routes/_public/join'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicProjectsRouteImport } from './routes/_public/projects'
+import { Route as PublicSkillRouteImport } from './routes/_public/skill'
 import { Route as PublicAuthenticatedDashboardRouteImport } from './routes/_public/_authenticated/_dashboard'
-import { Route as PublicProjectsNewIndexRouteImport } from './routes/_public/projects/new.index'
-import { Route as PublicProjectsKindIndexRouteImport } from './routes/_public/projects/$kind.index'
-import { Route as PublicAppsAccountIdIndexRouteImport } from './routes/_public/apps/$accountId/index'
+import { Route as PublicActivityIndexRouteImport } from './routes/_public/activity/index'
+import { Route as PublicActivityLeaderboardRouteImport } from './routes/_public/activity/leaderboard'
+import { Route as PublicAppsIndexRouteImport } from './routes/_public/apps/index'
+import { Route as PublicBuildersIndexRouteImport } from './routes/_public/builders/index'
+import { Route as PublicBuildersAccountRouteImport } from './routes/_public/builders/$account'
+import { Route as PublicBuildersAddRouteImport } from './routes/_public/builders/add'
+import { Route as PublicEventsIndexRouteImport } from './routes/_public/events/index'
+import { Route as PublicEventsSlugRouteImport } from './routes/_public/events/$slug'
+import { Route as PublicEventsNewRouteImport } from './routes/_public/events/new'
+import { Route as PublicProjectsIndexRouteImport } from './routes/_public/projects/index'
+import { Route as PublicProjectsNewRouteImport } from './routes/_public/projects/new'
 import { Route as PublicAdminAdminIndexRouteImport } from './routes/_public/_admin/admin/index'
-import { Route as PublicProjectsNewKindRouteImport } from './routes/_public/projects/new.$kind'
-import { Route as PublicProjectsKindSlugRouteImport } from './routes/_public/projects/$kind.$slug'
-import { Route as PublicEventsSlugEditRouteImport } from './routes/_public/events/$slug_.edit'
-import { Route as PublicBuildersAccountEditRouteImport } from './routes/_public/builders/$account_.edit'
-import { Route as PublicAppsAccountIdGatewayIdRouteImport } from './routes/_public/apps/$accountId/$gatewayId'
-import { Route as PublicAuthenticatedProfileActivityRouteImport } from './routes/_public/_authenticated/profile.activity'
-import { Route as PublicAuthenticatedAcceptInvitationIdRouteImport } from './routes/_public/_authenticated/accept-invitation.$id'
-import { Route as PublicAuthenticatedDashboardSettingsRouteImport } from './routes/_public/_authenticated/_dashboard/settings'
-import { Route as PublicAuthenticatedDashboardProfileRouteImport } from './routes/_public/_authenticated/_dashboard/profile'
-import { Route as PublicAuthenticatedDashboardNotificationsRouteImport } from './routes/_public/_authenticated/_dashboard/notifications'
-import { Route as PublicAuthenticatedDashboardDashboardRouteImport } from './routes/_public/_authenticated/_dashboard/dashboard'
 import { Route as PublicAdminAdminDashboardRouteImport } from './routes/_public/_admin/admin/dashboard'
-import { Route as PublicAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/settings/index'
-import { Route as PublicAuthenticatedDashboardScopesIndexRouteImport } from './routes/_public/_authenticated/_dashboard/scopes.index'
-import { Route as PublicAuthenticatedDashboardResultsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/results.index'
-import { Route as PublicAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/index'
-import { Route as PublicAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_public/_authenticated/_dashboard/ideas.index'
+import { Route as PublicAuthenticatedDashboardDashboardRouteImport } from './routes/_public/_authenticated/_dashboard/dashboard'
+import { Route as PublicAuthenticatedDashboardNotificationsRouteImport } from './routes/_public/_authenticated/_dashboard/notifications'
+import { Route as PublicAuthenticatedDashboardProfileRouteImport } from './routes/_public/_authenticated/_dashboard/profile'
+import { Route as PublicAuthenticatedDashboardSettingsRouteImport } from './routes/_public/_authenticated/_dashboard/settings'
+import { Route as PublicAuthenticatedAcceptInvitationIdRouteImport } from './routes/_public/_authenticated/accept-invitation.$id'
+import { Route as PublicAuthenticatedProfileActivityRouteImport } from './routes/_public/_authenticated/profile.activity'
+import { Route as PublicAppsAccountIdIndexRouteImport } from './routes/_public/apps/$accountId/index'
+import { Route as PublicAppsAccountIdGatewayIdRouteImport } from './routes/_public/apps/$accountId/$gatewayId'
+import { Route as PublicBuildersAccountEditRouteImport } from './routes/_public/builders/$account_.edit'
+import { Route as PublicEventsSlugEditRouteImport } from './routes/_public/events/$slug_.edit'
+import { Route as PublicProjectsKindIndexRouteImport } from './routes/_public/projects/$kind.index'
+import { Route as PublicProjectsKindSlugRouteImport } from './routes/_public/projects/$kind.$slug'
+import { Route as PublicProjectsNewIndexRouteImport } from './routes/_public/projects/new.index'
+import { Route as PublicProjectsNewKindRouteImport } from './routes/_public/projects/new.$kind'
 import { Route as PublicAdminAdminDashboardIndexRouteImport } from './routes/_public/_admin/admin/dashboard/index'
-import { Route as PublicProjectsKindSlugEditRouteImport } from './routes/_public/projects/$kind.$slug_.edit'
-import { Route as PublicEventsLumaCalendarIdEventIdRouteImport } from './routes/_public/events/luma/$calendarId/$eventId'
-import { Route as PublicAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_public/_authenticated/_dashboard/settings/security'
-import { Route as PublicAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_public/_authenticated/_dashboard/settings/profile'
-import { Route as PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_public/_authenticated/_dashboard/settings/auth-methods'
-import { Route as PublicAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_public/_authenticated/_dashboard/settings/api-keys'
-import { Route as PublicAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/new'
-import { Route as PublicAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/$slug'
-import { Route as PublicAdminAdminDashboardXNominationsRouteImport } from './routes/_public/_admin/admin/dashboard/x-nominations'
-import { Route as PublicAdminAdminDashboardTelegramRouteImport } from './routes/_public/_admin/admin/dashboard/telegram'
-import { Route as PublicAdminAdminDashboardProjectsRouteImport } from './routes/_public/_admin/admin/dashboard/projects'
-import { Route as PublicAdminAdminDashboardEventsRouteImport } from './routes/_public/_admin/admin/dashboard/events'
-import { Route as PublicAdminAdminDashboardBuildersRouteImport } from './routes/_public/_admin/admin/dashboard/builders'
 import { Route as PublicAdminAdminDashboardActivityRouteImport } from './routes/_public/_admin/admin/dashboard/activity'
+import { Route as PublicAdminAdminDashboardBuildersRouteImport } from './routes/_public/_admin/admin/dashboard/builders'
+import { Route as PublicAdminAdminDashboardEventsRouteImport } from './routes/_public/_admin/admin/dashboard/events'
+import { Route as PublicAdminAdminDashboardProjectsRouteImport } from './routes/_public/_admin/admin/dashboard/projects'
+import { Route as PublicAdminAdminDashboardTelegramRouteImport } from './routes/_public/_admin/admin/dashboard/telegram'
+import { Route as PublicAdminAdminDashboardXNominationsRouteImport } from './routes/_public/_admin/admin/dashboard/x-nominations'
+import { Route as PublicAuthenticatedDashboardIdeasIndexRouteImport } from './routes/_public/_authenticated/_dashboard/ideas.index'
+import { Route as PublicAuthenticatedDashboardOrganizationsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/index'
+import { Route as PublicAuthenticatedDashboardOrganizationsSlugRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/$slug'
+import { Route as PublicAuthenticatedDashboardOrganizationsNewRouteImport } from './routes/_public/_authenticated/_dashboard/organizations/new'
+import { Route as PublicAuthenticatedDashboardResultsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/results.index'
+import { Route as PublicAuthenticatedDashboardScopesIndexRouteImport } from './routes/_public/_authenticated/_dashboard/scopes.index'
+import { Route as PublicAuthenticatedDashboardSettingsIndexRouteImport } from './routes/_public/_authenticated/_dashboard/settings/index'
+import { Route as PublicAuthenticatedDashboardSettingsApiKeysRouteImport } from './routes/_public/_authenticated/_dashboard/settings/api-keys'
+import { Route as PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport } from './routes/_public/_authenticated/_dashboard/settings/auth-methods'
+import { Route as PublicAuthenticatedDashboardSettingsProfileRouteImport } from './routes/_public/_authenticated/_dashboard/settings/profile'
+import { Route as PublicAuthenticatedDashboardSettingsSecurityRouteImport } from './routes/_public/_authenticated/_dashboard/settings/security'
+import { Route as PublicEventsLumaCalendarIdEventIdRouteImport } from './routes/_public/events/luma/$calendarId/$eventId'
+import { Route as PublicProjectsKindSlugEditRouteImport } from './routes/_public/projects/$kind.$slug_.edit'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -80,44 +80,12 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicSkillRoute = PublicSkillRouteImport.update({
-  id: '/skill',
-  path: '/skill',
+const PublicAdminRoute = PublicAdminRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicProjectsRoute = PublicProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicLoginRoute = PublicLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicJoinRoute = PublicJoinRouteImport.update({
-  id: '/join',
-  path: '/join',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicIronclawRoute = PublicIronclawRouteImport.update({
-  id: '/ironclaw',
-  path: '/ironclaw',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicEventsRoute = PublicEventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicBuildRoute = PublicBuildRouteImport.update({
-  id: '/build',
-  path: '/build',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicBrandRoute = PublicBrandRouteImport.update({
-  id: '/brand',
-  path: '/brand',
+const PublicAuthenticatedRoute = PublicAuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicAboutRoute = PublicAboutRouteImport.update({
@@ -125,62 +93,54 @@ const PublicAboutRoute = PublicAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicAuthenticatedRoute = PublicAuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const PublicBrandRoute = PublicBrandRouteImport.update({
+  id: '/brand',
+  path: '/brand',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicAdminRoute = PublicAdminRouteImport.update({
-  id: '/_admin',
+const PublicBuildRoute = PublicBuildRouteImport.update({
+  id: '/build',
+  path: '/build',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicProjectsIndexRoute = PublicProjectsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PublicProjectsRoute,
-} as any)
-const PublicEventsIndexRoute = PublicEventsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PublicEventsRoute,
-} as any)
-const PublicBuildersIndexRoute = PublicBuildersIndexRouteImport.update({
-  id: '/builders/',
-  path: '/builders/',
+const PublicEventsRoute = PublicEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => PublicRoute,
 } as any)
-const PublicAppsIndexRoute = PublicAppsIndexRouteImport.update({
-  id: '/apps/',
-  path: '/apps/',
+const PublicIronclawRoute = PublicIronclawRouteImport.update({
+  id: '/ironclaw',
+  path: '/ironclaw',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicJoinRoute = PublicJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicProjectsRoute = PublicProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicSkillRoute = PublicSkillRouteImport.update({
+  id: '/skill',
+  path: '/skill',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicAuthenticatedDashboardRoute =
+  PublicAuthenticatedDashboardRouteImport.update({
+    id: '/_dashboard',
+    getParentRoute: () => PublicAuthenticatedRoute,
+  } as any)
 const PublicActivityIndexRoute = PublicActivityIndexRouteImport.update({
   id: '/activity/',
   path: '/activity/',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicProjectsNewRoute = PublicProjectsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => PublicProjectsRoute,
-} as any)
-const PublicEventsNewRoute = PublicEventsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => PublicEventsRoute,
-} as any)
-const PublicEventsSlugRoute = PublicEventsSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => PublicEventsRoute,
-} as any)
-const PublicBuildersAddRoute = PublicBuildersAddRouteImport.update({
-  id: '/builders/add',
-  path: '/builders/add',
-  getParentRoute: () => PublicRoute,
-} as any)
-const PublicBuildersAccountRoute = PublicBuildersAccountRouteImport.update({
-  id: '/builders/$account',
-  path: '/builders/$account',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicActivityLeaderboardRoute =
@@ -189,81 +149,66 @@ const PublicActivityLeaderboardRoute =
     path: '/activity/leaderboard',
     getParentRoute: () => PublicRoute,
   } as any)
-const PublicAuthenticatedDashboardRoute =
-  PublicAuthenticatedDashboardRouteImport.update({
-    id: '/_dashboard',
-    getParentRoute: () => PublicAuthenticatedRoute,
-  } as any)
-const PublicProjectsNewIndexRoute = PublicProjectsNewIndexRouteImport.update({
+const PublicAppsIndexRoute = PublicAppsIndexRouteImport.update({
+  id: '/apps/',
+  path: '/apps/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicBuildersIndexRoute = PublicBuildersIndexRouteImport.update({
+  id: '/builders/',
+  path: '/builders/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicBuildersAccountRoute = PublicBuildersAccountRouteImport.update({
+  id: '/builders/$account',
+  path: '/builders/$account',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicBuildersAddRoute = PublicBuildersAddRouteImport.update({
+  id: '/builders/add',
+  path: '/builders/add',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicEventsIndexRoute = PublicEventsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PublicProjectsNewRoute,
+  getParentRoute: () => PublicEventsRoute,
 } as any)
-const PublicProjectsKindIndexRoute = PublicProjectsKindIndexRouteImport.update({
-  id: '/$kind/',
-  path: '/$kind/',
+const PublicEventsSlugRoute = PublicEventsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => PublicEventsRoute,
+} as any)
+const PublicEventsNewRoute = PublicEventsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => PublicEventsRoute,
+} as any)
+const PublicProjectsIndexRoute = PublicProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => PublicProjectsRoute,
 } as any)
-const PublicAppsAccountIdIndexRoute =
-  PublicAppsAccountIdIndexRouteImport.update({
-    id: '/apps/$accountId/',
-    path: '/apps/$accountId/',
-    getParentRoute: () => PublicRoute,
-  } as any)
+const PublicProjectsNewRoute = PublicProjectsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => PublicProjectsRoute,
+} as any)
 const PublicAdminAdminIndexRoute = PublicAdminAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
   getParentRoute: () => PublicAdminRoute,
 } as any)
-const PublicProjectsNewKindRoute = PublicProjectsNewKindRouteImport.update({
-  id: '/$kind',
-  path: '/$kind',
-  getParentRoute: () => PublicProjectsNewRoute,
-} as any)
-const PublicProjectsKindSlugRoute = PublicProjectsKindSlugRouteImport.update({
-  id: '/$kind/$slug',
-  path: '/$kind/$slug',
-  getParentRoute: () => PublicProjectsRoute,
-} as any)
-const PublicEventsSlugEditRoute = PublicEventsSlugEditRouteImport.update({
-  id: '/$slug_/edit',
-  path: '/$slug/edit',
-  getParentRoute: () => PublicEventsRoute,
-} as any)
-const PublicBuildersAccountEditRoute =
-  PublicBuildersAccountEditRouteImport.update({
-    id: '/builders/$account_/edit',
-    path: '/builders/$account/edit',
-    getParentRoute: () => PublicRoute,
+const PublicAdminAdminDashboardRoute =
+  PublicAdminAdminDashboardRouteImport.update({
+    id: '/admin/dashboard',
+    path: '/admin/dashboard',
+    getParentRoute: () => PublicAdminRoute,
   } as any)
-const PublicAppsAccountIdGatewayIdRoute =
-  PublicAppsAccountIdGatewayIdRouteImport.update({
-    id: '/apps/$accountId/$gatewayId',
-    path: '/apps/$accountId/$gatewayId',
-    getParentRoute: () => PublicRoute,
-  } as any)
-const PublicAuthenticatedProfileActivityRoute =
-  PublicAuthenticatedProfileActivityRouteImport.update({
-    id: '/profile/activity',
-    path: '/profile/activity',
-    getParentRoute: () => PublicAuthenticatedRoute,
-  } as any)
-const PublicAuthenticatedAcceptInvitationIdRoute =
-  PublicAuthenticatedAcceptInvitationIdRouteImport.update({
-    id: '/accept-invitation/$id',
-    path: '/accept-invitation/$id',
-    getParentRoute: () => PublicAuthenticatedRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsRoute =
-  PublicAuthenticatedDashboardSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardProfileRoute =
-  PublicAuthenticatedDashboardProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
+const PublicAuthenticatedDashboardDashboardRoute =
+  PublicAuthenticatedDashboardDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
     getParentRoute: () => PublicAuthenticatedDashboardRoute,
   } as any)
 const PublicAuthenticatedDashboardNotificationsRoute =
@@ -272,124 +217,83 @@ const PublicAuthenticatedDashboardNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => PublicAuthenticatedDashboardRoute,
   } as any)
-const PublicAuthenticatedDashboardDashboardRoute =
-  PublicAuthenticatedDashboardDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
+const PublicAuthenticatedDashboardProfileRoute =
+  PublicAuthenticatedDashboardProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
     getParentRoute: () => PublicAuthenticatedDashboardRoute,
   } as any)
-const PublicAdminAdminDashboardRoute =
-  PublicAdminAdminDashboardRouteImport.update({
-    id: '/admin/dashboard',
-    path: '/admin/dashboard',
-    getParentRoute: () => PublicAdminRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsIndexRoute =
-  PublicAuthenticatedDashboardSettingsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardScopesIndexRoute =
-  PublicAuthenticatedDashboardScopesIndexRouteImport.update({
-    id: '/scopes/',
-    path: '/scopes/',
+const PublicAuthenticatedDashboardSettingsRoute =
+  PublicAuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
     getParentRoute: () => PublicAuthenticatedDashboardRoute,
   } as any)
-const PublicAuthenticatedDashboardResultsIndexRoute =
-  PublicAuthenticatedDashboardResultsIndexRouteImport.update({
-    id: '/results/',
-    path: '/results/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+const PublicAuthenticatedAcceptInvitationIdRoute =
+  PublicAuthenticatedAcceptInvitationIdRouteImport.update({
+    id: '/accept-invitation/$id',
+    path: '/accept-invitation/$id',
+    getParentRoute: () => PublicAuthenticatedRoute,
   } as any)
-const PublicAuthenticatedDashboardOrganizationsIndexRoute =
-  PublicAuthenticatedDashboardOrganizationsIndexRouteImport.update({
-    id: '/organizations/',
-    path: '/organizations/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+const PublicAuthenticatedProfileActivityRoute =
+  PublicAuthenticatedProfileActivityRouteImport.update({
+    id: '/profile/activity',
+    path: '/profile/activity',
+    getParentRoute: () => PublicAuthenticatedRoute,
   } as any)
-const PublicAuthenticatedDashboardIdeasIndexRoute =
-  PublicAuthenticatedDashboardIdeasIndexRouteImport.update({
-    id: '/ideas/',
-    path: '/ideas/',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+const PublicAppsAccountIdIndexRoute =
+  PublicAppsAccountIdIndexRouteImport.update({
+    id: '/apps/$accountId/',
+    path: '/apps/$accountId/',
+    getParentRoute: () => PublicRoute,
   } as any)
+const PublicAppsAccountIdGatewayIdRoute =
+  PublicAppsAccountIdGatewayIdRouteImport.update({
+    id: '/apps/$accountId/$gatewayId',
+    path: '/apps/$accountId/$gatewayId',
+    getParentRoute: () => PublicRoute,
+  } as any)
+const PublicBuildersAccountEditRoute =
+  PublicBuildersAccountEditRouteImport.update({
+    id: '/builders/$account_/edit',
+    path: '/builders/$account/edit',
+    getParentRoute: () => PublicRoute,
+  } as any)
+const PublicEventsSlugEditRoute = PublicEventsSlugEditRouteImport.update({
+  id: '/$slug_/edit',
+  path: '/$slug/edit',
+  getParentRoute: () => PublicEventsRoute,
+} as any)
+const PublicProjectsKindIndexRoute = PublicProjectsKindIndexRouteImport.update({
+  id: '/$kind/',
+  path: '/$kind/',
+  getParentRoute: () => PublicProjectsRoute,
+} as any)
+const PublicProjectsKindSlugRoute = PublicProjectsKindSlugRouteImport.update({
+  id: '/$kind/$slug',
+  path: '/$kind/$slug',
+  getParentRoute: () => PublicProjectsRoute,
+} as any)
+const PublicProjectsNewIndexRoute = PublicProjectsNewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicProjectsNewRoute,
+} as any)
+const PublicProjectsNewKindRoute = PublicProjectsNewKindRouteImport.update({
+  id: '/$kind',
+  path: '/$kind',
+  getParentRoute: () => PublicProjectsNewRoute,
+} as any)
 const PublicAdminAdminDashboardIndexRoute =
   PublicAdminAdminDashboardIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => PublicAdminAdminDashboardRoute,
   } as any)
-const PublicProjectsKindSlugEditRoute =
-  PublicProjectsKindSlugEditRouteImport.update({
-    id: '/$kind/$slug_/edit',
-    path: '/$kind/$slug/edit',
-    getParentRoute: () => PublicProjectsRoute,
-  } as any)
-const PublicEventsLumaCalendarIdEventIdRoute =
-  PublicEventsLumaCalendarIdEventIdRouteImport.update({
-    id: '/luma/$calendarId/$eventId',
-    path: '/luma/$calendarId/$eventId',
-    getParentRoute: () => PublicEventsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsSecurityRoute =
-  PublicAuthenticatedDashboardSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsProfileRoute =
-  PublicAuthenticatedDashboardSettingsProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsAuthMethodsRoute =
-  PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
-    id: '/auth-methods',
-    path: '/auth-methods',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardSettingsApiKeysRoute =
-  PublicAuthenticatedDashboardSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
-    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
-  } as any)
-const PublicAuthenticatedDashboardOrganizationsNewRoute =
-  PublicAuthenticatedDashboardOrganizationsNewRouteImport.update({
-    id: '/organizations/new',
-    path: '/organizations/new',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAuthenticatedDashboardOrganizationsSlugRoute =
-  PublicAuthenticatedDashboardOrganizationsSlugRouteImport.update({
-    id: '/organizations/$slug',
-    path: '/organizations/$slug',
-    getParentRoute: () => PublicAuthenticatedDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardXNominationsRoute =
-  PublicAdminAdminDashboardXNominationsRouteImport.update({
-    id: '/x-nominations',
-    path: '/x-nominations',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardTelegramRoute =
-  PublicAdminAdminDashboardTelegramRouteImport.update({
-    id: '/telegram',
-    path: '/telegram',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardProjectsRoute =
-  PublicAdminAdminDashboardProjectsRouteImport.update({
-    id: '/projects',
-    path: '/projects',
-    getParentRoute: () => PublicAdminAdminDashboardRoute,
-  } as any)
-const PublicAdminAdminDashboardEventsRoute =
-  PublicAdminAdminDashboardEventsRouteImport.update({
-    id: '/events',
-    path: '/events',
+const PublicAdminAdminDashboardActivityRoute =
+  PublicAdminAdminDashboardActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
     getParentRoute: () => PublicAdminAdminDashboardRoute,
   } as any)
 const PublicAdminAdminDashboardBuildersRoute =
@@ -398,11 +302,107 @@ const PublicAdminAdminDashboardBuildersRoute =
     path: '/builders',
     getParentRoute: () => PublicAdminAdminDashboardRoute,
   } as any)
-const PublicAdminAdminDashboardActivityRoute =
-  PublicAdminAdminDashboardActivityRouteImport.update({
-    id: '/activity',
-    path: '/activity',
+const PublicAdminAdminDashboardEventsRoute =
+  PublicAdminAdminDashboardEventsRouteImport.update({
+    id: '/events',
+    path: '/events',
     getParentRoute: () => PublicAdminAdminDashboardRoute,
+  } as any)
+const PublicAdminAdminDashboardProjectsRoute =
+  PublicAdminAdminDashboardProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => PublicAdminAdminDashboardRoute,
+  } as any)
+const PublicAdminAdminDashboardTelegramRoute =
+  PublicAdminAdminDashboardTelegramRouteImport.update({
+    id: '/telegram',
+    path: '/telegram',
+    getParentRoute: () => PublicAdminAdminDashboardRoute,
+  } as any)
+const PublicAdminAdminDashboardXNominationsRoute =
+  PublicAdminAdminDashboardXNominationsRouteImport.update({
+    id: '/x-nominations',
+    path: '/x-nominations',
+    getParentRoute: () => PublicAdminAdminDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardIdeasIndexRoute =
+  PublicAuthenticatedDashboardIdeasIndexRouteImport.update({
+    id: '/ideas/',
+    path: '/ideas/',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardOrganizationsIndexRoute =
+  PublicAuthenticatedDashboardOrganizationsIndexRouteImport.update({
+    id: '/organizations/',
+    path: '/organizations/',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardOrganizationsSlugRoute =
+  PublicAuthenticatedDashboardOrganizationsSlugRouteImport.update({
+    id: '/organizations/$slug',
+    path: '/organizations/$slug',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardOrganizationsNewRoute =
+  PublicAuthenticatedDashboardOrganizationsNewRouteImport.update({
+    id: '/organizations/new',
+    path: '/organizations/new',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardResultsIndexRoute =
+  PublicAuthenticatedDashboardResultsIndexRouteImport.update({
+    id: '/results/',
+    path: '/results/',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardScopesIndexRoute =
+  PublicAuthenticatedDashboardScopesIndexRouteImport.update({
+    id: '/scopes/',
+    path: '/scopes/',
+    getParentRoute: () => PublicAuthenticatedDashboardRoute,
+  } as any)
+const PublicAuthenticatedDashboardSettingsIndexRoute =
+  PublicAuthenticatedDashboardSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
+  } as any)
+const PublicAuthenticatedDashboardSettingsApiKeysRoute =
+  PublicAuthenticatedDashboardSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
+  } as any)
+const PublicAuthenticatedDashboardSettingsAuthMethodsRoute =
+  PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport.update({
+    id: '/auth-methods',
+    path: '/auth-methods',
+    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
+  } as any)
+const PublicAuthenticatedDashboardSettingsProfileRoute =
+  PublicAuthenticatedDashboardSettingsProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
+  } as any)
+const PublicAuthenticatedDashboardSettingsSecurityRoute =
+  PublicAuthenticatedDashboardSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => PublicAuthenticatedDashboardSettingsRoute,
+  } as any)
+const PublicEventsLumaCalendarIdEventIdRoute =
+  PublicEventsLumaCalendarIdEventIdRouteImport.update({
+    id: '/luma/$calendarId/$eventId',
+    path: '/luma/$calendarId/$eventId',
+    getParentRoute: () => PublicEventsRoute,
+  } as any)
+const PublicProjectsKindSlugEditRoute =
+  PublicProjectsKindSlugEditRouteImport.update({
+    id: '/$kind/$slug_/edit',
+    path: '/$kind/$slug/edit',
+    getParentRoute: () => PublicProjectsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -781,67 +781,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/skill': {
-      id: '/_public/skill'
-      path: '/skill'
-      fullPath: '/skill'
-      preLoaderRoute: typeof PublicSkillRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/projects': {
-      id: '/_public/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof PublicProjectsRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/login': {
-      id: '/_public/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof PublicLoginRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/join': {
-      id: '/_public/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof PublicJoinRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/ironclaw': {
-      id: '/_public/ironclaw'
-      path: '/ironclaw'
-      fullPath: '/ironclaw'
-      preLoaderRoute: typeof PublicIronclawRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/events': {
-      id: '/_public/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof PublicEventsRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/build': {
-      id: '/_public/build'
-      path: '/build'
-      fullPath: '/build'
-      preLoaderRoute: typeof PublicBuildRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/brand': {
-      id: '/_public/brand'
-      path: '/brand'
-      fullPath: '/brand'
-      preLoaderRoute: typeof PublicBrandRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/about': {
-      id: '/_public/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof PublicAboutRouteImport
+    '/_public/_admin': {
+      id: '/_public/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicAdminRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/_authenticated': {
@@ -851,88 +795,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAuthenticatedRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/_admin': {
-      id: '/_public/_admin'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof PublicAdminRouteImport
+    '/_public/about': {
+      id: '/_public/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof PublicAboutRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/projects/': {
-      id: '/_public/projects/'
-      path: '/'
-      fullPath: '/projects/'
-      preLoaderRoute: typeof PublicProjectsIndexRouteImport
-      parentRoute: typeof PublicProjectsRoute
-    }
-    '/_public/events/': {
-      id: '/_public/events/'
-      path: '/'
-      fullPath: '/events/'
-      preLoaderRoute: typeof PublicEventsIndexRouteImport
-      parentRoute: typeof PublicEventsRoute
-    }
-    '/_public/builders/': {
-      id: '/_public/builders/'
-      path: '/builders'
-      fullPath: '/builders/'
-      preLoaderRoute: typeof PublicBuildersIndexRouteImport
+    '/_public/brand': {
+      id: '/_public/brand'
+      path: '/brand'
+      fullPath: '/brand'
+      preLoaderRoute: typeof PublicBrandRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/apps/': {
-      id: '/_public/apps/'
-      path: '/apps'
-      fullPath: '/apps/'
-      preLoaderRoute: typeof PublicAppsIndexRouteImport
+    '/_public/build': {
+      id: '/_public/build'
+      path: '/build'
+      fullPath: '/build'
+      preLoaderRoute: typeof PublicBuildRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/activity/': {
-      id: '/_public/activity/'
-      path: '/activity'
-      fullPath: '/activity/'
-      preLoaderRoute: typeof PublicActivityIndexRouteImport
+    '/_public/events': {
+      id: '/_public/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof PublicEventsRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/projects/new': {
-      id: '/_public/projects/new'
-      path: '/new'
-      fullPath: '/projects/new'
-      preLoaderRoute: typeof PublicProjectsNewRouteImport
-      parentRoute: typeof PublicProjectsRoute
-    }
-    '/_public/events/new': {
-      id: '/_public/events/new'
-      path: '/new'
-      fullPath: '/events/new'
-      preLoaderRoute: typeof PublicEventsNewRouteImport
-      parentRoute: typeof PublicEventsRoute
-    }
-    '/_public/events/$slug': {
-      id: '/_public/events/$slug'
-      path: '/$slug'
-      fullPath: '/events/$slug'
-      preLoaderRoute: typeof PublicEventsSlugRouteImport
-      parentRoute: typeof PublicEventsRoute
-    }
-    '/_public/builders/add': {
-      id: '/_public/builders/add'
-      path: '/builders/add'
-      fullPath: '/builders/add'
-      preLoaderRoute: typeof PublicBuildersAddRouteImport
+    '/_public/ironclaw': {
+      id: '/_public/ironclaw'
+      path: '/ironclaw'
+      fullPath: '/ironclaw'
+      preLoaderRoute: typeof PublicIronclawRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/builders/$account': {
-      id: '/_public/builders/$account'
-      path: '/builders/$account'
-      fullPath: '/builders/$account'
-      preLoaderRoute: typeof PublicBuildersAccountRouteImport
+    '/_public/join': {
+      id: '/_public/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof PublicJoinRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_public/activity/leaderboard': {
-      id: '/_public/activity/leaderboard'
-      path: '/activity/leaderboard'
-      fullPath: '/activity/leaderboard'
-      preLoaderRoute: typeof PublicActivityLeaderboardRouteImport
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/projects': {
+      id: '/_public/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof PublicProjectsRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/skill': {
+      id: '/_public/skill'
+      path: '/skill'
+      fullPath: '/skill'
+      preLoaderRoute: typeof PublicSkillRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/_authenticated/_dashboard': {
@@ -942,26 +865,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAuthenticatedDashboardRouteImport
       parentRoute: typeof PublicAuthenticatedRoute
     }
-    '/_public/projects/new/': {
-      id: '/_public/projects/new/'
-      path: '/'
-      fullPath: '/projects/new/'
-      preLoaderRoute: typeof PublicProjectsNewIndexRouteImport
-      parentRoute: typeof PublicProjectsNewRoute
+    '/_public/activity/': {
+      id: '/_public/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof PublicActivityIndexRouteImport
+      parentRoute: typeof PublicRoute
     }
-    '/_public/projects/$kind/': {
-      id: '/_public/projects/$kind/'
-      path: '/$kind'
-      fullPath: '/projects/$kind/'
-      preLoaderRoute: typeof PublicProjectsKindIndexRouteImport
+    '/_public/activity/leaderboard': {
+      id: '/_public/activity/leaderboard'
+      path: '/activity/leaderboard'
+      fullPath: '/activity/leaderboard'
+      preLoaderRoute: typeof PublicActivityLeaderboardRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/apps/': {
+      id: '/_public/apps/'
+      path: '/apps'
+      fullPath: '/apps/'
+      preLoaderRoute: typeof PublicAppsIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/builders/': {
+      id: '/_public/builders/'
+      path: '/builders'
+      fullPath: '/builders/'
+      preLoaderRoute: typeof PublicBuildersIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/builders/$account': {
+      id: '/_public/builders/$account'
+      path: '/builders/$account'
+      fullPath: '/builders/$account'
+      preLoaderRoute: typeof PublicBuildersAccountRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/builders/add': {
+      id: '/_public/builders/add'
+      path: '/builders/add'
+      fullPath: '/builders/add'
+      preLoaderRoute: typeof PublicBuildersAddRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/events/': {
+      id: '/_public/events/'
+      path: '/'
+      fullPath: '/events/'
+      preLoaderRoute: typeof PublicEventsIndexRouteImport
+      parentRoute: typeof PublicEventsRoute
+    }
+    '/_public/events/$slug': {
+      id: '/_public/events/$slug'
+      path: '/$slug'
+      fullPath: '/events/$slug'
+      preLoaderRoute: typeof PublicEventsSlugRouteImport
+      parentRoute: typeof PublicEventsRoute
+    }
+    '/_public/events/new': {
+      id: '/_public/events/new'
+      path: '/new'
+      fullPath: '/events/new'
+      preLoaderRoute: typeof PublicEventsNewRouteImport
+      parentRoute: typeof PublicEventsRoute
+    }
+    '/_public/projects/': {
+      id: '/_public/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof PublicProjectsIndexRouteImport
       parentRoute: typeof PublicProjectsRoute
     }
-    '/_public/apps/$accountId/': {
-      id: '/_public/apps/$accountId/'
-      path: '/apps/$accountId'
-      fullPath: '/apps/$accountId/'
-      preLoaderRoute: typeof PublicAppsAccountIdIndexRouteImport
-      parentRoute: typeof PublicRoute
+    '/_public/projects/new': {
+      id: '/_public/projects/new'
+      path: '/new'
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof PublicProjectsNewRouteImport
+      parentRoute: typeof PublicProjectsRoute
     }
     '/_public/_admin/admin/': {
       id: '/_public/_admin/admin/'
@@ -970,67 +949,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAdminAdminIndexRouteImport
       parentRoute: typeof PublicAdminRoute
     }
-    '/_public/projects/new/$kind': {
-      id: '/_public/projects/new/$kind'
-      path: '/$kind'
-      fullPath: '/projects/new/$kind'
-      preLoaderRoute: typeof PublicProjectsNewKindRouteImport
-      parentRoute: typeof PublicProjectsNewRoute
+    '/_public/_admin/admin/dashboard': {
+      id: '/_public/_admin/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof PublicAdminAdminDashboardRouteImport
+      parentRoute: typeof PublicAdminRoute
     }
-    '/_public/projects/$kind/$slug': {
-      id: '/_public/projects/$kind/$slug'
-      path: '/$kind/$slug'
-      fullPath: '/projects/$kind/$slug'
-      preLoaderRoute: typeof PublicProjectsKindSlugRouteImport
-      parentRoute: typeof PublicProjectsRoute
-    }
-    '/_public/events/$slug_/edit': {
-      id: '/_public/events/$slug_/edit'
-      path: '/$slug/edit'
-      fullPath: '/events/$slug/edit'
-      preLoaderRoute: typeof PublicEventsSlugEditRouteImport
-      parentRoute: typeof PublicEventsRoute
-    }
-    '/_public/builders/$account_/edit': {
-      id: '/_public/builders/$account_/edit'
-      path: '/builders/$account/edit'
-      fullPath: '/builders/$account/edit'
-      preLoaderRoute: typeof PublicBuildersAccountEditRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/apps/$accountId/$gatewayId': {
-      id: '/_public/apps/$accountId/$gatewayId'
-      path: '/apps/$accountId/$gatewayId'
-      fullPath: '/apps/$accountId/$gatewayId'
-      preLoaderRoute: typeof PublicAppsAccountIdGatewayIdRouteImport
-      parentRoute: typeof PublicRoute
-    }
-    '/_public/_authenticated/profile/activity': {
-      id: '/_public/_authenticated/profile/activity'
-      path: '/profile/activity'
-      fullPath: '/profile/activity'
-      preLoaderRoute: typeof PublicAuthenticatedProfileActivityRouteImport
-      parentRoute: typeof PublicAuthenticatedRoute
-    }
-    '/_public/_authenticated/accept-invitation/$id': {
-      id: '/_public/_authenticated/accept-invitation/$id'
-      path: '/accept-invitation/$id'
-      fullPath: '/accept-invitation/$id'
-      preLoaderRoute: typeof PublicAuthenticatedAcceptInvitationIdRouteImport
-      parentRoute: typeof PublicAuthenticatedRoute
-    }
-    '/_public/_authenticated/_dashboard/settings': {
-      id: '/_public/_authenticated/_dashboard/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/profile': {
-      id: '/_public/_authenticated/_dashboard/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardProfileRouteImport
+    '/_public/_authenticated/_dashboard/dashboard': {
+      id: '/_public/_authenticated/_dashboard/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardDashboardRouteImport
       parentRoute: typeof PublicAuthenticatedDashboardRoute
     }
     '/_public/_authenticated/_dashboard/notifications': {
@@ -1040,54 +970,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAuthenticatedDashboardNotificationsRouteImport
       parentRoute: typeof PublicAuthenticatedDashboardRoute
     }
-    '/_public/_authenticated/_dashboard/dashboard': {
-      id: '/_public/_authenticated/_dashboard/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardDashboardRouteImport
+    '/_public/_authenticated/_dashboard/profile': {
+      id: '/_public/_authenticated/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardProfileRouteImport
       parentRoute: typeof PublicAuthenticatedDashboardRoute
     }
-    '/_public/_admin/admin/dashboard': {
-      id: '/_public/_admin/admin/dashboard'
-      path: '/admin/dashboard'
-      fullPath: '/admin/dashboard'
-      preLoaderRoute: typeof PublicAdminAdminDashboardRouteImport
-      parentRoute: typeof PublicAdminRoute
+    '/_public/_authenticated/_dashboard/settings': {
+      id: '/_public/_authenticated/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
     }
-    '/_public/_authenticated/_dashboard/settings/': {
-      id: '/_public/_authenticated/_dashboard/settings/'
+    '/_public/_authenticated/accept-invitation/$id': {
+      id: '/_public/_authenticated/accept-invitation/$id'
+      path: '/accept-invitation/$id'
+      fullPath: '/accept-invitation/$id'
+      preLoaderRoute: typeof PublicAuthenticatedAcceptInvitationIdRouteImport
+      parentRoute: typeof PublicAuthenticatedRoute
+    }
+    '/_public/_authenticated/profile/activity': {
+      id: '/_public/_authenticated/profile/activity'
+      path: '/profile/activity'
+      fullPath: '/profile/activity'
+      preLoaderRoute: typeof PublicAuthenticatedProfileActivityRouteImport
+      parentRoute: typeof PublicAuthenticatedRoute
+    }
+    '/_public/apps/$accountId/': {
+      id: '/_public/apps/$accountId/'
+      path: '/apps/$accountId'
+      fullPath: '/apps/$accountId/'
+      preLoaderRoute: typeof PublicAppsAccountIdIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/apps/$accountId/$gatewayId': {
+      id: '/_public/apps/$accountId/$gatewayId'
+      path: '/apps/$accountId/$gatewayId'
+      fullPath: '/apps/$accountId/$gatewayId'
+      preLoaderRoute: typeof PublicAppsAccountIdGatewayIdRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/builders/$account_/edit': {
+      id: '/_public/builders/$account_/edit'
+      path: '/builders/$account/edit'
+      fullPath: '/builders/$account/edit'
+      preLoaderRoute: typeof PublicBuildersAccountEditRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/events/$slug_/edit': {
+      id: '/_public/events/$slug_/edit'
+      path: '/$slug/edit'
+      fullPath: '/events/$slug/edit'
+      preLoaderRoute: typeof PublicEventsSlugEditRouteImport
+      parentRoute: typeof PublicEventsRoute
+    }
+    '/_public/projects/$kind/': {
+      id: '/_public/projects/$kind/'
+      path: '/$kind'
+      fullPath: '/projects/$kind/'
+      preLoaderRoute: typeof PublicProjectsKindIndexRouteImport
+      parentRoute: typeof PublicProjectsRoute
+    }
+    '/_public/projects/$kind/$slug': {
+      id: '/_public/projects/$kind/$slug'
+      path: '/$kind/$slug'
+      fullPath: '/projects/$kind/$slug'
+      preLoaderRoute: typeof PublicProjectsKindSlugRouteImport
+      parentRoute: typeof PublicProjectsRoute
+    }
+    '/_public/projects/new/': {
+      id: '/_public/projects/new/'
       path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+      fullPath: '/projects/new/'
+      preLoaderRoute: typeof PublicProjectsNewIndexRouteImport
+      parentRoute: typeof PublicProjectsNewRoute
     }
-    '/_public/_authenticated/_dashboard/scopes/': {
-      id: '/_public/_authenticated/_dashboard/scopes/'
-      path: '/scopes'
-      fullPath: '/scopes/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardScopesIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/results/': {
-      id: '/_public/_authenticated/_dashboard/results/'
-      path: '/results'
-      fullPath: '/results/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardResultsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/': {
-      id: '/_public/_authenticated/_dashboard/organizations/'
-      path: '/organizations'
-      fullPath: '/organizations/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/ideas/': {
-      id: '/_public/_authenticated/_dashboard/ideas/'
-      path: '/ideas'
-      fullPath: '/ideas/'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardIdeasIndexRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    '/_public/projects/new/$kind': {
+      id: '/_public/projects/new/$kind'
+      path: '/$kind'
+      fullPath: '/projects/new/$kind'
+      preLoaderRoute: typeof PublicProjectsNewKindRouteImport
+      parentRoute: typeof PublicProjectsNewRoute
     }
     '/_public/_admin/admin/dashboard/': {
       id: '/_public/_admin/admin/dashboard/'
@@ -1096,88 +1061,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAdminAdminDashboardIndexRouteImport
       parentRoute: typeof PublicAdminAdminDashboardRoute
     }
-    '/_public/projects/$kind/$slug_/edit': {
-      id: '/_public/projects/$kind/$slug_/edit'
-      path: '/$kind/$slug/edit'
-      fullPath: '/projects/$kind/$slug/edit'
-      preLoaderRoute: typeof PublicProjectsKindSlugEditRouteImport
-      parentRoute: typeof PublicProjectsRoute
-    }
-    '/_public/events/luma/$calendarId/$eventId': {
-      id: '/_public/events/luma/$calendarId/$eventId'
-      path: '/luma/$calendarId/$eventId'
-      fullPath: '/events/luma/$calendarId/$eventId'
-      preLoaderRoute: typeof PublicEventsLumaCalendarIdEventIdRouteImport
-      parentRoute: typeof PublicEventsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/security': {
-      id: '/_public/_authenticated/_dashboard/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsSecurityRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/profile': {
-      id: '/_public/_authenticated/_dashboard/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsProfileRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/auth-methods': {
-      id: '/_public/_authenticated/_dashboard/settings/auth-methods'
-      path: '/auth-methods'
-      fullPath: '/settings/auth-methods'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/settings/api-keys': {
-      id: '/_public/_authenticated/_dashboard/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsApiKeysRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/new': {
-      id: '/_public/_authenticated/_dashboard/organizations/new'
-      path: '/organizations/new'
-      fullPath: '/organizations/new'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsNewRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_authenticated/_dashboard/organizations/$slug': {
-      id: '/_public/_authenticated/_dashboard/organizations/$slug'
-      path: '/organizations/$slug'
-      fullPath: '/organizations/$slug'
-      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsSlugRouteImport
-      parentRoute: typeof PublicAuthenticatedDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/x-nominations': {
-      id: '/_public/_admin/admin/dashboard/x-nominations'
-      path: '/x-nominations'
-      fullPath: '/admin/dashboard/x-nominations'
-      preLoaderRoute: typeof PublicAdminAdminDashboardXNominationsRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/telegram': {
-      id: '/_public/_admin/admin/dashboard/telegram'
-      path: '/telegram'
-      fullPath: '/admin/dashboard/telegram'
-      preLoaderRoute: typeof PublicAdminAdminDashboardTelegramRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/projects': {
-      id: '/_public/_admin/admin/dashboard/projects'
-      path: '/projects'
-      fullPath: '/admin/dashboard/projects'
-      preLoaderRoute: typeof PublicAdminAdminDashboardProjectsRouteImport
-      parentRoute: typeof PublicAdminAdminDashboardRoute
-    }
-    '/_public/_admin/admin/dashboard/events': {
-      id: '/_public/_admin/admin/dashboard/events'
-      path: '/events'
-      fullPath: '/admin/dashboard/events'
-      preLoaderRoute: typeof PublicAdminAdminDashboardEventsRouteImport
+    '/_public/_admin/admin/dashboard/activity': {
+      id: '/_public/_admin/admin/dashboard/activity'
+      path: '/activity'
+      fullPath: '/admin/dashboard/activity'
+      preLoaderRoute: typeof PublicAdminAdminDashboardActivityRouteImport
       parentRoute: typeof PublicAdminAdminDashboardRoute
     }
     '/_public/_admin/admin/dashboard/builders': {
@@ -1187,12 +1075,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicAdminAdminDashboardBuildersRouteImport
       parentRoute: typeof PublicAdminAdminDashboardRoute
     }
-    '/_public/_admin/admin/dashboard/activity': {
-      id: '/_public/_admin/admin/dashboard/activity'
-      path: '/activity'
-      fullPath: '/admin/dashboard/activity'
-      preLoaderRoute: typeof PublicAdminAdminDashboardActivityRouteImport
+    '/_public/_admin/admin/dashboard/events': {
+      id: '/_public/_admin/admin/dashboard/events'
+      path: '/events'
+      fullPath: '/admin/dashboard/events'
+      preLoaderRoute: typeof PublicAdminAdminDashboardEventsRouteImport
       parentRoute: typeof PublicAdminAdminDashboardRoute
+    }
+    '/_public/_admin/admin/dashboard/projects': {
+      id: '/_public/_admin/admin/dashboard/projects'
+      path: '/projects'
+      fullPath: '/admin/dashboard/projects'
+      preLoaderRoute: typeof PublicAdminAdminDashboardProjectsRouteImport
+      parentRoute: typeof PublicAdminAdminDashboardRoute
+    }
+    '/_public/_admin/admin/dashboard/telegram': {
+      id: '/_public/_admin/admin/dashboard/telegram'
+      path: '/telegram'
+      fullPath: '/admin/dashboard/telegram'
+      preLoaderRoute: typeof PublicAdminAdminDashboardTelegramRouteImport
+      parentRoute: typeof PublicAdminAdminDashboardRoute
+    }
+    '/_public/_admin/admin/dashboard/x-nominations': {
+      id: '/_public/_admin/admin/dashboard/x-nominations'
+      path: '/x-nominations'
+      fullPath: '/admin/dashboard/x-nominations'
+      preLoaderRoute: typeof PublicAdminAdminDashboardXNominationsRouteImport
+      parentRoute: typeof PublicAdminAdminDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/ideas/': {
+      id: '/_public/_authenticated/_dashboard/ideas/'
+      path: '/ideas'
+      fullPath: '/ideas/'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardIdeasIndexRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/organizations/': {
+      id: '/_public/_authenticated/_dashboard/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsIndexRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/organizations/$slug': {
+      id: '/_public/_authenticated/_dashboard/organizations/$slug'
+      path: '/organizations/$slug'
+      fullPath: '/organizations/$slug'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsSlugRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/organizations/new': {
+      id: '/_public/_authenticated/_dashboard/organizations/new'
+      path: '/organizations/new'
+      fullPath: '/organizations/new'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardOrganizationsNewRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/results/': {
+      id: '/_public/_authenticated/_dashboard/results/'
+      path: '/results'
+      fullPath: '/results/'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardResultsIndexRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/scopes/': {
+      id: '/_public/_authenticated/_dashboard/scopes/'
+      path: '/scopes'
+      fullPath: '/scopes/'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardScopesIndexRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardRoute
+    }
+    '/_public/_authenticated/_dashboard/settings/': {
+      id: '/_public/_authenticated/_dashboard/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsIndexRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+    }
+    '/_public/_authenticated/_dashboard/settings/api-keys': {
+      id: '/_public/_authenticated/_dashboard/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsApiKeysRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+    }
+    '/_public/_authenticated/_dashboard/settings/auth-methods': {
+      id: '/_public/_authenticated/_dashboard/settings/auth-methods'
+      path: '/auth-methods'
+      fullPath: '/settings/auth-methods'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsAuthMethodsRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+    }
+    '/_public/_authenticated/_dashboard/settings/profile': {
+      id: '/_public/_authenticated/_dashboard/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsProfileRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+    }
+    '/_public/_authenticated/_dashboard/settings/security': {
+      id: '/_public/_authenticated/_dashboard/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof PublicAuthenticatedDashboardSettingsSecurityRouteImport
+      parentRoute: typeof PublicAuthenticatedDashboardSettingsRoute
+    }
+    '/_public/events/luma/$calendarId/$eventId': {
+      id: '/_public/events/luma/$calendarId/$eventId'
+      path: '/luma/$calendarId/$eventId'
+      fullPath: '/events/luma/$calendarId/$eventId'
+      preLoaderRoute: typeof PublicEventsLumaCalendarIdEventIdRouteImport
+      parentRoute: typeof PublicEventsRoute
+    }
+    '/_public/projects/$kind/$slug_/edit': {
+      id: '/_public/projects/$kind/$slug_/edit'
+      path: '/$kind/$slug/edit'
+      fullPath: '/projects/$kind/$slug/edit'
+      preLoaderRoute: typeof PublicProjectsKindSlugEditRouteImport
+      parentRoute: typeof PublicProjectsRoute
     }
   }
 }

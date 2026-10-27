@@ -15,15 +15,12 @@ import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { TanStackRouterRspack } from "@tanstack/router-plugin/rspack";
 import { FixMfDataUriPlugin } from "every-plugin/build/rspack";
-import { computeSriHashForUrl, reportDeployResult } from "everything-dev/integrity";
-import { withZephyr } from "zephyr-rsbuild-plugin";
 import pkg from "./package.json";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const normalizedName = pkg.name;
-const shouldDeploy = process.env.DEPLOY === "true";
 const buildTarget = process.env.BUILD_TARGET as "client" | "server" | undefined;
 const isServerBuild = buildTarget === "server";
 
@@ -94,7 +91,6 @@ const uiSharedDeps = {
   },
 };
 
-const uiBosConfigPath = path.resolve(__dirname, "../bos.config.json");
 function createClientConfig() {
   const plugins = [
     pluginReact(),
@@ -104,7 +100,7 @@ function createClientConfig() {
       dts: false,
       exposes: {
         "./Router": "./src/router.tsx",
-        "./Hydrate": "./src/hydrate.tsx",
+        "./Hydrate": "./src/hydrate.gen.tsx",
         "./components": "./src/components/index.ts",
         "./providers": "./src/providers/index.tsx",
         "./hooks": "./src/hooks/index.ts",
@@ -113,31 +109,12 @@ function createClientConfig() {
     }),
   ];
 
-  if (shouldDeploy) {
-    plugins.push(
-      withZephyr({
-        hooks: {
-          onDeployComplete: async (info) => {
-            console.log("🚀 UI Client Deployed:", info.url);
-            const integrity = await computeSriHashForUrl(info.url);
-            reportDeployResult({
-              url: info.url,
-              integrity,
-              bosConfigPath: uiBosConfigPath,
-              urlField: "app.ui.production",
-              integrityField: "app.ui.integrity",
-            });
-          },
-        },
-      }),
-    );
-  }
-
+  
   return defineConfig({
     plugins,
     source: {
       entry: {
-        index: "./src/hydrate.tsx",
+        index: "./src/hydrate.gen.tsx",
       },
       define: {
         "import.meta.env.APP_NAME": JSON.stringify(bosConfig.domain),
@@ -224,32 +201,12 @@ function createServerConfig() {
     },
   });
 
-  if (shouldDeploy) {
-    plugins.push(
-      withZephyr({
-        hooks: {
-          onDeployComplete: async (info) => {
-            console.log("🚀 UI SSR Deployed:", info.url);
-            const ssrEntryUrl = `${info.url.replace(/\/$/, "")}/remoteEntry.server.js`;
-            const integrity = await computeSriHashForUrl(ssrEntryUrl, { resolveEntryUrl: false });
-            reportDeployResult({
-              url: info.url,
-              integrity,
-              bosConfigPath: uiBosConfigPath,
-              urlField: "app.ui.ssr",
-              integrityField: "app.ui.ssrIntegrity",
-            });
-          },
-        },
-      }),
-    );
-  }
-
+  
   return defineConfig({
     plugins,
     source: {
       entry: {
-        index: "./src/router.server.tsx",
+        index: "./src/router.server.gen.tsx",
       },
     },
     resolve: {
@@ -290,7 +247,7 @@ function createServerConfig() {
             dts: false,
             runtimePlugins: [require.resolve("@module-federation/node/runtimePlugin")],
             library: { type: "commonjs-module" },
-            exposes: { "./Router": "./src/router.server.tsx" },
+            exposes: { "./Router": "./src/router.server.gen.tsx" },
             shared: uiSharedDeps,
           }),
         ],

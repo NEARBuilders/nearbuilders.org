@@ -1,4 +1,53 @@
 /**
+ * LOCAL COPY — stand-in for `requireSession` in `everything-dev/ui/auth`.
+ * See resolveSessionFromCache above for why this local copy exists and how
+ * to migrate off it.
+ *
+ * Semantics to preserve when conforming to upstream: this is the single
+ * shared session gate for authed mounts — every guard must delegate here
+ * (rather than inlining sessionQueryOptions/authClient.getSession) so all
+ * guards share one resolution semantics and cannot disagree into a
+ * /login <-> protected-route redirect ping-pong.
+ */
+export function requireSession(args: { context: { session: SessionData | null | undefined } }): {
+  session: SessionData | null;
+} {
+  const session = args.context.session;
+  if (!session?.user) {
+    throw new Error("No active session");
+  }
+  return { session };
+}
+
+/**
+ * LOCAL COPY — stand-in for `resolveSessionFromCache` in
+ * `everything-dev/ui/auth` (the upstream canonical source; the main app's
+ * ui/src/lib/auth.ts is a pure re-export of it). This local copy exists
+ * because the pinned framework release predates the v2 train and does not
+ * publish `ui/auth`.
+ *
+ * Semantics to preserve when conforming to upstream:
+ *   1. Cache-first — the query cache entry wins over the server-passed
+ *      session.
+ *   2. An explicit signed-out `null` cache entry must be honored (return
+ *      null, not the stale context session) — this is the fix for the
+ *      sign-out-then-bounce-back redirect-loop class.
+ *
+ * Exit path (once on a framework version that publishes ui/auth): replace
+ * this function and requireSession below with
+ *   export { requireSession, resolveSessionFromCache } from "everything-dev/ui/auth";
+ * then run `pnpm run typecheck`.
+ */
+export function resolveSessionFromCache(
+  queryClient: { getQueryData: (key: unknown[]) => unknown },
+  session: SessionData | null | undefined,
+): SessionData | null {
+  const cached = queryClient.getQueryData(sessionQueryKey);
+  if (cached !== undefined) return cached as SessionData | null;
+  return session ?? null;
+}
+
+/**
  * Better-Auth client with NEAR SIWN, passkey, API key, and organization plugins.
  *
  * BE CAREFUL MODIFYING THIS FILE — changes will be overwritten by `bos sync` / `bos upgrade`.
