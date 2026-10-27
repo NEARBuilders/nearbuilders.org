@@ -357,7 +357,7 @@ docs/adr/
 # every-plugin synthesized build config
 .every-plugin/
 
-# vendored Effect source (local clone restored by `bun run prepare`; see AGENTS.md)
+# vendored Effect source (local clone restored by `pnpm run prepare`; see AGENTS.md)
 repos/
 
 # tsdown dts side-emissions beside sources (root fix pending in every-plugin tsdown config)

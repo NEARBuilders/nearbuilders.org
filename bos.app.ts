@@ -31,6 +31,7 @@ export default App({
       "NEARAI_MODEL",
       "GITHUB_TOKEN",
       "REQUIRE_ADMIN_APPROVAL",
+      "BETTER_AUTH_SECRET",
     ],
   },
   plugins: {

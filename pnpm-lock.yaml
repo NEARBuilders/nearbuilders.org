@@ -414,9 +414,6 @@ importers:
       '@shadcn/lint':
         specifier: ^0.2.0
         version: 0.2.3
-      '@types/bun':
-        specifier: latest
-        version: 1.4.4
       '@types/pg':
         specifier: 'catalog:'
         version: 8.23.1
@@ -5177,9 +5174,6 @@ packages:
 
   '@types/aria-query@5.0.4':
     resolution: {integrity: sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==}
-
-  '@types/bun@1.4.4':
-    resolution: {integrity: sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -11964,10 +11958,6 @@ snapshots:
 
   '@types/aria-query@5.0.4': {}
 
-  '@types/bun@1.4.4':
-    dependencies:
-      bun-types: 1.4.4
-
   '@types/chai@5.2.3':
     dependencies:
       '@types/deep-eql': 4.0.2
@@ -12375,6 +12365,7 @@ snapshots:
     dependencies:
       '@types/node': 25.9.9
       undici-types: 8.12.3
+    optional: true
 
   bundle-name@4.1.1:
     dependencies:
@@ -15262,7 +15253,8 @@ snapshots:
 
   undici-types@7.24.6: {}
 
-  undici-types@8.12.3: {}
+  undici-types@8.12.3:
+    optional: true
 
   undici@7.29.1: {}
 

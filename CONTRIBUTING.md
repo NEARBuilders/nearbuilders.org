@@ -5,13 +5,14 @@ Thank you for contributing to NEAR Builders!
 ## Quick Setup
 
 ```bash
-bun install                # Install dependencies
-docker compose up -d --wait # Start PostgreSQL (4 databases)
-bun run db:push            # Run database migrations
-bos dev --host remote      # Start development (typical workflow for tenant)
+pnpm install                # Install dependencies
+docker compose up -d --wait # Start PostgreSQL (one database per service)
+pnpm run dev               # Start development; plugins apply their migrations on boot
 ```
 
-Visit http://localhost:3003 (UI), http://localhost:3001 (API), and http://localhost:3002 (Auth).
+Visit http://localhost:3000 (host), http://localhost:3003 (UI) and http://localhost:3001 (API).
+
+This project uses pnpm. Do not use bun: CI fails on any `bun.lock`.
 
 **Need more details?** See [README.md](./README.md) for architecture overview and [LLM.txt](./LLM.txt) for technical deep-dive.
 
@@ -21,9 +22,9 @@ Visit http://localhost:3003 (UI), http://localhost:3001 (API), and http://localh
 
 ### Making Changes
 
-- **UI Changes**: Edit `ui/src/` → hot reload automatically → deploy with `bos publish --deploy`
+- **UI Changes**: Edit `ui/src/` → hot reload automatically → deploy with `bos deploy`
 - **Plugin Changes**: Edit `plugins/*/src/` → hot reload automatically → deploy per plugin
-- **Config Changes**: Edit `bos.config.json` → publish with `bos publish --deploy`
+- **Config Changes**: Edit `bos.app.ts` → publish with `bos deploy`
 - **Host/Auth Changes**: Submit PRs to the parent [everything.dev](https://github.com/nearbuilders/everything-dev) repository
 
 ### Plugin Architecture
@@ -34,23 +35,24 @@ Business logic lives in independent plugins under `plugins/`:
 - **`plugins/projects/`** — Projects & ideas with upvote ranking, markdown editing, GitHub integration, visibility controls (PostgreSQL)
 - **`plugins/builders/`** — Builder profiles with admin moderation, skills, NEAR Social cross-referencing (PostgreSQL)
 
-Each plugin has its own `contract.ts` (oRPC routes + Zod schemas), `index.ts` (plugin factory), `rspack.config.js`, and `package.json`. Routes are namespaced in the UI: `apiClient.apps.*()`, `apiClient.projects.*()`, `apiClient.builders.*()`.
+Each plugin has its own `contract.ts` (oRPC routes + Zod schemas), `index.ts` (plugin factory), `plugin.dev.ts` and `package.json`. The `every-plugin` CLI generates the build config, so plugins ship no rspack config. Routes are namespaced in the UI: `apiClient.apps.*()`, `apiClient.projects.*()`, `apiClient.builders.*()`.
 
 The `api/` package is a thin structural shell with only health/ping routes, upvote endpoints, and shared auth middleware. It composes across all three plugins in-process via `createPlugin.withPlugins<PluginsClient>()` — the API receives typed client factories for each plugin and calls their routers directly without HTTP roundtrips.
 
-Plugin and API variables are configured in `bos.config.json`:
-- API variables: `app.api.variables` → `config.variables` in `initialize`
+Plugin and API variables are configured in `bos.app.ts`:
+- API variables: `api.variables` → `config.variables` in `initialize`
 - Plugin variables: `plugins.{key}.variables` → plugin's own `config.variables` in `initialize`
 
-Plugins are accessible both directly via HTTP (`/api/{key}/*`) and in-process via `services.plugins.{key}()`. The UI uses HTTP; the API uses in-process for composition.
+Plugins are accessible both directly via HTTP (`/api/{key}/*`) and in-process via the `plugins` clients passed to `createRouter`. The UI uses HTTP; the API uses in-process for composition.
 
 ### Environment Configuration
 
-All runtime URLs are configured in `bos.config.json` — no rebuild needed. Switch environments:
+Runtime composition is configured in `bos.app.ts` (published) and `bos.dev.ts` (dev-only overrides) — no rebuild needed. Switch environments:
 
 ```bash
-NODE_ENV=development bun dev   # Use local services (default)
-NODE_ENV=production bun dev    # Use production CDN URLs
+pnpm run dev       # Local UI, API and plugins (default)
+pnpm run dev:ui    # Local UI, remote API
+pnpm run dev:api   # Remote UI, local API
 ```
 
 Secrets go in `.env` (see [.env.example](./.env.example) for required variables). Key variables for this tenant:
@@ -134,7 +136,7 @@ We use [Changesets](https://github.com/changesets/changesets) for versioning.
 
 **Create a changeset:**
 ```bash
-bun run changeset
+pnpm run changeset
 # Follow prompts to select packages and write description
 ```
 
@@ -157,9 +159,9 @@ Added builder admin moderation workflow
 
 1. **Before creating PR:**
    ```bash
-   bun test        # Run all tests
-   bun typecheck   # Type check all packages
-   bun lint        # Run linting
+   pnpm run test        # Run all tests
+   pnpm run typecheck   # Type check all packages
+   pnpm run lint        # Run linting
    ```
 
 2. **Create PR from your fork:**
@@ -184,8 +186,8 @@ Added builder admin moderation workflow
 2. **Clone** your fork locally
 3. **Create** a feature branch: `git checkout -b feature/amazing-feature`
 4. **Make** your changes
-5. **Test** thoroughly: `bun test` and `bun typecheck`
-6. **Add changeset** if needed: `bun run changeset`
+5. **Test** thoroughly: `pnpm run test` and `pnpm run typecheck`
+6. **Add changeset** if needed: `pnpm run changeset`
 7. **Commit** using [Semantic Commits](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
 8. **Push** to your fork: `git push origin feature/amazing-feature`
 9. **Open** a Pull Request to the main repository
@@ -206,9 +208,9 @@ Added builder admin moderation workflow
 We use [Biome](https://biomejs.dev/) for linting and formatting:
 
 ```bash
-bun lint        # Check linting
-bun lint:fix    # Fix auto-fixable issues
-bun format      # Format code
+pnpm run lint        # Check linting
+pnpm run lint:fix    # Fix auto-fixable issues
+pnpm run format      # Format code
 ```
 
 ## Reporting Issues
