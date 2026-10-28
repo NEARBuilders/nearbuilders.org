@@ -24,7 +24,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-deploy.yml@v2.0.0-rc.24
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-deploy.yml@v2.0.0-rc.25
     with:
       working_directory: .
       verbose: ${{ inputs.verbose == true }}

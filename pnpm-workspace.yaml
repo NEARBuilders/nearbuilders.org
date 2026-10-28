@@ -10,6 +10,7 @@ allowBuilds:
 overrides:
   "@tanstack/router-core": 1.171.27
   "@tanstack/react-router": 1.170.32
+  "@tanstack/query-core": 5.102.8
 catalog:
   "@better-auth/api-key": 1.7.7
   "@better-auth/core": 1.7.7
@@ -72,7 +73,7 @@ catalog:
   drizzle-orm: ^0.45.1
   effect: 4.0.0-rc.117
   every-plugin: ^3.0.0-rc.14
-  everything-dev: ^2.0.0-rc.24
+  everything-dev: ^2.0.0-rc.25
   near-kit: ^0.20.2
   pg: ^8.12.0
   react: 19.2.9
@@ -88,4 +89,4 @@ catalog:
 minimumReleaseAgeExclude:
   - better-near-auth@2.0.0-rc.0 || 2.0.0-rc.1 || 2.0.0-rc.2
   - every-plugin@3.0.0-rc.4 || 3.0.0-rc.5 || 3.0.0-rc.6 || 3.0.0-rc.7 || 3.0.0-rc.8 || 3.0.0-rc.9
-  - everything-dev@2.0.0-rc.7 || 2.0.0-rc.8 || 2.0.0-rc.9 || 2.0.0-rc.10 || 2.0.0-rc.11 || 2.0.0-rc.12 || 2.0.0-rc.13 || 2.0.0-rc.14
+  - everything-dev@2.0.0-rc.7 || 2.0.0-rc.8 || 2.0.0-rc.9 || 2.0.0-rc.10 || 2.0.0-rc.11 || 2.0.0-rc.12 || 2.0.0-rc.13 || 2.0.0-rc.14 || 2.0.0-rc.25
