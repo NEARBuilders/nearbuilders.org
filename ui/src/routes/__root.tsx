@@ -17,13 +17,13 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { getRemoteScripts } from "everything-dev/ui/head";
-import { getSocialImageMeta } from "everything-dev/ui/metadata";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
 import { Toaster } from "@/components/ui/sonner";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
+import { rootOpenGraphMeta, siteMetadataImage } from "@/lib/page-meta";
 import { getSiteUrl } from "@/lib/site-url";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
@@ -91,13 +91,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         { name: "format-detection", content: "telephone=no" },
         { name: "robots", content: "index, follow" },
-        ...getSocialImageMeta({
-          imageUrl: siteUrl ? `${siteUrl}/metadata.png` : "/metadata.png",
+        ...rootOpenGraphMeta({
           title,
           description,
-          siteName: title,
-          siteUrl,
-          alt: description,
+          canonicalUrl,
+          imageUrl: siteMetadataImage(runtimeConfig),
         }),
       ],
       links: [

@@ -7,13 +7,14 @@ import { type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Badge, Button } from "@/components";
 import { NostrLink } from "@/components/nostr-link";
 import { Input } from "@/components/ui/input";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/settings/profile")({
   head: () => ({
-    meta: [
-      { title: "Account | Settings" },
-      { name: "description", content: "Manage your account identity and recovery details." },
-    ],
+    meta: pageHead({
+      title: "Account | Settings",
+      description: "Manage your account identity and recovery details.",
+    }),
   }),
   component: AccountSettings,
 });

@@ -14,19 +14,17 @@ import {
   extractBrandPalette,
   filenameFromHref,
 } from "@/lib/brand";
+import { pageHead } from "@/lib/page-meta";
 import brandStyles from "../../styles.css?raw";
 
 const palette = extractBrandPalette(brandStyles);
 
 export const Route = createFileRoute("/_layout/brand")({
   head: () => ({
-    meta: [
-      { title: "Brand | NEAR Builders" },
-      {
-        name: "description",
-        content: "Logo, favicon, colors, and type for NEAR Builders.",
-      },
-    ],
+    meta: pageHead({
+      title: "Brand | NEAR Builders",
+      description: "Logo, favicon, colors, and type for NEAR Builders.",
+    }),
   }),
   component: BrandPage,
 });

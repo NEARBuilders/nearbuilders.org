@@ -18,6 +18,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { useBookmark } from "@/lib/bookmarks";
 import { downloadIcsFile } from "@/lib/ics";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import { cn } from "@/lib/utils";
 import { CalendarFilters } from "./-calendar-filters";
 import { EventDayGroup, type EventDayGroupData } from "./-event-day-group";
@@ -80,12 +81,7 @@ export const Route = createFileRoute("/_layout/events/")({
     await Promise.all(prefetches);
     return { timeBoundary };
   },
-  head: () => ({
-    meta: [
-      { title: "Events | NEAR Builders" },
-      { name: "description", content: "Browse NEAR builder events." },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.events) }),
   component: EventsPage,
 });
 
