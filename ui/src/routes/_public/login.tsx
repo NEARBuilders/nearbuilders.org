@@ -1,5 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Navigate, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Navigate,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
@@ -36,6 +42,7 @@ export const Route = createFileRoute("/_public/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuthClient();
+  const banned = useRouterState({ select: (state) => state.location.hash === "banned" });
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const { redirect } = Route.useSearch();
   const queryClient = useQueryClient();
@@ -128,6 +135,12 @@ function LoginPage() {
             Connect your NEAR wallet to access your workspace
           </p>
         </div>
+
+        {banned && (
+          <p className="text-center text-sm text-destructive mb-4" data-testid="login.banned">
+            This account has been suspended.
+          </p>
+        )}
 
         <div className="animate-fade-in-up">
           <Button

@@ -18,8 +18,13 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { getRemoteScripts } from "everything-dev/ui/head";
+import {
+  getRemotePreloadLinks,
+  getRemoteScripts,
+  getThemeInitScript,
+} from "everything-dev/ui/head";
 import { getSocialImageMeta } from "everything-dev/ui/metadata";
+import { MotionConfig } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
@@ -79,11 +84,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { charSet: "utf-8" },
         {
           name: "viewport",
-          content: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+          content:
+            "width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content",
         },
         { title },
         { name: "description", content: description },
-        { name: "theme-color", content: "#f6f7f8" },
+        { name: "theme-color", content: "#f6f7f8", media: "(prefers-color-scheme: light)" },
+        { name: "theme-color", content: "#0d1520", media: "(prefers-color-scheme: dark)" },
         { name: "color-scheme", content: "light dark" },
         { name: "application-name", content: title },
         { name: "mobile-web-app-capable", content: "yes" },
@@ -103,6 +110,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         }),
       ],
       links: [
+        ...getRemotePreloadLinks(runtimeConfig ?? undefined),
         {
           rel: "stylesheet",
           href: `${assetsUrl ?? ""}/static/css/style.css${runtimeConfig?.ui?.integrity ? `?v=${encodeURIComponent(runtimeConfig.ui.integrity)}` : ""}`,
@@ -125,9 +133,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         ...(canonicalUrl ? [{ rel: "canonical", href: canonicalUrl }] : []),
       ],
       scripts: [
-        ...(typeof window === "undefined"
-          ? [{ children: "window.__EVERYTHING_DEV_SSR__=true" }]
-          : []),
+        getThemeInitScript(),
         ...getRemoteScripts({
           runtimeConfig: runtimeConfig ?? undefined,
           containerName: "ui",
@@ -148,7 +154,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootComponent() {
-  const { cspNonce } = Route.useRouteContext();
+  const { cspNonce, session } = Route.useRouteContext();
   const isDesktop = useMediaQuery("(min-width: 640px)");
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
@@ -157,14 +163,18 @@ function RootComponent() {
         <style nonce={cspNonce} dangerouslySetInnerHTML={{ __html: getBaseStyles() }} />
       </head>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
-          <div id="root">
-            <AppI18nProvider>
-              <Outlet />
-            </AppI18nProvider>
-          </div>
-          <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
-        </ThemeProvider>
+        <MotionConfig reducedMotion="user">
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
+            <div id="root">
+              <AppI18nProvider
+                preferredLocale={(session?.user as { locale?: string | null } | undefined)?.locale}
+              >
+                <Outlet />
+              </AppI18nProvider>
+            </div>
+            <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
+          </ThemeProvider>
+        </MotionConfig>
         <Scripts />
         {process.env.NODE_ENV === "development" && (
           <ClientOnly>

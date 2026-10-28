@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Hammer,
   Loader2,
+  Lock,
   MapPin,
   Plus,
   Settings,
@@ -32,10 +33,17 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useNearAccount } from "@/hooks";
+import { FEATURE_AREA_LABELS, type FeatureArea, isFeatureArea } from "@/lib/feature-areas";
 import type { ResolvedNearProfile } from "@/lib/near-social";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard")({
+  validateSearch: (search: Record<string, unknown>): { restricted?: FeatureArea | "admin" } =>
+    search.restricted === "admin"
+      ? { restricted: "admin" }
+      : typeof search.restricted === "string" && isFeatureArea(search.restricted)
+        ? { restricted: search.restricted }
+        : {},
   head: () => ({
     meta: [
       { title: "Builder Dashboard | NEAR Builders" },
@@ -51,6 +59,27 @@ export const Route = createFileRoute("/_authenticated/_dashboard/dashboard")({
 const RECENT_PROJECTS_LIMIT = 5;
 type ProjectKind = "project" | "idea" | "scope" | "result";
 
+function RestrictedAreaNotice({ area }: { area: FeatureArea | "admin" }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-3 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground"
+    >
+      <Lock className="size-4 shrink-0" />
+      {area === "admin" ? (
+        <p>
+          <span className="font-medium">Admin</span> is only for platform admins.
+        </p>
+      ) : (
+        <p>
+          <span className="font-medium">{FEATURE_AREA_LABELS[area]}</span> isn't open to your team.
+          Switch teams in the sidebar or ask an owner.
+        </p>
+      )}
+    </div>
+  );
+}
+
 const PROJECT_KIND_TABS: Array<{ kind: ProjectKind; label: string }> = [
   { kind: "project", label: "Projects" },
   { kind: "idea", label: "Ideas" },
@@ -64,6 +93,7 @@ function Dashboard() {
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth));
   const user = session?.user;
   const { accountId: nearAccountId, isLoading: nearAccountLoading } = useNearAccount(Boolean(user));
+  const { restricted } = Route.useSearch();
 
   const {
     data: projectsData,
@@ -210,6 +240,7 @@ function Dashboard() {
   }
   return (
     <DashboardPageFrame>
+      {restricted && <RestrictedAreaNotice area={restricted} />}
       <BuildBanner />
 
       <DashboardHeader
