@@ -5,7 +5,7 @@ import { App } from "everything-dev/descriptor";
 export default App({
   name: "nearbuilders.org",
   extends: "bos://dev.everything.near/everything.dev",
-  platform: "2.0.0-rc.24",
+  platform: "2.0.0-rc.25",
   account: "nearbuilding.near",
   domain: "nearbuilders.org",
   title: "NEAR Builders",
@@ -14,7 +14,7 @@ export default App({
   staging: {
     domain: "staging.dev.everything.dev",
   },
-  repository: "https://github.com/nearbuilders/everything-dev",
+  repository: "https://github.com/nearbuilders/nearbuilders.org",
   ci: {
     railway: {
       service: "app",
@@ -93,6 +93,7 @@ export default App({
     },
     nostr: {
       extends: "bos://nearbuilding.near/nostr.nearbuilders.org#plugins.nostr",
+      ui: false,
       variables: {
         clientName: "nearbuilders.org",
       },
