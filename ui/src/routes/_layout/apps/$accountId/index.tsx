@@ -6,6 +6,7 @@ import { useApiClient } from "@/app";
 import { BackButton, BackLink, Badge, Button } from "@/components";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageHead } from "@/lib/page-meta";
 
 const BASE_RUNTIME = "bos://dev.everything.near/everything.dev";
 
@@ -20,13 +21,10 @@ export const Route = createFileRoute("/_layout/apps/$accountId/")({
     return { accountId: params.accountId };
   },
   head: ({ params }) => ({
-    meta: [
-      { title: `${params.accountId} | Apps | everything.dev` },
-      {
-        name: "description",
-        content: `Browse published runtime configurations for ${params.accountId} on NEAR.`,
-      },
-    ],
+    meta: pageHead({
+      title: `${params.accountId} | Apps | everything.dev`,
+      description: `Browse published runtime configurations for ${params.accountId} on NEAR.`,
+    }),
   }),
   component: AccountAppsPage,
 });

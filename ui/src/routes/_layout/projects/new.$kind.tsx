@@ -20,6 +20,7 @@ import {
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
+import { pageHead } from "@/lib/page-meta";
 import { emptyProjectCatalog, projectCatalogFromFormValues } from "@/lib/project-catalog";
 import {
   filterProjectFormValidation,
@@ -70,10 +71,10 @@ export const Route = createFileRoute("/_layout/projects/new/$kind")({
     }
   },
   head: () => ({
-    meta: [
-      { title: "New | Projects" },
-      { name: "description", content: "Create a new project or idea." },
-    ],
+    meta: pageHead({
+      title: "New | Projects",
+      description: "Create a new project or idea.",
+    }),
   }),
   component: () => {
     const { kind } = Route.useParams();

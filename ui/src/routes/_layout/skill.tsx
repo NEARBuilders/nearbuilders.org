@@ -6,6 +6,7 @@ import { getAccount, getActiveRuntime, getAppName } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { useClientValue } from "@/hooks/use-client";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_layout/skill")({
   loader: async ({ context }) => {
@@ -33,17 +34,11 @@ export const Route = createFileRoute("/_layout/skill")({
   head: ({ loaderData }) => {
     const runtimeConfig = loaderData?.runtimeConfig;
     const title = runtimeConfig?.runtime?.title ?? runtimeConfig?.account ?? "app";
-    const description = runtimeConfig?.runtime?.description ?? "";
+    const description =
+      runtimeConfig?.runtime?.description ||
+      "Agent-ready instructions for joining NEAR Builders, building on NEAR, and getting involved.";
     return {
-      meta: [
-        { title: `Skill | ${title}` },
-        {
-          name: "description",
-          content:
-            description ||
-            "Agent-ready instructions for joining NEAR Builders, building on NEAR, and getting involved.",
-        },
-      ],
+      meta: pageHead({ title: `Skill | ${title}`, description }),
     };
   },
   component: SkillPage,

@@ -33,17 +33,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useNearAccount } from "@/hooks";
 import type { ResolvedNearProfile } from "@/lib/near-social";
+import { pageHead } from "@/lib/page-meta";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/dashboard")({
   head: () => ({
-    meta: [
-      { title: "Builder Dashboard | NEAR Builders" },
-      {
-        name: "description",
-        content: "Manage builder projects, ideas, skills, profile status, proposals, and votes.",
-      },
-    ],
+    meta: pageHead({
+      title: "Builder Dashboard | NEAR Builders",
+      description: "Manage builder projects, ideas, skills, profile status, proposals, and votes.",
+    }),
   }),
   component: Dashboard,
 });
