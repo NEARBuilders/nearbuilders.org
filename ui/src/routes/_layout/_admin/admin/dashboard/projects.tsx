@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageHead } from "@/lib/page-meta";
 import { parseProposalTabSearch } from "../-proposal-dashboard";
 import { getProposalQueryOptions, ProposalTab } from "../-proposal-tab";
 import { dashboardTabTitle, useProposalTabActions } from "../-proposal-tab-route";
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard/projects")({
   validateSearch: parseProposalTabSearch,
-  head: () => ({ meta: [{ title: dashboardTabTitle("Projects") }] }),
+  head: () => ({ meta: pageHead({ title: dashboardTabTitle("Projects") }) }),
   loader: async ({ context }) => {
     const { queryClient, apiClient } = context;
     await queryClient.prefetchInfiniteQuery(

@@ -18,6 +18,7 @@ import {
   buildPage,
   buildTopics,
 } from "@/lib/build-content";
+import { pageHead } from "@/lib/page-meta";
 import { featuredProjectsQueryOptions } from "@/lib/queries/featured-projects";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +29,7 @@ export const Route = createFileRoute("/_layout/build")({
     );
   },
   head: () => ({
-    meta: [
-      { title: buildPage.metaTitle },
-      { name: "description", content: buildPage.metaDescription },
-    ],
+    meta: pageHead({ title: buildPage.metaTitle, description: buildPage.metaDescription }),
   }),
   component: BuildPage,
 });

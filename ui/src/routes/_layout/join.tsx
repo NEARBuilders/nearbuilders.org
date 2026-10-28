@@ -19,6 +19,7 @@ import {
   NOMINATION_STORAGE_KEY,
   shouldClearNominationToken,
 } from "@/lib/nomination-token";
+import { pageHead } from "@/lib/page-meta";
 import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
@@ -73,15 +74,11 @@ export const Route = createFileRoute("/_layout/join")({
   },
   head: () => ({
     meta: [
-      { title: "Join NEAR Builders" },
-      {
-        name: "description",
-        content: "Create your NEAR builder profile.",
-      },
-      {
-        name: "referrer",
-        content: "no-referrer",
-      },
+      ...pageHead({
+        title: "Join NEAR Builders",
+        description: "Create your NEAR builder profile.",
+      }),
+      { name: "referrer", content: "no-referrer" },
     ],
   }),
   component: JoinPage,

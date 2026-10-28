@@ -18,6 +18,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components";
+import { pageHead } from "@/lib/page-meta";
 
 type AuthClientType = import("@/app").AuthClient;
 
@@ -45,8 +46,10 @@ const orgApiKeysQueryKey = (orgId: string) => ["org-api-keys", orgId] as const;
 
 export const Route = createFileRoute("/_layout/_authenticated/_dashboard/organizations/$slug")({
   head: () => ({
-    title: "Organization | auth.everything.dev",
-    meta: [{ name: "description", content: "Manage organization details and members." }],
+    meta: pageHead({
+      title: "Organization | auth.everything.dev",
+      description: "Manage organization details and members.",
+    }),
   }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(

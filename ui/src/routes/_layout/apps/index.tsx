@@ -7,6 +7,7 @@ import { useApiClient } from "@/app";
 import { BackButton, Badge, Button, CommandCopy } from "@/components";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { pageHead } from "@/lib/page-meta";
 
 const PAGE_SIZE = 48;
 const BASE_RUNTIME = "bos://dev.everything.near/everything.dev";
@@ -46,14 +47,11 @@ export const Route = createFileRoute("/_layout/apps/")({
     ]);
   },
   head: () => ({
-    meta: [
-      { title: "Apps | everything.dev" },
-      {
-        name: "description",
-        content:
-          "Browse runtime-composed apps published on NEAR. Each app is a bos.config.json defining how host, UI, and API load together.",
-      },
-    ],
+    meta: pageHead({
+      title: "Apps | everything.dev",
+      description:
+        "Browse runtime-composed apps published on NEAR. Each app is a bos.config.json defining how host, UI, and API load together.",
+    }),
   }),
   component: AppsIndex,
 });
