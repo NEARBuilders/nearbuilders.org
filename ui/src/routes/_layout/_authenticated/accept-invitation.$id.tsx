@@ -4,11 +4,10 @@ import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getAppName, useAuthClient } from "@/app";
 import { Badge, Button, Card, CardContent } from "@/components";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_layout/_authenticated/accept-invitation/$id")({
-  head: () => ({
-    meta: [{ title: `Accept Invitation | ${getAppName()}` }],
-  }),
+  head: () => ({ meta: pageHead({ title: `Accept Invitation | ${getAppName()}` }) }),
   loader: async ({ context, params }) => {
     await context.queryClient.ensureQueryData({
       queryKey: ["invitation", params.id],

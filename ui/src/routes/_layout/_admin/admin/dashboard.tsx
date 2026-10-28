@@ -13,10 +13,11 @@ import {
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageHead } from "@/lib/page-meta";
 import { ADMIN_TABS, type AdminTabConfig, type ProposalPluginId } from "./-proposal-dashboard";
 
 export const Route = createFileRoute("/_layout/_admin/admin/dashboard")({
-  head: () => ({ meta: [{ title: "Admin Dashboard | NEAR Builders" }] }),
+  head: () => ({ meta: pageHead({ title: "Admin Dashboard | NEAR Builders" }) }),
   component: AdminDashboardLayout,
 });
 
