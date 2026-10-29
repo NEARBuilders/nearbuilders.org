@@ -2,12 +2,37 @@ import { describe, expect, it } from "vitest";
 import {
   editableTeamAreas,
   findActiveOrganization,
+  isInvitationEmailVerificationError,
   memberOrganizations,
   pendingUserInvitations,
   teamAreaLabels,
 } from "./workspace";
 
 describe("workspace", () => {
+  describe("isInvitationEmailVerificationError", () => {
+    it("recognizes the verification gate by error code", () => {
+      expect(
+        isInvitationEmailVerificationError({
+          code: "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION",
+        }),
+      ).toBe(true);
+    });
+
+    it("recognizes the verification gate by message", () => {
+      expect(
+        isInvitationEmailVerificationError({
+          message: "Email verification required to view or list invitations for the session email",
+        }),
+      ).toBe(true);
+    });
+
+    it("rejects other errors and noise", () => {
+      expect(isInvitationEmailVerificationError({ message: "FORBIDDEN" })).toBe(false);
+      expect(isInvitationEmailVerificationError(null)).toBe(false);
+      expect(isInvitationEmailVerificationError(undefined)).toBe(false);
+    });
+  });
+
   describe("pendingUserInvitations", () => {
     it("keeps only pending invitations", () => {
       const invitations = [

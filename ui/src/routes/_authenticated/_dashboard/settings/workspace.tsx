@@ -32,11 +32,13 @@ import {
   findActiveOrganization,
   isPersonalOrganization,
   organizationsQueryKey,
+  organizationsQueryOptions,
   pendingUserInvitations,
   teamAreaLabels,
   teamMembersQueryKey,
   type UserInvitationItem,
   userInvitationsQueryKey,
+  userInvitationsQueryOptions,
 } from "@/lib/workspace";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -56,23 +58,8 @@ export const Route = createFileRoute("/_authenticated/_dashboard/settings/worksp
   }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(sessionQueryOptions(context.authClient));
-    await context.queryClient.ensureQueryData({
-      queryKey: organizationsQueryKey,
-      queryFn: async () => {
-        const { data } = await context.authClient.organization.list();
-        return (data || []) as Organization[];
-      },
-      staleTime: 30 * 1000,
-    });
-    await context.queryClient.ensureQueryData({
-      queryKey: userInvitationsQueryKey,
-      queryFn: async (): Promise<UserInvitationItem[]> => {
-        const { data, error } = await context.authClient.organization.listUserInvitations();
-        if (error) throw new Error(error.message);
-        return (data ?? []) as UserInvitationItem[];
-      },
-      staleTime: 30 * 1000,
-    });
+    await context.queryClient.ensureQueryData(organizationsQueryOptions(context.authClient));
+    await context.queryClient.ensureQueryData(userInvitationsQueryOptions(context.authClient));
   },
   component: WorkspaceSettings,
 });
@@ -91,23 +78,10 @@ function WorkspaceSettings() {
     staleTime: 60 * 1000,
   });
   const { data: workspace } = useQuery(teamWorkspaceQueryOptions(apiClient));
-  const { data: organizations, isLoading } = useQuery({
-    queryKey: organizationsQueryKey,
-    queryFn: async () => {
-      const { data } = await auth.organization.list();
-      return (data || []) as Organization[];
-    },
-    staleTime: 30 * 1000,
-  });
-  const { data: userInvitations = [] } = useQuery({
-    queryKey: userInvitationsQueryKey,
-    queryFn: async (): Promise<UserInvitationItem[]> => {
-      const { data, error } = await auth.organization.listUserInvitations();
-      if (error) throw new Error(error.message);
-      return (data ?? []) as UserInvitationItem[];
-    },
-    staleTime: 30 * 1000,
-  });
+  const { data: organizations, isLoading } = useQuery(organizationsQueryOptions(auth));
+  const { data: invitationsState } = useQuery(userInvitationsQueryOptions(auth));
+  const userInvitations = invitationsState?.invitations ?? [];
+  const emailVerificationRequired = invitationsState?.emailVerificationRequired === true;
 
   const pendingInvitations = pendingUserInvitations(userInvitations);
   const activeOrgId = session?.session?.activeOrganizationId;
@@ -181,6 +155,16 @@ function WorkspaceSettings() {
         workspace={workspace}
         activeOrgId={activeOrgId}
       />
+
+      {emailVerificationRequired && (
+        <p className="text-xs text-muted-foreground">
+          Verify an email in{" "}
+          <Link to="/settings/auth-methods" className="underline hover:text-foreground">
+            Auth Methods
+          </Link>{" "}
+          to see organization invitations.
+        </p>
+      )}
 
       {pendingInvitations.length > 0 && (
         <InvitationsSection

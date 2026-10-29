@@ -27,8 +27,41 @@ export type UserInvitationsResponse = Awaited<
 
 export type UserInvitationItem = NonNullable<UserInvitationsResponse["data"]>[number];
 
-export interface UserInvitationsList {
-  pending: UserInvitationItem[];
+export interface UserInvitationsState {
+  invitations: UserInvitationItem[];
+  emailVerificationRequired: boolean;
+}
+
+const INVITATION_EMAIL_VERIFICATION_CODE = "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION";
+
+export function isInvitationEmailVerificationError(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  if (record.code === INVITATION_EMAIL_VERIFICATION_CODE) return true;
+  if (typeof record.message === "string") {
+    return record.message.toLowerCase().includes("email verification required");
+  }
+  return false;
+}
+
+export function userInvitationsQueryOptions(authClient: AuthClient) {
+  return {
+    queryKey: userInvitationsQueryKey,
+    queryFn: async (): Promise<UserInvitationsState> => {
+      const { data, error } = await authClient.organization.listUserInvitations();
+      if (error) {
+        if (isInvitationEmailVerificationError(error)) {
+          return { invitations: [], emailVerificationRequired: true };
+        }
+        throw new Error(error.message || "Failed to load invitations");
+      }
+      return {
+        invitations: (data ?? []) as UserInvitationItem[],
+        emailVerificationRequired: false,
+      };
+    },
+    staleTime: 30 * 1000,
+  };
 }
 
 export function pendingUserInvitations(
