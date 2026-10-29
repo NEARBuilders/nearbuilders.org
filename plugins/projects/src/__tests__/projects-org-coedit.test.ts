@@ -154,4 +154,43 @@ describe("projects router organization co-edit", () => {
       "Project not found",
     );
   });
+
+  it("rejects attributing a project to an org the caller does not belong to", async () => {
+    const outsider = loaded.createClient({
+      userId: "outsider",
+      near: testNear("outsider.near"),
+      user: testUser("outsider", "member"),
+      organizations: [{ id: "org-other", role: "admin" }],
+    });
+
+    await expect(
+      outsider.createProject({
+        kind: "idea",
+        title: "Forge attempt",
+        slug: "forge-attempt",
+        content: "attribution forgery",
+        visibility: "public",
+        organizationId: "org-guild",
+      }),
+    ).rejects.toThrow("not a member");
+  });
+
+  it("allows admins to attribute projects to any organization", async () => {
+    const admin = loaded.createClient({
+      userId: "admin-user",
+      near: testNear("admin.near"),
+      user: testUser("admin-user", "admin"),
+      organizations: [],
+    });
+
+    const project = await admin.createProject({
+      kind: "idea",
+      title: "Admin attribution",
+      slug: "admin-attribution",
+      content: "attributed by admin",
+      visibility: "public",
+      organizationId: "org-guild",
+    });
+    expect(project.organizationId).toBe("org-guild");
+  });
 });

@@ -30,6 +30,7 @@ import {
 import {
   editableTeamAreas,
   findActiveOrganization,
+  isPersonalOrganization,
   organizationsQueryKey,
   pendingUserInvitations,
   teamAreaLabels,
@@ -374,9 +375,7 @@ function OrganizationsSection({
         <div className="grid gap-4 sm:grid-cols-2">
           {organizations.map((org) => {
             const isActive = org.id === activeOrgId;
-            const isPersonal = user
-              ? org.slug === user.id || org.metadata?.isPersonal === true
-              : false;
+            const isPersonal = isPersonalOrganization(org, user?.id);
 
             return (
               <div key={org.id} className="space-y-3 rounded-xl border border-border bg-card p-5">

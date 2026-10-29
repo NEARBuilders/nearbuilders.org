@@ -330,6 +330,7 @@ export class ProjectService extends Context.Service<
       userId: string,
       userRole?: string,
       alternateUserId?: string,
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<
       Project & { collaborators?: ProjectCollaborator[] },
       ORPCError<string, unknown>
@@ -461,6 +462,21 @@ export function isOrganizationMembership(
   if (!organizationId || !memberships) return false;
   return memberships.some((membership) => membership.id === organizationId);
 }
+
+const assertOrganizationAttribution = (
+  organizationId: string | null | undefined,
+  userRole: string | undefined,
+  organizationMemberships?: OrganizationMembership[],
+) =>
+  Effect.gen(function* () {
+    if (organizationId == null || userRole === "admin") return;
+    if (isOrganizationMembership(organizationMemberships, organizationId)) return;
+    yield* Effect.fail(
+      new ORPCError("FORBIDDEN", {
+        message: "You are not a member of this organization",
+      }),
+    );
+  });
 
 const canViewProjectRecord = (
   project: any,
@@ -895,8 +911,13 @@ export const ProjectServiceLive = Layer.effect(
           return yield* mapProjectDetail(db, project, { userId, alternateUserId, userRole });
         }),
 
-      createProject: (input, userId, userRole) =>
+      createProject: (input, userId, userRole, _alternateUserId, organizationMemberships) =>
         Effect.gen(function* () {
+          yield* assertOrganizationAttribution(
+            input.organizationId,
+            userRole,
+            organizationMemberships,
+          );
           const effectiveOwnerId =
             userRole === "admin" && input.ownerId?.trim() ? input.ownerId.trim() : userId;
 
@@ -1032,6 +1053,12 @@ export const ProjectServiceLive = Layer.effect(
               }),
             );
           }
+
+          yield* assertOrganizationAttribution(
+            input.organizationId,
+            userRole,
+            organizationMemberships,
+          );
 
           const [existing] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, id)).limit(1),

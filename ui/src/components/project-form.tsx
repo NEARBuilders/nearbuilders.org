@@ -25,7 +25,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import type { Organization } from "@/app";
 import { useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
@@ -55,7 +54,7 @@ import {
 } from "@/lib/project-form-validation";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
-import { memberOrganizations } from "@/lib/workspace";
+import { memberOrganizations, useOrganizationsQuery } from "@/lib/workspace";
 
 export type { ProjectFormValues } from "@/lib/project-form-validation";
 export {
@@ -1513,14 +1512,7 @@ function kindToLabel(kind: unknown): string {
 
 function OrganizationField({ form, kindLabel }: { form: any; kindLabel: string }) {
   const auth = useAuthClient();
-  const { data: organizations } = useQuery({
-    queryKey: ["organizations"],
-    queryFn: async () => {
-      const { data } = await auth.organization.list();
-      return (data || []) as Organization[];
-    },
-    staleTime: 30 * 1000,
-  });
+  const { data: organizations } = useOrganizationsQuery(auth);
   const orgs = memberOrganizations(organizations);
 
   if (orgs.length === 0) return null;

@@ -156,7 +156,13 @@ export default createPlugin({
         const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
         return yield* project
-          .createProject(input, ownerId, context.user.role ?? undefined)
+          .createProject(
+            input,
+            ownerId,
+            context.user.role ?? undefined,
+            undefined,
+            getOrganizationMemberships(context),
+          )
           .pipe(Effect.catchCause(toRouteError("createProject")));
       }),
 

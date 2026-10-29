@@ -1,9 +1,25 @@
+import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import type { AuthClient, Organization } from "@/app";
 import { FEATURE_AREA_LABELS, isFeatureArea } from "./feature-areas";
 
 export const organizationsQueryKey = ["organizations"] as const;
 export const userInvitationsQueryKey = ["user-invitations"] as const;
 export const teamsQueryKey = ["teams"] as const;
+
+export function organizationsQueryOptions(authClient: AuthClient) {
+  return {
+    queryKey: organizationsQueryKey,
+    queryFn: async () => {
+      const { data } = await authClient.organization.list();
+      return (data || []) as Organization[];
+    },
+    staleTime: 30 * 1000,
+  };
+}
+
+export function useOrganizationsQuery(authClient: AuthClient): UseQueryResult<Organization[]> {
+  return useQuery(organizationsQueryOptions(authClient));
+}
 
 export type UserInvitationsResponse = Awaited<
   ReturnType<AuthClient["organization"]["listUserInvitations"]>

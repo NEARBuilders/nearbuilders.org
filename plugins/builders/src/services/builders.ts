@@ -536,9 +536,9 @@ export const BuilderServiceLive = Layer.effect(
             db
               .select()
               .from(builders)
-              .where(and(inArray(builders.userId, userIds))),
+              .where(and(inArray(builders.userId, userIds), isNull(builders.withdrawnAt))),
           )) as any[];
-          return rows.filter((row) => !row.withdrawnAt).map((row) => rowToBuilder(row));
+          return rows.map((row) => rowToBuilder(row));
         }),
 
       createBuilder: (input) =>
