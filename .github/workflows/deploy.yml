@@ -6,6 +6,10 @@ name: Deploy
 # child's framework surface is pinned via `platform` (ADR 0034) and moves
 # exclusively through `bos upgrade`.
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       verbose:
@@ -24,7 +28,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-deploy.yml@v2.0.0-rc.25
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-deploy.yml@v2.0.0-rc.27
     with:
       working_directory: .
       verbose: ${{ inputs.verbose == true }}

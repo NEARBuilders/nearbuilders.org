@@ -389,7 +389,7 @@ this repo must cover: [`docs/agents/testing.md`](docs/agents/testing.md).
 
 Routes requiring auth use `_authenticated.tsx` layout:
 ```typescript
-export const Route = createFileRoute('/_authenticated')({
+export const Route = createFileRoute('/_layout/_authenticated')({
   beforeLoad: async ({ location }) => {
     const { data: session } = await authClient.getSession();
     if (!session?.user) {

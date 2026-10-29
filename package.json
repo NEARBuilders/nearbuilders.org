@@ -17,9 +17,6 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "start": "bos start",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "echo 'Packages versioned - app release handled by workflow'",
     "db:push": "pnpm --dir api exec drizzle-kit push",
     "db:studio": "bos db:studio",
     "db:generate": "pnpm --dir api exec drizzle-kit generate",
@@ -67,7 +64,8 @@
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
     "pg": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@effect/oxc": "link:repos/effect/packages/tools/oxc"
   },
   "engines": {
     "node": ">=20.11"
