@@ -2,6 +2,7 @@ import { createPluginRuntime } from "every-plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ApiPlugin from "../../src/index";
 import { AUTO_APPROVAL_ACTOR_ID } from "../../src/services/approval-settings";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 type ProposalRecord = {
   id: string;
@@ -153,45 +154,49 @@ describe("REQUIRE_ADMIN_APPROVAL flag", () => {
     if (options.requireAdminApproval !== undefined) {
       secrets.REQUIRE_ADMIN_APPROVAL = options.requireAdminApproval;
     }
-    const loaded = await runtime.usePlugin("api", { variables: {}, secrets }, {
-      activity: () => ({ emitTrustedActivity }),
-      builders: () => ({
-        getMyBuilderProfile: async () => ({ data: null }),
-        listBuilders: async () => ({
-          data: [],
-          meta: { total: 0, hasMore: false, nextCursor: null },
+    const loaded = await runtime.usePlugin(
+      "api",
+      { variables: {}, secrets },
+      asPluginEntries({
+        activity: () => ({ emitTrustedActivity }),
+        builders: () => ({
+          getMyBuilderProfile: async () => ({ data: null }),
+          listBuilders: async () => ({
+            data: [],
+            meta: { total: 0, hasMore: false, nextCursor: null },
+          }),
+          createBuilder,
         }),
-        createBuilder,
-      }),
-      events: () => ({}),
-      nearcatalog: () => ({}),
-      notifications: () => ({ createNotification }),
-      projects: (context: CapturedContext) => {
-        projectContexts.push(context);
-        return { createProject, updateProject };
-      },
-      proposals: (context: CapturedContext) => ({
-        getProposals: async ({ entityId }: { entityId: string }) => {
-          const record = records.get(entityId);
-          return {
-            data: record ? [{ ...record }] : [],
-            meta: { total: record ? 1 : 0, hasMore: false, nextCursor: null },
-          };
+        events: () => ({}),
+        nearcatalog: () => ({}),
+        notifications: () => ({ createNotification }),
+        projects: (context: CapturedContext) => {
+          projectContexts.push(context);
+          return { createProject, updateProject };
         },
-        propose: async (input: Record<string, unknown>) => {
-          const record = pendingRecord(input, records.get(String(input.entityId)));
-          records.set(record.entityId, record);
-          return { data: { ...record } };
-        },
-        approve: async (input: { entityId: string }) => {
-          approveContexts.push(context);
-          return approve(input);
-        },
-        markApplied,
-        markApplyFailed,
-      }),
-      votes: () => ({}),
-    } as never);
+        proposals: (context: CapturedContext) => ({
+          getProposals: async ({ entityId }: { entityId: string }) => {
+            const record = records.get(entityId);
+            return {
+              data: record ? [{ ...record }] : [],
+              meta: { total: record ? 1 : 0, hasMore: false, nextCursor: null },
+            };
+          },
+          propose: async (input: Record<string, unknown>) => {
+            const record = pendingRecord(input, records.get(String(input.entityId)));
+            records.set(record.entityId, record);
+            return { data: { ...record } };
+          },
+          approve: async (input: { entityId: string }) => {
+            approveContexts.push(context);
+            return approve(input);
+          },
+          markApplied,
+          markApplyFailed,
+        }),
+        votes: () => ({}),
+      } as never),
+    );
 
     return {
       loaded,

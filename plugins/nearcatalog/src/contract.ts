@@ -1,3 +1,5 @@
+import "@orpc/openapi/extensions/route";
+import { oc } from "@orpc/contract";
 import {
   BAD_REQUEST,
   CONNECTION_ERROR,
@@ -8,8 +10,7 @@ import {
   TIMEOUT,
   UNAUTHORIZED,
 } from "every-plugin/errors";
-import { oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 
 const CatalogProjectSlugPattern = /^(?:[a-z0-9-]|%[0-9a-fA-F]{2})+$/;
 export const CatalogProjectSlugSchema = z.string().min(1).max(120).regex(CatalogProjectSlugPattern);

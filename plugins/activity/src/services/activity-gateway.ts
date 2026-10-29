@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import {
   ActivityGatewayModeSchema,
   type ActivityGatewayStatusSchema,

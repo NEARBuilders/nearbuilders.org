@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, or } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { eventParticipants, events } from "../db/schema";
 
@@ -114,7 +114,7 @@ function eventWriteError(error: unknown) {
   return new ORPCError("BAD_REQUEST", { message: message || "Could not save event" });
 }
 
-export class EventService extends Context.Tag("events/EventService")<
+export class EventService extends Context.Service<
   EventService,
   {
     listEvents: (
@@ -208,7 +208,7 @@ export class EventService extends Context.Tag("events/EventService")<
       alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
   }
->() {}
+>()("events/EventService") {}
 
 const viewableEvent = (
   db: any,

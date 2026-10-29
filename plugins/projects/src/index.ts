@@ -1,7 +1,7 @@
+import { ORPCError } from "@orpc/server";
+import { Cause, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
@@ -12,6 +12,17 @@ type ProjectsContext = AuthContext & {
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
+
+const toRouteError = (label?: string) => (cause: Cause.Cause<unknown>) => {
+  const squashed = Cause.squash(cause);
+  if (label) console.error(`[Projects] ${label} failed:`, squashed);
+  if (squashed instanceof ORPCError) return Effect.fail(squashed);
+  return Effect.fail(
+    new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: squashed instanceof Error ? squashed.message : String(squashed),
+    }),
+  );
+};
 
 export default createPlugin({
   variables: z.object({}),
@@ -24,20 +35,24 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
-    Effect.gen(function* () {
-      const Database = DatabaseLive(config.secrets.PROJECTS_DATABASE_URL);
+  initialize: (config) =>
+    Effect.sync(() => {
+      const ProjectServices = ProjectServiceLive.pipe(
+        Layer.provide(DatabaseLive(config.secrets.PROJECTS_DATABASE_URL)),
+      );
 
-      const ProjectServices = ProjectServiceLive.pipe(Layer.provide(Database));
-      const project = yield* tools.buildService(ProjectService, ProjectServices);
+      const Lifecycle = Layer.effectDiscard(
+        Effect.gen(function* () {
+          yield* ProjectService;
+          console.log("[Projects] Services Initialized");
+          yield* Effect.addFinalizer(() => Effect.log("[Projects] Shutdown"));
+        }),
+      );
 
-      console.log("[Projects] Services Initialized");
-      return { project };
+      return Lifecycle.pipe(Layer.provideMerge(ProjectServices));
     }),
 
-  shutdown: () => Effect.log("[Projects] Shutdown"),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -70,458 +85,318 @@ export default createPlugin({
         : undefined;
 
     return {
-      listProjects: builder.listProjects.handler(async ({ input, context }) => {
+      listProjects: builder.listProjects.effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
-        const exit = await Effect.runPromiseExit(
-          services.project.listProjects(
+        return yield* project
+          .listProjects(
             input,
             ownerId,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
-          ),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] listProjects failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return exit.value;
+          )
+          .pipe(Effect.catchCause(toRouteError("listProjects")));
       }),
 
-      getProject: builder.getProject.handler(async ({ input, errors, context }) => {
+      getProject: builder.getProject.effect(function* ({ input, errors, context }) {
+        const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
-        const exit = await Effect.runPromiseExit(
-          services.project.getProject(
+        const result = yield* project
+          .getProject(
             input.id,
             ownerId,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
-          ),
-        );
+          )
+          .pipe(Effect.catchCause(toRouteError("getProject")));
 
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] getProject failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
+        if (!result) {
+          return yield* Effect.fail(
+            errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.id },
+            }),
+          );
         }
 
-        if (!exit.value) {
-          throw errors.NOT_FOUND({
-            message: "Project not found",
-            data: { resource: "project", resourceId: input.id },
-          });
-        }
-
-        return { data: exit.value };
+        return { data: result };
       }),
 
-      getProjectBySlug: builder.getProjectBySlug.handler(async ({ input, errors, context }) => {
+      getProjectBySlug: builder.getProjectBySlug.effect(function* ({ input, errors, context }) {
+        const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
-        const exit = await Effect.runPromiseExit(
-          services.project.getProjectBySlug(
+        const result = yield* project
+          .getProjectBySlug(
             input.slug,
             ownerId,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
-          ),
-        );
+          )
+          .pipe(Effect.catchCause(toRouteError("getProjectBySlug")));
 
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] getProjectBySlug failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
+        if (!result) {
+          return yield* Effect.fail(
+            errors.NOT_FOUND({
+              message: "Project not found",
+              data: { resource: "project", resourceId: input.slug },
+            }),
+          );
         }
 
-        if (!exit.value) {
-          throw errors.NOT_FOUND({
-            message: "Project not found",
-            data: { resource: "project", resourceId: input.slug },
-          });
-        }
-
-        return { data: exit.value };
+        return { data: result };
       }),
 
-      createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+      createProject: builder.createProject.use(requireAuth).effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
-        const exit = await Effect.runPromiseExit(
-          services.project.createProject(input, ownerId, context.user.role ?? undefined),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] createProject failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return exit.value;
+        return yield* project
+          .createProject(input, ownerId, context.user.role ?? undefined)
+          .pipe(Effect.catchCause(toRouteError("createProject")));
       }),
 
-      updateProject: builder.updateProject
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.updateProject(
-              input.id,
-              input,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
-              context.allowPublicVisibility === true,
+      updateProject: builder.updateProject.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .updateProject(
+            input.id,
+            input,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+            context.allowPublicVisibility === true,
+          )
+          .pipe(
+            Effect.catchCause(toRouteError("updateProject")),
+            Effect.mapError((error) =>
+              error.code === "NOT_FOUND"
+                ? errors.NOT_FOUND({
+                    message: "Project not found",
+                    data: { resource: "project", resourceId: input.id },
+                  })
+                : error,
             ),
           );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            console.error("[Projects] updateProject failed:", squashed);
-            if (squashed instanceof ORPCError) {
-              if (squashed.code === "NOT_FOUND") {
-                throw errors.NOT_FOUND({
-                  message: "Project not found",
-                  data: { resource: "project", resourceId: input.id },
-                });
-              }
-              throw squashed;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return exit.value;
-        }),
-
-      applyReviewedProject: builder.applyReviewedProject
-        .use(requireAdmin)
-        .handler(async ({ input }) => {
-          const existing = await Effect.runPromise(
-            services.project.getProject(input.id, input.ownerId),
-          );
-          if (!existing) {
-            throw new ORPCError("NOT_FOUND", { message: "Project not found" });
-          }
-          const exit = await Effect.runPromiseExit(
-            services.project.updateProject(input.id, input, input.ownerId, "admin"),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            if (squashed instanceof ORPCError) throw squashed;
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return exit.value;
-        }),
-
-      deleteProject: builder.deleteProject
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.deleteProject(
-              input.id,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
-            ),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            console.error("[Projects] deleteProject failed:", squashed);
-            if (squashed instanceof ORPCError) {
-              if (squashed.code === "NOT_FOUND") {
-                throw errors.NOT_FOUND({
-                  message: "Project not found",
-                  data: { resource: "project", resourceId: input.id },
-                });
-              }
-              throw squashed;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return exit.value;
-        }),
-
-      listProjectApps: builder.listProjectApps.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(services.project.listProjectApps(input.projectId));
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] listProjectApps failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return { data: exit.value };
       }),
 
-      linkAppToProject: builder.linkAppToProject
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.linkAppToProject(
-              input.projectId,
-              input.accountId,
-              input.domain,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+      applyReviewedProject: builder.applyReviewedProject.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const project = yield* ProjectService;
+        const existing = yield* project.getProject(input.id, input.ownerId);
+        if (!existing) {
+          return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
+        }
+        return yield* project
+          .updateProject(input.id, input, input.ownerId, "admin")
+          .pipe(Effect.catchCause(toRouteError()));
+      }),
+
+      deleteProject: builder.deleteProject.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .deleteProject(
+            input.id,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(
+            Effect.catchCause(toRouteError("deleteProject")),
+            Effect.mapError((error) =>
+              error.code === "NOT_FOUND"
+                ? errors.NOT_FOUND({
+                    message: "Project not found",
+                    data: { resource: "project", resourceId: input.id },
+                  })
+                : error,
             ),
           );
+      }),
 
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            console.error("[Projects] linkAppToProject failed:", squashed);
-            if (squashed instanceof ORPCError) {
-              if (squashed.code === "NOT_FOUND") {
-                throw errors.NOT_FOUND({
-                  message: "Project not found",
-                  data: { resource: "project", resourceId: input.projectId },
-                });
-              }
-              throw squashed;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
+      listProjectApps: builder.listProjectApps.effect(function* ({ input }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listProjectApps(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("listProjectApps")));
+        return { data };
+      }),
 
-          return exit.value;
-        }),
-
-      unlinkAppFromProject: builder.unlinkAppFromProject
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.unlinkAppFromProject(
-              input.projectId,
-              input.accountId,
-              input.domain,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
+      linkAppToProject: builder.linkAppToProject.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .linkAppToProject(
+            input.projectId,
+            input.accountId,
+            input.domain,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(
+            Effect.catchCause(toRouteError("linkAppToProject")),
+            Effect.mapError((error) =>
+              error.code === "NOT_FOUND"
+                ? errors.NOT_FOUND({
+                    message: "Project not found",
+                    data: { resource: "project", resourceId: input.projectId },
+                  })
+                : error,
             ),
           );
+      }),
 
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            console.error("[Projects] unlinkAppFromProject failed:", squashed);
-            if (squashed instanceof ORPCError) {
-              if (squashed.code === "NOT_FOUND") {
-                throw errors.NOT_FOUND({
-                  message: "Project or app not found",
-                  data: { resource: "project-app" },
-                });
-              }
-              throw squashed;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
+      unlinkAppFromProject: builder.unlinkAppFromProject.use(requireAuth).effect(function* ({
+        input,
+        context,
+        errors,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .unlinkAppFromProject(
+            input.projectId,
+            input.accountId,
+            input.domain,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(
+            Effect.catchCause(toRouteError("unlinkAppFromProject")),
+            Effect.mapError((error) =>
+              error.code === "NOT_FOUND"
+                ? errors.NOT_FOUND({
+                    message: "Project or app not found",
+                    data: { resource: "project-app" },
+                  })
+                : error,
+            ),
+          );
+      }),
 
-          return exit.value;
-        }),
-
-      listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
-        const exit = await Effect.runPromiseExit(
-          services.project.listProjectsForApp(
+      listProjectsForApp: builder.listProjectsForApp.effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listProjectsForApp(
             input.accountId,
             input.domain,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
-          ),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] listProjectsForApp failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return { data: exit.value };
+          )
+          .pipe(Effect.catchCause(toRouteError("listProjectsForApp")));
+        return { data };
       }),
 
-      listMentions: builder.listMentions.handler(async ({ input, context }) => {
-        const exit = await Effect.runPromiseExit(
-          services.project.listMentions(
+      listMentions: builder.listMentions.effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listMentions(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
-          ),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] listMentions failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return { data: exit.value };
+          )
+          .pipe(Effect.catchCause(toRouteError("listMentions")));
+        return { data };
       }),
 
-      listMentionedBy: builder.listMentionedBy.handler(async ({ input, context }) => {
-        const exit = await Effect.runPromiseExit(
-          services.project.listMentionedBy(
+      listMentionedBy: builder.listMentionedBy.effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listMentionedBy(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
-          ),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          console.error("[Projects] listMentionedBy failed:", squashed);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return { data: exit.value };
+          )
+          .pipe(Effect.catchCause(toRouteError("listMentionedBy")));
+        return { data };
       }),
 
-      listCollaborators: builder.listCollaborators.handler(async ({ input, context }) => {
-        const exit = await Effect.runPromiseExit(
-          services.project.listCollaborators(
+      listCollaborators: builder.listCollaborators.effect(function* ({ input, context }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listCollaborators(
             input.projectId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
-          ),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const squashed = Cause.squash(exit.cause);
-          if (squashed instanceof ORPCError) throw squashed;
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: squashed instanceof Error ? squashed.message : String(squashed),
-          });
-        }
-
-        return { data: exit.value };
+          )
+          .pipe(Effect.catchCause(toRouteError()));
+        return { data };
       }),
 
-      inviteCollaborator: builder.inviteCollaborator
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.inviteCollaborator(
-              input.projectId,
-              input.collaboratorOwnerId,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
-            ),
-          );
+      inviteCollaborator: builder.inviteCollaborator.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .inviteCollaborator(
+            input.projectId,
+            input.collaboratorOwnerId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(Effect.catchCause(toRouteError()));
+      }),
 
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            if (squashed instanceof ORPCError) throw squashed;
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
+      respondCollaborator: builder.respondCollaborator.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .respondCollaborator(
+            input.projectId,
+            input.action,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(Effect.catchCause(toRouteError()));
+      }),
 
-          return exit.value;
-        }),
+      removeCollaborator: builder.removeCollaborator.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const project = yield* ProjectService;
+        return yield* project
+          .removeCollaborator(
+            input.projectId,
+            input.collaboratorOwnerId,
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            context.user.role ?? undefined,
+            getAlternateOwnerId(context),
+          )
+          .pipe(Effect.catchCause(toRouteError()));
+      }),
 
-      respondCollaborator: builder.respondCollaborator
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.respondCollaborator(
-              input.projectId,
-              input.action,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              getAlternateOwnerId(context),
-            ),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            if (squashed instanceof ORPCError) throw squashed;
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return exit.value;
-        }),
-
-      removeCollaborator: builder.removeCollaborator
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.removeCollaborator(
-              input.projectId,
-              input.collaboratorOwnerId,
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              context.user.role ?? undefined,
-              getAlternateOwnerId(context),
-            ),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            if (squashed instanceof ORPCError) throw squashed;
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return exit.value;
-        }),
-
-      listMyCollaborations: builder.listMyCollaborations
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const exit = await Effect.runPromiseExit(
-            services.project.listMyCollaborations(
-              context.near?.primaryAccountId ?? context.userId ?? undefined,
-              getAlternateOwnerId(context),
-              input.status ?? undefined,
-              input.limit ?? undefined,
-            ),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            if (squashed instanceof ORPCError) throw squashed;
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: squashed instanceof Error ? squashed.message : String(squashed),
-            });
-          }
-
-          return { data: exit.value };
-        }),
+      listMyCollaborations: builder.listMyCollaborations.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const project = yield* ProjectService;
+        const data = yield* project
+          .listMyCollaborations(
+            context.near?.primaryAccountId ?? context.userId ?? undefined,
+            getAlternateOwnerId(context),
+            input.status ?? undefined,
+            input.limit ?? undefined,
+          )
+          .pipe(Effect.catchCause(toRouteError()));
+        return { data };
+      }),
     };
   },
 });
