@@ -61,13 +61,13 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   type ProjectKindFilter,
   type ProjectSort,
   type ProjectStatusFilter,
   parseProjectListSearch,
 } from "@/lib/project-search";
-import { pageHead, publicPages } from "@/lib/page-meta";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
   fetchRepositoryLastCommitDate,

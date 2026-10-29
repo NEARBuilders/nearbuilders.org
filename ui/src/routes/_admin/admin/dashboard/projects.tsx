@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { pageHead } from "@/lib/page-meta";
 import { getProposalQueryOptions, ProposalTab } from "@/components/admin/proposal-tab";
 import { parseProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 import { dashboardTabTitle, useProposalTabActions } from "@/lib/admin/proposal-tab-route";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_admin/admin/dashboard/projects")({
   validateSearch: parseProposalTabSearch,

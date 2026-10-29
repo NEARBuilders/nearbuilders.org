@@ -12,12 +12,12 @@ import {
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { pageHead } from "@/lib/page-meta";
 import {
   ADMIN_TABS,
   type AdminTabConfig,
   type ProposalPluginId,
 } from "@/lib/admin/proposal-dashboard";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_admin/admin/dashboard")({
   head: () => ({ meta: pageHead({ title: "Admin Dashboard | NEAR Builders" }) }),

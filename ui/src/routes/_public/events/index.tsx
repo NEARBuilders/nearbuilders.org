@@ -20,7 +20,6 @@ import { EventDayGroup, type EventDayGroupData } from "@/components/events/event
 import { LumaEventCard } from "@/components/events/luma-event-card";
 import { Button } from "@/components/ui/button";
 import { useBookmark } from "@/lib/bookmarks";
-import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   buildTimelineEvents,
   type EventRecord,
@@ -29,6 +28,7 @@ import {
   type TimelineEvent,
 } from "@/lib/events/event-sources";
 import { downloadIcsFile } from "@/lib/ics";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import { cn } from "@/lib/utils";
 
 type EventProposalStatus = "pending" | "approved" | "rejected" | "removed";
