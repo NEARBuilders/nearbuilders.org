@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { Building2, Check, Mail, Pencil, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  Loader2,
+  LogOut,
+  Mail,
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -28,13 +38,9 @@ import {
   type WorkspaceTeam,
 } from "@/lib/team-workspace";
 import {
-  editableTeamAreas,
-  findActiveOrganization,
-  isPersonalOrganization,
   organizationsQueryKey,
   organizationsQueryOptions,
   pendingUserInvitations,
-  teamAreaLabels,
   teamMembersQueryKey,
   type UserInvitationItem,
   userInvitationsQueryKey,
@@ -48,6 +54,11 @@ type OrgMemberItem = OrgMembersResult["members"][number];
 
 type TeamMembersResult = Awaited<ReturnType<ApiClient["auth"]["listTeamMembers"]>>;
 type TeamMemberItem = TeamMembersResult[number];
+
+type ActiveMemberResult = Awaited<ReturnType<ApiClient["auth"]["getActiveMember"]>>;
+
+const activeMemberQueryKey = (organizationId: string) => ["active-member", organizationId] as const;
+const orgMembersQueryKey = (organizationId: string) => ["org-members", organizationId] as const;
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings/workspace")({
   head: () => ({
@@ -78,15 +89,30 @@ function WorkspaceSettings() {
     staleTime: 60 * 1000,
   });
   const { data: workspace } = useQuery(teamWorkspaceQueryOptions(apiClient));
-  const { data: organizations, isLoading } = useQuery(organizationsQueryOptions(auth));
+  const { data: organizations } = useQuery(organizationsQueryOptions(auth));
   const { data: invitationsState } = useQuery(userInvitationsQueryOptions(auth));
   const userInvitations = invitationsState?.invitations ?? [];
   const emailVerificationRequired = invitationsState?.emailVerificationRequired === true;
 
   const pendingInvitations = pendingUserInvitations(userInvitations);
   const activeOrgId = session?.session?.activeOrganizationId;
-  const activeOrg = findActiveOrganization(organizations, activeOrgId);
+  const activeOrg = organizations?.find((o) => o.id === activeOrgId);
   const orgs = organizations || [];
+
+  const switchOrgMutation = useMutation({
+    mutationFn: async (orgId: string) => {
+      const { error } = await auth.organization.setActive({ organizationId: orgId });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      toast.success("Switched organization");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["session"] }),
+        queryClient.invalidateQueries({ queryKey: teamWorkspaceQueryKey }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to switch organization"),
+  });
 
   const acceptInvitationMutation = useMutation({
     mutationFn: async (invitation: UserInvitationItem) => {
@@ -125,36 +151,45 @@ function WorkspaceSettings() {
     onError: (error: Error) => toast.error(error.message || "Failed to decline invitation"),
   });
 
-  const switchOrgMutation = useMutation({
-    mutationFn: async (orgId: string) => {
-      const { error } = await auth.organization.setActive({ organizationId: orgId });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: async () => {
-      toast.success("Switched organization");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["session"] }),
-        queryClient.invalidateQueries({ queryKey: teamWorkspaceQueryKey }),
-      ]);
-    },
-    onError: (error: Error) => toast.error(error.message || "Failed to switch organization"),
-  });
-
   return (
     <div className="space-y-5">
-      <ActiveOrganizationCard
-        organizations={orgs}
-        activeOrg={activeOrg}
-        onSwitch={(orgId) => switchOrgMutation.mutate(orgId)}
-        isSwitching={switchOrgMutation.isPending}
-      />
+      <div className="flex items-center gap-1">
+        <OrgSwitcher
+          organizations={orgs}
+          activeOrgId={activeOrgId}
+          isSwitching={switchOrgMutation.isPending}
+          onSwitch={(orgId) => switchOrgMutation.mutate(orgId)}
+        />
+        {activeOrg?.slug && (
+          <Button asChild variant="ghost" size="icon" className="size-8 shrink-0">
+            <Link to="/organizations/$slug" params={{ slug: activeOrg.slug }}>
+              <ArrowUpRight className="size-4" />
+              <span className="sr-only">open organization</span>
+            </Link>
+          </Button>
+        )}
+        <div className="ml-auto">
+          <TeamSwitcher
+            teams={workspace?.teams ?? []}
+            activeTeamId={workspace?.activeTeam?.id ?? null}
+            onSwitch={async () => {
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["session"] }),
+                queryClient.invalidateQueries({ queryKey: teamWorkspaceQueryKey }),
+              ]);
+            }}
+          />
+        </div>
+      </div>
 
-      <TeamsSection
-        apiClient={apiClient}
-        auth={auth}
-        workspace={workspace}
-        activeOrgId={activeOrgId}
-      />
+      {activeOrg && (
+        <OrgSettingsCard
+          apiClient={apiClient}
+          activeOrg={activeOrg}
+          canManage={workspace?.canManageOrganization === true}
+          teams={workspace?.teams ?? []}
+        />
+      )}
 
       {emailVerificationRequired && (
         <p className="text-xs text-muted-foreground">
@@ -178,72 +213,269 @@ function WorkspaceSettings() {
         />
       )}
 
-      <OrganizationsSection
-        organizations={orgs}
-        isLoading={isLoading}
+      <TeamsSection
+        apiClient={apiClient}
+        auth={auth}
+        workspace={workspace}
         activeOrgId={activeOrgId}
-        user={session?.user}
-        onSwitch={(orgId) => switchOrgMutation.mutate(orgId)}
-        isSwitching={switchOrgMutation.isPending}
       />
     </div>
   );
 }
 
-function ActiveOrganizationCard({
-  organizations,
+function OrgSettingsCard({
+  apiClient,
   activeOrg,
-  onSwitch,
-  isSwitching,
+  canManage,
+  teams,
 }: {
-  organizations: Organization[];
-  activeOrg: Organization | null;
-  onSwitch: (orgId: string) => void;
-  isSwitching: boolean;
+  apiClient: ApiClient;
+  activeOrg: Organization;
+  canManage: boolean;
+  teams: WorkspaceTeam[];
 }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [name, setName] = useState(activeOrg.name);
+  const [slug, setSlug] = useState(activeOrg.slug ?? "");
+  const [logo, setLogo] = useState(activeOrg.logo ?? "");
+
+  const { data: activeMember } = useQuery<ActiveMemberResult | null>({
+    queryKey: activeMemberQueryKey(activeOrg.id),
+    queryFn: async () => {
+      const result = await apiClient.auth.getActiveMember({ organizationId: activeOrg.id });
+      return result ?? null;
+    },
+    enabled: !!activeOrg.id,
+    staleTime: 60 * 1000,
+  });
+
+  const isOwner = activeMember?.role === "owner";
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.auth.updateOrganization({
+        organizationId: activeOrg.id,
+        data: {
+          name: name.trim(),
+          slug: slug.trim(),
+          logo: logo.trim() || null,
+        },
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Organization updated");
+      await queryClient.invalidateQueries({ queryKey: organizationsQueryKey });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to update organization"),
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.auth.leaveOrganization({ organizationId: activeOrg.id });
+    },
+    onSuccess: async () => {
+      toast.success("Left organization");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: organizationsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["session"] }),
+      ]);
+      await router.navigate({ to: "/settings/workspace" });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to leave organization"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.auth.deleteOrganization({ organizationId: activeOrg.id });
+    },
+    onSuccess: async () => {
+      toast.success("Organization deleted");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: organizationsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["session"] }),
+      ]);
+      await router.navigate({ to: "/settings/workspace" });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to delete organization"),
+  });
+
+  const hasChanges =
+    name.trim() !== activeOrg.name ||
+    slug.trim() !== (activeOrg.slug ?? "") ||
+    (logo.trim() || null) !== (activeOrg.logo ?? null);
+
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Active organization
+          Organization
         </h2>
-        <OrgSwitcher
-          organizations={organizations}
-          activeOrgId={activeOrg?.id ?? null}
-          onSwitch={(orgId) => !isSwitching && onSwitch(orgId)}
-        />
       </div>
-      {activeOrg ? (
-        <div className="flex items-start gap-4">
-          {activeOrg.logo ? (
-            <img
-              src={activeOrg.logo}
-              alt={activeOrg.name}
-              className="size-12 shrink-0 rounded-lg border border-border object-cover"
+
+      {canManage ? (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="organization name"
             />
-          ) : (
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-base font-bold text-foreground">
-              {activeOrg.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0 space-y-1">
-            <div className="truncate text-base font-semibold leading-tight text-foreground">
-              {activeOrg.name}
-            </div>
-            <div className="font-mono text-sm text-muted-foreground">@{activeOrg.slug}</div>
-            {activeOrg.slug && (
-              <Button asChild variant="outline" size="sm" className="mt-1">
-                <Link to="/organizations/$slug" params={{ slug: activeOrg.slug }}>
-                  open org
-                </Link>
-              </Button>
-            )}
+            <Input
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="slug"
+            />
+          </div>
+          <Input
+            value={logo}
+            onChange={(event) => setLogo(event.target.value)}
+            placeholder="logo url"
+          />
+          <div className="flex justify-end">
+            <Button
+              onClick={() => updateMutation.mutate()}
+              disabled={!hasChanges || updateMutation.isPending}
+              size="sm"
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              save
+            </Button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No organization is active.</p>
+        <div className="space-y-1">
+          <div className="text-base font-semibold text-foreground">{activeOrg.name}</div>
+          <div className="font-mono text-sm text-muted-foreground">@{activeOrg.slug}</div>
+        </div>
       )}
+
+      {canManage && (
+        <InviteMemberForm apiClient={apiClient} activeOrgId={activeOrg.id} teams={teams} />
+      )}
+
+      <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+        <h3 className="text-sm font-semibold text-destructive">Danger zone</h3>
+        <div className="flex flex-wrap gap-2">
+          {!isOwner && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (window.confirm("Leave this organization?")) leaveMutation.mutate();
+              }}
+              disabled={leaveMutation.isPending}
+            >
+              <LogOut className="size-3.5" />
+              leave organization
+            </Button>
+          )}
+          {isOwner && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                if (
+                  window.confirm("Delete this organization permanently? This cannot be undone.")
+                ) {
+                  deleteMutation.mutate();
+                }
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="size-3.5" />
+              delete organization
+            </Button>
+          )}
+        </div>
+      </div>
     </section>
+  );
+}
+
+function InviteMemberForm({
+  apiClient,
+  activeOrgId,
+  teams,
+}: {
+  apiClient: ApiClient;
+  activeOrgId: string;
+  teams: WorkspaceTeam[];
+}) {
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "member">("member");
+  const [teamId, setTeamId] = useState<string>("");
+
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.auth.inviteMember({
+        organizationId: activeOrgId,
+        email: email.trim(),
+        role,
+        teamId: teamId || undefined,
+      });
+    },
+    onSuccess: async () => {
+      toast.success("Invitation sent");
+      setEmail("");
+      setRole("member");
+      setTeamId("");
+      await queryClient.invalidateQueries({ queryKey: organizationsQueryKey });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to send invitation"),
+  });
+
+  const canSubmit = email.trim() !== "" && !inviteMutation.isPending;
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-background p-4">
+      <h3 className="text-sm font-semibold text-foreground">Invite member</h3>
+      <div className="flex flex-wrap items-end gap-2">
+        <Input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="email"
+          className="max-w-64"
+          onKeyDown={(event) => event.key === "Enter" && canSubmit && inviteMutation.mutate()}
+        />
+        <Select
+          value={role as string}
+          onValueChange={(value) => setRole(value as "admin" | "member")}
+        >
+          <SelectTrigger className="h-9 w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="member">member</SelectItem>
+            <SelectItem value="admin">admin</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={teamId} onValueChange={setTeamId}>
+          <SelectTrigger className="h-9 w-40">
+            <SelectValue placeholder="team (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">no team</SelectItem>
+            {teams.map((team) => (
+              <SelectItem key={team.id} value={team.id}>
+                {team.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={() => inviteMutation.mutate()} disabled={!canSubmit} size="sm">
+          <Mail className="size-3.5" />
+          {inviteMutation.isPending ? "sending..." : "invite"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -310,132 +542,6 @@ function InvitationsSection({
   );
 }
 
-function OrganizationsSection({
-  organizations,
-  isLoading,
-  activeOrgId,
-  user,
-  onSwitch,
-  isSwitching,
-}: {
-  organizations: Organization[];
-  isLoading: boolean;
-  activeOrgId?: string | null;
-  user?: SessionData["user"] | null;
-  onSwitch: (orgId: string) => void;
-  isSwitching: boolean;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Organizations ({organizations.length})
-        </h2>
-        <Button asChild size="sm">
-          <Link to="/organizations/new">
-            <Plus size={14} />
-            new organization
-          </Link>
-        </Button>
-      </div>
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[1, 2].map((n) => (
-            <div key={n} className="space-y-3 rounded-xl border border-border bg-card p-5">
-              <div className="size-10 animate-pulse rounded-lg bg-muted" />
-              <div className="h-4 w-2/3 animate-pulse rounded-2xs bg-muted" />
-            </div>
-          ))}
-        </div>
-      ) : organizations.length === 0 ? (
-        <div className="space-y-3 rounded-xl border border-border bg-card p-8 text-center">
-          <Building2 className="mx-auto size-8 text-muted-foreground" />
-          <p className="text-sm font-semibold text-foreground">No organizations yet.</p>
-          <Button asChild size="sm">
-            <Link to="/organizations/new">create your first org</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {organizations.map((org) => {
-            const isActive = org.id === activeOrgId;
-            const isPersonal = isPersonalOrganization(org, user?.id);
-
-            return (
-              <div key={org.id} className="space-y-3 rounded-xl border border-border bg-card p-5">
-                <div className="flex items-start gap-3">
-                  {org.logo ? (
-                    <img
-                      src={org.logo}
-                      alt={org.name}
-                      className="size-10 shrink-0 rounded-lg border border-border object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-sm font-bold text-foreground">
-                      {org.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="break-all text-sm font-semibold leading-tight text-foreground">
-                        {org.name}
-                      </span>
-                      {isActive && <Chip>active</Chip>}
-                      {isPersonal && <Chip>personal</Chip>}
-                    </div>
-                    <div className="font-mono text-2xs text-muted-foreground">@{org.slug}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {org.slug && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to="/organizations/$slug" params={{ slug: org.slug }}>
-                        open
-                      </Link>
-                    </Button>
-                  )}
-                  {!isActive && (
-                    <Button
-                      onClick={() => onSwitch(org.id)}
-                      disabled={isSwitching}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <RefreshCw className="size-3.5" />
-                      switch
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded border border-border bg-secondary px-2 py-0.5 text-3xs font-semibold text-foreground">
-      {children}
-    </span>
-  );
-}
-function refreshWorkspace(queryClient: ReturnType<typeof useQueryClient>) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: teamWorkspaceQueryKey }),
-    queryClient.invalidateQueries({ queryKey: ["session"] }),
-  ]);
-}
-
-function memberName(member: OrgMemberItem | undefined): string {
-  if (!member) return "unknown";
-  return member.user?.name ?? member.user?.email ?? member.userId;
-}
-
-const orgMembersQueryKey = (organizationId: string) => ["org-members", organizationId] as const;
-
 function TeamsSection({
   apiClient,
   auth,
@@ -447,7 +553,6 @@ function TeamsSection({
   workspace: TeamWorkspace | undefined;
   activeOrgId?: string | null;
 }) {
-  const queryClient = useQueryClient();
   const hasActiveOrg = activeOrgId != null;
   const teams = workspace?.teams ?? [];
   const activeTeamId = workspace?.activeTeam?.id ?? null;
@@ -471,13 +576,6 @@ function TeamsSection({
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Teams ({teams.length})
         </h2>
-        <TeamSwitcher
-          teams={teams}
-          activeTeamId={activeTeamId}
-          onSwitch={async () => {
-            await refreshWorkspace(queryClient);
-          }}
-        />
       </div>
 
       {hasActiveOrg ? (
@@ -516,20 +614,17 @@ function TeamsSection({
 function CreateTeamForm({ apiClient, activeOrgId }: { apiClient: ApiClient; activeOrgId: string }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [areas, setAreas] = useState<string[]>([]);
 
   const createTeamMutation = useMutation({
     mutationFn: async () => {
       return apiClient.auth.createTeam({
         name,
         organizationId: activeOrgId,
-        areas: areas.length > 0 ? areas : undefined,
       });
     },
     onSuccess: async () => {
       toast.success("Team created");
       setName("");
-      setAreas([]);
       await refreshWorkspace(queryClient);
     },
     onError: (error: Error) => toast.error(error.message || "Failed to create team"),
@@ -552,44 +647,6 @@ function CreateTeamForm({ apiClient, activeOrgId }: { apiClient: ApiClient; acti
           {createTeamMutation.isPending ? "creating..." : "create team"}
         </Button>
       </div>
-      <AreaChecklist selected={areas} onChange={setAreas} />
-    </div>
-  );
-}
-
-function AreaChecklist({
-  selected,
-  onChange,
-}: {
-  selected: string[];
-  onChange: (areas: string[]) => void;
-}) {
-  const options = editableTeamAreas(selected);
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((area) => {
-        const checked = selected.includes(area);
-        return (
-          <button
-            key={area}
-            type="button"
-            onClick={() => {
-              onChange(
-                checked ? selected.filter((candidate) => candidate !== area) : [...selected, area],
-              );
-            }}
-            className={
-              checked
-                ? "inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground"
-                : "inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-            }
-            aria-pressed={checked}
-          >
-            {checked && <Check size={12} />}
-            {teamAreaLabels([area])[0]}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -612,7 +669,6 @@ function TeamCard({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(team.name);
-  const [areas, setAreas] = useState<string[]>(team.areas);
   const [newMemberUserId, setNewMemberUserId] = useState("");
 
   const { data: teamMembers = [] } = useQuery({
@@ -640,7 +696,7 @@ function TeamCard({
       return apiClient.auth.updateTeam({
         teamId: team.id,
         organizationId: activeOrgId ?? undefined,
-        data: { name, areas },
+        data: { name },
       });
     },
     onSuccess: async () => {
@@ -716,13 +772,6 @@ function TeamCard({
             <span className="text-sm font-semibold text-foreground">{team.name}</span>
             {isActiveTeam && <Chip>active</Chip>}
           </div>
-          {team.areas.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {teamAreaLabels(team.areas).map((label) => (
-                <Chip key={label}>{label}</Chip>
-              ))}
-            </div>
-          )}
         </div>
         {canManage && (
           <div className="flex gap-1.5">
@@ -731,7 +780,6 @@ function TeamCard({
               size="sm"
               onClick={() => {
                 setName(team.name);
-                setAreas([...team.areas]);
                 setEditing((value) => !value);
               }}
             >
@@ -760,7 +808,6 @@ function TeamCard({
             placeholder="team name"
             className="max-w-60"
           />
-          <AreaChecklist selected={areas} onChange={setAreas} />
           <Button
             onClick={() => updateTeamMutation.mutate()}
             disabled={name.trim() === "" || updateTeamMutation.isPending}
@@ -845,4 +892,24 @@ function TeamCard({
       </div>
     </div>
   );
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded border border-border bg-secondary px-2 py-0.5 text-3xs font-semibold text-foreground">
+      {children}
+    </span>
+  );
+}
+
+function refreshWorkspace(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: teamWorkspaceQueryKey }),
+    queryClient.invalidateQueries({ queryKey: ["session"] }),
+  ]);
+}
+
+function memberName(member: OrgMemberItem | undefined): string {
+  if (!member) return "unknown";
+  return member.user?.name ?? member.user?.email ?? member.userId;
 }

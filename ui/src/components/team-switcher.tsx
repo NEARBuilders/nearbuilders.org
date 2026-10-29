@@ -1,4 +1,4 @@
-import { Users } from "lucide-react";
+import { Check, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { Button } from "./ui/button";
@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
@@ -36,7 +35,7 @@ export function TeamSwitcher({ teams, activeTeamId, onSwitch }: TeamSwitcherProp
         <Button
           variant="ghost"
           size="sm"
-          className="flex items-center gap-2 text-xs text-muted-foreground max-w-45"
+          className="flex items-center gap-2 text-sm text-foreground max-w-48"
         >
           <Users className="size-3.5 shrink-0" />
           <span className="truncate min-w-0">
@@ -45,15 +44,14 @@ export function TeamSwitcher({ teams, activeTeamId, onSwitch }: TeamSwitcherProp
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">teams</DropdownMenuLabel>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           className="flex items-center justify-between cursor-pointer"
           onClick={() => handleSwitch(null)}
         >
           <span>no team</span>
-          {!activeTeamId && <span className="text-xs text-muted-foreground">active</span>}
+          {!activeTeamId && <Check className="size-3.5 text-muted-foreground" />}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         {teams.map((team) => (
           <DropdownMenuItem
             key={team.id}
@@ -61,9 +59,7 @@ export function TeamSwitcher({ teams, activeTeamId, onSwitch }: TeamSwitcherProp
             onClick={() => handleSwitch(team.id)}
           >
             <span className="truncate min-w-0 flex-1">{team.name}</span>
-            {team.id === activeTeamId && (
-              <span className="text-xs text-muted-foreground">active</span>
-            )}
+            {team.id === activeTeamId && <Check className="size-3.5 text-muted-foreground" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -1,13 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Building2, Check, Plus } from "lucide-react";
+import { Building2, Check, Loader2, Plus } from "lucide-react";
 import type { Organization } from "@/app";
-import { useAuthClient } from "@/app";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
@@ -15,20 +13,17 @@ import {
 interface OrgSwitcherProps {
   organizations: Organization[];
   activeOrgId?: string | null;
-  onSwitch?: (orgId: string) => void;
+  isSwitching?: boolean;
+  onSwitch: (orgId: string) => void;
 }
 
-export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitcherProps) {
-  const auth = useAuthClient();
+export function OrgSwitcher({
+  organizations,
+  activeOrgId,
+  isSwitching,
+  onSwitch,
+}: OrgSwitcherProps) {
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
-
-  const handleSwitch = async (orgId: string) => {
-    if (orgId === activeOrgId) return;
-    const { error } = await auth.organization.setActive({ organizationId: orgId });
-    if (!error) {
-      onSwitch?.(orgId);
-    }
-  };
 
   return (
     <DropdownMenu>
@@ -36,25 +31,27 @@ export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitche
         <Button
           variant="ghost"
           size="sm"
-          className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground max-w-45"
+          className="flex items-center gap-2 text-sm text-foreground max-w-48"
+          disabled={isSwitching}
         >
-          <Building2 className="h-3.5 w-3.5 shrink-0" />
+          {isSwitching ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          ) : (
+            <Building2 className="size-3.5 shrink-0" />
+          )}
           <span className="truncate min-w-0">{activeOrg?.name ?? "workspace"}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          organizations
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="start" className="w-56">
         {organizations.map((org) => (
           <DropdownMenuItem
             key={org.id}
             className="flex items-center justify-between cursor-pointer"
-            onClick={() => handleSwitch(org.id)}
+            onClick={() => onSwitch(org.id)}
+            disabled={isSwitching || org.id === activeOrgId}
           >
             <span className="truncate min-w-0 flex-1">{org.name}</span>
-            {org.id === activeOrgId && <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+            {org.id === activeOrgId && <Check className="size-3.5 text-muted-foreground" />}
           </DropdownMenuItem>
         ))}
         {organizations.length === 0 && (
@@ -65,7 +62,7 @@ export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitche
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link to="/organizations/new" className="flex items-center gap-2 cursor-pointer">
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="size-3.5" />
             new organization
           </Link>
         </DropdownMenuItem>
