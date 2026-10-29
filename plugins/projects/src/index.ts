@@ -84,6 +84,10 @@ export default createPlugin({
         ? (context.userId ?? undefined)
         : undefined;
 
+    const getOrganizationMemberships = (context: {
+      organizations?: Array<{ id: string; role: string }>;
+    }) => context.organizations ?? undefined;
+
     return {
       listProjects: builder.listProjects.effect(function* ({ input, context }) {
         const project = yield* ProjectService;
@@ -107,6 +111,7 @@ export default createPlugin({
             ownerId,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
+            getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("getProject")));
 
@@ -131,6 +136,7 @@ export default createPlugin({
             ownerId,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
+            getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("getProjectBySlug")));
 
@@ -168,6 +174,7 @@ export default createPlugin({
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
             context.allowPublicVisibility === true,
+            getOrganizationMemberships(context),
           )
           .pipe(
             Effect.catchCause(toRouteError("updateProject")),
@@ -243,6 +250,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
+            getOrganizationMemberships(context),
           )
           .pipe(
             Effect.catchCause(toRouteError("linkAppToProject")),
@@ -271,6 +279,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
+            getOrganizationMemberships(context),
           )
           .pipe(
             Effect.catchCause(toRouteError("unlinkAppFromProject")),
@@ -330,6 +339,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             getAlternateOwnerId(context),
             context.user?.role ?? undefined,
+            getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError()));
         return { data };
