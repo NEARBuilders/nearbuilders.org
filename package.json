@@ -18,7 +18,6 @@
     "format:check": "biome format .",
     "start": "bos start",
     "changeset": "changeset",
-    "postinstall": "bos types gen || true",
     "version": "changeset version",
     "release": "echo 'Packages versioned - app release handled by workflow'",
     "db:push": "pnpm --dir api exec drizzle-kit push",
