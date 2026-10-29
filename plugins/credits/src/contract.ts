@@ -10,7 +10,7 @@ const CONFLICT = {
 
 export const CreditClaimSchema = z.object({
   id: z.string(),
-  status: z.enum(["pending", "issued", "failed", "revoked"]),
+  status: z.enum(["pending", "issued", "expired", "failed", "revoked"]),
   keyPrefix: z.string().nullable(),
   spendLimitUsd: z.number().positive(),
   keyExpiresAt: z.iso.datetime(),

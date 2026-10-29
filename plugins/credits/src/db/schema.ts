@@ -9,6 +9,7 @@ export const creditClaims = pgTable(
     nearAccountId: text("near_account_id").notNull(),
     userId: text("user_id").notNull(),
     status: text("status", { enum: creditClaimStatuses }).notNull(),
+    attempt: integer("attempt").default(1).notNull(),
     spendLimitCents: integer("spend_limit_cents").notNull(),
     keyExpiresAt: timestamp("key_expires_at", { mode: "date", withTimezone: true }).notNull(),
     keyId: text("key_id"),
@@ -19,7 +20,10 @@ export const creditClaims = pgTable(
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     revokedAt: timestamp("revoked_at", { mode: "date", withTimezone: true }),
   },
-  (table) => [uniqueIndex("credit_claims_near_account_unique").on(table.nearAccountId)],
+  (table) => [
+    uniqueIndex("credit_claims_near_account_unique").on(table.nearAccountId),
+    uniqueIndex("credit_claims_user_unique").on(table.userId),
+  ],
 );
 
 export const nearAiSessions = pgTable("nearai_sessions", {

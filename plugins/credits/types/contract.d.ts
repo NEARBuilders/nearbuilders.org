@@ -3,6 +3,7 @@ import { z } from "zod";
 export declare const CreditClaimSchema: z.ZodObject<{
     id: z.ZodString;
     status: z.ZodEnum<{
+        expired: "expired";
         failed: "failed";
         issued: "issued";
         pending: "pending";
@@ -16,6 +17,7 @@ export declare const CreditClaimSchema: z.ZodObject<{
 export declare const AdminCreditClaimSchema: z.ZodObject<{
     id: z.ZodString;
     status: z.ZodEnum<{
+        expired: "expired";
         failed: "failed";
         issued: "issued";
         pending: "pending";
@@ -45,6 +47,7 @@ export declare const contract: {
         claim: z.ZodNullable<z.ZodObject<{
             id: z.ZodString;
             status: z.ZodEnum<{
+                expired: "expired";
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
@@ -74,6 +77,7 @@ export declare const contract: {
         claim: z.ZodObject<{
             id: z.ZodString;
             status: z.ZodEnum<{
+                expired: "expired";
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
@@ -124,6 +128,7 @@ export declare const contract: {
         data: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             status: z.ZodEnum<{
+                expired: "expired";
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
@@ -172,6 +177,7 @@ export declare const contract: {
         data: z.ZodObject<{
             id: z.ZodString;
             status: z.ZodEnum<{
+                expired: "expired";
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";

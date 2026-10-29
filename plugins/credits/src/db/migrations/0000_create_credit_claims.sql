@@ -3,6 +3,7 @@ CREATE TABLE "credit_claims" (
 	"near_account_id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"status" text NOT NULL,
+	"attempt" integer DEFAULT 1 NOT NULL,
 	"spend_limit_cents" integer NOT NULL,
 	"key_expires_at" timestamp with time zone NOT NULL,
 	"key_id" text,
@@ -20,4 +21,5 @@ CREATE TABLE "nearai_sessions" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX "credit_claims_near_account_unique" ON "credit_claims" USING btree ("near_account_id");
+CREATE UNIQUE INDEX "credit_claims_near_account_unique" ON "credit_claims" USING btree ("near_account_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "credit_claims_user_unique" ON "credit_claims" USING btree ("user_id");

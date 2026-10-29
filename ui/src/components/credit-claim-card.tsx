@@ -76,6 +76,9 @@ export function CreditClaimCard() {
   if (existing?.status === "issued") {
     title = `${formatUsd(existing.spendLimitUsd)} NEAR AI Cloud credits claimed`;
     description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}`;
+  } else if (existing?.status === "expired") {
+    title = "Your NEAR AI Cloud key has expired";
+    description = `Key ${existing.keyPrefix ?? ""} expired ${new Date(existing.keyExpiresAt).toLocaleDateString()}. Each builder can claim credits once.`;
   } else if (existing?.status === "revoked") {
     title = "Your NEAR AI Cloud key was revoked";
     description = "Reach out to the NEAR Builders team if you think this is a mistake.";

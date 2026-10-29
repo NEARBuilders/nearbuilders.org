@@ -56,6 +56,7 @@ const NANO_DOLLARS_PER_CENT = 10_000_000;
 const ACCESS_TOKEN_FALLBACK_TTL_MS = 5 * 60_000;
 const ACCESS_TOKEN_REFRESH_MARGIN_MS = 60_000;
 const LIST_PAGE_SIZE = 100;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export function accessTokenExpiresAt(token: string, now = Date.now()): number {
   try {
@@ -95,7 +96,8 @@ export function createNearAiKeyClient(options: {
 }): NearAiKeyClient {
   const baseUrl = (options.baseUrl ?? NEAR_AI_BASE_URL).replace(/\/+$/, "");
   const workspaceUrl = `${baseUrl}/workspaces/${encodeURIComponent(options.workspaceId)}`;
-  const fetchImpl: typeof fetch = (input, init) => (options.fetch ?? fetch)(input, init);
+  const fetchImpl: typeof fetch = (input, init) =>
+    (options.fetch ?? fetch)(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   let access: { token: string; expiresAt: number } | null = null;
   let minting: Promise<string> | null = null;
 

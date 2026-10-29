@@ -16,6 +16,7 @@ const PAGE_SIZE = 50;
 
 const STATUS_VARIANTS: Record<CreditClaim["status"], "default" | "secondary" | "destructive"> = {
   issued: "default",
+  expired: "secondary",
   pending: "secondary",
   failed: "destructive",
   revoked: "secondary",

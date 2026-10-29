@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { type Database, DatabaseTag } from "../db/layer";
 import { creditClaims, nearAiSessions } from "../db/schema";
@@ -79,6 +79,9 @@ export function parseCreditsConfig(secrets: CreditsSecrets): CreditsConfig {
   if (!config.refreshToken) problems.push("NEARAI_CREDITS_REFRESH_TOKEN is not set");
   if (!config.userAgent) problems.push("NEARAI_CREDITS_USER_AGENT is not set");
   if (!config.workspaceId) problems.push("NEARAI_CREDITS_WORKSPACE_ID is not set");
+  if (config.claimsCloseAt && config.keyExpiresAt && config.keyExpiresAt <= config.claimsCloseAt) {
+    problems.push("CREDITS_KEY_EXPIRES_AT must be after CREDITS_CLAIMS_CLOSE_AT");
+  }
   return config;
 }
 
@@ -92,17 +95,28 @@ export function creditEligibility(
 }
 
 export function clientIp(headers: Headers | undefined) {
-  const ip =
-    headers?.get("cf-connecting-ip") ??
-    headers?.get("x-real-ip") ??
-    headers?.get("x-forwarded-for")?.split(",")[0];
-  return ip?.trim() || null;
+  return headers?.get("cf-connecting-ip")?.trim() || null;
 }
 
-function toClaim(row: CreditClaimRow) {
+function claimStatus(row: CreditClaimRow, now: Date): CreditClaimRow["status"] | "expired" {
+  return row.status === "issued" && row.keyExpiresAt <= now ? "expired" : row.status;
+}
+
+function keyName(claimId: string) {
+  return `nearbuilders-credit-${claimId}`;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  for (let cause = error; cause; cause = (cause as { cause?: unknown }).cause) {
+    if ((cause as { code?: unknown }).code === "23505") return true;
+  }
+  return false;
+}
+
+function toClaim(row: CreditClaimRow, now: Date) {
   return {
     id: row.id,
-    status: row.status,
+    status: claimStatus(row, now),
     keyPrefix: row.keyPrefix,
     spendLimitUsd: row.spendLimitCents / 100,
     keyExpiresAt: row.keyExpiresAt.toISOString(),
@@ -110,9 +124,9 @@ function toClaim(row: CreditClaimRow) {
   };
 }
 
-function toAdminClaim(row: CreditClaimRow, ipClaimCount: number) {
+function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
   return {
-    ...toClaim(row),
+    ...toClaim(row, now),
     nearAccountId: row.nearAccountId,
     userId: row.userId,
     ip: row.ip,
@@ -148,6 +162,12 @@ function conflict(message: string) {
   return new ORPCError("CONFLICT", { message });
 }
 
+function unavailable() {
+  return new ORPCError("SERVICE_UNAVAILABLE", {
+    message: "API credits could not be issued right now. Try again in a few minutes.",
+  });
+}
+
 export function createCreditMethods(
   db: Database,
   config: CreditsConfig,
@@ -159,7 +179,11 @@ export function createCreditMethods(
     if (config.problems.length > 0 || !config.keyExpiresAt || !keys) {
       return { open: false as const, reason: "Credit claims are not configured" };
     }
-    if (config.claimsCloseAt && now() >= config.claimsCloseAt) {
+    const current = now();
+    if (
+      (config.claimsCloseAt && current >= config.claimsCloseAt) ||
+      current >= config.keyExpiresAt
+    ) {
       return { open: false as const, reason: "Credit claims are closed" };
     }
     return { open: true as const, keys, keyExpiresAt: config.keyExpiresAt };
@@ -188,43 +212,58 @@ export function createCreditMethods(
       error: null,
       updatedAt: now(),
     };
-    const [inserted] = await db
-      .insert(creditClaims)
-      .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
-      .onConflictDoNothing({ target: creditClaims.nearAccountId })
-      .returning();
-    if (inserted) return { row: inserted, retry: false };
+    const alreadyClaimed = conflict("API credits were already claimed for this account");
+    try {
+      const [inserted] = await db
+        .insert(creditClaims)
+        .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
+        .onConflictDoNothing()
+        .returning();
+      if (inserted) return { row: inserted, retry: false };
 
-    const [retried] = await db
-      .update(creditClaims)
-      .set(values)
-      .where(
-        and(
-          eq(creditClaims.nearAccountId, input.nearAccountId),
-          or(
-            eq(creditClaims.status, "failed"),
-            and(
-              eq(creditClaims.status, "pending"),
-              lt(creditClaims.updatedAt, new Date(now().getTime() - STALE_PENDING_MS)),
+      const [retried] = await db
+        .update(creditClaims)
+        .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+        .where(
+          and(
+            eq(creditClaims.nearAccountId, input.nearAccountId),
+            or(
+              eq(creditClaims.status, "failed"),
+              and(
+                eq(creditClaims.status, "pending"),
+                lt(creditClaims.updatedAt, new Date(now().getTime() - STALE_PENDING_MS)),
+              ),
             ),
           ),
-        ),
-      )
-      .returning();
-    if (retried) return { row: retried, retry: true };
+        )
+        .returning();
+      if (retried) return { row: retried, retry: true };
+    } catch (error) {
+      if (isUniqueViolation(error)) throw alreadyClaimed;
+      throw error;
+    }
 
     const existing = await findClaim(input.nearAccountId);
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
-    throw conflict("API credits were already claimed for this NEAR account");
+    throw alreadyClaimed;
   };
 
-  const updateClaim = async (id: string, values: Partial<typeof creditClaims.$inferInsert>) => {
+  const finishClaim = async (
+    claim: CreditClaimRow,
+    values: Partial<typeof creditClaims.$inferInsert>,
+  ) => {
     const [row] = await db
       .update(creditClaims)
       .set({ ...values, updatedAt: now() })
-      .where(eq(creditClaims.id, id))
+      .where(
+        and(
+          eq(creditClaims.id, claim.id),
+          eq(creditClaims.status, "pending"),
+          eq(creditClaims.attempt, claim.attempt),
+        ),
+      )
       .returning();
-    return row!;
+    return row ?? null;
   };
 
   const countClaimsFromIp = async (ip: string | null) => {
@@ -244,7 +283,7 @@ export function createCreditMethods(
         amountUsd: config.amountCents / 100,
         claimsCloseAt: config.claimsCloseAt?.toISOString() ?? null,
         eligibility,
-        claim: claim ? toClaim(claim) : null,
+        claim: claim ? toClaim(claim, now()) : null,
       };
     },
 
@@ -264,31 +303,40 @@ export function createCreditMethods(
 
       const { keys } = state;
       const { row, retry } = await acquireClaim({ ...input, keyExpiresAt: state.keyExpiresAt });
-      const name = `nearbuilders-credit-${row.id}`;
+      const name = keyName(row.id);
+      let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
           const orphan = await keys.findKeyByName(name);
           if (orphan?.isActive) await keys.revokeKey(orphan.id);
         }
-        const created = await keys.createKey({
+        created = await keys.createKey({
           name,
           spendLimitCents: row.spendLimitCents,
           expiresAt: row.keyExpiresAt,
         });
-        const issued = await updateClaim(row.id, {
-          status: "issued",
-          keyId: created.id,
-          keyPrefix: created.keyPrefix,
-        });
-        return { key: created.key, claim: toClaim(issued) };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error("[Credits] Credit claim failed:", row.id, message);
-        await updateClaim(row.id, { status: "failed", error: message });
-        throw new ORPCError("SERVICE_UNAVAILABLE", {
-          message: "API credits could not be issued right now. Try again in a few minutes.",
-        });
+        await finishClaim(row, { status: "failed", error: message });
+        throw unavailable();
       }
+
+      const issued = await finishClaim(row, {
+        status: "issued",
+        keyId: created.id,
+        keyPrefix: created.keyPrefix,
+      }).catch((error: unknown) => {
+        console.error("[Credits] Issued key could not be recorded:", row.id, error);
+        throw unavailable();
+      });
+      if (!issued) {
+        await keys.revokeKey(created.id).catch((error: unknown) => {
+          console.error("[Credits] Superseded key could not be revoked:", created.id, error);
+        });
+        throw conflict("This claim changed while the key was being created. Check its status.");
+      }
+      return { key: created.key, claim: toClaim(issued, now()) };
     },
 
     async listClaims(input: { limit: number; offset: number }) {
@@ -314,7 +362,9 @@ export function createCreditMethods(
       const total = totals?.total ?? 0;
       const nextOffset = input.offset + rows.length;
       return {
-        data: rows.map((row) => toAdminClaim(row, row.ip ? (countByIp.get(row.ip) ?? 1) : 0)),
+        data: rows.map((row) =>
+          toAdminClaim(row, row.ip ? (countByIp.get(row.ip) ?? 1) : 0, now()),
+        ),
         meta: {
           total,
           hasMore: nextOffset < total,
@@ -326,19 +376,29 @@ export function createCreditMethods(
     async revokeClaim(id: string) {
       const [row] = await db.select().from(creditClaims).where(eq(creditClaims.id, id));
       if (!row) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
-      if (row.status === "revoked") {
-        return { data: toAdminClaim(row, await countClaimsFromIp(row.ip)) };
-      }
-      if (row.keyId) {
-        if (!keys) {
-          throw new ORPCError("SERVICE_UNAVAILABLE", {
-            message: "NEAR AI credentials are not configured",
-          });
+      if (!keys) {
+        if (row.status === "revoked") {
+          return { data: toAdminClaim(row, await countClaimsFromIp(row.ip), now()) };
         }
-        await keys.revokeKey(row.keyId);
+        throw new ORPCError("SERVICE_UNAVAILABLE", {
+          message: "NEAR AI credentials are not configured",
+        });
       }
-      const revoked = await updateClaim(row.id, { status: "revoked", revokedAt: now() });
-      return { data: toAdminClaim(revoked, await countClaimsFromIp(revoked.ip)) };
+      const [revoked] =
+        row.status === "revoked"
+          ? [row]
+          : await db
+              .update(creditClaims)
+              .set({ status: "revoked", revokedAt: now(), updatedAt: now() })
+              .where(eq(creditClaims.id, row.id))
+              .returning();
+      if (row.keyId) {
+        await keys.revokeKey(row.keyId);
+      } else {
+        const orphan = await keys.findKeyByName(keyName(row.id));
+        if (orphan?.isActive) await keys.revokeKey(orphan.id);
+      }
+      return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now()) };
     },
   };
 }

@@ -18,6 +18,19 @@ function fakeNearAi() {
   const keys = new Map<string, FakeKey>();
   const requests: Array<{ method: string; url: string; body: unknown }> = [];
   const state = { failCreates: 0, createButLoseResponse: 0, created: 0 };
+  const holds: Array<{ started: () => void; released: Promise<void> }> = [];
+  const holdNextCreate = () => {
+    let started!: () => void;
+    let release!: () => void;
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    holds.push({ started, released });
+    return { started: startedPromise, release };
+  };
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
@@ -32,6 +45,11 @@ function fakeNearAi() {
     }
     const keysUrl = `${NEAR_AI}/workspaces/${WORKSPACE}/api-keys`;
     if (url === keysUrl && method === "POST") {
+      const hold = holds.shift();
+      if (hold) {
+        hold.started();
+        await hold.released;
+      }
       if (state.failCreates > 0) {
         state.failCreates -= 1;
         return json({ error: { message: "upstream unavailable", type: "server" } }, 503);
@@ -63,7 +81,8 @@ function fakeNearAi() {
     }
     throw new Error(`Unexpected NEAR AI request: ${method} ${url}`);
   });
-  return { keys, requests, state, fetchMock };
+  const activeKeys = () => [...keys.values()].filter((key) => key.is_active);
+  return { keys, requests, state, fetchMock, holdNextCreate, activeKeys };
 }
 
 function userContext(
@@ -103,6 +122,7 @@ describe("Credit claims", () => {
   const runtimes: Array<ReturnType<typeof createPluginRuntime>> = [];
 
   afterEach(async () => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     await Promise.all(runtimes.splice(0).map((runtime) => runtime.shutdown()));
   });
@@ -198,7 +218,7 @@ describe("Credit claims", () => {
 
     await expect(alice.claimCredits({})).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "API credits were already claimed for this NEAR account",
+      message: "API credits were already claimed for this account",
     });
     expect(nearAi.state.created).toBe(1);
   });
@@ -360,5 +380,111 @@ describe("Credit claims", () => {
     await expect(alice.revokeCreditClaim({ id: "any" })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+  });
+
+  it("lets each signed-in builder claim once, even with several NEAR accounts", async () => {
+    const { client, nearAi } = await loadCredits({
+      builders: { "alice.near": { withdrawnAt: null }, "alice-alt.near": { withdrawnAt: null } },
+    });
+
+    await client(userContext("alice-user", "alice.near")).claimCredits({});
+    const other = client(userContext("alice-user", "alice-alt.near"));
+    await expect(other.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "API credits were already claimed for this account",
+    });
+
+    expect(nearAi.state.created).toBe(1);
+  });
+
+  it("shows a key as expired after its expiry and never issues another", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    const alice = client(userContext("alice-user", "alice.near"));
+    await alice.claimCredits({});
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2999-02-01T00:00:01Z"));
+
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      available: false,
+      claim: { status: "expired", keyExpiresAt: "2999-02-01T00:00:00.000Z" },
+    });
+    await expect(alice.claimCredits({})).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Credit claims are closed",
+    });
+    await expect(admin.listCreditClaims({ limit: 10 })).resolves.toMatchObject({
+      data: [{ status: "expired" }],
+    });
+    expect(nearAi.state.created).toBe(1);
+  });
+
+  it("refuses to start when keys would expire before claims close", async () => {
+    const { client, nearAi } = await loadCredits({
+      secrets: { ...enabledSecrets, CREDITS_KEY_EXPIRES_AT: "2998-01-01T00:00:00Z" },
+    });
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await expect(alice.claimCredits({})).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Credit claims are not configured",
+    });
+    expect(nearAi.requests).toHaveLength(0);
+  });
+
+  it("keeps a revocation and revokes the key when an admin revokes mid-claim", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    const alice = client(userContext("alice-user", "alice.near"));
+    const hold = nearAi.holdNextCreate();
+
+    const claiming = alice.claimCredits({});
+    await hold.started;
+    const [pending] = (await admin.listCreditClaims({ limit: 10 })).data;
+    await admin.revokeCreditClaim({ id: pending!.id });
+    hold.release();
+
+    await expect(claiming).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      claim: { status: "revoked" },
+    });
+    expect(nearAi.state.created).toBe(1);
+    expect(nearAi.activeKeys()).toHaveLength(0);
+  });
+
+  it("leaves one live key when a stale claim is retried while the first is still running", async () => {
+    const { client, nearAi } = await loadCredits();
+    const alice = client(userContext("alice-user", "alice.near"));
+    const hold = nearAi.holdNextCreate();
+
+    const first = alice.claimCredits({});
+    await hold.started;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.now() + 3 * 60_000));
+
+    const second = await alice.claimCredits({});
+    hold.release();
+
+    await expect(first).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(second.claim.status).toBe("issued");
+    expect(nearAi.state.created).toBe(2);
+    expect(nearAi.activeKeys().map((key) => key.key_prefix)).toEqual([second.claim.keyPrefix]);
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      claim: { status: "issued", keyPrefix: second.claim.keyPrefix },
+    });
+  });
+
+  it("revokes a key whose creation response was lost when the claim is revoked", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    nearAi.state.createButLoseResponse = 1;
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await expect(alice.claimCredits({})).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(nearAi.activeKeys()).toHaveLength(1);
+
+    const [failed] = (await admin.listCreditClaims({ limit: 10 })).data;
+    await admin.revokeCreditClaim({ id: failed!.id });
+
+    expect(nearAi.activeKeys()).toHaveLength(0);
+    await expect(alice.claimCredits({})).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });

@@ -1,5 +1,5 @@
 {
-  "id": "9aa18c8d-8a08-47c3-ba65-3086bac5e20d",
+  "id": "ea71212e-fa84-49a5-bb9a-8692a4020d59",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -31,6 +31,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "spend_limit_cents": {
           "name": "spend_limit_cents",
@@ -95,6 +102,21 @@
           "columns": [
             {
               "expression": "near_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_claims_user_unique": {
+          "name": "credit_claims_user_unique",
+          "columns": [
+            {
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

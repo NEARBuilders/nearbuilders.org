@@ -61,6 +61,15 @@ describe("parseCreditsConfig", () => {
       "NEARAI_CREDITS_WORKSPACE_ID is not set",
     ]);
   });
+
+  it.each([
+    "2026-11-14T23:59:00Z",
+    "2026-11-01T00:00:00Z",
+  ])("reports keys that expire at %s, before claims close", (expiresAt) => {
+    expect(parseCreditsConfig({ ...complete, CREDITS_KEY_EXPIRES_AT: expiresAt }).problems).toEqual(
+      ["CREDITS_KEY_EXPIRES_AT must be after CREDITS_CLAIMS_CLOSE_AT"],
+    );
+  });
 });
 
 describe("creditEligibility", () => {
@@ -81,20 +90,18 @@ describe("creditEligibility", () => {
 });
 
 describe("clientIp", () => {
-  it("prefers the Cloudflare client IP", () => {
+  it("reads the Cloudflare client IP", () => {
     const headers = new Headers({
-      "cf-connecting-ip": "203.0.113.7",
+      "cf-connecting-ip": " 203.0.113.7 ",
       "x-real-ip": "198.51.100.1",
       "x-forwarded-for": "198.51.100.2, 10.0.0.1",
     });
     expect(clientIp(headers)).toBe("203.0.113.7");
   });
 
-  it("falls back to the proxy headers", () => {
-    expect(clientIp(new Headers({ "x-real-ip": "198.51.100.1" }))).toBe("198.51.100.1");
-    expect(clientIp(new Headers({ "x-forwarded-for": " 198.51.100.2 , 10.0.0.1" }))).toBe(
-      "198.51.100.2",
-    );
+  it("ignores proxy headers that carry the edge IP or can be spoofed", () => {
+    expect(clientIp(new Headers({ "x-real-ip": "198.51.100.1" }))).toBeNull();
+    expect(clientIp(new Headers({ "x-forwarded-for": "198.51.100.2, 10.0.0.1" }))).toBeNull();
   });
 
   it("returns null without headers", () => {
