@@ -6,7 +6,7 @@ function PageBreadcrumb({
   parentSearch,
   parentParams,
   current,
-  currentClassName = "min-w-0 max-w-[180px] truncate text-sm font-semibold text-foreground sm:max-w-[240px]",
+  currentClassName = "min-w-0 max-w-45 truncate text-sm font-semibold text-foreground sm:max-w-60",
 }: {
   parentLabel: string;
   parentTo: string;

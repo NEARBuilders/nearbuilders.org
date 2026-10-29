@@ -1,158 +1,78 @@
-name: nearbuilding.near
-
-x-pg-common: &pg-common
-  image: postgres:17-alpine
-  environment: &pg-env
-    POSTGRES_USER: everythingdev
-    POSTGRES_PASSWORD: everythingdev
-  healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U everythingdev"]
-    interval: 3s
-    timeout: 3s
-    retries: 5
-
+# Static local development databases — managed by hand, never generated.
+# If a host port is already taken, change the left side of the ports mapping
+# and update the matching *_DATABASE_URL in .env to match.
+#
+# v2 database topology: one shared Postgres per concern. Plugin workspaces
+# scope into their own `plugin_<slug>` schema on the shared api database —
+# point every <SLUG>_DATABASE_URL secret at the same postgres:// URL.
+# Migrate v1 per-plugin databases with `pnpm run db:consolidate`.
 services:
-  postgres-activity:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-activity
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: activity_db
-    ports:
-      - "5434:5432"
-    volumes:
-      - nearbuilding_near_postgres_activity_data:/var/lib/postgresql/data
-
   postgres-api:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-api
+    image: ghcr.io/nearbuilders/mirror-postgres:17-alpine
     environment:
-      <<: *pg-env
+      POSTGRES_USER: everythingdev
+      POSTGRES_PASSWORD: everythingdev
       POSTGRES_DB: api_db
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U everythingdev -d api_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
     volumes:
-      - nearbuilding_near_postgres_api_data:/var/lib/postgresql/data
+      - postgres_api_data:/var/lib/postgresql/data
 
   postgres-auth:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-auth
+    image: ghcr.io/nearbuilders/mirror-postgres:17-alpine
     environment:
-      <<: *pg-env
+      POSTGRES_USER: everythingdev
+      POSTGRES_PASSWORD: everythingdev
       POSTGRES_DB: auth_db
     ports:
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U everythingdev -d auth_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
     volumes:
-      - nearbuilding_near_postgres_auth_data:/var/lib/postgresql/data
+      - postgres_auth_data:/var/lib/postgresql/data
 
-  postgres-builders:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-builders
+  postgres-api-test:
+    image: ghcr.io/nearbuilders/mirror-postgres:17-alpine
     environment:
-      <<: *pg-env
-      POSTGRES_DB: builders_db
+      POSTGRES_USER: everythingdev
+      POSTGRES_PASSWORD: everythingdev
+      POSTGRES_DB: api_test_db
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U everythingdev -d api_test_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - postgres_api_test_data:/var/lib/postgresql/data
+
+  postgres-auth-test:
+    image: ghcr.io/nearbuilders/mirror-postgres:17-alpine
+    environment:
+      POSTGRES_USER: everythingdev
+      POSTGRES_PASSWORD: everythingdev
+      POSTGRES_DB: auth_test_db
     ports:
       - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U everythingdev -d auth_test_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
     volumes:
-      - nearbuilding_near_postgres_builders_data:/var/lib/postgresql/data
-
-  postgres-events:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-events
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: events_db
-    ports:
-      - "5436:5432"
-    volumes:
-      - nearbuilding_near_postgres_events_data:/var/lib/postgresql/data
-
-  postgres-nearcatalog:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-nearcatalog
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: nearcatalog_db
-    ports:
-      - "5437:5432"
-    volumes:
-      - nearbuilding_near_postgres_nearcatalog_data:/var/lib/postgresql/data
-
-  postgres-notifications:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-notifications
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: notifications_db
-    ports:
-      - "5438:5432"
-    volumes:
-      - nearbuilding_near_postgres_notifications_data:/var/lib/postgresql/data
-
-  postgres-projects:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-projects
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: projects_db
-    ports:
-      - "5439:5432"
-    volumes:
-      - nearbuilding_near_postgres_projects_data:/var/lib/postgresql/data
-
-  postgres-proposals:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-proposals
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: proposals_db
-    ports:
-      - "5440:5432"
-    volumes:
-      - nearbuilding_near_postgres_proposals_data:/var/lib/postgresql/data
-
-  postgres-votes:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-votes
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: votes_db
-    ports:
-      - "5441:5432"
-    volumes:
-      - nearbuilding_near_postgres_votes_data:/var/lib/postgresql/data
-
-  postgres-bookmarks:
-    <<: *pg-common
-    container_name: nearbuilding.near-postgres-bookmarks
-    environment:
-      <<: *pg-env
-      POSTGRES_DB: bookmarks_db
-    ports:
-      - "5452:5432"
-    volumes:
-      - nearbuilding_near_postgres_bookmarks_data:/var/lib/postgresql/data
+      - postgres_auth_test_data:/var/lib/postgresql/data
 
 volumes:
-  nearbuilding_near_postgres_activity_data:
-    name: nearbuilding_near_postgres_activity_data
-  nearbuilding_near_postgres_api_data:
-    name: nearbuilding_near_postgres_api_data
-  nearbuilding_near_postgres_auth_data:
-    name: nearbuilding_near_postgres_auth_data
-  nearbuilding_near_postgres_builders_data:
-    name: nearbuilding_near_postgres_builders_data
-  nearbuilding_near_postgres_events_data:
-    name: nearbuilding_near_postgres_events_data
-  nearbuilding_near_postgres_nearcatalog_data:
-    name: nearbuilding_near_postgres_nearcatalog_data
-  nearbuilding_near_postgres_notifications_data:
-    name: nearbuilding_near_postgres_notifications_data
-  nearbuilding_near_postgres_projects_data:
-    name: nearbuilding_near_postgres_projects_data
-  nearbuilding_near_postgres_proposals_data:
-    name: nearbuilding_near_postgres_proposals_data
-  nearbuilding_near_postgres_votes_data:
-    name: nearbuilding_near_postgres_votes_data
-  nearbuilding_near_postgres_bookmarks_data:
-    name: nearbuilding_near_postgres_bookmarks_data
+  postgres_api_data:
+  postgres_auth_data:
+  postgres_api_test_data:
+  postgres_auth_test_data:
