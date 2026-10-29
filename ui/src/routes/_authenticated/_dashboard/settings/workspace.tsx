@@ -241,7 +241,6 @@ function OrgSettingsCard({
   const queryClient = useQueryClient();
   const router = useRouter();
   const [name, setName] = useState(activeOrg.name);
-  const [slug, setSlug] = useState(activeOrg.slug ?? "");
   const [logo, setLogo] = useState(activeOrg.logo ?? "");
 
   const { data: activeMember } = useQuery<ActiveMemberResult | null>({
@@ -262,7 +261,6 @@ function OrgSettingsCard({
         organizationId: activeOrg.id,
         data: {
           name: name.trim(),
-          slug: slug.trim(),
           logo: logo.trim() || null,
         },
       });
@@ -305,9 +303,7 @@ function OrgSettingsCard({
   });
 
   const hasChanges =
-    name.trim() !== activeOrg.name ||
-    slug.trim() !== (activeOrg.slug ?? "") ||
-    (logo.trim() || null) !== (activeOrg.logo ?? null);
+    name.trim() !== activeOrg.name || (logo.trim() || null) !== (activeOrg.logo ?? null);
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4 sm:p-6">
@@ -317,20 +313,18 @@ function OrgSettingsCard({
         </h2>
       </div>
 
+      <div className="space-y-1">
+        <div className="text-base font-semibold text-foreground">{activeOrg.name}</div>
+        <div className="font-mono text-sm text-muted-foreground">@{activeOrg.slug}</div>
+      </div>
+
       {canManage ? (
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="organization name"
-            />
-            <Input
-              value={slug}
-              onChange={(event) => setSlug(event.target.value)}
-              placeholder="slug"
-            />
-          </div>
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="organization name"
+          />
           <Input
             value={logo}
             onChange={(event) => setLogo(event.target.value)}
@@ -351,12 +345,7 @@ function OrgSettingsCard({
             </Button>
           </div>
         </div>
-      ) : (
-        <div className="space-y-1">
-          <div className="text-base font-semibold text-foreground">{activeOrg.name}</div>
-          <div className="font-mono text-sm text-muted-foreground">@{activeOrg.slug}</div>
-        </div>
-      )}
+      ) : null}
 
       {canManage && (
         <InviteMemberForm apiClient={apiClient} activeOrgId={activeOrg.id} teams={teams} />
