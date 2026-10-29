@@ -22,6 +22,7 @@ export {
 } from "./project-tags";
 export { ProjectVisual, type ProjectVisualSource } from "./project-visual";
 export { SiteLink, type SiteLinkTarget } from "./site-link";
+export { TeamSwitcher } from "./team-switcher";
 export { BackButton, BackLink, backButtonClass } from "./ui/back-button";
 export { Badge } from "./ui/badge";
 export { Button } from "./ui/button";
