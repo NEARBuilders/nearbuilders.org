@@ -29,6 +29,18 @@ export function findActiveOrganization(
   return organizations?.find((org) => org.id === activeOrganizationId) ?? null;
 }
 
+export function isPersonalOrganization(org: Organization, userId?: string | null): boolean {
+  return org.metadata?.isPersonal === true || (userId != null && org.slug === userId);
+}
+
+export function memberOrganizations(
+  organizations: Organization[] | null | undefined,
+  userId?: string | null,
+): Organization[] {
+  if (organizations == null) return [];
+  return organizations.filter((org) => !isPersonalOrganization(org, userId));
+}
+
 export const orgTeamsQueryKey = (organizationId: string) => ["teams", organizationId] as const;
 export const teamMembersQueryKey = (teamId: string) => ["team-members", teamId] as const;
 

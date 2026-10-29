@@ -7,6 +7,7 @@ export type ProjectFormValues = {
   visibility: "private" | "unlisted" | "public";
   status?: "active" | "paused" | "archived";
   ownerId?: string;
+  organizationId?: string;
   domain?: string;
   logoUrl?: string;
   collaborators?: string[];
@@ -100,6 +101,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   visibility: "Visibility",
   status: "Status",
   ownerId: "Owner",
+  organizationId: "Organization",
   domain: "Domain",
   logoUrl: "Logo URL",
   collaborators: "Collaborators",

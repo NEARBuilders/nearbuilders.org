@@ -25,6 +25,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { Organization } from "@/app";
+import { useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
 import { Label } from "@/components/ui/label";
@@ -53,6 +55,7 @@ import {
 } from "@/lib/project-form-validation";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
+import { memberOrganizations } from "@/lib/workspace";
 
 export type { ProjectFormValues } from "@/lib/project-form-validation";
 export {
@@ -809,6 +812,8 @@ export function ProjectFormLayout({
             </section>
           )}
 
+          <OrganizationField form={form} kindLabel={kindToLabel(kind)} />
+
           {(kind === "project" || kind === "idea") && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
               <FieldLabel htmlFor="domain" required={kind === "project"}>
@@ -1492,5 +1497,60 @@ export function NearSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function kindToLabel(kind: unknown): string {
+  const value = typeof kind === "string" ? kind : "";
+  const labels: Record<string, string> = {
+    project: "project",
+    idea: "idea",
+    scope: "scope",
+    result: "entry",
+  };
+  return labels[value] ?? "entry";
+}
+
+function OrganizationField({ form, kindLabel }: { form: any; kindLabel: string }) {
+  const auth = useAuthClient();
+  const { data: organizations } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const { data } = await auth.organization.list();
+      return (data || []) as Organization[];
+    },
+    staleTime: 30 * 1000,
+  });
+  const orgs = memberOrganizations(organizations);
+
+  if (orgs.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+      <FieldLabel>Organization</FieldLabel>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        Attribute this {kindLabel} to one of your organizations.
+      </p>
+      <form.Field name="organizationId">
+        {(field: any) => (
+          <Select
+            value={field.state.value || "none"}
+            onValueChange={(value) => field.handleChange(value === "none" ? "" : value)}
+          >
+            <SelectTrigger className="mt-3 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No organization</SelectItem>
+              {orgs.map((org) => (
+                <SelectItem key={org.id} value={org.id}>
+                  {org.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </form.Field>
+    </section>
   );
 }

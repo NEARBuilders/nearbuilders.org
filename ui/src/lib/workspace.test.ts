@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   editableTeamAreas,
   findActiveOrganization,
+  memberOrganizations,
   pendingUserInvitations,
   teamAreaLabels,
 } from "./workspace";
@@ -56,6 +57,26 @@ describe("workspace", () => {
     it("handles nothing gracefully", () => {
       expect(teamAreaLabels(null)).toEqual([]);
       expect(teamAreaLabels(undefined)).toEqual([]);
+    });
+  });
+
+  describe("memberOrganizations", () => {
+    const organizations = [
+      { id: "org_person", name: "Personal", slug: "user_1", metadata: { isPersonal: true } },
+      { id: "org_team", name: "Builders Guild", slug: "builders-guild" },
+      { id: "org_slugmatch", name: "Slug Match", slug: "user_1" },
+    ];
+
+    it("excludes personal organizations", () => {
+      const orgs = memberOrganizations(organizations, "user_1");
+      expect(orgs.map((org) => org.id)).toEqual(["org_team"]);
+    });
+
+    it("still excludes metadata-personal orgs without a user, but not slug matches", () => {
+      expect(memberOrganizations(organizations).map((org) => org.id)).toEqual([
+        "org_team",
+        "org_slugmatch",
+      ]);
     });
   });
 

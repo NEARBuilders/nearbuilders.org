@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { type Organization, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { NostrFeed } from "@/components/nostr-feed";
 import {
   ProjectActivityAction,
@@ -47,6 +47,7 @@ import {
   mostRecentIsoDate,
 } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
+import { findActiveOrganization } from "@/lib/workspace";
 import { feedbackRequestUrl } from "./-feedback-request";
 
 export const Route = createFileRoute("/_public/projects/$kind/$slug")({
@@ -153,6 +154,16 @@ function ProjectDetailPage() {
 
   const project = projectQuery.data?.data;
   const projectId = project?.id;
+  const { data: organizations } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const { data } = await auth.organization.list();
+      return (data || []) as Organization[];
+    },
+    enabled: Boolean(session?.user),
+    staleTime: 30 * 1000,
+  });
+  const projectOrg = findActiveOrganization(organizations, project?.organizationId);
   const projectSocialAccount =
     resolveProjectNearAccount({
       ownerId: project?.ownerId,
@@ -323,6 +334,14 @@ function ProjectDetailPage() {
         value={shortenId(project.ownerId)}
         mono
       />
+      {projectOrg?.slug && (
+        <MetaLinkItem
+          label="Organization"
+          to="/organizations/$slug"
+          params={{ slug: projectOrg.slug }}
+          value={projectOrg.name}
+        />
+      )}
       {acceptedCollaborators.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-xs font-semibold text-muted-foreground">Collaborators</div>

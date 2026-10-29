@@ -126,6 +126,10 @@ function EditProjectPage() {
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
             : undefined,
+        organizationId:
+          (project?.organizationId ?? null) === (values.organizationId?.trim() || null)
+            ? undefined
+            : values.organizationId?.trim() || null,
       });
       const prevHandles = new Set(
         (
@@ -329,6 +333,7 @@ function EditFormInner({
       visibility: (project.visibility ?? "public") as "private" | "unlisted" | "public",
       status: (project.status ?? "active") as "active" | "paused" | "archived",
       ownerId: project.ownerId ?? "",
+      organizationId: project.organizationId ?? "",
       domain: project.domain ?? "",
       logoUrl: project.logoUrl ?? "",
       collaborators: (

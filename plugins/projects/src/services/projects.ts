@@ -344,6 +344,7 @@ export class ProjectService extends Context.Service<
         visibility?: ProjectVisibility;
         repository?: string;
         ownerId?: string;
+        organizationId?: string | null;
         domain?: string;
         logoUrl?: string;
       },
@@ -1047,6 +1048,7 @@ export const ProjectServiceLive = Layer.effect(
           if (input.repository !== undefined) updates.repository = nextRepository;
           if (input.domain !== undefined) updates.domain = nextDomain;
           if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
+          if (input.organizationId !== undefined) updates.organizationId = input.organizationId;
           if (userRole === "admin" && input.ownerId !== undefined)
             updates.ownerId = input.ownerId.trim();
 
@@ -1058,7 +1060,8 @@ export const ProjectServiceLive = Layer.effect(
           return {
             id: existing.id,
             ownerId: updates.ownerId ?? existing.ownerId,
-            organizationId: existing.organizationId,
+            organizationId:
+              "organizationId" in updates ? updates.organizationId : existing.organizationId,
             kind: (updates.kind ?? existing.kind) as ProjectKind,
             slug: existing.slug,
             title: updates.title ?? existing.title,
