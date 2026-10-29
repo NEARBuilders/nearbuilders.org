@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getEventFormErrorMessage, normalizeEventFormValues } from "@/lib/events/event-form-utils";
+import { pageHead } from "@/lib/page-meta";
 
 type Visibility = "private" | "unlisted" | "public";
 
@@ -31,10 +32,10 @@ export const Route = createFileRoute("/_public/events/new")({
     }
   },
   head: () => ({
-    meta: [
-      { title: "New Event | NEAR Builders" },
-      { name: "description", content: "Submit a NEAR Builders event." },
-    ],
+    meta: pageHead({
+      title: "New Event | NEAR Builders",
+      description: "Submit a NEAR Builders event.",
+    }),
   }),
   component: NewEventPage,
 });

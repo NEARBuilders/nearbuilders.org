@@ -3,6 +3,7 @@ import { BookOpen, ExternalLink, FileText, GitFork, Sparkles } from "lucide-reac
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
 import { Markdown } from "@/components/ui/markdown";
 import { useClientValue } from "@/hooks/use-client";
+import { pageHead } from "@/lib/page-meta";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 
 export const Route = createFileRoute("/_public/about")({
@@ -20,10 +21,10 @@ export const Route = createFileRoute("/_public/about")({
     return { repository, readme, description, runtimeConfig: context.runtimeConfig, rawSkillUrl };
   },
   head: () => ({
-    meta: [
-      { title: "About | NEAR Builders" },
-      { name: "description", content: "About this runtime-composed app on NEAR." },
-    ],
+    meta: pageHead({
+      title: "About | NEAR Builders",
+      description: "About this runtime-composed app on NEAR.",
+    }),
   }),
   component: About,
 });

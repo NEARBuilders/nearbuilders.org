@@ -20,6 +20,7 @@ import { EventDayGroup, type EventDayGroupData } from "@/components/events/event
 import { LumaEventCard } from "@/components/events/luma-event-card";
 import { Button } from "@/components/ui/button";
 import { useBookmark } from "@/lib/bookmarks";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   buildTimelineEvents,
   type EventRecord,
@@ -80,12 +81,7 @@ export const Route = createFileRoute("/_public/events/")({
     await Promise.all(prefetches);
     return { timeBoundary };
   },
-  head: () => ({
-    meta: [
-      { title: "Events | NEAR Builders" },
-      { name: "description", content: "Browse NEAR builder events." },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.events) }),
   component: EventsPage,
 });
 

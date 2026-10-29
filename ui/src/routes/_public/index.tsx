@@ -16,6 +16,7 @@ import multiagencyLogo from "@/assets/multiagency-logo.svg";
 import { Button } from "@/components/ui/button";
 import { buildPage } from "@/lib/build-content";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
 import { cn } from "@/lib/utils";
@@ -27,16 +28,7 @@ export const Route = createFileRoute("/_public/")({
       context.queryClient.prefetchQuery(networkStatsOptions(context.apiClient)),
     ]);
   },
-  head: () => ({
-    meta: [
-      { title: "NEAR Builders — Build what's next, together" },
-      {
-        name: "description",
-        content:
-          "Find collaborators, discover open projects, and ship community-owned products with builders on NEAR.",
-      },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.home) }),
   component: HomePage,
 });
 

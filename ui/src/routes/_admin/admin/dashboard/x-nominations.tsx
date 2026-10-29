@@ -10,6 +10,7 @@ import { XNominationTable, XNominationTableSkeleton } from "@/components/admin/x
 import { parseNominationsSearch } from "@/lib/admin/nominations-search";
 import { titleCase } from "@/lib/admin/proposal-dashboard";
 import { exportXNominationTable } from "@/lib/export-csv";
+import { pageHead } from "@/lib/page-meta";
 import {
   X_NOMINATION_QUEUE_KEY,
   xNominationProposalsOptions,
@@ -29,7 +30,7 @@ const NOUN = { singular: "X Nomination", plural: "X Nominations" };
 export const Route = createFileRoute("/_admin/admin/dashboard/x-nominations")({
   validateSearch: parseNominationsSearch,
   head: () => ({
-    meta: [{ title: "X Nominations · Admin Dashboard | NEAR Builders" }],
+    meta: pageHead({ title: "X Nominations · Admin Dashboard | NEAR Builders" }),
   }),
   loader: async ({ context }) => {
     const { queryClient, apiClient } = context;

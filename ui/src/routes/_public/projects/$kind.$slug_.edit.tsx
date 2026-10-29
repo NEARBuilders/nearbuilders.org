@@ -7,6 +7,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { pageHead } from "@/lib/page-meta";
 import { normalizeDomain } from "@/lib/project-form-validation";
 import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import {
@@ -55,10 +56,7 @@ export const Route = createFileRoute("/_public/projects/$kind/$slug_/edit")({
     }
   },
   head: () => ({
-    meta: [
-      { title: "Edit | Projects" },
-      { name: "description", content: "Edit a project or idea." },
-    ],
+    meta: pageHead({ title: "Edit | Projects", description: "Edit a project or idea." }),
   }),
   component: EditProjectPage,
 });

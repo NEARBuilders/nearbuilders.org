@@ -1,13 +1,14 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { sessionQueryOptions } from "@/app";
 import { Tabs, TabsList, TabsTrigger } from "@/components";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/settings")({
   head: () => ({
-    meta: [
-      { title: "Settings | auth.everything.dev" },
-      { name: "description", content: "Manage your account identity and security." },
-    ],
+    meta: pageHead({
+      title: "Settings | auth.everything.dev",
+      description: "Manage your account identity and security.",
+    }),
   }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(sessionQueryOptions(context.authClient));

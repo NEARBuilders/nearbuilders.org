@@ -16,6 +16,7 @@ import { SuggestionInput } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { pageHead } from "@/lib/page-meta";
 import { linkedNearAccountIdsQueryOptions } from "@/lib/queries/near-accounts";
 import {
   isOwnNearAccount,
@@ -39,13 +40,10 @@ export const Route = createFileRoute("/_public/builders/add")({
     }
   },
   head: () => ({
-    meta: [
-      { title: "Nominate a Builder | NEAR Builders" },
-      {
-        name: "description",
-        content: "Nominate a builder to join the NEAR Builders directory.",
-      },
-    ],
+    meta: pageHead({
+      title: "Nominate a Builder | NEAR Builders",
+      description: "Nominate a builder to join the NEAR Builders directory.",
+    }),
   }),
   component: NominateBuilderPage,
 });

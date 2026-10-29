@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageHead } from "@/lib/page-meta";
 import { activityFeedWithProfilesQueryOptions, SELF_REPORTED_SOURCE } from "@/lib/queries/activity";
 import { catalogClaimProposalsQueryOptions } from "@/lib/queries/catalog";
 
@@ -64,10 +65,10 @@ export const Route = createFileRoute("/_authenticated/profile/activity")({
     ]);
   },
   head: () => ({
-    meta: [
-      { title: "My Activity | NEAR Builders" },
-      { name: "description", content: "Track and submit your contributions." },
-    ],
+    meta: pageHead({
+      title: "My Activity | NEAR Builders",
+      description: "Track and submit your contributions.",
+    }),
   }),
   component: ProfileActivityPage,
 });

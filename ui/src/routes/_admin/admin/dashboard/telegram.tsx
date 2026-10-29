@@ -7,11 +7,12 @@ import { RecordsState } from "@/components/admin/records-state";
 import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/ui/command-copy";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pageHead } from "@/lib/page-meta";
 
 const REVIEWERS_KEY = ["admin-telegram-reviewers"];
 
 export const Route = createFileRoute("/_admin/admin/dashboard/telegram")({
-  head: () => ({ meta: [{ title: "Telegram · Admin Dashboard | NEAR Builders" }] }),
+  head: () => ({ meta: pageHead({ title: "Telegram · Admin Dashboard | NEAR Builders" }) }),
   component: TelegramTab,
 });
 

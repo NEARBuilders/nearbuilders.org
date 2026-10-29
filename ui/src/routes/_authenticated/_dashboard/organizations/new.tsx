@@ -4,11 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
 import { Button, Card, CardContent, Input } from "@/components";
+import { pageHead } from "@/lib/page-meta";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/organizations/new")({
   head: () => ({
-    title: "New Organization | auth.everything.dev",
-    meta: [{ name: "description", content: "Create a new organization." }],
+    meta: pageHead({
+      title: "New Organization | auth.everything.dev",
+      description: "Create a new organization.",
+    }),
   }),
   component: NewOrganization,
 });

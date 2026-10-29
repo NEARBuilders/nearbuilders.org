@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getEventFormErrorMessage, normalizeEventFormValues } from "@/lib/events/event-form-utils";
+import { pageHead } from "@/lib/page-meta";
 
 type Visibility = "private" | "unlisted" | "public";
 type Status = "active" | "cancelled";
@@ -44,10 +45,10 @@ export const Route = createFileRoute("/_public/events/$slug_/edit")({
     });
   },
   head: () => ({
-    meta: [
-      { title: "Edit Event | NEAR Builders" },
-      { name: "description", content: "Edit a NEAR Builders event." },
-    ],
+    meta: pageHead({
+      title: "Edit Event | NEAR Builders",
+      description: "Edit a NEAR Builders event.",
+    }),
   }),
   component: EditEventPage,
 });

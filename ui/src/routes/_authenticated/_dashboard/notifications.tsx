@@ -15,6 +15,7 @@ import {
   useNotificationStream,
   useOpenNotification,
 } from "@/hooks";
+import { pageHead } from "@/lib/page-meta";
 import {
   formatRelativeTime,
   infiniteNotificationsQueryOptions,
@@ -30,9 +31,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/notifications")
       infiniteNotificationsQueryOptions(context.apiClient),
     );
   },
-  head: () => ({
-    meta: [{ title: "Notifications | NEAR Builders" }],
-  }),
+  head: () => ({ meta: pageHead({ title: "Notifications | NEAR Builders" }) }),
   component: NotificationsPage,
 });
 

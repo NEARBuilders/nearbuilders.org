@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -136,16 +137,7 @@ export const Route = createFileRoute("/_public/builders/")({
       },
     );
   },
-  head: () => ({
-    meta: [
-      { title: "Builders | NEAR Builders" },
-      {
-        name: "description",
-        content:
-          "Discover builders in the NEAR ecosystem. Find collaborators, explore profiles, and connect with the community.",
-      },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.builders) }),
   component: BuildersPage,
 });
 

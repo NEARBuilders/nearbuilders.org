@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNearAccount } from "@/hooks";
 import { FEATURE_AREA_LABELS, type FeatureArea, isFeatureArea } from "@/lib/feature-areas";
 import type { ResolvedNearProfile } from "@/lib/near-social";
+import { pageHead } from "@/lib/page-meta";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard")({
@@ -45,13 +46,10 @@ export const Route = createFileRoute("/_authenticated/_dashboard/dashboard")({
         ? { restricted: search.restricted }
         : {},
   head: () => ({
-    meta: [
-      { title: "Builder Dashboard | NEAR Builders" },
-      {
-        name: "description",
-        content: "Manage builder projects, ideas, skills, profile status, proposals, and votes.",
-      },
-    ],
+    meta: pageHead({
+      title: "Builder Dashboard | NEAR Builders",
+      description: "Manage builder projects, ideas, skills, profile status, proposals, and votes.",
+    }),
   }),
   component: Dashboard,
 });

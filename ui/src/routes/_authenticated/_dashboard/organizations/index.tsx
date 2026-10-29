@@ -4,6 +4,7 @@ import { Building2, Mail, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button } from "@/components";
+import { pageHead } from "@/lib/page-meta";
 
 type AuthClientType = import("@/app").AuthClient;
 type UserInvitationsResponse = Awaited<
@@ -13,8 +14,10 @@ type UserInvitationItem = NonNullable<UserInvitationsResponse["data"]>[number];
 
 export const Route = createFileRoute("/_authenticated/_dashboard/organizations/")({
   head: () => ({
-    title: "Organizations | auth.everything.dev",
-    meta: [{ name: "description", content: "Manage your organizations and teams." }],
+    meta: pageHead({
+      title: "Organizations | auth.everything.dev",
+      description: "Manage your organizations and teams.",
+    }),
   }),
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(sessionQueryOptions(context.authClient));

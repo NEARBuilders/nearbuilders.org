@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageHead, publicPages } from "@/lib/page-meta";
 import { activityFeedWithProfilesQueryOptions } from "@/lib/queries/activity";
 
 type SourceFilter = "all" | "projects" | "builders" | "events" | "nearcatalog";
@@ -33,15 +34,7 @@ export const Route = createFileRoute("/_public/activity/")({
       activityFeedWithProfilesQueryOptions(apiClient, authClient, queryClient, {}),
     );
   },
-  head: () => ({
-    meta: [
-      { title: "Activity | NEAR Builders" },
-      {
-        name: "description",
-        content: "Browse and endorse contributions across the NEAR Builders ecosystem.",
-      },
-    ],
-  }),
+  head: () => ({ meta: pageHead(publicPages.activity) }),
   component: ActivityPage,
 });
 

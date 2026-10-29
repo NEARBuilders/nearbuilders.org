@@ -12,6 +12,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { pageHead } from "@/lib/page-meta";
 
 const BASE_RUNTIME = "bos://dev.everything.near/everything.dev";
 
@@ -38,15 +39,10 @@ export const Route = createFileRoute("/_public/apps/$accountId/$gatewayId")({
   head: ({ loaderData }) => {
     if (!loaderData) return { meta: [] };
     return {
-      meta: [
-        {
-          title: `${loaderData.accountId} / ${loaderData.gatewayId} | Apps | everything.dev`,
-        },
-        {
-          name: "description",
-          content: `Runtime details for bos://${loaderData.accountId}/${loaderData.gatewayId} — inspect host, UI, API, and plugin composition.`,
-        },
-      ],
+      meta: pageHead({
+        title: `${loaderData.accountId} / ${loaderData.gatewayId} | Apps | everything.dev`,
+        description: `Runtime details for bos://${loaderData.accountId}/${loaderData.gatewayId} — inspect host, UI, API, and plugin composition.`,
+      }),
     };
   },
   component: AppDetailPage,
