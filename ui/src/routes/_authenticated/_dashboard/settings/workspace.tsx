@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pageHead } from "@/lib/page-meta";
+import { proposeUniqueSlug } from "@/lib/slug";
 import {
   type TeamWorkspace,
   teamWorkspaceQueryKey,
@@ -241,6 +242,7 @@ function OrgSettingsCard({
   const queryClient = useQueryClient();
   const router = useRouter();
   const [name, setName] = useState(activeOrg.name);
+  const [slug, setSlug] = useState(activeOrg.slug ?? "");
   const [logo, setLogo] = useState(activeOrg.logo ?? "");
 
   const { data: activeMember } = useQuery<ActiveMemberResult | null>({
@@ -261,6 +263,7 @@ function OrgSettingsCard({
         organizationId: activeOrg.id,
         data: {
           name: name.trim(),
+          slug: slug.trim(),
           logo: logo.trim() || null,
         },
       });
@@ -303,7 +306,30 @@ function OrgSettingsCard({
   });
 
   const hasChanges =
-    name.trim() !== activeOrg.name || (logo.trim() || null) !== (activeOrg.logo ?? null);
+    name.trim() !== activeOrg.name ||
+    slug.trim() !== (activeOrg.slug ?? "") ||
+    (logo.trim() || null) !== (activeOrg.logo ?? null);
+
+  const handleSave = async () => {
+    if (updateMutation.isPending) return;
+    const trimmedSlug = slug.trim();
+    if (trimmedSlug !== (activeOrg.slug ?? "")) {
+      const availableSlug = await proposeUniqueSlug(
+        (candidate) => apiClient.auth.checkSlug({ slug: candidate }),
+        trimmedSlug,
+      );
+      if (!availableSlug) {
+        toast.error("Could not find an available slug.");
+        return;
+      }
+      if (availableSlug !== trimmedSlug) {
+        setSlug(availableSlug);
+        toast.info(`Slug "${trimmedSlug}" is taken. Using "${availableSlug}" instead.`);
+        return;
+      }
+    }
+    updateMutation.mutate();
+  };
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4 sm:p-6">
@@ -320,11 +346,18 @@ function OrgSettingsCard({
 
       {canManage ? (
         <div className="space-y-3">
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="organization name"
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="organization name"
+            />
+            <Input
+              value={slug}
+              onChange={(event) => setSlug(event.target.value.replace(/[^a-z0-9-]/g, ""))}
+              placeholder="slug"
+            />
+          </div>
           <Input
             value={logo}
             onChange={(event) => setLogo(event.target.value)}
@@ -332,7 +365,7 @@ function OrgSettingsCard({
           />
           <div className="flex justify-end">
             <Button
-              onClick={() => updateMutation.mutate()}
+              onClick={handleSave}
               disabled={!hasChanges || updateMutation.isPending}
               size="sm"
             >
@@ -573,7 +606,9 @@ function TeamsSection({
 
       {hasActiveOrg ? (
         <>
-          {canManage && <CreateTeamForm apiClient={apiClient} activeOrgId={activeOrgId} />}
+          {canManage && (
+            <CreateTeamForm apiClient={apiClient} auth={auth} activeOrgId={activeOrgId} />
+          )}
           {teams.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-5 text-center">
               <Users className="mx-auto size-6 text-muted-foreground" />
@@ -604,16 +639,34 @@ function TeamsSection({
   );
 }
 
-function CreateTeamForm({ apiClient, activeOrgId }: { apiClient: ApiClient; activeOrgId: string }) {
+function CreateTeamForm({
+  apiClient,
+  auth,
+  activeOrgId,
+}: {
+  apiClient: ApiClient;
+  auth: AuthClientType;
+  activeOrgId: string;
+}) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
 
   const createTeamMutation = useMutation({
     mutationFn: async () => {
-      return apiClient.auth.createTeam({
+      const team = await apiClient.auth.createTeam({
         name,
         organizationId: activeOrgId,
       });
+      const { data: session } = await auth.getSession();
+      const userId = session?.user?.id;
+      if (userId && team?.id) {
+        await apiClient.auth.addTeamMember({
+          teamId: team.id,
+          userId,
+          organizationId: activeOrgId,
+        });
+      }
+      return team;
     },
     onSuccess: async () => {
       toast.success("Team created");

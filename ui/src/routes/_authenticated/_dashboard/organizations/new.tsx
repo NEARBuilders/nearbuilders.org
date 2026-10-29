@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { customAlphabet } from "nanoid";
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
 import { Button, Card, CardContent, Input } from "@/components";
 import { pageHead } from "@/lib/page-meta";
+import { proposeUniqueSlug } from "@/lib/slug";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/organizations/new")({
   head: () => ({
@@ -25,27 +25,11 @@ function NewOrganization() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
 
-  const slugId = useMemo(() => customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 4), []);
-  const suffixRef = useRef("");
-
   const generateSlug = (value: string) => {
-    const base = value
+    return value
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    if (!base) return "";
-    if (!suffixRef.current) suffixRef.current = slugId();
-    return `${base}-${suffixRef.current}`;
-  };
-
-  const proposeUniqueSlug = async (baseSlug: string): Promise<string | null> => {
-    let candidate = baseSlug;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const result = await apiClient.auth.checkSlug({ slug: candidate });
-      if (result.status) return candidate;
-      candidate = `${baseSlug}-${slugId()}`;
-    }
-    return null;
   };
 
   const createMutation = useMutation({
@@ -84,7 +68,10 @@ function NewOrganization() {
     event.preventDefault();
     if (createMutation.isPending || !name.trim() || !slug.trim()) return;
 
-    const availableSlug = await proposeUniqueSlug(slug.trim());
+    const availableSlug = await proposeUniqueSlug(
+      (candidate) => apiClient.auth.checkSlug({ slug: candidate }),
+      slug.trim(),
+    );
     if (!availableSlug) {
       toast.error("Could not find an available slug. Try a different name.");
       return;
