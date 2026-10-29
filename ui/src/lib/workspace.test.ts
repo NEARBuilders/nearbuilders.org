@@ -82,12 +82,16 @@ describe("workspace", () => {
 
   describe("editableTeamAreas", () => {
     it("unions the team's areas with the registered feature areas", () => {
-      expect(editableTeamAreas(["organizations"])).toEqual(["organizations"]);
-      expect(editableTeamAreas(["legacy"])).toEqual(["legacy", "organizations"]);
+      expect(editableTeamAreas(["organizations"])).toEqual(["organizations", "projects"]);
+      expect(editableTeamAreas(["legacy"])).toEqual(["legacy", "organizations", "projects"]);
     });
 
     it("deduplicates and preserves team order first", () => {
-      expect(editableTeamAreas(["organizations", "legacy"])).toEqual(["organizations", "legacy"]);
+      expect(editableTeamAreas(["organizations", "legacy"])).toEqual([
+        "organizations",
+        "legacy",
+        "projects",
+      ]);
     });
   });
 });

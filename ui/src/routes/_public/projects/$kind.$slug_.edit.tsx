@@ -14,6 +14,7 @@ import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
+import { requireTeamArea } from "@/lib/team-workspace";
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,
@@ -54,6 +55,7 @@ export const Route = createFileRoute("/_public/projects/$kind/$slug_/edit")({
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    await requireTeamArea({ context, location });
   },
   head: () => ({
     meta: pageHead({ title: "Edit | Projects", description: "Edit a project or idea." }),

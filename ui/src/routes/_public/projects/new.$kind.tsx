@@ -32,6 +32,7 @@ import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
+import { requireTeamArea } from "@/lib/team-workspace";
 import { cn } from "@/lib/utils";
 
 const LAST_KIND_KEY = "projects:last-kind";
@@ -68,6 +69,7 @@ export const Route = createFileRoute("/_public/projects/new/$kind")({
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    await requireTeamArea({ context, location });
   },
   head: () => ({
     meta: pageHead({
