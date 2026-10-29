@@ -1,6 +1,7 @@
+import "@orpc/openapi/extensions/route";
+import { oc } from "@orpc/contract";
 import { NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
-import { oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 
 export const contract = oc.router({
   bookmark: oc

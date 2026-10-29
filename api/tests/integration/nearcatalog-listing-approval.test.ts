@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
+import { Effect } from "effect";
 import { createPluginRuntime } from "every-plugin";
-import { Effect } from "every-plugin/effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CATALOG_LISTING_SYNC } from "../../../plugins/nearcatalog/src/contract";
 import { createDatabaseDriver } from "../../../plugins/nearcatalog/src/db";
@@ -13,6 +13,7 @@ import {
 } from "../../../plugins/nearcatalog/src/services/listings";
 import ApiPlugin from "../../src/index";
 import { AUTO_APPROVAL_ACTOR_ID } from "../../src/services/approval-settings";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 type ProposalRecord = {
   id: string;
@@ -60,6 +61,7 @@ function userContext(userId: string, nearAccount: string | null, role = "member"
       image: null,
       role,
       isAnonymous: false,
+      locale: null,
     },
     near: nearAccount
       ? { primaryAccountId: nearAccount, linkedAccounts: [], hasNearAccount: true }
@@ -184,124 +186,130 @@ describe("NEAR Catalog listing approval", () => {
     if (options.requireAdminApproval !== undefined) {
       secrets.REQUIRE_ADMIN_APPROVAL = options.requireAdminApproval;
     }
-    const loaded = await runtime.usePlugin("api", { variables: {}, secrets }, {
-      activity: () => ({ emitTrustedActivity: async () => ({}) }),
-      builders: () => ({
-        getMyBuilderProfile: async () => ({ data: builders.get("maker.testnet") ?? null }),
-        getBuilder: async ({ nearAccount }: { nearAccount: string }) => {
-          const builder = builders.get(nearAccount);
-          if (!builder) throw Object.assign(new Error("Builder not found"), { code: "NOT_FOUND" });
-          return { data: builder };
-        },
-        updateBuilderProfile: async (input: Record<string, unknown>) => {
-          const next = { ...builders.get("maker.testnet")!, ...input };
-          builders.set("maker.testnet", next as ReturnType<typeof catalogBuilder>);
-          return { data: next };
-        },
-        withdrawMyBuilderProfile: async () => {
-          const next = { ...builders.get("maker.testnet")!, withdrawnAt: timestamp };
-          builders.set("maker.testnet", next);
-          return { data: next };
-        },
-      }),
-      events: () => ({}),
-      nearcatalog: (context: TestContext = {}) => {
-        const sync = context[CATALOG_LISTING_SYNC] === true;
-        const track = <A>(effect: Effect.Effect<A, unknown>) => {
-          syncFlags.push(sync);
-          return runListing(effect);
-        };
-        return {
-          listCatalogCategories: async () => ({ data: [{ id: "payment", label: "Payment" }] }),
-          getCatalogListing: async (input: { kind: "project" | "person"; entityId: string }) => ({
-            data: await track(listingMethods.getListing(input)),
-          }),
-          markCatalogListingPending: async (input: never) => ({
-            data: await track(listingMethods.markPending(input)),
-          }),
-          approveCatalogListing: async (input: never) => ({
-            data: await track(listingMethods.approve(input)),
-          }),
-          rejectCatalogListing: async (input: never) => ({
-            data: await track(listingMethods.reject(input)),
-          }),
-          withdrawCatalogListing: async (input: never) => ({
-            data: await track(listingMethods.withdraw(input)),
-          }),
-          refreshCatalogListingRecord: async (input: never) => ({
-            data: await track(listingMethods.refreshRecord(input)),
-          }),
-          listCatalogListings: async ({ kind }: { kind: "project" | "person" }) => ({
-            data: await runListing(listingMethods.listListed(kind)),
-          }),
-          markCatalogListingPublished: async (input: never) => ({
-            data: await runListing(listingMethods.markPublished(input)),
-          }),
-          exportCatalogProjects: async ({ since }: { since?: string }) =>
-            await runListing(exportMethods.exportProjects(since)),
-          exportCatalogPeople: async ({ since }: { since?: string }) =>
-            await runListing(exportMethods.exportPeople(since)),
-        };
-      },
-      notifications: () => ({ createNotification }),
-      projects: () => ({
-        getProject: async ({ id }: { id: string }) => {
-          const project = projects.get(id);
-          if (!project) throw Object.assign(new Error("Project not found"), { code: "NOT_FOUND" });
-          return { data: project };
-        },
-        updateProject: async (input: Record<string, unknown>) => {
-          const next = { ...projects.get(String(input.id))!, ...input };
-          projects.set(String(input.id), next as ReturnType<typeof catalogProject>);
-          return next;
-        },
-        deleteProject: async ({ id }: { id: string }) => {
-          projects.delete(id);
-          return { deleted: true };
-        },
-      }),
-      proposals: (context: TestContext = {}) => ({
-        getProposals: async ({ entityId }: { entityId?: string }) => {
-          const record = entityId ? records.get(entityId) : undefined;
+    const loaded = await runtime.usePlugin(
+      "api",
+      { variables: {}, secrets },
+      asPluginEntries({
+        activity: () => ({ emitTrustedActivity: async () => ({}) }),
+        builders: () => ({
+          getMyBuilderProfile: async () => ({ data: builders.get("maker.testnet") ?? null }),
+          getBuilder: async ({ nearAccount }: { nearAccount: string }) => {
+            const builder = builders.get(nearAccount);
+            if (!builder)
+              throw Object.assign(new Error("Builder not found"), { code: "NOT_FOUND" });
+            return { data: builder };
+          },
+          updateBuilderProfile: async (input: Record<string, unknown>) => {
+            const next = { ...builders.get("maker.testnet")!, ...input };
+            builders.set("maker.testnet", next as ReturnType<typeof catalogBuilder>);
+            return { data: next };
+          },
+          withdrawMyBuilderProfile: async () => {
+            const next = { ...builders.get("maker.testnet")!, withdrawnAt: timestamp };
+            builders.set("maker.testnet", next);
+            return { data: next };
+          },
+        }),
+        events: () => ({}),
+        nearcatalog: (context: TestContext = {}) => {
+          const sync = context[CATALOG_LISTING_SYNC] === true;
+          const track = <A>(effect: Effect.Effect<A, unknown>) => {
+            syncFlags.push(sync);
+            return runListing(effect);
+          };
           return {
-            data: record ? [{ ...record }] : [],
-            meta: { total: record ? 1 : 0, hasMore: false, nextCursor: null },
+            listCatalogCategories: async () => ({ data: [{ id: "payment", label: "Payment" }] }),
+            getCatalogListing: async (input: { kind: "project" | "person"; entityId: string }) => ({
+              data: await track(listingMethods.getListing(input)),
+            }),
+            markCatalogListingPending: async (input: never) => ({
+              data: await track(listingMethods.markPending(input)),
+            }),
+            approveCatalogListing: async (input: never) => ({
+              data: await track(listingMethods.approve(input)),
+            }),
+            rejectCatalogListing: async (input: never) => ({
+              data: await track(listingMethods.reject(input)),
+            }),
+            withdrawCatalogListing: async (input: never) => ({
+              data: await track(listingMethods.withdraw(input)),
+            }),
+            refreshCatalogListingRecord: async (input: never) => ({
+              data: await track(listingMethods.refreshRecord(input)),
+            }),
+            listCatalogListings: async ({ kind }: { kind: "project" | "person" }) => ({
+              data: await runListing(listingMethods.listListed(kind)),
+            }),
+            markCatalogListingPublished: async (input: never) => ({
+              data: await runListing(listingMethods.markPublished(input)),
+            }),
+            exportCatalogProjects: async ({ since }: { since?: string }) =>
+              await runListing(exportMethods.exportProjects(since)),
+            exportCatalogPeople: async ({ since }: { since?: string }) =>
+              await runListing(exportMethods.exportPeople(since)),
           };
         },
-        propose: (input: Record<string, unknown>) => propose(context, input),
-        approve: async ({ entityId }: { entityId: string }) => {
-          approveContexts.push(context);
-          const record = records.get(entityId)!;
-          record.reviewStatus = "approved";
-          record.applyStatus = "applying";
-          return { data: { ...record } };
-        },
-        markApplied: async ({ entityId, appliedResourceId }: Record<string, string>) => {
-          const record = records.get(entityId!)!;
-          record.applyStatus = "applied";
-          record.appliedResourceId = appliedResourceId ?? null;
-          return { data: { ...record } };
-        },
-        markApplyFailed: async ({ entityId, error }: Record<string, string>) => {
-          const record = records.get(entityId!)!;
-          record.applyStatus = "failed";
-          record.applyError = error ?? null;
-          return { data: { ...record } };
-        },
-        reject: async ({ entityId, reason }: { entityId: string; reason?: string }) => {
-          const record = records.get(entityId)!;
-          record.reviewStatus = "rejected";
-          record.rejectionReason = reason ?? null;
-          return { data: { ...record } };
-        },
-        withdraw: async ({ entityId }: { entityId: string }) => {
-          const record = records.get(entityId)!;
-          record.reviewStatus = "removed";
-          return { data: { ...record } };
-        },
-      }),
-      votes: () => ({}),
-    } as never);
+        notifications: () => ({ createNotification }),
+        projects: () => ({
+          getProject: async ({ id }: { id: string }) => {
+            const project = projects.get(id);
+            if (!project)
+              throw Object.assign(new Error("Project not found"), { code: "NOT_FOUND" });
+            return { data: project };
+          },
+          updateProject: async (input: Record<string, unknown>) => {
+            const next = { ...projects.get(String(input.id))!, ...input };
+            projects.set(String(input.id), next as ReturnType<typeof catalogProject>);
+            return next;
+          },
+          deleteProject: async ({ id }: { id: string }) => {
+            projects.delete(id);
+            return { deleted: true };
+          },
+        }),
+        proposals: (context: TestContext = {}) => ({
+          getProposals: async ({ entityId }: { entityId?: string }) => {
+            const record = entityId ? records.get(entityId) : undefined;
+            return {
+              data: record ? [{ ...record }] : [],
+              meta: { total: record ? 1 : 0, hasMore: false, nextCursor: null },
+            };
+          },
+          propose: (input: Record<string, unknown>) => propose(context, input),
+          approve: async ({ entityId }: { entityId: string }) => {
+            approveContexts.push(context);
+            const record = records.get(entityId)!;
+            record.reviewStatus = "approved";
+            record.applyStatus = "applying";
+            return { data: { ...record } };
+          },
+          markApplied: async ({ entityId, appliedResourceId }: Record<string, string>) => {
+            const record = records.get(entityId!)!;
+            record.applyStatus = "applied";
+            record.appliedResourceId = appliedResourceId ?? null;
+            return { data: { ...record } };
+          },
+          markApplyFailed: async ({ entityId, error }: Record<string, string>) => {
+            const record = records.get(entityId!)!;
+            record.applyStatus = "failed";
+            record.applyError = error ?? null;
+            return { data: { ...record } };
+          },
+          reject: async ({ entityId, reason }: { entityId: string; reason?: string }) => {
+            const record = records.get(entityId)!;
+            record.reviewStatus = "rejected";
+            record.rejectionReason = reason ?? null;
+            return { data: { ...record } };
+          },
+          withdraw: async ({ entityId }: { entityId: string }) => {
+            const record = records.get(entityId)!;
+            record.reviewStatus = "removed";
+            return { data: { ...record } };
+          },
+        }),
+        votes: () => ({}),
+      } as never),
+    );
 
     cleanups.push(async () => {
       await runtime.shutdown();

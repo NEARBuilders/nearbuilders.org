@@ -1,4 +1,4 @@
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import type { builderCatalogSchema } from "../contract";
 
 export type BuilderCatalogMetadata = z.output<typeof builderCatalogSchema>;

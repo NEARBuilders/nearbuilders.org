@@ -1,4 +1,4 @@
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import {
   assertProjectProposalOwner,

@@ -1,4 +1,4 @@
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import { readString } from "../lib/utils";
 

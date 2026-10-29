@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
-import { Effect, Exit } from "every-plugin/effect";
+import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 import { createDatabaseDriver } from "../db";
 import { createListingMethods } from "../services/listings";

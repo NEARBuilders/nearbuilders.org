@@ -1,0 +1,174 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createFileRoute,
+  Navigate,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { sessionQueryKey, sessionQueryOptions, useAuthClient } from "@/app";
+import { Button } from "@/components/ui/button";
+import { NearkatPeek } from "@/components/ui/nearkat-peek";
+import { nearAccountsQueryKey, nearAccountsQueryOptions } from "@/lib/queries/near-accounts";
+
+type SearchParams = {
+  redirect?: string;
+};
+
+export const Route = createFileRoute("/_public/login")({
+  ssr: false,
+  validateSearch: (search: Record<string, unknown>): SearchParams => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
+  beforeLoad: ({ context, search }) => {
+    const { queryClient, authClient } = context;
+    const initialSession = context.session;
+    const session =
+      initialSession ?? queryClient.getQueryData(sessionQueryOptions(authClient).queryKey);
+
+    if (session?.user) {
+      const redirectTo = search.redirect?.startsWith("/") ? search.redirect : "/dashboard";
+      throw redirect({ to: redirectTo, search: {} });
+    }
+  },
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(sessionQueryOptions(context.authClient));
+  },
+  component: LoginPage,
+});
+
+function LoginPage() {
+  const navigate = useNavigate();
+  const auth = useAuthClient();
+  const banned = useRouterState({ select: (state) => state.location.hash === "banned" });
+  const { data: session } = useQuery(sessionQueryOptions(auth));
+  const { redirect } = Route.useSearch();
+  const queryClient = useQueryClient();
+
+  const [nearPending, setNearPending] = useState(false);
+  const [connectingDifferent, setConnectingDifferent] = useState(false);
+  const [detectedAccount, setDetectedAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.near.detectNearAccount().then((result: { accountId?: string | null } | null) => {
+      if (result?.accountId) {
+        setDetectedAccount(result.accountId);
+      }
+    });
+  }, [auth.near]);
+
+  const handleSuccess = async (
+    message: string,
+    signedInNearState: ReturnType<typeof auth.near.getState>,
+  ) => {
+    const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
+    const { data: freshSession } = await auth.getSession();
+    if (freshSession) {
+      queryClient.setQueryData(sessionQueryKey, freshSession);
+    }
+    await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+    await queryClient
+      .fetchQuery({ ...nearAccountsQueryOptions(auth), staleTime: 0 })
+      .catch(() => null);
+    if (signedInNearState) {
+      auth.$store.atoms.nearState.set(signedInNearState);
+    }
+    toast.success(message);
+    await navigate({ to: redirectTo, replace: true, search: {} });
+  };
+
+  const handleError = (error: { code?: string; message?: string } | Error) => {
+    const code = "code" in error ? error.code : undefined;
+    const message = "message" in error ? error.message : "Failed to sign in";
+    if (code === "UNAUTHORIZED_NONCE_REPLAY") toast.error("Sign-in already used");
+    else if (code === "UNAUTHORIZED_INVALID_SIGNATURE") toast.error("Invalid signature");
+    else if (code === "SIGNER_NOT_AVAILABLE") toast.error("NEAR wallet not available");
+    else toast.error(message || "Failed to sign in");
+  };
+
+  const handleNear = async () => {
+    setNearPending(true);
+    await auth.signIn.near({
+      onSuccess: async () => {
+        const signedInNearState = auth.near.getState();
+        const nearAccountId = signedInNearState?.accountId;
+        if (nearAccountId) {
+          queryClient.setQueryData(nearAccountsQueryKey, nearAccountId);
+        }
+        setNearPending(false);
+        await handleSuccess("Signed in with NEAR", signedInNearState);
+      },
+      onError: (error: { code?: string; message?: string }) => {
+        setNearPending(false);
+        handleError(error);
+      },
+    });
+  };
+
+  const handleConnectDifferent = async () => {
+    setConnectingDifferent(true);
+    try {
+      await auth.near.disconnect();
+      queryClient.removeQueries({ queryKey: nearAccountsQueryKey });
+      setDetectedAccount(null);
+    } finally {
+      setConnectingDifferent(false);
+    }
+  };
+
+  if (session?.user) {
+    const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
+    return <Navigate to={redirectTo} replace search={{}} />;
+  }
+
+  return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- page height is a fraction of the viewport, not a fixed scale value
+    <div className="min-h-[80vh] flex items-center justify-center px-4 animate-fade-in">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-4">
+          {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- exact width preserves the mascot image's aspect ratio at its fixed height; not a value on the spacing scale */}
+          <NearkatPeek className="mx-auto mb-4 h-20 w-[7.25rem] sm:h-24 sm:w-[8.75rem]" />
+          <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">Welcome back</h1>
+          <p className="text-sm text-muted-foreground">
+            Connect your NEAR wallet to access your workspace
+          </p>
+        </div>
+
+        {banned && (
+          <p className="text-center text-sm text-destructive mb-4" data-testid="login.banned">
+            This account has been suspended.
+          </p>
+        )}
+
+        <div className="animate-fade-in-up">
+          <Button
+            onClick={handleNear}
+            disabled={nearPending}
+            size="lg"
+            className="w-full rounded-full h-12 text-sm font-bold bg-brand-green hover:bg-brand-green/90 text-brand-on-accent shadow-md shadow-brand-green/20 hover:shadow-lg hover:shadow-brand-green/30 transition-all"
+          >
+            {nearPending
+              ? "Connecting…"
+              : detectedAccount
+                ? `Continue as ${detectedAccount}`
+                : "Connect with NEAR"}
+          </Button>
+          {detectedAccount && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleConnectDifferent}
+              disabled={nearPending || connectingDifferent}
+              className="mt-3 w-full text-muted-foreground hover:text-foreground"
+            >
+              {connectingDifferent ? "Clearing…" : "Connect a different account"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

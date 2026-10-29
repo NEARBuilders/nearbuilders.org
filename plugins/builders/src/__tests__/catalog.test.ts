@@ -14,6 +14,7 @@ function testUser(id: string, role = "member") {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
