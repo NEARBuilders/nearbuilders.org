@@ -641,6 +641,17 @@ function TeamCard({
     staleTime: 30 * 1000,
   });
 
+  const teamMemberUserIds = teamMembers.map((member) => member.userId);
+  const { data: teamBuilders = [] } = useQuery({
+    queryKey: ["builders-by-user-ids", teamMemberUserIds],
+    queryFn: async () => {
+      const result = await apiClient.getBuildersByUserIds({ userIds: teamMemberUserIds });
+      return result.data ?? [];
+    },
+    enabled: teamMemberUserIds.length > 0,
+    staleTime: 60 * 1000,
+  });
+
   const updateTeamMutation = useMutation({
     mutationFn: async () => {
       return apiClient.auth.updateTeam({
@@ -711,6 +722,7 @@ function TeamCard({
   const teamMemberIds = new Set(teamMembers.map((member) => member.userId));
   const addableMembers = orgMembers.filter((member) => !teamMemberIds.has(member.userId));
   const memberById = new Map(orgMembers.map((member) => [member.userId, member]));
+  const builderByUserId = new Map(teamBuilders.map((builder) => [builder.userId, builder]));
   const isActiveTeam = team.id === activeTeamId;
 
   return (
@@ -785,27 +797,41 @@ function TeamCard({
           <p className="text-sm text-muted-foreground">No members on this team yet.</p>
         ) : (
           <ul className="space-y-1">
-            {teamMembers.map((member) => (
-              <li
-                key={member.id}
-                className="flex items-center justify-between gap-3 text-sm text-foreground"
-              >
-                <span className="min-w-0 truncate">
-                  {memberName(memberById.get(member.userId)) ?? member.userId}
-                </span>
-                {canManage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => removeMemberMutation.mutate(member.userId)}
-                    disabled={removeMemberMutation.isPending}
-                  >
-                    remove
-                  </Button>
-                )}
-              </li>
-            ))}
+            {teamMembers.map((member) => {
+              const name = memberName(memberById.get(member.userId));
+              const builder = builderByUserId.get(member.userId);
+              return (
+                <li
+                  key={member.id}
+                  className="flex items-center justify-between gap-3 text-sm text-foreground"
+                >
+                  <span className="min-w-0 truncate">
+                    {builder?.nearAccount ? (
+                      <Link
+                        to="/builders/$account"
+                        params={{ account: builder.nearAccount }}
+                        className="hover:underline"
+                      >
+                        {builder.name ?? name}
+                      </Link>
+                    ) : (
+                      name
+                    )}
+                  </span>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => removeMemberMutation.mutate(member.userId)}
+                      disabled={removeMemberMutation.isPending}
+                    >
+                      remove
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {canManage && (

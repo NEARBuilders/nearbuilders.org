@@ -1839,6 +1839,16 @@ export const contract = oc.router({
     .output(z.object({ data: BuilderOutput }))
     .errors({ NOT_FOUND }),
 
+  getBuildersByUserIds: oc
+    .route({ method: "GET", path: "/v1/builders/by-user-ids" })
+    .input(
+      z.object({
+        userIds: z.array(z.string().min(1)).max(200),
+      }),
+    )
+    .output(z.object({ data: z.array(BuilderOutput) }))
+    .errors({ BAD_REQUEST }),
+
   getBuilderStats: oc
     .route({ method: "GET", path: "/v1/builders/{nearAccount}/stats" })
     .input(z.object({ nearAccount: z.string().min(1).max(100) }))
