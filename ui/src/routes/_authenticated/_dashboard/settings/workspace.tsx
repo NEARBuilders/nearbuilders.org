@@ -153,22 +153,26 @@ function WorkspaceSettings() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-1">
-        <OrgSwitcher
-          organizations={orgs}
-          activeOrgId={activeOrgId}
-          isSwitching={switchOrgMutation.isPending}
-          onSwitch={(orgId) => switchOrgMutation.mutate(orgId)}
-        />
-        {activeOrg?.slug && (
-          <Button asChild variant="ghost" size="icon" className="size-8 shrink-0">
-            <Link to="/organizations/$slug" params={{ slug: activeOrg.slug }}>
-              <ArrowUpRight className="size-4" />
-              <span className="sr-only">open organization</span>
-            </Link>
-          </Button>
-        )}
-        <div className="ml-auto">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Org</span>
+          <OrgSwitcher
+            organizations={orgs}
+            activeOrgId={activeOrgId}
+            isSwitching={switchOrgMutation.isPending}
+            onSwitch={(orgId) => switchOrgMutation.mutate(orgId)}
+          />
+          {activeOrg?.slug && (
+            <Button asChild variant="ghost" size="icon" className="size-8 shrink-0">
+              <Link to="/organizations/$slug" params={{ slug: activeOrg.slug }}>
+                <ArrowUpRight className="size-4" />
+                <span className="sr-only">open organization</span>
+              </Link>
+            </Button>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Team</span>
           <TeamSwitcher
             teams={workspace?.teams ?? []}
             activeTeamId={workspace?.activeTeam?.id ?? null}
