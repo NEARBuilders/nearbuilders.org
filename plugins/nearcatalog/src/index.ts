@@ -1,7 +1,7 @@
+import { ORPCError } from "@orpc/server";
+import { Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { CATALOG_LISTING_SYNC, contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
@@ -9,35 +9,6 @@ import { CatalogService, CatalogServiceLive } from "./services/catalog";
 import { createCatalogSubmitClientFromConfig } from "./services/catalog-submit";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
 import { ListingService, ListingServiceLive } from "./services/listings";
-
-async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isFailure(exit)) {
-    const squashed = Cause.squash(exit.cause);
-    if (squashed instanceof ORPCError) throw squashed;
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: squashed instanceof Error ? squashed.message : String(squashed),
-    });
-  }
-  return exit.value;
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-  const worker = async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
-      results[index] = await mapper(items[index]!);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
 
 function matchesProjectQuery(
   project: {
@@ -87,26 +58,21 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
-    Effect.gen(function* () {
-      const Database = DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL);
-      const Claims = ClaimServiceLive.pipe(Layer.provide(Database));
-      const Catalog = CatalogServiceLive(config.variables.baseUrl);
-      const catalog = yield* tools.buildService(CatalogService, Catalog);
-      const claims = yield* tools.buildService(ClaimService, Claims);
+  initialize: (config) =>
+    Effect.sync(() => {
       const submitter = createCatalogSubmitClientFromConfig({
         url: config.secrets.NEARCATALOG_SUBMIT_URL,
         token: config.secrets.NEARCATALOG_SUBMIT_TOKEN,
       });
-      const listings = yield* tools.buildService(
-        ListingService,
-        ListingServiceLive(submitter).pipe(Layer.provide(Database)),
+      return Layer.mergeAll(
+        CatalogServiceLive(config.variables.baseUrl),
+        Layer.mergeAll(ClaimServiceLive, ListingServiceLive(submitter)).pipe(
+          Layer.provide(DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL)),
+        ),
       );
-
-      return { catalog, claims, listings };
     }),
 
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAdmin = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
@@ -118,7 +84,7 @@ export default createPlugin({
     });
 
     const requireListingSync = builder.middleware(async ({ context, next }) => {
-      if ((context as Record<symbol, unknown>)[CATALOG_LISTING_SYNC] === true) {
+      if ((context as unknown as Record<symbol, unknown>)[CATALOG_LISTING_SYNC] === true) {
         return next({ context });
       }
       if (!context.user || !context.userId) {
@@ -131,33 +97,35 @@ export default createPlugin({
     });
 
     return {
-      searchCatalogProjects: builder.searchCatalogProjects.handler(async ({ input }) => ({
-        data: await runEffect(services.catalog.searchProjects(input.query)),
-      })),
-
-      listCatalogCategories: builder.listCatalogCategories.handler(async () => ({
-        data: await runEffect(services.catalog.listCategories()),
-      })),
-
-      getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => ({
-        data: await runEffect(services.catalog.getProject(input.slug)),
-      })),
-
-      listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
-        return await runEffect(services.claims.listClaims(input));
+      searchCatalogProjects: builder.searchCatalogProjects.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.searchProjects(input.query) };
       }),
 
-      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.handler(async ({ input }) => {
-        const claimsByProject = await runEffect(
-          services.claims.listClaimsByProject(input.nearAccount),
-        );
-        const projects = await mapWithConcurrency(
+      listCatalogCategories: builder.listCatalogCategories.effect(function* () {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.listCategories() };
+      }),
+
+      getCatalogProject: builder.getCatalogProject.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.getProject(input.slug) };
+      }),
+
+      listCatalogClaims: builder.listCatalogClaims.effect(function* ({ input }) {
+        const claims = yield* ClaimService;
+        return yield* claims.listClaims(input);
+      }),
+
+      listClaimedCatalogProjects: builder.listClaimedCatalogProjects.effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        const claimService = yield* ClaimService;
+        const claimsByProject = yield* claimService.listClaimsByProject(input.nearAccount);
+        const projects = yield* Effect.forEach(
           Array.from(claimsByProject),
-          5,
-          async ([slug, claims]) => {
-            try {
-              const project = await runEffect(services.catalog.getProject(slug));
-              return {
+          ([slug, claims]) =>
+            catalog.getProject(slug).pipe(
+              Effect.map((project) => ({
                 project,
                 contributors: claims.map(({ id, nearAccount, roles, createdAt, updatedAt }) => ({
                   id,
@@ -166,12 +134,10 @@ export default createPlugin({
                   createdAt,
                   updatedAt,
                 })),
-              };
-            } catch (error) {
-              if (error instanceof ORPCError) return null;
-              throw error;
-            }
-          },
+              })),
+              Effect.catchCause(() => Effect.succeed(null)),
+            ),
+          { concurrency: 5 },
         );
         const available = projects
           .filter((project) => project !== null)
@@ -194,92 +160,111 @@ export default createPlugin({
         };
       }),
 
-      getCatalogClaimHistory: builder.getCatalogClaimHistory
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.getClaimHistory(input.id)),
-        })),
-
-      applyCatalogClaim: builder.applyCatalogClaim.use(requireAdmin).handler(async ({ input }) => {
-        await runEffect(services.catalog.getProject(input.projectSlug));
-        return { data: await runEffect(services.claims.applyClaim(input)) };
+      getCatalogClaimHistory: builder.getCatalogClaimHistory.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.getClaimHistory(input.id) };
       }),
 
-      setCatalogClaimActivity: builder.setCatalogClaimActivity
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.setClaimActivity(input.id, input.activityEventId)),
-        })),
-
-      revokeCatalogClaim: builder.revokeCatalogClaim
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.claims.revokeClaim(input.id)),
-        })),
-
-      exportCatalogProjects: builder.exportCatalogProjects.handler(async ({ input }) => {
-        return await runEffect(services.listings.exportProjects(input.since));
+      applyCatalogClaim: builder.applyCatalogClaim.use(requireAdmin).effect(function* ({ input }) {
+        const catalog = yield* CatalogService;
+        const claims = yield* ClaimService;
+        yield* catalog.getProject(input.projectSlug);
+        return { data: yield* claims.applyClaim(input) };
       }),
 
-      exportCatalogPeople: builder.exportCatalogPeople.handler(async ({ input }) => {
-        return await runEffect(services.listings.exportPeople(input.since));
+      setCatalogClaimActivity: builder.setCatalogClaimActivity.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.setClaimActivity(input.id, input.activityEventId) };
       }),
 
-      listCatalogListings: builder.listCatalogListings.handler(async ({ input }) => ({
-        data: await runEffect(services.listings.listListed(input.kind)),
-      })),
+      revokeCatalogClaim: builder.revokeCatalogClaim.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const claims = yield* ClaimService;
+        return { data: yield* claims.revokeClaim(input.id) };
+      }),
+
+      exportCatalogProjects: builder.exportCatalogProjects.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return yield* listings.exportProjects(input.since);
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return yield* listings.exportPeople(input.since);
+      }),
+
+      listCatalogListings: builder.listCatalogListings.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.listListed(input.kind) };
+      }),
 
       markCatalogListingPublished: builder.markCatalogListingPublished
         .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.markPublished(input)),
-        })),
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.markPublished(input) };
+        }),
 
-      getCatalogListing: builder.getCatalogListing
-        .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.getListing(input)),
-        })),
+      getCatalogListing: builder.getCatalogListing.use(requireListingSync).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.getListing(input) };
+      }),
 
       markCatalogListingPending: builder.markCatalogListingPending
         .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.markPending(input)),
-        })),
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.markPending(input) };
+        }),
 
       approveCatalogListing: builder.approveCatalogListing
         .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.approve(input)),
-        })),
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.approve(input) };
+        }),
 
-      rejectCatalogListing: builder.rejectCatalogListing
-        .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.reject(input)),
-        })),
+      rejectCatalogListing: builder.rejectCatalogListing.use(requireListingSync).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.reject(input) };
+      }),
 
       withdrawCatalogListing: builder.withdrawCatalogListing
         .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.withdraw(input)),
-        })),
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.withdraw(input) };
+        }),
 
       listCatalogListingSends: builder.listCatalogListingSends
         .use(requireAdmin)
-        .handler(async () => await runEffect(services.listings.listSends())),
+        .effect(function* () {
+          const listings = yield* ListingService;
+          return yield* listings.listSends();
+        }),
 
-      retryCatalogListingSend: builder.retryCatalogListingSend
-        .use(requireAdmin)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.retrySend(input)),
-        })),
+      retryCatalogListingSend: builder.retryCatalogListingSend.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.retrySend(input) };
+      }),
 
       refreshCatalogListingRecord: builder.refreshCatalogListingRecord
         .use(requireListingSync)
-        .handler(async ({ input }) => ({
-          data: await runEffect(services.listings.refreshRecord(input)),
-        })),
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.refreshRecord(input) };
+        }),
     };
   },
 });

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { bookmarks } from "../db/schema";
 
@@ -42,10 +42,9 @@ function createBookmarkMethods(db: any) {
 
 type BookmarkMethods = ReturnType<typeof createBookmarkMethods>;
 
-export class BookmarkService extends Context.Tag("bookmarks/BookmarkService")<
-  BookmarkService,
-  BookmarkMethods
->() {}
+export class BookmarkService extends Context.Service<BookmarkService, BookmarkMethods>()(
+  "bookmarks/BookmarkService",
+) {}
 
 export const BookmarkServiceLive = Layer.effect(
   BookmarkService,

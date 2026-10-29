@@ -1,5 +1,5 @@
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import type { z } from "zod";
 import {
   CATALOG_LISTING_SYNC,
   type CatalogExportPersonSchema,
@@ -7,7 +7,7 @@ import {
 } from "../../../plugins/nearcatalog/src/contract";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { readString, requireObjectPayload } from "../lib/utils";
 import { AUTO_APPROVAL_ACTOR_ID } from "./approval-settings";
 import { evaluatorContext } from "./review-context";

@@ -1,8 +1,19 @@
 name: CI
 
+# Thin wrapper — the shared implementation lives in the base runtime repo
+# (NEARBuilders/everything-dev): lint/typecheck/test all run inside the
+# pinned reusable call. The @main ref here is the
+# reusable-wrapper pointer only — `bos sync` re-points it to the release tag
+# (ADR 0034) — and the child's framework surface is pinned via `platform`,
+# moving exclusively through `bos upgrade`. Extra, repo-specific jobs belong
+# in ci-child.yml, which this wrapper calls and bos sync never rewrites
+# (#538); keep those jobs there instead of editing this file.
 on:
   push:
     branches: [main]
+    # paths-ignore stays on push only: it gates Deploy (workflow_run). On
+    # pull_request a paths-ignored run never reports the required check,
+    # which permanently blocks docs-only PRs once branch protection is on.
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -10,92 +21,35 @@ on:
   pull_request:
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
 jobs:
-  lint-and-typecheck:
+  ci:
+    name: CI
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.27
+    with:
+      working_directory: .
+    secrets: inherit
+
+  # Child-owned CI entry point (#538): the reusable call covers lint,
+  # typecheck, and test; everything else lives in
+  # ci-child.yml — replace its placeholder with this repo's own jobs. It runs
+  # in parallel with the reusable call (no `needs` between them).
+  child-ci:
+    name: Child CI Jobs
+    uses: ./.github/workflows/ci-child.yml
+
+  # Merge gate for branch protection. Require this check name ("Lint and Type
+  # Check") in Settings → Branches — it is child-owned and slash-free, unlike
+  # the reusable call, which GitHub renders as "CI / Lint, typecheck, and test"
+  # (the callee half cannot be overridden and breaks silently on upstream
+  # renames). A reusable job cannot take caller jobs in `needs`, so this gate
+  # lives here, not in the shared workflow.
+  lint-and-typecheck-gate:
     name: Lint and Type Check
+    needs: [ci, child-ci]
+    if: always() # a plain needs-skip reports "skipped", not failure
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 (Node 24)
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.3.14"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile --ignore-scripts
-
-      - name: Run postinstall
-        run: bun run postinstall
-
-      - name: Security audit
-        id: audit
-        timeout-minutes: 5
-        env:
-          AUDIT_STRICT: ${{ secrets.AUDIT_STRICT }}
-        run: |
-          set +e -o pipefail
-          timeout 120 bun audit 2>&1 | tee audit-output.txt
-          audit_exit=$?
-          if [ "$audit_exit" -eq 124 ]; then
-            echo "::warning::bun audit timed out after 120s — skipping vulnerability check"
-            exit 0
-          fi
-          if [ "$audit_exit" -gt 1 ]; then
-            echo "::warning::bun audit exited with code $audit_exit — see output above"
-            exit 0
-          fi
-          if grep -qiE '(critical|high)' audit-output.txt; then
-            if [ "$AUDIT_STRICT" = "true" ]; then
-              echo "::error::Critical or high vulnerabilities found — failing the audit"
-              exit 1
-            else
-              echo "::warning::Critical or high vulnerabilities found — set AUDIT_STRICT=true secret to fail on these"
-            fi
-          fi
-
-      - name: Run Biome lint and format check
-        run: bun biome ci .
-
-      - name: Load shadcn lint plugin
-        run: bun run --cwd ui lint
-
-      - name: Run typecheck
-        run: bun typecheck
-
-      - name: Run tests
-        run: bun run test
-
-  notify:
-    name: Notify downstream workflows
-    needs: [lint-and-typecheck]
-    if: |
-      always() &&
-      !contains(needs.*.result, 'failure') &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Send repository dispatch
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for i in 1 2 3; do
-            if gh api repos/${{ github.repository }}/dispatches \
-              --method POST \
-              -f event_type=ci-main-success \
-              -f "client_payload[sha]=${{ github.sha }}"; then
-              exit 0
-            fi
-            sleep 5
-          done
-          exit 1
+      - run: test "${{ needs.ci.result }}" = "success" && test "${{ needs.child-ci.result }}" = "success"

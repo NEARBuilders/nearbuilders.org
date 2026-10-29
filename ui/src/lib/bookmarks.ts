@@ -8,7 +8,7 @@ export function useBookmark(entityId: string) {
   const auth = useAuthClient();
   const queryClient = useQueryClient();
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const canBookmark = Boolean(session?.user && !session.user.isAnonymous);
 
   const queryKey = ["bookmark", entityId];

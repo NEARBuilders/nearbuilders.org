@@ -40,6 +40,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 

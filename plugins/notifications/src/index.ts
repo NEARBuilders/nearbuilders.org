@@ -1,7 +1,8 @@
+import { MemoryPublisher } from "@orpc/publisher/memory";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract, type NotificationSchema } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
@@ -13,17 +14,10 @@ type NotificationEvents = {
   notification: NotificationEvent;
 };
 
-async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isFailure(exit)) {
-    const squashed = Cause.squash(exit.cause);
-    if (squashed instanceof ORPCError) throw squashed;
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: squashed instanceof Error ? squashed.message : String(squashed),
-    });
-  }
-  return exit.value;
-}
+class NotificationPublisher extends Context.Service<
+  NotificationPublisher,
+  MemoryPublisher<NotificationEvents>
+>()("notifications/Publisher") {}
 
 export default createPlugin({
   variables: z.object({}),
@@ -36,20 +30,23 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.NOTIFICATIONS_DATABASE_URL);
-      const NotificationServices = NotificationServiceLive.pipe(Layer.provide(Database));
-      const notification = yield* tools.buildService(NotificationService, NotificationServices);
-      const publisher = new MemoryPublisher<NotificationEvents>({ resumeRetentionSeconds: 120 });
+      const publisher = new MemoryPublisher<NotificationEvents>({
+        resume: { enabled: true, seconds: 120 },
+      });
+
+      yield* Effect.addFinalizer(() => Effect.log("[Notifications] Shutdown"));
 
       console.log("[Notifications] Services Initialized");
-      return { notification, publisher };
+      return Layer.mergeAll(
+        NotificationServiceLive.pipe(Layer.provide(Database)),
+        Layer.succeed(NotificationPublisher, publisher),
+      );
     }),
 
-  shutdown: () => Effect.log("[Notifications] Shutdown"),
-
-  createRouter: (services, builder) => {
+  createRouter: (builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
@@ -58,39 +55,49 @@ export default createPlugin({
     });
 
     return {
-      createNotification: builder.createNotification
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const serverCall =
-            (context as typeof context & { serverNotification?: boolean }).serverNotification ===
-            true;
-          if (!serverCall && input.userId !== context.userId && context.user?.role !== "admin") {
-            throw new ORPCError("FORBIDDEN", { message: "Cannot notify another user" });
-          }
-          const data = await runEffect(services.notification.createNotification(input));
-          await services.publisher.publish("notification", data);
-          return { data };
-        }),
-
-      getMyNotifications: builder.getMyNotifications
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          return await runEffect(services.notification.getMyNotifications(context.userId!, input));
-        }),
-
-      markAsRead: builder.markAsRead.use(requireAuth).handler(async ({ input, context }) => {
-        const data = await runEffect(services.notification.markAsRead(input.id, context.userId!));
+      createNotification: builder.createNotification.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const serverCall =
+          (context as typeof context & { serverNotification?: boolean }).serverNotification ===
+          true;
+        if (!serverCall && input.userId !== context.userId && context.user?.role !== "admin") {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Cannot notify another user" }),
+          );
+        }
+        const notification = yield* NotificationService;
+        const publisher = yield* NotificationPublisher;
+        const data = yield* notification.createNotification(input);
+        yield* Effect.promise(() => publisher.publish("notification", data));
         return { data };
       }),
 
-      markAllAsRead: builder.markAllAsRead.use(requireAuth).handler(async ({ context }) => {
-        return await runEffect(services.notification.markAllAsRead(context.userId!));
+      getMyNotifications: builder.getMyNotifications.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const notification = yield* NotificationService;
+        return yield* notification.getMyNotifications(context.userId!, input);
+      }),
+
+      markAsRead: builder.markAsRead.use(requireAuth).effect(function* ({ input, context }) {
+        const notification = yield* NotificationService;
+        const data = yield* notification.markAsRead(input.id, context.userId!);
+        return { data };
+      }),
+
+      markAllAsRead: builder.markAllAsRead.use(requireAuth).effect(function* ({ context }) {
+        const notification = yield* NotificationService;
+        return yield* notification.markAllAsRead(context.userId!);
       }),
 
       subscribeNotifications: builder.subscribeNotifications
         .use(requireAuth)
         .handler(async function* ({ context, signal, lastEventId }) {
-          const iterator = services.publisher.subscribe("notification", { signal, lastEventId });
+          const publisher = Context.get(context["effect/context"], NotificationPublisher);
+          const iterator = publisher.subscribe("notification", { signal, lastEventId });
           for await (const event of iterator) {
             if (event.userId !== context.userId) continue;
             yield event;

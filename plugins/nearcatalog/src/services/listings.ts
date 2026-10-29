@@ -1,7 +1,7 @@
+import { ORPCError } from "@orpc/server";
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { Context, Effect, Layer } from "effect";
+import type { z } from "zod";
 import {
   CatalogExportPersonSchema,
   CatalogExportProjectSchema,
@@ -571,10 +571,9 @@ export function createExportMethods(db: Database) {
 type ListingMethods = ReturnType<typeof createListingMethods> &
   ReturnType<typeof createExportMethods>;
 
-export class ListingService extends Context.Tag("nearcatalog/ListingService")<
-  ListingService,
-  ListingMethods
->() {}
+export class ListingService extends Context.Service<ListingService, ListingMethods>()(
+  "nearcatalog/ListingService",
+) {}
 
 export const ListingServiceLive = (submitter: CatalogSubmitClient | null = null) =>
   Layer.effect(

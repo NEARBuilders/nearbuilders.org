@@ -1,11 +1,11 @@
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
 import { AccountIdSchema } from "near-kit/schemas";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import { applyCatalogClaimApplication } from "../lib/catalog-claim-application";
 import { normalizeCatalogClaimRoles } from "../lib/catalog-claims-utils";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import {
   assertProjectProposalOwner,
   createProjectProposalOwnerContext,

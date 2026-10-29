@@ -25,7 +25,10 @@
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "drizzle-orm": "catalog:",
-    "pg": "catalog:"
+    "pg": "catalog:",
+    "effect": "catalog:",
+    "zod": "catalog:",
+    "@orpc/openapi": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
@@ -40,14 +43,11 @@
     "every-plugin": "catalog:",
     "everything-dev": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "catalog:",
-    "zephyr-rspack-plugin": "catalog:"
+    "vitest": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
-    "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "build": "every-plugin build",
+    "dev": "every-plugin dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
