@@ -1,4 +1,4 @@
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 
 export function requireObjectPayload(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {

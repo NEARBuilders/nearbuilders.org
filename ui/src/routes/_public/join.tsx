@@ -1,0 +1,562 @@
+import { normalizeLocation } from "@everything-dev/builders-plugin/builder-tags";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import {
+  BuilderFormFields,
+  type BuilderFormValues,
+  parseBuilderSkills,
+} from "@/components/builder-form";
+import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
+import { Button } from "@/components/ui/button";
+import type { ResolvedNearProfile } from "@/lib/near-social";
+import {
+  initializeNominationToken,
+  NOMINATION_STORAGE_KEY,
+  shouldClearNominationToken,
+} from "@/lib/nomination-token";
+import { pageHead } from "@/lib/page-meta";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
+import { nearProfileOptions } from "@/lib/queries/builders";
+import { BUILD_PAGE_PATH, JOIN_PATH } from "@/lib/site-paths";
+import { composeLinks, initialFormLinks } from "@/lib/social-links";
+
+type NominationStatus = "ready" | "submitted" | "invalid" | "error";
+type NominationSource = "telegram" | "x";
+
+type NominationReferralContext = {
+  sourcePostId: string;
+  sourcePostUrl: string;
+  sourcePostText: string;
+  sourcePostCreatedAt: string | null;
+  conversationId: string | null;
+  replyToPostId: string | null;
+  nominatorXId: string;
+  nominatorXUsername: string;
+  nomineeXId: string;
+  nomineeXUsername: string;
+};
+
+type ProfileSubmission = {
+  nominationAttached: boolean;
+  nominationSource?: NominationSource;
+  publishedAccount: string | null;
+};
+
+type SubmittedProposal = {
+  entityId: string;
+  reviewStatus: string;
+  applyStatus: string;
+};
+
+function publishedBuilderAccount(proposal: SubmittedProposal) {
+  return proposal.reviewStatus === "approved" && proposal.applyStatus === "applied"
+    ? proposal.entityId
+    : null;
+}
+
+type JoinSearch = {
+  nomination?: string;
+};
+
+export const Route = createFileRoute("/_public/join")({
+  validateSearch: (search: Record<string, unknown>): JoinSearch => {
+    return {
+      nomination: typeof search.nomination === "string" ? search.nomination : undefined,
+    };
+  },
+  head: () => ({
+    meta: [
+      ...pageHead({
+        title: "Join NEAR Builders",
+        description: "Create your NEAR builder profile.",
+      }),
+      { name: "referrer", content: "no-referrer" },
+    ],
+  }),
+  component: JoinPage,
+});
+
+function JoinPage() {
+  const auth = useAuthClient();
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { nomination } = Route.useSearch();
+  const [nearPending, setNearPending] = useState(false);
+  const [nominationToken, setNominationToken] = useState<string | null>(null);
+  const [nominationInitialized, setNominationInitialized] = useState(false);
+  const [submission, setSubmission] = useState<ProfileSubmission | null>(null);
+
+  useEffect(() => {
+    const state = initializeNominationToken(
+      nomination,
+      sessionStorage.getItem(NOMINATION_STORAGE_KEY),
+    );
+    if (state.capturedToken) {
+      sessionStorage.setItem(NOMINATION_STORAGE_KEY, state.capturedToken);
+    }
+    if (state.shouldCleanUrl) {
+      void navigate({ to: JOIN_PATH, search: {}, replace: true });
+    }
+    setNominationToken(state.token);
+    setNominationInitialized(true);
+  }, [navigate, nomination]);
+
+  const sessionQuery = useQuery(sessionQueryOptions(auth));
+  const approvalSettingsQuery = useQuery(approvalSettingsQueryOptions(apiClient));
+  const reviewRequired = requiresAdminApproval(approvalSettingsQuery.data);
+  const nominationQuery = useQuery({
+    queryKey: ["nomination", nominationToken],
+    queryFn: () =>
+      apiClient.builders.resolveNomination({ token: nominationToken!, recordOpen: true }),
+    enabled: nominationInitialized && Boolean(nominationToken),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (shouldClearNominationToken(nominationQuery.data?.status)) {
+      sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
+    }
+  }, [nominationQuery.data?.status]);
+
+  const session = sessionQuery.data;
+  const isSignedIn = Boolean(session?.user && !session.user.isAnonymous);
+  const nearAccountId = auth.near.getAccountId();
+  const nominationAttached = nominationQuery.data?.status === "ready";
+  const nominationSource: NominationSource | undefined =
+    nominationQuery.data?.status === "ready" || nominationQuery.data?.status === "submitted"
+      ? nominationQuery.data.source
+      : undefined;
+  const referralContext: NominationReferralContext | undefined =
+    nominationQuery.data?.status === "ready" || nominationQuery.data?.status === "submitted"
+      ? nominationQuery.data.referralContext
+      : undefined;
+  const nominationStatus: NominationStatus | undefined = nominationQuery.isError
+    ? "error"
+    : nominationQuery.data?.status;
+  const flowReady =
+    nominationInitialized &&
+    (!nominationToken || nominationQuery.isSuccess || nominationQuery.isError);
+
+  const existingProfileQuery = useQuery({
+    queryKey: ["my-builder-profile"],
+    queryFn: () => apiClient.getMyBuilderProfile({}),
+    enabled: flowReady && isSignedIn && Boolean(nearAccountId),
+    retry: false,
+  });
+
+  const pendingProposalQuery = useQuery({
+    queryKey: ["proposals", "builders", nearAccountId, "pending"],
+    queryFn: () =>
+      apiClient.getProposals({
+        pluginId: "builders",
+        entityId: nearAccountId!,
+        reviewStatus: "pending",
+        limit: 1,
+      }),
+    enabled: flowReady && isSignedIn && Boolean(nearAccountId),
+    retry: false,
+  });
+
+  const profileQuery = useQuery({
+    ...nearProfileOptions(auth, nearAccountId ?? ""),
+    enabled: flowReady && isSignedIn && Boolean(nearAccountId),
+    retry: false,
+  });
+
+  const connectNear = async () => {
+    setNearPending(true);
+    try {
+      const options = {
+        onSuccess: async () => {
+          const { data: freshSession } = await auth.getSession();
+          if (freshSession) {
+            queryClient.setQueryData(["session"], freshSession);
+          }
+          await queryClient.invalidateQueries({ queryKey: ["session"] });
+          toast.success("NEAR account connected");
+        },
+        onError: (error: { message?: string }) => {
+          toast.error(error.message || "Could not connect your NEAR account");
+        },
+      };
+      if (isSignedIn) {
+        await auth.near.link(options);
+      } else {
+        await auth.signIn.near(options);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not connect your NEAR account");
+    } finally {
+      setNearPending(false);
+    }
+  };
+
+  if (submission) {
+    return (
+      <ProfileSubmitted
+        nominationAttached={submission.nominationAttached}
+        nominationSource={submission.nominationSource}
+        publishedAccount={submission.publishedAccount}
+      />
+    );
+  }
+
+  if (!nominationInitialized || (nominationToken && nominationQuery.isLoading)) {
+    return <LoadingState />;
+  }
+
+  if (sessionQuery.isLoading) {
+    return <LoadingState />;
+  }
+
+  if (!isSignedIn || !nearAccountId) {
+    return (
+      <JoinShell>
+        <NominationNotice
+          status={nominationStatus}
+          source={nominationSource}
+          attached={nominationAttached}
+        />
+        <h1 className="text-3xl font-black tracking-tight text-foreground">Connect your account</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Connect the NEAR account that should appear on your builder profile.
+        </p>
+        <Button
+          type="button"
+          size="lg"
+          onClick={connectNear}
+          disabled={nearPending}
+          className="mt-8 w-full rounded-full font-bold"
+        >
+          {nearPending && <Loader2 className="size-4 animate-spin" />}
+          {nearPending ? "Connecting…" : "Connect NEAR account"}
+        </Button>
+      </JoinShell>
+    );
+  }
+
+  if (existingProfileQuery.isLoading || pendingProposalQuery.isLoading || profileQuery.isLoading) {
+    return <LoadingState />;
+  }
+
+  const existingProfile = existingProfileQuery.data?.data;
+  if (existingProfile) {
+    return (
+      <JoinShell>
+        <CircleCheck className="mx-auto size-8 text-brand-green" />
+        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
+          Your profile already exists
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          This NEAR account is already listed in the builder directory.
+        </p>
+        <Button asChild size="lg" className="mt-8 w-full rounded-full font-bold">
+          <Link to="/builders/$account" params={{ account: existingProfile.nearAccount }}>
+            View builder profile
+          </Link>
+        </Button>
+      </JoinShell>
+    );
+  }
+
+  if ((pendingProposalQuery.data?.data.length ?? 0) > 0) {
+    return (
+      <JoinShell>
+        <Clock3 className="mx-auto size-8 text-brand-cobalt" />
+        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
+          Your profile is under review
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          A builder profile for {nearAccountId} has already been submitted.
+        </p>
+        <JoinNextSteps />
+      </JoinShell>
+    );
+  }
+
+  return (
+    <BuilderProfileForm
+      accountId={nearAccountId}
+      socialProfile={profileQuery.data}
+      apiClient={apiClient}
+      nominationToken={nominationAttached ? nominationToken : null}
+      nominationStatus={nominationStatus}
+      nominationSource={nominationSource}
+      referralContext={referralContext}
+      reviewRequired={reviewRequired}
+      onSubmitted={(proposal) =>
+        setSubmission({
+          nominationAttached,
+          nominationSource,
+          publishedAccount: publishedBuilderAccount(proposal),
+        })
+      }
+    />
+  );
+}
+
+function BuilderProfileForm({
+  accountId,
+  socialProfile,
+  apiClient,
+  nominationToken,
+  nominationStatus,
+  nominationSource,
+  referralContext,
+  reviewRequired,
+  onSubmitted,
+}: {
+  accountId: string;
+  socialProfile: ResolvedNearProfile | null | undefined;
+  apiClient: ReturnType<typeof useApiClient>;
+  nominationToken: string | null;
+  nominationStatus?: NominationStatus;
+  nominationSource?: NominationSource;
+  referralContext?: NominationReferralContext;
+  reviewRequired: boolean;
+  onSubmitted: (proposal: SubmittedProposal) => void;
+}) {
+  const queryClient = useQueryClient();
+  const nominationAttached = Boolean(nominationToken);
+
+  const mutation = useMutation({
+    mutationFn: (values: BuilderFormValues) =>
+      apiClient.submitBuilderProfile({
+        nominationToken: nominationToken ?? undefined,
+        name: values.name.trim(),
+        bio: values.bio.trim(),
+        skills: parseBuilderSkills(values.skills),
+        location: normalizeLocation(values.location) ?? undefined,
+        cityNode: values.cityNode || undefined,
+        links: composeLinks(values.links),
+      }),
+    onSuccess: async (result) => {
+      sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
+      onSubmitted(result.data);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
+        queryClient.invalidateQueries({ queryKey: ["builders"] }),
+      ]);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Could not submit your builder profile");
+    },
+  });
+
+  const form = useForm({
+    defaultValues: {
+      name: socialProfile?.name ?? "",
+      bio: socialProfile?.description ?? "",
+      skills: "",
+      location: "",
+      cityNode: "",
+      links: initialFormLinks(undefined, {
+        ...(socialProfile?.linktree ?? {}),
+        ...(nominationSource === "x" && referralContext?.nomineeXUsername
+          ? { twitter: referralContext.nomineeXUsername }
+          : {}),
+      }),
+    } satisfies BuilderFormValues,
+    canSubmitWhenInvalid: true,
+    onSubmit: async ({ value }) => {
+      await mutation.mutateAsync(value);
+    },
+    onSubmitInvalid: () => {
+      toast.error("Please complete the required fields.");
+    },
+  });
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6">
+      <div className="mb-8">
+        <NominationNotice
+          status={nominationStatus}
+          source={nominationSource}
+          attached={nominationAttached}
+        />
+        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
+          Create your builder profile
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {reviewRequired
+            ? "Complete the details that will be reviewed for the NEAR Builders directory."
+            : "Complete the details that will appear in the NEAR Builders directory."}
+        </p>
+        <LegacySocialImportPrompt profile={socialProfile} className="mt-5" />
+      </div>
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          form.handleSubmit();
+        }}
+        className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8"
+      >
+        <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Connected NEAR account
+          </p>
+          <p className="mt-1 font-mono text-sm font-semibold text-foreground">{accountId}</p>
+        </div>
+
+        <BuilderFormFields form={form} required />
+
+        <div className="border-t border-border pt-4">
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isSubmitting || mutation.isPending}
+                className="w-full rounded-full font-bold"
+              >
+                {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {mutation.isPending
+                  ? "Submitting…"
+                  : reviewRequired
+                    ? "Submit profile for review"
+                    : "Publish profile"}
+              </Button>
+            )}
+          </form.Subscribe>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ProfileSubmitted({
+  nominationAttached,
+  nominationSource,
+  publishedAccount,
+}: {
+  nominationAttached: boolean;
+  nominationSource?: NominationSource;
+  publishedAccount: string | null;
+}) {
+  if (publishedAccount) {
+    return (
+      <JoinShell>
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">
+          <Check className="size-6 text-brand-green" />
+        </div>
+        <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">
+          Your profile is live
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Your builder profile is now listed in the NEAR Builders directory.
+        </p>
+        <Button asChild size="lg" className="mt-8 w-full rounded-full font-bold">
+          <Link to="/builders/$account" params={{ account: publishedAccount }}>
+            View builder profile
+          </Link>
+        </Button>
+        <JoinNextSteps />
+      </JoinShell>
+    );
+  }
+
+  return (
+    <JoinShell>
+      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-green/15">
+        <Check className="size-6 text-brand-green" />
+      </div>
+      <h1 className="mt-5 text-3xl font-black tracking-tight text-foreground">Profile submitted</h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        {nominationAttached
+          ? `Your ${nominationSource === "x" ? "X" : "Telegram"} nomination and builder profile are now pending admin review.`
+          : "Your builder profile is now pending admin review."}
+      </p>
+      <JoinNextSteps />
+    </JoinShell>
+  );
+}
+
+function JoinNextSteps() {
+  return (
+    <div className="mt-8 flex flex-col gap-3">
+      <Button asChild size="lg" className="w-full rounded-full font-bold">
+        <Link to={BUILD_PAGE_PATH}>Start building</Link>
+      </Button>
+      <Button asChild variant="outline" size="lg" className="w-full rounded-full">
+        <Link to="/builders" search={undefined}>
+          Browse builders
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function NominationNotice({
+  status,
+  source,
+  attached,
+}: {
+  status?: NominationStatus;
+  source?: NominationSource;
+  attached: boolean;
+}) {
+  if (attached) {
+    return (
+      <div className="mb-5 text-left">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1.5 text-xs font-semibold text-foreground">
+          <CircleCheck className="size-4 text-brand-green" />
+          {source === "x" ? "X nomination attached" : "Telegram nomination attached"}
+        </div>
+        {source === "x" && (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Someone in the NEAR community highlighted your work on X. Add your public profile links
+            so the review team can connect your nomination to the right builder.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (!status) return null;
+
+  const message =
+    status === "submitted"
+      ? "This nomination was already used. You can still join without it."
+      : status === "invalid"
+        ? "This nomination link is invalid. You can still join without it."
+        : "We could not verify this nomination. You can still join without it.";
+
+  return (
+    <div className="mb-5 flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-left text-sm text-muted-foreground">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+      <p>{message}</p>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- panel height is a fraction of the viewport, not a fixed scale value
+    <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center px-4">
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+function JoinShell({ children }: { children: ReactNode }) {
+  return (
+    // oxlint-disable-next-line shadcn/no-arbitrary-values -- panel height is a fraction of the viewport, not a fixed scale value
+    <div className="mx-auto flex min-h-[60vh] max-w-xl items-center px-4 py-12 sm:px-6">
+      <div className="w-full rounded-2xl border border-border bg-card p-7 text-center sm:p-10">
+        {children}
+      </div>
+    </div>
+  );
+}

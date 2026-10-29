@@ -1,6 +1,7 @@
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import ApiPlugin from "../../src/index";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 const timestamp = "2026-10-26T00:00:00.000Z";
 
@@ -111,7 +112,7 @@ describe("city node tags", () => {
         variables: { reviewEvaluationEnabled: false, cityNodeUrl: "https://citynode.test" },
         secrets: { API_DATABASE_URL: "pglite::memory:", REQUIRE_ADMIN_APPROVAL: "true" },
       },
-      {
+      asPluginEntries({
         activity: () => ({}),
         builders: () => ({
           getMyBuilderProfile: async () => ({ data: null }),
@@ -159,7 +160,7 @@ describe("city node tags", () => {
           },
         }),
         votes: () => ({}),
-      } as never,
+      } as never),
     );
   });
 

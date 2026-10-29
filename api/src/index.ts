@@ -4,14 +4,14 @@ import {
   normalizeLocation,
   normalizeSkills,
 } from "@everything-dev/builders-plugin/builder-tags";
+import { ORPCError } from "@orpc/server";
+import { Effect, Context as EffectContext, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Effect } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
-import type { PluginsClient } from "./lib/plugins-types.gen";
+import { type PluginEntries, toPluginsClient } from "./lib/plugin-clients";
 import {
   autoApprovalContext,
   parseRequireAdminApproval,
@@ -126,7 +126,33 @@ function enforceContentCreationVisibility(
   return resolveContentCreationVisibility({ isAdmin, allowPublic, inputVisibility });
 }
 
-export default createPlugin.withPlugins<PluginsClient>()({
+class ApiServices extends EffectContext.Service<
+  ApiServices,
+  {
+    reviewEvaluation: ReturnType<typeof createReviewEvaluationSweep>;
+    cityNodes: ReturnType<typeof createCityNodeDirectory>;
+    chiefBotUsername: string;
+    requireAdminApproval: boolean;
+  }
+>()("api/ApiServices") {}
+
+function apiServices(context: { "effect/context": EffectContext.Context<any> }) {
+  return EffectContext.get(context["effect/context"], ApiServices);
+}
+
+function createRouterServices(entries: PluginEntries) {
+  const { auth, ...restPlugins } = toPluginsClient(entries);
+  return {
+    auth,
+    plugins: restPlugins,
+    activity: createProposalActivity(restPlugins),
+    notifications: createProposalNotifications(restPlugins),
+    orchestration: createProposalOrchestration(restPlugins),
+    catalogClaims: createCatalogClaims(restPlugins),
+  };
+}
+
+export default createPlugin.withPlugins<PluginEntries>()({
   variables: z.object({
     reviewEvaluationEnabled: z.boolean().default(true),
     reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
@@ -145,6 +171,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     NEARAI_MODEL: z.string().default(""),
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
+    BETTER_AUTH_SECRET: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -152,65 +179,67 @@ export default createPlugin.withPlugins<PluginsClient>()({
   contract,
 
   initialize: (config, plugins) =>
-    Effect.sync(() => {
-      const { auth, ...restPlugins } = plugins;
-      const activity = createProposalActivity(restPlugins);
-      const notifications = createProposalNotifications(restPlugins);
-      const orchestration = createProposalOrchestration(restPlugins);
-      const catalogClaims = createCatalogClaims(restPlugins);
-      const cityNodes = createCityNodeDirectory({ baseUrl: config.variables.cityNodeUrl });
-      const reviewModel = config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
-      const reviewEvaluation = createReviewEvaluationSweep({
-        plugins: restPlugins,
-        assessor: config.secrets.NEARAI_API_KEY
-          ? createNearAiAssessor({
-              apiKey: config.secrets.NEARAI_API_KEY,
-              model: reviewModel,
-            })
-          : null,
-        githubToken: config.secrets.GITHUB_TOKEN,
-        intervalMs: config.variables.reviewEvaluationIntervalMs,
-        batchSize: config.variables.reviewEvaluationBatchSize,
-      });
-      if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
-      console.log(
-        "[API] Review evaluation:",
-        config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
-        config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
-      );
-      const requireAdminApproval = parseRequireAdminApproval(config.secrets.REQUIRE_ADMIN_APPROVAL);
-      console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
-      console.log("[API] Services Initialized");
-      console.log("[API] Auth client available:", Boolean(auth));
-      console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return {
-        auth,
-        plugins: restPlugins,
-        activity,
-        notifications,
-        orchestration,
-        catalogClaims,
-        cityNodes,
-        reviewEvaluation,
-        chiefBotUsername: config.variables.chiefBotUsername,
-        requireAdminApproval,
-      };
-    }),
-
-  shutdown: (services) =>
-    Effect.sync(() => services.reviewEvaluation.stop()).pipe(
-      Effect.zipRight(Effect.log("[API] Shutdown")),
+    Effect.sync(() =>
+      Layer.effect(
+        ApiServices,
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const { auth, ...restPlugins } = toPluginsClient(plugins);
+            const reviewModel =
+              config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
+            const reviewEvaluation = createReviewEvaluationSweep({
+              plugins: restPlugins,
+              assessor: config.secrets.NEARAI_API_KEY
+                ? createNearAiAssessor({
+                    apiKey: config.secrets.NEARAI_API_KEY,
+                    model: reviewModel,
+                  })
+                : null,
+              githubToken: config.secrets.GITHUB_TOKEN,
+              intervalMs: config.variables.reviewEvaluationIntervalMs,
+              batchSize: config.variables.reviewEvaluationBatchSize,
+            });
+            if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
+            console.log(
+              "[API] Review evaluation:",
+              config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
+              config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
+            );
+            const requireAdminApproval = parseRequireAdminApproval(
+              config.secrets.REQUIRE_ADMIN_APPROVAL,
+            );
+            console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
+            console.log("[API] Services Initialized");
+            console.log("[API] Auth client available:", Boolean(auth));
+            console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
+            return {
+              reviewEvaluation,
+              cityNodes: createCityNodeDirectory({ baseUrl: config.variables.cityNodeUrl }),
+              chiefBotUsername: config.variables.chiefBotUsername,
+              requireAdminApproval,
+            };
+          }),
+          (services) =>
+            Effect.sync(() => services.reviewEvaluation.stop()).pipe(
+              Effect.andThen(Effect.log("[API] Shutdown")),
+            ),
+        ),
+      ),
     ),
 
-  createRouter: (services, builder) => {
+  createRouter: (builder, plugins) => {
+    const services = createRouterServices(plugins);
     const { requireAuth, requireAdmin, requireAuthOrApiKey, requireApiKey } =
       createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
-    const assertKnownCityNode = async (key: string | null | undefined) => {
-      const error = await services.cityNodes.assertKnown(key);
+    const assertKnownCityNode = async (
+      context: Parameters<typeof apiServices>[0],
+      key: string | null | undefined,
+    ) => {
+      const error = await apiServices(context).cityNodes.assertKnown(key);
       if (error) throw new ORPCError("BAD_REQUEST", { message: error });
     };
     const approveProposal = async (
@@ -453,8 +482,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         timestamp: new Date().toISOString(),
       })),
 
-      getApprovalSettings: builder.getApprovalSettings.handler(async () => ({
-        requireAdminApproval: services.requireAdminApproval,
+      getApprovalSettings: builder.getApprovalSettings.handler(async ({ context }) => ({
+        requireAdminApproval: apiServices(context).requireAdminApproval,
       })),
 
       authHealth: builder.authHealth.use(requireAuth).handler(async () => ({
@@ -527,7 +556,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
-          await assertKnownCityNode(input.cityNode);
+          await assertKnownCityNode(context, input.cityNode);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -569,7 +598,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
           if (
             shouldAutoApproveBuilderProfile({
-              requireAdminApproval: services.requireAdminApproval,
+              requireAdminApproval: apiServices(context).requireAdminApproval,
               previous: previousProposal,
               submitted: proposal.data,
             })
@@ -749,8 +778,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       reevaluateProposal: builder.reevaluateProposal
         .use(requireAdmin)
-        .handler(async ({ input }) => {
-          return await services.reviewEvaluation.evaluateOne(input);
+        .handler(async ({ input, context }) => {
+          return await apiServices(context).reviewEvaluation.evaluateOne(input);
         }),
 
       decideTelegramReview: builder.decideTelegramReview
@@ -772,7 +801,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAdmin)
         .handler(async ({ context }) => {
           return await createTelegramLinkCode(services.plugins, context, {
-            botUsername: services.chiefBotUsername,
+            botUsername: apiServices(context).chiefBotUsername,
           });
         }),
 
@@ -1046,8 +1075,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
         }),
 
-      listCityNodes: builder.listCityNodes.handler(async () => {
-        return await services.cityNodes.list();
+      listCityNodes: builder.listCityNodes.handler(async ({ context }) => {
+        return await apiServices(context).cityNodes.list();
       }),
 
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
@@ -1063,12 +1092,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
-        await assertKnownCityNode(input.cityNode);
+        await assertKnownCityNode(context, input.cityNode);
         const visibility = enforceContentCreationVisibility(
           context.user,
           context.near,
           input.visibility,
-          !services.requireAdminApproval,
+          !apiServices(context).requireAdminApproval,
         );
         const created = await services.plugins
           .projects(context)
@@ -1098,11 +1127,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
-        await assertKnownCityNode(input.cityNode);
+        await assertKnownCityNode(context, input.cityNode);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;
-        if (!services.requireAdminApproval && input.visibility === "public") {
+        if (!apiServices(context).requireAdminApproval && input.visibility === "public") {
           const latest = await services.plugins
             .proposals(evaluatorContext)
             .getProposals({ pluginId: "projects", entityId: input.id, limit: 1 });
@@ -1293,7 +1322,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          await assertKnownCityNode(input.cityNode);
+          await assertKnownCityNode(context, input.cityNode);
           return await services.plugins.builders(context).updateBuilderProfile(input);
         }),
 

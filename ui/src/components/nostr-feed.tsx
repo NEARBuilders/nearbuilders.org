@@ -15,6 +15,17 @@ type NostrFeedProps = {
   requireBound?: boolean;
 };
 
+// TODO(#649): drop these annotations once the nostr contract stub regenerates
+// typed from the v2 remote publish; the v1 stub imports a dropped subpath.
+type NostrFeedComment = {
+  id: string;
+  pubkey: string;
+  content: string;
+  createdAt: number;
+  nearAccountId?: string | null;
+  profile?: { name?: string | null; picture?: string | null } | null;
+};
+
 function timeAgo(ts: number): string {
   const seconds = Math.floor(Date.now() / 1000) - ts;
   if (seconds < 60) return "just now";
@@ -42,18 +53,7 @@ function PubkeyBadge({ pubkey, nearAccountId }: { pubkey: string; nearAccountId?
   );
 }
 
-function CommentRow({
-  comment,
-}: {
-  comment: {
-    id: string;
-    pubkey: string;
-    content: string;
-    createdAt: number;
-    nearAccountId?: string | null;
-    profile?: { name?: string | null; picture?: string | null } | null;
-  };
-}) {
+function CommentRow({ comment }: { comment: NostrFeedComment }) {
   const initials = (comment.profile?.name ?? comment.nearAccountId ?? "?")[0].toUpperCase();
 
   return (
@@ -125,7 +125,9 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
         targetType,
         adapterType: "standard",
       });
-      const ok = result.statuses.filter((s) => s.success).length;
+      const ok = result.statuses.filter(
+        (s: { relay: string; success: boolean }) => s.success,
+      ).length;
       if (ok === 0) throw new Error("All relays rejected the event");
     },
     onSuccess: () => {
@@ -207,7 +209,7 @@ export function NostrFeed({ target, targetType = "project", requireBound }: Nost
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {comments.map((c) => (
+            {comments.map((c: NostrFeedComment) => (
               <CommentRow key={c.id} comment={c} />
             ))}
           </div>

@@ -1,4 +1,4 @@
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 
 export const CITY_NODE_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/;
 

@@ -1,0 +1,124 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { Check, Copy, ExternalLink, FileText } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { getAccount, getActiveRuntime, getAppName } from "@/app";
+import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
+import { useClientValue } from "@/hooks/use-client";
+import { pageHead } from "@/lib/page-meta";
+
+export const Route = createFileRoute("/_public/skill")({
+  loader: async ({ context }) => {
+    const runtimeConfig = context.runtimeConfig;
+    const rawSkillUrl = runtimeConfig?.hostUrl
+      ? new URL("/skill.md", runtimeConfig.hostUrl).toString()
+      : "/skill.md";
+
+    const skill = await fetch(rawSkillUrl)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load skill: ${response.status}`);
+        }
+
+        return response.text();
+      })
+      .catch(() => null);
+
+    return {
+      runtimeConfig,
+      rawSkillUrl,
+      skill,
+    };
+  },
+  head: ({ loaderData }) => {
+    const runtimeConfig = loaderData?.runtimeConfig;
+    const title = runtimeConfig?.runtime?.title ?? runtimeConfig?.account ?? "app";
+    const description =
+      runtimeConfig?.runtime?.description ||
+      "Agent-ready instructions for joining NEAR Builders, building on NEAR, and getting involved.";
+    return {
+      meta: pageHead({ title: `Skill | ${title}`, description }),
+    };
+  },
+  component: SkillPage,
+});
+
+function SkillPage() {
+  const { rawSkillUrl, skill, runtimeConfig } = Route.useLoaderData();
+  const runtime = useClientValue(() => getActiveRuntime(runtimeConfig), undefined);
+  const account = useClientValue(() => getAccount(runtimeConfig), "every.near");
+  const appName = useClientValue(() => getAppName(runtimeConfig), "app");
+  const [copied, setCopied] = useState(false);
+
+  const accountId = runtime?.accountId ?? account;
+
+  const handleCopy = async () => {
+    if (!skill) {
+      toast.error("Skill prompt unavailable");
+      return;
+    }
+
+    await navigator.clipboard.writeText(skill);
+    setCopied(true);
+    toast.success("Skill prompt copied");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex min-h-page flex-col">
+      <div className="flex-1">
+        <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6 sm:py-10 animate-fade-in">
+          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono text-muted-foreground">{accountId}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className="text-base font-semibold text-foreground">{appName}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Agent-ready prompt for joining NEAR Builders, picking a topic, and getting
+                    involved.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" onClick={handleCopy} disabled={!skill}>
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  {copied ? "Copied" : "Copy prompt"}
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href={rawSkillUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink size={14} />
+                    raw skill.md
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border bg-muted px-3.5 py-3 text-sm text-muted-foreground">
+              Point your coding agent at `/skill.md` to get started building on NEAR.
+            </div>
+          </div>
+
+          {skill ? (
+            <div className="rounded-xl border border-border bg-card p-8">
+              <Markdown content={skill} />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-8 py-16 text-muted-foreground">
+              <FileText size={32} className="text-border" />
+              <p className="text-sm text-muted-foreground">Skill prompt unavailable.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

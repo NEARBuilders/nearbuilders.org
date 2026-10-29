@@ -16,9 +16,7 @@ import {
 export function useNotificationStream() {
   const orpc = useOrpc();
   const queryClient = useQueryClient();
-  const { data: latest } = useQuery(
-    orpc.subscribeNotifications.experimental_liveOptions({ retry: true }),
-  );
+  const { data: latest } = useQuery(orpc.subscribeNotifications.liveOptions({ retry: true }));
 
   useEffect(() => {
     if (!latest) return;

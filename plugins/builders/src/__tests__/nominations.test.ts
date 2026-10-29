@@ -14,6 +14,8 @@ import {
   type XNominationInput,
 } from "../services/builders";
 
+const PLUGIN_SCHEMA = "plugin_builders";
+
 function testNear(primaryAccountId: string) {
   return { primaryAccountId, linkedAccounts: [], hasNearAccount: true };
 }
@@ -27,6 +29,7 @@ function testUser(id: string) {
     image: null,
     role: "member",
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -452,7 +455,7 @@ describe.sequential("Telegram builder nominations", () => {
     const token = new URL(claimed.joinUrl).searchParams.get("nomination")!;
 
     await isolatedRuntime.shutdown();
-    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`);
+    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`, PLUGIN_SCHEMA);
     const [stored] = await driver.db.select().from(builderNominations).limit(1);
 
     expect(stored).toMatchObject({
@@ -478,7 +481,7 @@ describe.sequential("Telegram builder nominations", () => {
     const duplicateId = "nom_legacy_duplicate";
     const canonicalToken = createNominationToken(tokenSecret, canonicalId);
     const duplicateToken = createNominationToken(tokenSecret, duplicateId);
-    const legacyDriver = await createDatabaseDriver(databaseUrl);
+    const legacyDriver = await createDatabaseDriver(databaseUrl, PLUGIN_SCHEMA);
 
     for (const file of ["0000_large_power_man.sql", "0001_grey_prodigy.sql"]) {
       const source = await readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8");
@@ -595,7 +598,7 @@ describe.sequential("Telegram builder nominations", () => {
     });
 
     await migrationRuntime.shutdown();
-    const migratedDriver = await createDatabaseDriver(databaseUrl);
+    const migratedDriver = await createDatabaseDriver(databaseUrl, PLUGIN_SCHEMA);
     const rows = await migratedDriver.db.select().from(builderNominations);
     const xIdentities = await migratedDriver.db.select().from(builderXIdentities);
     const canonical = rows.find((row) => row.id === canonicalId);
