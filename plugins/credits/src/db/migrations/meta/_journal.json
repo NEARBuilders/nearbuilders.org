@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793302317663,
+      "tag": "0000_create_credit_claims",
+      "breakpoints": true
+    }
+  ]
+}

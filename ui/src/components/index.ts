@@ -9,6 +9,7 @@ export { CatalogClaimActivity } from "./catalog-claim-activity";
 export { CatalogClaimFlow } from "./catalog-claim-flow";
 export { ConfirmDialog, useConfirmDialog } from "./confirm-dialog";
 export { ContributedProjects } from "./contributed-projects";
+export { CreditClaimCard } from "./credit-claim-card";
 export { GetInvolvedCard, GetInvolvedCardSkeleton } from "./get-involved-card";
 export { InvitationCard, MemberCard } from "./member-card";
 export { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "./near-logos";
