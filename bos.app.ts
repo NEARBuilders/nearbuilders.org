@@ -59,7 +59,7 @@ export default App({
     proposals: {
       path: "plugins/proposals",
       variables: {
-        privatePluginIds: ["nearcatalog", "projects", "events"],
+        privatePluginIds: ["nearcatalog", "nearcatalog-listing", "projects", "events"],
       },
       secrets: ["PROPOSALS_DATABASE_URL"],
     },
