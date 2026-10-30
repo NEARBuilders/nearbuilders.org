@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { CalendarDays } from "lucide-react";
 import { customAlphabet } from "nanoid";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Input } from "@/components";
@@ -81,8 +81,11 @@ function NewEventPage() {
   const [location, setLocation] = useState("");
   const [lumaUrl, setLumaUrl] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
-  const [startAt, setStartAt] = useState(toDateTimeLocalValue());
+  const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
+  useEffect(() => {
+    setStartAt(toDateTimeLocalValue());
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: async () => {

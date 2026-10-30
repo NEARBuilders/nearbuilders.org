@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
-import { formatEventTimeRange } from "@/lib/events/event-sources";
+import {
+  formatEventDate as formatEventDateWithFormat,
+  UTC_EVENT_TIME_FORMAT,
+} from "@/lib/events/event-sources";
+import { useEventDateLabel, useEventTimeRange } from "@/hooks";
 
 export type EventDetailData = {
   title: string;
@@ -43,6 +47,8 @@ export function EventDetail({
   copied: boolean;
   onShare: () => void;
 }) {
+  const dateText = useEventDateLabel(event);
+  const timeRange = useEventTimeRange(event);
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
@@ -75,8 +81,8 @@ export function EventDetail({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Fact icon={<CalendarDays size={14} />} text={formatEventDate(event)} />
-          <Fact icon={<Clock size={14} />} text={formatEventTimeRange(event)} />
+          <Fact icon={<CalendarDays size={14} />} text={dateText} />
+          <Fact icon={<Clock size={14} />} text={timeRange} />
           {event.participantCount !== undefined && (
             <Fact
               icon={<Users size={14} />}
@@ -160,10 +166,5 @@ function Fact({ icon, text }: { icon: ReactNode; text: string }) {
 }
 
 export function formatEventDate(event: { startAt: string }) {
-  return new Date(event.startAt).toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatEventDateWithFormat(event, UTC_EVENT_TIME_FORMAT);
 }
