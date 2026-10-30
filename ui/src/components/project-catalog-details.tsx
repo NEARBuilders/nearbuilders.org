@@ -1,99 +1,113 @@
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 import { useApiClient } from "@/app";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { socialIcon } from "@/components/ui/social-icons";
 import {
-  CATALOG_LINKS,
-  CATALOG_PHASES,
   type CatalogReadinessInput,
   catalogCategoriesQueryOptions,
+  getCatalogLinks,
+  getCatalogPhaseLabel,
   getCatalogReadiness,
   type ProjectCatalog,
 } from "@/lib/project-catalog";
 
-export function ProjectCatalogDetails({ catalog }: { catalog?: ProjectCatalog | null }) {
+export function ProjectCatalogCard({
+  project,
+  canManage,
+  action,
+}: {
+  project: CatalogReadinessInput & { catalog?: ProjectCatalog | null };
+  canManage: boolean;
+  action?: ReactNode;
+}) {
+  const catalog = project.catalog;
+  const categories = catalog?.categories ?? [];
   const apiClient = useApiClient();
   const categoriesQuery = useQuery({
     ...catalogCategoriesQueryOptions(apiClient),
-    enabled: (catalog?.categories?.length ?? 0) > 0,
+    enabled: categories.length > 0,
   });
-  if (!catalog) return null;
 
-  const labelFor = (id: string) =>
-    categoriesQuery.data?.find((category) => category.id === id)?.label ?? id;
-  const phase = CATALOG_PHASES.find((item) => item.value === catalog.phase)?.label;
-  const links = CATALOG_LINKS.flatMap(({ key, label }) => {
-    const href = catalog.links?.[key];
-    return href ? [{ key, label, href }] : [];
-  });
-  const hasTags = Boolean(phase) || (catalog.categories?.length ?? 0) > 0;
-
-  return (
-    <div className="space-y-2">
-      {catalog.tagline && <p className="text-sm text-foreground">{catalog.tagline}</p>}
-      {hasTags && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {phase && (
-            <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-xs">
-              {phase}
-            </Badge>
-          )}
-          {catalog.categories?.map((id) => (
-            <Badge key={id} variant="secondary" className="rounded-full px-2.5 py-0.5 text-xs">
-              {labelFor(id)}
-            </Badge>
-          ))}
-        </div>
-      )}
-      {links.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {links.map((link) => (
-            <Button key={link.key} asChild size="sm" variant="outline" className="w-fit">
-              <a href={link.href} target="_blank" rel="noopener noreferrer">
-                <span>{link.label}</span>
-                <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
-              </a>
-            </Button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function ProjectCatalogReadiness({
-  project,
-  action,
-}: {
-  project: CatalogReadinessInput;
-  action?: ReactNode;
-}) {
+  const phase = getCatalogPhaseLabel(catalog?.phase);
+  const links = getCatalogLinks(catalog);
   const readiness = getCatalogReadiness(project);
-  if (readiness.ready) return null;
+  const showMissing = canManage && !readiness.ready;
+  const hasDetails =
+    Boolean(catalog?.tagline || phase || catalog?.tokenContract || catalog?.coingeckoId) ||
+    categories.length > 0 ||
+    links.length > 0;
+
+  if (!hasDetails && !showMissing) return null;
+
+  const categoryLabels = categories.map(
+    (id) => categoriesQuery.data?.find((category) => category.id === id)?.label ?? id,
+  );
+  const facts = [
+    { label: "Phase", value: phase },
+    { label: "Categories", value: categoryLabels.join(", ") },
+    { label: "Token", value: catalog?.tokenContract, mono: true },
+    { label: "CoinGecko", value: catalog?.coingeckoId, mono: true },
+  ].filter((fact) => fact.value);
 
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4">
-      <p className="text-sm font-medium text-foreground">Not ready for NEAR Catalog yet</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Only you and your collaborators see this. Add the missing details to get it ready.
-      </p>
-      <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-        {readiness.items.map((item) => (
-          <div key={item.key} className="flex items-center gap-2 text-xs">
-            {item.complete ? (
-              <CheckCircle2 className="size-3.5 shrink-0 text-brand-accent" />
-            ) : (
-              <Circle className="size-3.5 shrink-0 text-border-strong" />
-            )}
-            <span className={item.complete ? "text-foreground" : "text-muted-foreground"}>
-              {item.label}
-            </span>
-          </div>
-        ))}
-      </div>
-      {action && <div className="mt-3">{action}</div>}
-    </div>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <h2 className="text-xs font-bold uppercase tracking-12 text-brand-accent">NEAR Catalog</h2>
+
+      {catalog?.tagline && (
+        <p className="mt-3 text-base leading-relaxed text-foreground">{catalog.tagline}</p>
+      )}
+
+      {facts.length > 0 && (
+        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <dt className="text-xs text-muted-foreground">{fact.label}</dt>
+              <dd className={fact.mono ? "font-mono text-foreground" : "text-foreground"}>
+                {fact.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {links.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          {links.map((link) => {
+            const Icon = socialIcon(link.key);
+            return (
+              <a
+                key={link.key}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-foreground hover:underline"
+              >
+                <Icon className="size-3.5 text-muted-foreground" />
+                {link.label}
+                <ExternalLink size={11} className="text-muted-foreground" />
+              </a>
+            );
+          })}
+        </div>
+      )}
+
+      {showMissing && (
+        <div
+          className={
+            hasDetails
+              ? "mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"
+              : "mt-3 flex flex-wrap items-center justify-between gap-3"
+          }
+        >
+          <p className="text-xs text-muted-foreground">
+            Missing for a listing:{" "}
+            {readiness.missing.map((item) => item.label.toLowerCase()).join(", ")}. Only you and
+            your collaborators see this.
+          </p>
+          {action}
+        </div>
+      )}
+    </section>
   );
 }

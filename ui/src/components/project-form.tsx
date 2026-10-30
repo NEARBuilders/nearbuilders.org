@@ -700,6 +700,26 @@ export function ProjectFormLayout({
               )}
             </div>
           </section>
+
+          {kind === "project" && (
+            <form.Field
+              name="catalog"
+              validators={{
+                onChange: ({ value }: any) => validateProjectCatalog(value),
+                onSubmit: ({ value }: any) => validateProjectCatalog(value),
+              }}
+            >
+              {(field: any) => (
+                <ProjectCatalogFields
+                  value={field.state.value ?? emptyProjectCatalog()}
+                  onChange={(next) => field.handleChange(next)}
+                  description={currentDescription}
+                  logoUrl={formValues.logoUrl}
+                  showErrors
+                />
+              )}
+            </form.Field>
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:space-y-5 lg:self-start">
@@ -909,26 +929,6 @@ export function ProjectFormLayout({
               }}
             </form.Field>
           </section>
-
-          {kind === "project" && (
-            <form.Field
-              name="catalog"
-              validators={{
-                onChange: ({ value }: any) => validateProjectCatalog(value),
-                onSubmit: ({ value }: any) => validateProjectCatalog(value),
-              }}
-            >
-              {(field: any) => (
-                <ProjectCatalogFields
-                  value={field.state.value ?? emptyProjectCatalog()}
-                  onChange={(next) => field.handleChange(next)}
-                  description={currentDescription}
-                  logoUrl={formValues.logoUrl}
-                  showErrors
-                />
-              )}
-            </form.Field>
-          )}
 
           {isAdmin && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">

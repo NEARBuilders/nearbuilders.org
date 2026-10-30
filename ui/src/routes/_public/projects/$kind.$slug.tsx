@@ -27,10 +27,7 @@ import {
   ProjectActivityRejected,
 } from "@/components/project-activity";
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
-import {
-  ProjectCatalogDetails,
-  ProjectCatalogReadiness,
-} from "@/components/project-catalog-details";
+import { ProjectCatalogCard } from "@/components/project-catalog-details";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -516,12 +513,12 @@ function ProjectDetailPage() {
                     </a>
                   </Button>
                 )}
-                {project.kind === "project" && <ProjectCatalogDetails catalog={project.catalog} />}
               </div>
 
-              {project.kind === "project" && canManage && (
-                <ProjectCatalogReadiness
+              {project.kind === "project" && (
+                <ProjectCatalogCard
                   project={project}
+                  canManage={canManage}
                   action={
                     <Button asChild size="sm" variant="outline" className="w-fit">
                       <Link
