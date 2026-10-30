@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { Context, Effect, Layer } from "effect";
 import { z } from "zod";
+import { CATALOG_CATEGORIES_FALLBACK } from "../catalog-categories";
 import { type CatalogProjectSchema, CatalogProjectSlugSchema } from "../contract";
 import { catalogProjectReference } from "../project-reference";
 
@@ -21,6 +22,19 @@ const RawProjectSchema = z.object({
     status: z.string().nullable().optional(),
   }),
 });
+
+const CATEGORY_CACHE_MS = 60 * 60 * 1000;
+const CategoriesResponseSchema = z.record(z.string(), z.unknown());
+
+export type CatalogCategory = { id: string; label: string };
+
+function normalizeCategories(raw: Record<string, unknown>): CatalogCategory[] {
+  return Object.entries(raw).flatMap(([id, label]) => {
+    const parsedId = CatalogProjectSlugSchema.safeParse(id.trim());
+    if (!parsedId.success || typeof label !== "string" || !label.trim()) return [];
+    return [{ id: parsedId.data, label: label.trim() }];
+  });
+}
 
 const SearchResponseSchema = z.union([
   z.record(z.string(), z.unknown()),
@@ -99,8 +113,10 @@ export function createCatalogMethods(
   baseUrl: string,
   fetchImpl: (input: URL, init?: RequestInit) => Promise<Response> = fetch,
   timeoutMs = 8000,
+  now: () => number = Date.now,
 ) {
   const host = new URL(baseUrl).host;
+  let categoryCache: { value: CatalogCategory[]; expiresAt: number } | null = null;
   const fetchProjectData = <T extends z.ZodType>(
     path: string,
     schema: T,
@@ -161,6 +177,18 @@ export function createCatalogMethods(
     });
 
   return {
+    listCategories: () =>
+      Effect.gen(function* () {
+        if (categoryCache && categoryCache.expiresAt > now()) return categoryCache.value;
+        const live = yield* fetchProjectData("/categories", CategoriesResponseSchema).pipe(
+          Effect.map(normalizeCategories),
+          Effect.orElseSucceed(() => [] as CatalogCategory[]),
+        );
+        if (live.length === 0) return [...CATALOG_CATEGORIES_FALLBACK];
+        categoryCache = { value: live, expiresAt: now() + CATEGORY_CACHE_MS };
+        return live;
+      }),
+
     searchProjects: (query: string) =>
       Effect.gen(function* () {
         const params = new URLSearchParams({ kw: query.trim() });

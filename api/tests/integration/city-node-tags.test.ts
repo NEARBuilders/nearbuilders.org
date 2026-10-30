@@ -97,6 +97,7 @@ describe("city node tags", () => {
       location: null,
       links: null,
       cityNode: input.cityNode ?? null,
+      catalog: null,
       withdrawnAt: null,
       createdAt: timestamp,
       updatedAt: timestamp,

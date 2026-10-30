@@ -1,4 +1,5 @@
 import { Store } from "@tanstack/store";
+import type { ProjectCatalogFormValues } from "./project-catalog";
 
 export type ProjectKind = "project" | "idea" | "scope" | "result";
 
@@ -14,6 +15,7 @@ export type ProjectDraft = {
   domain?: string;
   logoUrl?: string;
   cityNode?: string;
+  catalog?: ProjectCatalogFormValues;
 };
 
 type DraftState = Record<ProjectKind, ProjectDraft | null>;

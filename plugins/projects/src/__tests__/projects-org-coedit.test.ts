@@ -33,11 +33,12 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0006_global_project_slugs.sql",
     "0007_project_logo_url.sql",
     "0008_project_collaborators.sql",
-    "0009_project_city_node.sql",
+    "0009_project_catalog_metadata.sql",
+    "0010_project_city_node.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000, 1781900000000, 1782000000000, 1793100000000,
+    1781818000000, 1781900000000, 1782000000000, 1793000000000, 1793100000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),

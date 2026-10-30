@@ -65,6 +65,11 @@ export const CatalogClaimHistorySchema = z.object({
   occurredAt: z.iso.datetime(),
 });
 
+export const CatalogCategorySchema = z.object({
+  id: z.string(),
+  label: z.string(),
+});
+
 export const ClaimedCatalogProjectSchema = z.object({
   project: CatalogProjectSchema,
   contributors: z.array(CatalogContributorSchema),
@@ -87,6 +92,11 @@ export const contract = oc.router({
     )
     .output(z.object({ data: z.array(CatalogProjectSchema) }))
     .errors({ BAD_REQUEST, ...CatalogErrors }),
+
+  listCatalogCategories: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/categories" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(CatalogCategorySchema) })),
 
   getCatalogProject: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/{slug}" })

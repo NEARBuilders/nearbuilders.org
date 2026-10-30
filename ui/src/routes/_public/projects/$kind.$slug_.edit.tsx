@@ -8,6 +8,7 @@ import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { pageHead } from "@/lib/page-meta";
+import { projectCatalogFromFormValues, projectCatalogToFormValues } from "@/lib/project-catalog";
 import { normalizeDomain } from "@/lib/project-form-validation";
 import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import {
@@ -126,6 +127,8 @@ function EditProjectPage() {
         logoUrl: values.logoUrl?.trim() || "",
         cityNode:
           values.cityNode !== (project?.cityNode ?? "") ? values.cityNode || null : undefined,
+        catalog:
+          values.kind === "project" ? projectCatalogFromFormValues(values.catalog) : undefined,
         ownerId:
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
@@ -194,6 +197,7 @@ function EditProjectPage() {
             domain: updated.domain ?? undefined,
             logoUrl: updated.logoUrl ?? undefined,
             cityNode: updated.cityNode ?? undefined,
+            catalog: updated.catalog ?? undefined,
           },
         });
       }
@@ -342,6 +346,7 @@ function EditFormInner({
       domain: project.domain ?? "",
       logoUrl: project.logoUrl ?? "",
       cityNode: project.cityNode ?? "",
+      catalog: projectCatalogToFormValues(project.catalog),
       collaborators: (
         (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
           .collaborators ?? []

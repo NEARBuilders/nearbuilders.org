@@ -29,6 +29,7 @@ import {
   ProjectActivityRejected,
 } from "@/components/project-activity";
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
+import { ProjectCatalogCard } from "@/components/project-catalog-details";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
@@ -544,6 +545,24 @@ function ProjectDetailPage() {
                   </Button>
                 )}
               </div>
+
+              {project.kind === "project" && (
+                <ProjectCatalogCard
+                  project={project}
+                  canManage={canManage}
+                  action={
+                    <Button asChild size="sm" variant="outline" className="w-fit">
+                      <Link
+                        to="/projects/$kind/$slug/edit"
+                        params={{ kind: project.kind, slug: project.slug }}
+                        search={{ ...listSearch, tab: "write" }}
+                      >
+                        Add details
+                      </Link>
+                    </Button>
+                  }
+                />
+              )}
 
               <section className="border-t border-border pt-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">

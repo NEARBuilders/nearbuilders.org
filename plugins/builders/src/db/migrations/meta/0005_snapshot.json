@@ -1,5 +1,5 @@
 {
-  "id": "21d99863-105d-45d9-b20d-0b88258c3a04",
+  "id": "8862161d-2617-40ca-8d67-54f906577ede",
   "prevId": "8f0f81a6-f907-402f-8f62-320f53db2390",
   "version": "7",
   "dialect": "postgresql",
@@ -552,9 +552,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "city_node": {
-          "name": "city_node",
-          "type": "text",
+        "catalog": {
+          "name": "catalog",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -615,21 +615,6 @@
           "columns": [
             {
               "expression": "withdrawn_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "builders_city_node_idx": {
-          "name": "builders_city_node_idx",
-          "columns": [
-            {
-              "expression": "city_node",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

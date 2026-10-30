@@ -134,6 +134,29 @@ const CityNodeOutput = z.object({
   depth: z.number().int().nonnegative(),
 });
 
+const BuilderCatalog = z.object({
+  preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]).optional(),
+  organization: z.string().trim().max(100).optional(),
+  team: z.string().trim().max(100).optional(),
+  jobTitle: z.string().trim().max(80).optional(),
+  publicEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .refine((value) => value.length === 0 || z.email().safeParse(value).success, {
+      message: "Enter a valid email address",
+    })
+    .optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((value) => value.length === 0 || HttpUrl.safeParse(value).success, {
+      message: "Avatar URL must be an absolute http(s) URL",
+    })
+    .optional(),
+});
+
 const BuilderProfileSubmissionInput = z.object({
   nominationToken: z.string().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(100),
@@ -142,6 +165,7 @@ const BuilderProfileSubmissionInput = z.object({
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
   cityNode: cityNodeKeySchema.optional(),
+  catalog: BuilderCatalog.optional(),
 });
 
 const BuilderNominationInput = z.object({
@@ -503,6 +527,60 @@ function isAbsoluteHttpUrl(value: string) {
   }
 }
 
+const ProjectCatalogLinkUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Links must be absolute http(s) URLs",
+  });
+
+const ProjectCatalog = z.object({
+  tagline: z.string().trim().max(140).optional(),
+  categories: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(60)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    )
+    .max(6)
+    .optional(),
+  phase: z.enum(["mainnet", "testnet", "prototype", "still building", "inactive"]).optional(),
+  links: z
+    .partialRecord(
+      z.enum([
+        "twitter",
+        "telegram",
+        "discord",
+        "github",
+        "medium",
+        "whitepaper",
+        "nearsocial",
+        "linkedin",
+        "youtube",
+      ]),
+      ProjectCatalogLinkUrl,
+    )
+    .optional(),
+  tokenContract: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*$/, {
+      message: "Token contract must be a NEAR account id",
+    })
+    .optional(),
+  coingeckoId: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, { message: "CoinGecko id must use lowercase letters, digits and -" })
+    .optional(),
+});
+
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -518,6 +596,7 @@ const ProjectOutput = z.object({
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
   cityNode: z.string().nullable(),
+  catalog: ProjectCatalog.nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -623,6 +702,7 @@ const BuilderOutput = z.object({
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
   cityNode: z.string().nullable(),
+  catalog: BuilderCatalog.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -1235,6 +1315,11 @@ export const contract = oc.router({
     .output(z.object({ data: z.array(CatalogProjectSchema) }))
     .errors({ BAD_REQUEST, ...CatalogErrors }),
 
+  listCatalogCategories: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/categories" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(z.object({ id: z.string(), label: z.string() })) })),
+
   getCatalogProject: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/{slug}" })
     .input(
@@ -1553,6 +1638,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: ProjectCatalog.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -1620,6 +1706,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: ProjectCatalog.nullable().optional(),
       }),
     )
     .output(ProjectOutput)
@@ -1913,6 +2000,7 @@ export const contract = oc.router({
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: BuilderCatalog.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))

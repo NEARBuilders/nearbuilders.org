@@ -31,6 +31,57 @@ const cityNodeKeySchema = z
     message: "City node must be a citynode.app community path",
   });
 
+const NEAR_ACCOUNT_PATTERN = /^(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const CATALOG_CATEGORY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const catalogPhaseEnum = z.enum([
+  "mainnet",
+  "testnet",
+  "prototype",
+  "still building",
+  "inactive",
+]);
+
+export const CATALOG_LINK_KEYS = [
+  "twitter",
+  "telegram",
+  "discord",
+  "github",
+  "medium",
+  "whitepaper",
+  "nearsocial",
+  "linkedin",
+  "youtube",
+] as const;
+
+const catalogLinkUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Links must be absolute http(s) URLs",
+  });
+
+export const projectCatalogSchema = z.object({
+  tagline: z.string().trim().max(140).optional(),
+  categories: z.array(z.string().trim().max(60).regex(CATALOG_CATEGORY_PATTERN)).max(6).optional(),
+  phase: catalogPhaseEnum.optional(),
+  links: z.partialRecord(z.enum(CATALOG_LINK_KEYS), catalogLinkUrl).optional(),
+  tokenContract: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(NEAR_ACCOUNT_PATTERN, { message: "Token contract must be a NEAR account id" })
+    .optional(),
+  coingeckoId: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, { message: "CoinGecko id must use lowercase letters, digits and -" })
+    .optional(),
+});
+
 const projectSchema = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -46,6 +97,7 @@ const projectSchema = z.object({
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
   cityNode: z.string().nullable(),
+  catalog: projectCatalogSchema.nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -159,6 +211,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: projectCatalogSchema.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -182,6 +235,7 @@ export const contract = oc.router({
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: projectCatalogSchema.nullable().optional(),
       }),
     )
     .output(projectSchema)
@@ -202,6 +256,7 @@ export const contract = oc.router({
         repository: z.string().url().max(500).optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        catalog: projectCatalogSchema.nullable().optional(),
       }),
     )
     .output(projectSchema)

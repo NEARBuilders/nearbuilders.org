@@ -24,6 +24,39 @@ const NOMINATION_NOT_FOUND = {
   message: "Nomination not found",
 } as const;
 
+export const preferredContactEnum = z.enum(["Email", "Telegram", "Discord", "X", "Website"]);
+
+export const builderCatalogSchema = z.object({
+  preferredContact: preferredContactEnum.optional(),
+  organization: z.string().trim().max(100).optional(),
+  team: z.string().trim().max(100).optional(),
+  jobTitle: z.string().trim().max(80).optional(),
+  publicEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .refine((value) => value.length === 0 || z.email().safeParse(value).success, {
+      message: "Enter a valid email address",
+    })
+    .optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine(
+      (value) => {
+        if (value.length === 0) return true;
+        try {
+          return /^https?:$/.test(new URL(value).protocol);
+        } catch {
+          return false;
+        }
+      },
+      { message: "Avatar URL must be an absolute http(s) URL" },
+    )
+    .optional(),
+});
+
 const BuilderOutput = z.object({
   id: z.string(),
   nearAccount: z.string(),
@@ -34,6 +67,7 @@ const BuilderOutput = z.object({
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
   cityNode: z.string().nullable(),
+  catalog: builderCatalogSchema.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -464,6 +498,7 @@ export const contract = oc.router({
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: builderCatalogSchema.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))
@@ -480,6 +515,7 @@ export const contract = oc.router({
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
         cityNode: cityNodeKeySchema.nullable().optional(),
+        catalog: builderCatalogSchema.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))

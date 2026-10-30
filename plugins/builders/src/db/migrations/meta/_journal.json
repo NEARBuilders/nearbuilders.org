@@ -40,8 +40,15 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1793030085991,
-      "tag": "0005_builder_city_node",
+      "when": 1793029125654,
+      "tag": "0005_builder_catalog_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793375275304,
+      "tag": "0006_builder_city_node",
       "breakpoints": true
     }
   ]

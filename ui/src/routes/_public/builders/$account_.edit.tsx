@@ -14,6 +14,7 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import { builderCatalogFromFormValues, builderCatalogToFormValues } from "@/lib/builder-catalog";
 import { pageHead } from "@/lib/page-meta";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { composeLinks, initialFormLinks } from "@/lib/social-links";
@@ -145,6 +146,7 @@ function EditForm({
           values.cityNode !== (builder.cityNode ?? "") ? values.cityNode || null : undefined,
         skills: parseBuilderSkills(values.skills),
         links: composeLinks(values.links, builder.links),
+        catalog: builderCatalogFromFormValues(values.catalog),
       }),
     onSuccess: () => {
       toast.success("Profile updated");
@@ -162,6 +164,7 @@ function EditForm({
       location: builder.location ?? "",
       cityNode: builder.cityNode ?? "",
       links: initialFormLinks(builder.links, socialLinktree),
+      catalog: builderCatalogToFormValues(builder.catalog),
     } satisfies BuilderFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
