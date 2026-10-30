@@ -1,4 +1,4 @@
-import { Globe, Link2 } from "lucide-react";
+import { AtSign, FileText, Globe, Link2, Newspaper, Play } from "lucide-react";
 import type { ComponentType } from "react";
 
 type IconProps = { className?: string };
@@ -70,6 +70,10 @@ const LINK_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   telegram: TelegramIcon,
   linkedin: LinkedinIcon,
   discord: DiscordIcon,
+  medium: Newspaper,
+  whitepaper: FileText,
+  nearsocial: AtSign,
+  youtube: Play,
 };
 
 export function socialIcon(key: string): ComponentType<{ className?: string }> {
