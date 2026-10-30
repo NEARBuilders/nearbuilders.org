@@ -85,6 +85,21 @@ export function projectCatalogFromFormValues(
   return Object.keys(catalog).length > 0 ? catalog : null;
 }
 
+export function getCatalogPhaseLabel(phase: string | null | undefined) {
+  return CATALOG_PHASES.find((item) => item.value === phase)?.label;
+}
+
+export function getCatalogLinks(catalog: ProjectCatalog | null | undefined) {
+  return CATALOG_LINKS.flatMap(({ key, label }) => {
+    const href = catalog?.links?.[key];
+    return href ? [{ key, label, href }] : [];
+  });
+}
+
+export function hasProjectCatalogValues(values: ProjectCatalogFormValues | undefined) {
+  return projectCatalogFromFormValues(values) !== null;
+}
+
 function isHttpUrl(value: string) {
   try {
     const url = new URL(value);

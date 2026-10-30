@@ -7,6 +7,7 @@ import {
 } from "@everything-dev/builders-plugin/builder-tags";
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApiClient } from "@/app";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { socialIcon } from "@/components/ui/social-icons";
 import { Textarea } from "@/components/ui/textarea";
 import {
   type BuilderCatalogFormValues,
+  builderCatalogFromFormValues,
   getBuilderCatalogErrors,
   PREFERRED_CONTACTS,
   type PreferredContact,
@@ -318,74 +320,95 @@ function BuilderCatalogFields({ form, field }: { form: any; field: any }) {
     { key: "publicEmail", label: "Public email", placeholder: "you@example.com" },
   ] as const;
 
+  const hasErrors = showErrors && Object.keys(errors).length > 0;
+  const [open, setOpen] = useState(() => builderCatalogFromFormValues(value) !== null);
+  const expanded = open || hasErrors;
+
   return (
     <div className="space-y-4 border-t border-border pt-6">
-      <div>
-        <Label>Also list me on NEAR Catalog</Label>
-        <HelperText>
-          Optional. NEAR Catalog&apos;s people directory asks for these. The public email is shown
-          on your profile only if you add it here.
-        </HelperText>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="catalog-preferred-contact">Preferred contact</Label>
-        <Select
-          value={value.preferredContact || NO_CONTACT}
-          onValueChange={(next) =>
-            update({ preferredContact: next === NO_CONTACT ? "" : (next as PreferredContact) })
-          }
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Label>Also list me on NEAR Catalog</Label>
+          <HelperText>
+            Optional. Your public email shows on your profile only if you add it here.
+          </HelperText>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(!expanded)}
+          aria-expanded={expanded}
+          aria-controls="builder-catalog-fields"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-foreground hover:underline"
         >
-          <SelectTrigger id="catalog-preferred-contact" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CONTACT}>Not set</SelectItem>
-            {PREFERRED_CONTACTS.map((contact) => (
-              <SelectItem key={contact.value} value={contact.value}>
-                {contact.value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errorFor("preferredContact") && <ErrorText>{errorFor("preferredContact")}</ErrorText>}
+          {expanded ? "Hide" : builderCatalogFromFormValues(value) ? "Edit" : "Add details"}
+          <ChevronDown
+            size={14}
+            className={cn("text-muted-foreground transition-transform", expanded && "rotate-180")}
+          />
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {textFields.map(({ key, label, placeholder }) => (
-          <div key={key} className="space-y-1.5">
-            <Label htmlFor={`catalog-${key}`}>{label}</Label>
-            <Input
-              id={`catalog-${key}`}
-              type={key === "publicEmail" ? "email" : "text"}
-              value={value[key]}
-              onChange={(e) => update({ [key]: e.target.value })}
-              onBlur={field.handleBlur}
-              placeholder={placeholder}
-              aria-invalid={Boolean(errorFor(key))}
-            />
-            {errorFor(key) && <ErrorText>{errorFor(key)}</ErrorText>}
+      {expanded && (
+        <div id="builder-catalog-fields" className="space-y-4">
+          <div className="space-y-1.5 sm:max-w-xs">
+            <Label htmlFor="catalog-preferred-contact">Preferred contact</Label>
+            <Select
+              value={value.preferredContact || NO_CONTACT}
+              onValueChange={(next) =>
+                update({ preferredContact: next === NO_CONTACT ? "" : (next as PreferredContact) })
+              }
+            >
+              <SelectTrigger id="catalog-preferred-contact" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_CONTACT}>Not set</SelectItem>
+                {PREFERRED_CONTACTS.map((contact) => (
+                  <SelectItem key={contact.value} value={contact.value}>
+                    {contact.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errorFor("preferredContact") && <ErrorText>{errorFor("preferredContact")}</ErrorText>}
           </div>
-        ))}
-      </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="catalog-avatarUrl">Avatar URL</Label>
-        <Input
-          id="catalog-avatarUrl"
-          value={value.avatarUrl}
-          onChange={(e) => update({ avatarUrl: e.target.value })}
-          onBlur={field.handleBlur}
-          placeholder="https://example.com/avatar.png"
-          className="font-mono text-sm"
-          aria-invalid={Boolean(errorFor("avatarUrl"))}
-        />
-        {errorFor("avatarUrl") ? (
-          <ErrorText>{errorFor("avatarUrl")}</ErrorText>
-        ) : (
-          <HelperText>Leave empty to use your NEAR Social profile image.</HelperText>
-        )}
-      </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {textFields.map(({ key, label, placeholder }) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`catalog-${key}`}>{label}</Label>
+                <Input
+                  id={`catalog-${key}`}
+                  type={key === "publicEmail" ? "email" : "text"}
+                  value={value[key]}
+                  onChange={(e) => update({ [key]: e.target.value })}
+                  onBlur={field.handleBlur}
+                  placeholder={placeholder}
+                  aria-invalid={Boolean(errorFor(key))}
+                />
+                {errorFor(key) && <ErrorText>{errorFor(key)}</ErrorText>}
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="catalog-avatarUrl">Avatar URL</Label>
+            <Input
+              id="catalog-avatarUrl"
+              value={value.avatarUrl}
+              onChange={(e) => update({ avatarUrl: e.target.value })}
+              onBlur={field.handleBlur}
+              placeholder="https://example.com/avatar.png"
+              aria-invalid={Boolean(errorFor("avatarUrl"))}
+            />
+            {errorFor("avatarUrl") ? (
+              <ErrorText>{errorFor("avatarUrl")}</ErrorText>
+            ) : (
+              <HelperText>Leave empty to use your NEAR Social profile image.</HelperText>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
