@@ -17,9 +17,9 @@ const LOGIN_INPUT = {
     signature: "base64-signature",
   },
   payload: {
-    message: "Sign in to NEAR AI Cloud",
+    message: "Sign in to NEAR AI Cloud" as const,
     nonce: Array.from({ length: 32 }, (_, index) => index),
-    recipient: "cloud.near.ai",
+    recipient: "cloud.near.ai" as const,
   },
 };
 

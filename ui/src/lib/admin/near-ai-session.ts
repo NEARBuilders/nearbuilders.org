@@ -7,11 +7,7 @@ export const NEAR_AI_LOGIN_RECIPIENT = "cloud.near.ai" as const;
 
 export type NearAiLoginInput = Parameters<ApiClient["credits"]["loginNearAi"]>[0];
 
-export type NearAiSignedMessage = {
-  accountId: string;
-  publicKey: string;
-  signature: string;
-};
+export type NearAiSignedMessage = NearAiLoginInput["signedMessage"];
 
 export type Nep413Signer = {
   signMessage(params: {

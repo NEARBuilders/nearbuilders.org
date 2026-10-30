@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
+import type { z } from "zod";
+import type { CreditEligibilitySchema } from "../contract";
 import { type Database, DatabaseTag } from "../db/layer";
 import { creditClaims } from "../db/schema";
 import {
@@ -28,7 +30,7 @@ import {
   writeSettings,
 } from "./settings";
 
-export type CreditEligibility = "eligible" | "needs_near_account" | "needs_approved_profile";
+export type CreditEligibility = z.infer<typeof CreditEligibilitySchema>;
 
 export function creditEligibility(
   nearAccountId: string | null | undefined,

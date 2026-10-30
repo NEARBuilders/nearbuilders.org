@@ -1,4 +1,6 @@
 import { base58, base64 } from "@scure/base";
+import type { z } from "zod";
+import type { NearAiLoginPayloadSchema, NearAiSignedMessageSchema } from "../contract";
 
 const NEAR_AI_BASE_URL = "https://cloud-api.near.ai/v1";
 
@@ -30,19 +32,9 @@ export type NearAiRefreshTokenStore = {
   save(refreshToken: string, expiresAt: Date | null): Promise<void>;
 };
 
-export type NearAiSignedMessage = {
-  accountId: string;
-  publicKey: string;
-  signature: string;
-  state?: string | null;
-};
+export type NearAiSignedMessage = z.infer<typeof NearAiSignedMessageSchema>;
 
-export type NearAiLoginPayload = {
-  message: string;
-  nonce: number[];
-  recipient: string;
-  callbackUrl?: string | null;
-};
+export type NearAiLoginPayload = z.infer<typeof NearAiLoginPayloadSchema>;
 
 export type NearAiKeyClient = {
   createKey(input: {
