@@ -1272,6 +1272,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
         return await services.plugins.builders(context).getBuilder(input);
       }),
 
+      getBuildersByUserIds: builder.getBuildersByUserIds.handler(async ({ input, context }) => {
+        return await services.plugins.builders(context).getBuildersByUserIds(input);
+      }),
+
       getBuilderStats: builder.getBuilderStats.handler(async ({ input, context }) => {
         const [projects, ideas, catalogProjects] = await Promise.allSettled([
           services.plugins.projects(context).listProjects({

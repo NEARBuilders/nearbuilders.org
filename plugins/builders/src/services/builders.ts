@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { builderNominations, builders } from "../db/schema";
@@ -342,6 +342,10 @@ export class BuilderService extends Context.Service<
       walletAddress?: string,
     ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
 
+    getBuildersByUserIds: (
+      userIds: string[],
+    ) => Effect.Effect<Builder[], ORPCError<string, unknown>>;
+
     setBuilderWithdrawn: (
       viewer: { userId: string; walletAddress?: string },
       withdrawn: boolean,
@@ -532,6 +536,18 @@ export const BuilderServiceLive = Layer.effect(
               .limit(1),
           );
           return row ? rowToBuilder(row) : null;
+        }),
+
+      getBuildersByUserIds: (userIds) =>
+        Effect.gen(function* () {
+          if (userIds.length === 0) return [];
+          const rows = (yield* Effect.promise(() =>
+            db
+              .select()
+              .from(builders)
+              .where(and(inArray(builders.userId, userIds), isNull(builders.withdrawnAt))),
+          )) as any[];
+          return rows.map((row) => rowToBuilder(row));
         }),
 
       createBuilder: (input) =>

@@ -14,6 +14,7 @@ import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
+import { requireTeamArea } from "@/lib/team-workspace";
 
 function isCurrentUserOwner(
   ownerId: string | null | undefined,
@@ -54,6 +55,7 @@ export const Route = createFileRoute("/_public/projects/$kind/$slug_/edit")({
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    await requireTeamArea({ context, location });
   },
   head: () => ({
     meta: pageHead({ title: "Edit | Projects", description: "Edit a project or idea." }),
@@ -128,6 +130,10 @@ function EditProjectPage() {
           isAdmin && (values.ownerId?.trim() ?? "") !== (project?.ownerId ?? "")
             ? values.ownerId?.trim() || undefined
             : undefined,
+        organizationId:
+          (project?.organizationId ?? null) === (values.organizationId?.trim() || null)
+            ? undefined
+            : values.organizationId?.trim() || null,
       });
       const prevHandles = new Set(
         (
@@ -332,6 +338,7 @@ function EditFormInner({
       visibility: (project.visibility ?? "public") as "private" | "unlisted" | "public",
       status: (project.status ?? "active") as "active" | "paused" | "archived",
       ownerId: project.ownerId ?? "",
+      organizationId: project.organizationId ?? "",
       domain: project.domain ?? "",
       logoUrl: project.logoUrl ?? "",
       cityNode: project.cityNode ?? "",

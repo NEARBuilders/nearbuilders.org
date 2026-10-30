@@ -2,9 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useAuthClient } from "@/app";
+import { useApiClient, useAuthClient } from "@/app";
 import { Button, Card, CardContent, Input } from "@/components";
 import { pageHead } from "@/lib/page-meta";
+import { proposeUniqueSlug } from "@/lib/slug";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/organizations/new")({
   head: () => ({
@@ -19,9 +20,17 @@ export const Route = createFileRoute("/_authenticated/_dashboard/organizations/n
 function NewOrganization() {
   const router = useRouter();
   const auth = useAuthClient();
+  const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+
+  const generateSlug = (value: string) => {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -48,18 +57,33 @@ function NewOrganization() {
     },
   });
 
-  const generateSlug = (value: string) => {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  };
-
   const handleNameChange = (value: string) => {
     setName(value);
     if (!slug || slug === generateSlug(name.slice(0, -1))) {
       setSlug(generateSlug(value));
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (createMutation.isPending || !name.trim() || !slug.trim()) return;
+
+    const availableSlug = await proposeUniqueSlug(
+      (candidate) => apiClient.auth.checkSlug({ slug: candidate }),
+      slug.trim(),
+    );
+    if (!availableSlug) {
+      toast.error("Could not find an available slug. Try a different name.");
+      return;
+    }
+
+    if (availableSlug !== slug.trim()) {
+      setSlug(availableSlug);
+      toast.info(`Slug "${slug.trim()}" is taken. Using "${availableSlug}" instead.`);
+      return;
+    }
+
+    createMutation.mutate();
   };
 
   return (
@@ -75,13 +99,7 @@ function NewOrganization() {
           <Link to="/organizations">back to organizations</Link>
         </Button>
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          createMutation.mutate();
-        }}
-        className="space-y-6"
-      >
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardContent className="p-6 space-y-4">
             <Field label="name" htmlFor="organization-name">
@@ -108,7 +126,8 @@ function NewOrganization() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Only lowercase letters, numbers, and hyphens.
+                Only lowercase letters, numbers, and hyphens. If the slug is taken, a unique suffix
+                will be suggested.
               </p>
             </Field>
           </CardContent>
