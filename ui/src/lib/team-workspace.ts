@@ -2,7 +2,7 @@ import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import type { ApiClient } from "@/app";
 import type { AuthRequestContext } from "@/lib/auth";
-import { type FeatureArea, isFeatureArea } from "@/lib/feature-areas";
+import { type FeatureArea, isFeatureArea } from "./feature-areas";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
@@ -28,7 +28,9 @@ export interface TeamWorkspace {
   canManageOrganization?: boolean;
 }
 
-const ROUTE_AREAS: Array<{ prefix: string; area: FeatureArea }> = [
+const ROUTE_AREAS: Array<{ prefix?: string; suffix?: string; area: FeatureArea }> = [
+  { prefix: "/projects/new", area: "projects" },
+  { suffix: "/edit", area: "projects" },
   { prefix: "/organizations", area: "organizations" },
 ];
 
@@ -51,7 +53,9 @@ export function resolveTeamWorkspace(
 
 export function areaForPath(pathname: string): FeatureArea | null {
   const match = ROUTE_AREAS.find(
-    ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    ({ prefix, suffix }) =>
+      (prefix != null && (pathname === prefix || pathname.startsWith(`${prefix}/`))) ||
+      (suffix != null && pathname.endsWith(suffix) && !pathname.startsWith("/settings/")),
   );
   return match?.area ?? null;
 }
