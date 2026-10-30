@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
+import type { CreditSettingsInputSchema, CreditSettingsSchema } from "../contract";
 import type { Database } from "../db/layer";
 import { creditSettings, nearAiSessions } from "../db/schema";
 
@@ -6,14 +8,9 @@ export const SETTINGS_ID = "global";
 
 export type SettingsRow = typeof creditSettings.$inferSelect;
 
-export type SettingsInput = {
-  enabled: boolean;
-  amountUsd: number;
-  claimsCloseAt: string | null;
-  keyExpiresAt: string | null;
-  nearAiWorkspaceId: string;
-  nearAiLoginAccountId: string;
-};
+export type SettingsInput = z.infer<typeof CreditSettingsInputSchema>;
+
+export type SettingsDto = z.infer<typeof CreditSettingsSchema>;
 
 export type SettingsValues = {
   enabled: boolean;
@@ -146,7 +143,7 @@ export async function writeSettings(
   return row!;
 }
 
-export function settingsToDto(row: SettingsRow) {
+export function settingsToDto(row: SettingsRow): SettingsDto {
   return {
     enabled: row.enabled,
     amountUsd: Number(row.amountUsd),

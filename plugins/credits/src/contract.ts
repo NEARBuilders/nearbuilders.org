@@ -71,6 +71,12 @@ export const NearAiSessionSchema = z.object({
   refreshExpiresAt: z.iso.datetime().nullable(),
 });
 
+export const CreditEligibilitySchema = z.enum([
+  "eligible",
+  "needs_near_account",
+  "needs_approved_profile",
+]);
+
 export const contract = oc.router({
   getCreditStatus: oc
     .route({ method: "GET", path: "/v1/credits/status" })
@@ -80,7 +86,7 @@ export const contract = oc.router({
         available: z.boolean(),
         amountUsd: z.number().min(0),
         claimsCloseAt: z.iso.datetime().nullable(),
-        eligibility: z.enum(["eligible", "needs_near_account", "needs_approved_profile"]),
+        eligibility: CreditEligibilitySchema,
         claim: CreditClaimSchema.nullable(),
       }),
     )
