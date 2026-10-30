@@ -474,6 +474,21 @@ export const EventServiceLive = Layer.effect(
             );
           }
 
+          if (input.id) {
+            const [existingById] = yield* Effect.promise(() =>
+              db.select().from(events).where(eq(events.id, input.id!)).limit(1),
+            );
+            if (existingById) {
+              if (userRole !== "admin" && !isOwner(existingById.ownerId, userId, alternateUserId)) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", { message: "An event with this id already exists" }),
+                );
+              }
+              const participantCount = yield* countParticipants(db, existingById.id);
+              return rowToEvent(existingById, participantCount);
+            }
+          }
+
           const now = new Date();
           const id = input.id ?? generateId();
           const startAt = parseDate(input.startAt, "Start date");

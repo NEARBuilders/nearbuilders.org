@@ -4,9 +4,15 @@ import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
-import { ContextSchema } from "./lib/context";
+import type { AuthContext } from "./lib/auth";
 import { EventService, EventServiceLive } from "./services/events";
 import { LumaService, parseLumaApiKeys } from "./services/luma";
+
+type EventsContext = AuthContext & {
+  allowPublicVisibility?: boolean;
+};
+
+const EventsContextSchema = z.custom<EventsContext>();
 
 class Luma extends Context.Service<Luma, LumaService>()("events/LumaService") {}
 
@@ -28,7 +34,7 @@ export default createPlugin({
     LUMA_CALENDAR_API_KEYS: z.string().default(""),
   }),
 
-  context: ContextSchema,
+  context: EventsContextSchema,
 
   contract,
 
@@ -64,9 +70,6 @@ export default createPlugin({
       }
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
-
-    const allowsPublicVisibility = (context: object) =>
-      (context as { allowPublicVisibility?: boolean }).allowPublicVisibility === true;
 
     const getAlternateOwnerId = (context: {
       userId?: string | null;
@@ -249,7 +252,7 @@ export default createPlugin({
           );
         }
         const visibility =
-          isAdmin || input.visibility !== "public" || allowsPublicVisibility(context)
+          isAdmin || input.visibility !== "public" || context.allowPublicVisibility === true
             ? input.visibility
             : "private";
         return yield* runEvent(
@@ -275,7 +278,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
-            allowsPublicVisibility(context),
+            context.allowPublicVisibility === true,
           ),
         ).pipe(
           Effect.mapError((error) =>

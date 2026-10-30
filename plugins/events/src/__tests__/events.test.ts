@@ -128,5 +128,27 @@ describe("event moderation permissions", () => {
         startAt: "2026-08-03T12:00:00.000Z",
       }),
     ).rejects.toThrow("Link a NEAR account");
+
+    await expect(
+      member.createEvent({
+        id: eventId,
+        title: "Copy",
+        slug: "copy-event",
+        startAt: "2026-08-04T12:00:00.000Z",
+      }),
+    ).rejects.toThrow("already exists");
+    const ownerRetry = await loaded
+      .createClient({
+        userId: "owner-user",
+        near: testNear("owner.near"),
+        user: testUser("owner-user", "member"),
+      })
+      .createEvent({
+        id: eventId,
+        title: "Retry",
+        slug: "retry-event",
+        startAt: "2026-08-04T12:00:00.000Z",
+      });
+    expect(ownerRetry.id).toBe(eventId);
   });
 });

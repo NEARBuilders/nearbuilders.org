@@ -121,7 +121,7 @@ describe("activity router", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(
       loaded
-        .createClient({ ...context, activityRegistration: true } as typeof context)
+        .createClient({ ...context, activityRegistration: true })
         .startActivityRegistration(input),
     ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
   });

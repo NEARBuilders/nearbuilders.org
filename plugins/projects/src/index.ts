@@ -172,7 +172,7 @@ export default createPlugin({
             { ...input, visibility },
             ownerId,
             context.user.role ?? undefined,
-            undefined,
+            getAlternateOwnerId(context),
             getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("createProject")));

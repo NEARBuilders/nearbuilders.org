@@ -245,6 +245,21 @@ describe("projects router visibility", () => {
       }),
     ).rejects.toThrow("already exists");
 
+    const ownerByAlternateId = await loaded
+      .createClient({
+        userId: "owner.near",
+        near: testNear("owner-new.near"),
+        user: testUser("owner.near", "member"),
+      })
+      .createProject({
+        id: privateProjectId,
+        kind: "idea",
+        title: "Retry",
+        slug: "retry-idea",
+        content: "Retry",
+      });
+    expect(ownerByAlternateId.id).toBe(privateProjectId);
+
     const withoutNear = loaded.createClient({
       userId: "plain-user",
       user: testUser("plain-user", "member"),
