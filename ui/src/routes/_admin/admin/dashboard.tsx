@@ -8,6 +8,7 @@ import {
   CircleAlert,
   FolderKanban,
   Hammer,
+  KeyRound,
   Send,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -33,6 +34,7 @@ const TAB_ICONS: Record<(typeof ADMIN_TABS)[number]["icon"], typeof Hammer> = {
   BookCheck,
   AtSign,
   Send,
+  KeyRound,
 };
 
 function AdminDashboardLayout() {

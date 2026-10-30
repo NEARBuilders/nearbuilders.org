@@ -11,6 +11,7 @@ import {
   Info,
   Layers,
   Lock,
+  MessageSquare,
   Pencil,
   Share2,
   ThumbsDown,
@@ -52,6 +53,7 @@ import {
   mostRecentIsoDate,
 } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
+import { feedbackRequestUrl } from "./-feedback-request";
 
 export const Route = createFileRoute("/_public/projects/$kind/$slug")({
   validateSearch: parseProjectListSearch,
@@ -351,6 +353,8 @@ function ProjectDetailPage() {
     </div>
   );
 
+  const requestFeedbackHref = feedbackRequestUrl(project.slug);
+
   return (
     <TooltipProvider>
       <div className="min-h-page bg-muted/30">
@@ -422,6 +426,20 @@ function ProjectDetailPage() {
               >
                 <Info size={15} />
               </Button>
+
+              {requestFeedbackHref && (
+                <Button asChild size="sm" variant="outline">
+                  <a
+                    href={requestFeedbackHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Request feedback"
+                  >
+                    <MessageSquare size={13} />
+                    <span className="hidden sm:inline">Request feedback</span>
+                  </a>
+                </Button>
+              )}
 
               <ProjectActivityAction project={project} isOwner={isOwner} />
 

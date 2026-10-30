@@ -91,6 +91,20 @@ export default App({
       },
       secrets: ["NEARCATALOG_DATABASE_URL", "NEARCATALOG_SUBMIT_URL", "NEARCATALOG_SUBMIT_TOKEN"],
     },
+    credits: {
+      path: "plugins/credits",
+      dependsOn: ["builders"],
+      secrets: [
+        "CREDITS_DATABASE_URL",
+        "CREDITS_ENABLED",
+        "CREDITS_AMOUNT_USD",
+        "CREDITS_CLAIMS_CLOSE_AT",
+        "CREDITS_KEY_EXPIRES_AT",
+        "NEARAI_CREDITS_REFRESH_TOKEN",
+        "NEARAI_CREDITS_USER_AGENT",
+        "NEARAI_CREDITS_WORKSPACE_ID",
+      ],
+    },
     nostr: {
       extends: "bos://nearbuilding.near/nostr.nearbuilders.org#plugins.nostr",
       ui: false,
