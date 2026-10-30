@@ -89,7 +89,12 @@ export default App({
       variables: {
         baseUrl: "https://api.nearcatalog.xyz",
       },
-      secrets: ["NEARCATALOG_DATABASE_URL", "NEARCATALOG_SUBMIT_URL", "NEARCATALOG_PARTNER_KEY", "NEARCATALOG_CONTACT"],
+      secrets: [
+        "NEARCATALOG_DATABASE_URL",
+        "NEARCATALOG_SUBMIT_URL",
+        "NEARCATALOG_PARTNER_KEY",
+        "NEARCATALOG_CONTACT",
+      ],
     },
     credits: {
       path: "plugins/credits",
