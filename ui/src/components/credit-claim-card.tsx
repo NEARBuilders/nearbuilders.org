@@ -9,6 +9,38 @@ import { canRetry, claimCardCopy, formatUsd } from "@/lib/admin/credit-claims";
 
 const CREDIT_STATUS_KEY = ["credit-status"];
 
+function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground"
+    >
+      {children}
+    </a>
+  );
+}
+
+function GettingStartedNote() {
+  return (
+    <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+      Get started with the <ExtLink href="https://docs.near.ai">docs</ExtLink> and view the
+      available <ExtLink href="https://cloud.near.ai/models">models</ExtLink>. New keys can take a
+      few seconds to start working with NEAR AI Cloud.
+    </p>
+  );
+}
+
+function MoreCreditsNote() {
+  return (
+    <p className="text-xs leading-relaxed text-muted-foreground">
+      Need more? Purchase with crypto or credit card on{" "}
+      <ExtLink href="https://cloud.near.ai">cloud.near.ai</ExtLink>
+    </p>
+  );
+}
+
 export function CreditClaimCard() {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
@@ -58,9 +90,7 @@ export function CreditClaimCard() {
           }}
           onDismiss={() => claim.reset()}
         />
-        <p className="px-1 text-xs text-muted-foreground">
-          New keys can take a few seconds to start working with NEAR AI Cloud.
-        </p>
+        <GettingStartedNote />
       </div>
     );
   }
@@ -92,6 +122,7 @@ export function CreditClaimCard() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">{copy.title}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{copy.description}</p>
+            {existing?.status === "issued" && <MoreCreditsNote />}
           </div>
         </div>
         {canClaim && existing?.status !== "pending" && (
