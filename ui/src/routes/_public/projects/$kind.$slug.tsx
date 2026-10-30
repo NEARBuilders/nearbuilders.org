@@ -11,6 +11,7 @@ import {
   Info,
   Layers,
   Lock,
+  MessageSquare,
   Pencil,
   Share2,
   ThumbsDown,
@@ -47,6 +48,8 @@ import {
   mostRecentIsoDate,
 } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
+import { findActiveOrganization, useOrganizationsQuery } from "@/lib/workspace";
+import { feedbackRequestUrl } from "./-feedback-request";
 
 export const Route = createFileRoute("/_public/projects/$kind/$slug")({
   validateSearch: parseProjectListSearch,
@@ -152,6 +155,8 @@ function ProjectDetailPage() {
 
   const project = projectQuery.data?.data;
   const projectId = project?.id;
+  const { data: organizations } = useOrganizationsQuery(auth);
+  const projectOrg = findActiveOrganization(organizations, project?.organizationId);
   const projectSocialAccount =
     resolveProjectNearAccount({
       ownerId: project?.ownerId,
@@ -322,6 +327,14 @@ function ProjectDetailPage() {
         value={shortenId(project.ownerId)}
         mono
       />
+      {projectOrg?.slug && (
+        <MetaLinkItem
+          label="Organization"
+          to="/organizations/$slug"
+          params={{ slug: projectOrg.slug }}
+          value={projectOrg.name}
+        />
+      )}
       {acceptedCollaborators.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-xs font-semibold text-muted-foreground">Collaborators</div>
@@ -345,6 +358,8 @@ function ProjectDetailPage() {
       <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
     </div>
   );
+
+  const requestFeedbackHref = feedbackRequestUrl(project.slug);
 
   return (
     <TooltipProvider>
@@ -417,6 +432,20 @@ function ProjectDetailPage() {
               >
                 <Info size={15} />
               </Button>
+
+              {requestFeedbackHref && (
+                <Button asChild size="sm" variant="outline">
+                  <a
+                    href={requestFeedbackHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Request feedback"
+                  >
+                    <MessageSquare size={13} />
+                    <span className="hidden sm:inline">Request feedback</span>
+                  </a>
+                </Button>
+              )}
 
               <ProjectActivityAction project={project} isOwner={isOwner} />
 

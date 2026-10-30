@@ -624,6 +624,8 @@ function LoadedProfile({
             )}
           </section>
 
+          {builder.userId && <SelfTeamsSection builderUserId={builder.userId} />}
+
           {activeProposal && nominationCount !== null && (
             <section className="rounded-xl border border-brand-accent-border bg-brand-accent-light p-5">
               <div className="flex items-center gap-2 text-brand-accent">
@@ -1134,4 +1136,36 @@ function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+function SelfTeamsSection({ builderUserId }: { builderUserId: string }) {
+  const apiClient = useApiClient();
+  const auth = useAuthClient();
+  const { data: session } = useQuery(sessionQueryOptions(auth));
+  const isSelf = session?.user?.id === builderUserId;
+
+  const { data: teams = [] } = useQuery({
+    queryKey: ["my-teams"],
+    queryFn: async () => {
+      const teams = await apiClient.auth.listUserTeams();
+      return teams ?? [];
+    },
+    enabled: Boolean(isSelf),
+    staleTime: 30 * 1000,
+  });
+
+  if (!isSelf || teams.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-foreground">Your teams</h2>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {teams.map((team) => (
+          <Badge key={team.id} variant="secondary" className="rounded-full">
+            {team.name}
+          </Badge>
+        ))}
+      </div>
+    </section>
+  );
 }
