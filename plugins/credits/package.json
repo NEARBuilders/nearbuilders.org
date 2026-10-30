@@ -1,0 +1,55 @@
+{
+  "name": "@everything-dev/credits-plugin",
+  "version": "0.1.0",
+  "description": "NEAR AI Cloud API credit claims for NEAR Builders",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./contract": {
+      "types": "./src/contract.ts",
+      "default": "./src/contract.ts"
+    }
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "catalog:",
+    "@orpc/contract": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "pg": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@module-federation/node": "catalog:",
+    "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4",
+    "@rspack/cli": "catalog:",
+    "@rspack/core": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "catalog:",
+    "everything-dev": "catalog:",
+    "every-plugin": "catalog:",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "catalog:"
+  },
+  "scripts": {
+    "build": "every-plugin build",
+    "dev": "every-plugin dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  }
+}

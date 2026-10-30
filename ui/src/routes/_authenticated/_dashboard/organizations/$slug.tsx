@@ -1,9 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { Edit2, Key, LogOut, Mail, Trash2, Users } from "lucide-react";
+import { Edit2, FolderGit, Key, LogOut, Mail, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
+import {
+  type ApiClient,
+  type Organization,
+  type SessionData,
+  sessionQueryOptions,
+  useApiClient,
+  useAuthClient,
+} from "@/app";
 import {
   ApiKeyForm,
   type ApiKeyFormValues,
@@ -43,6 +50,9 @@ type CreatedApiKey = ApiKeyRevealProps["apiKey"];
 const orgMembersQueryKey = (orgId: string) => ["org-members", orgId] as const;
 const orgInvitationsQueryKey = (orgId: string) => ["org-invitations", orgId] as const;
 const orgApiKeysQueryKey = (orgId: string) => ["org-api-keys", orgId] as const;
+const orgProjectsQueryKey = (orgId: string) => ["org-projects", orgId] as const;
+
+type OrgProjectsResult = Awaited<ReturnType<ApiClient["listProjects"]>>;
 
 export const Route = createFileRoute("/_authenticated/_dashboard/organizations/$slug")({
   head: () => ({
@@ -70,6 +80,7 @@ function OrganizationDetail() {
   const router = useRouter();
   const { slug: orgSlug } = Route.useParams();
   const auth = useAuthClient();
+  const apiClient = useApiClient();
 
   const { data: session } = useQuery<SessionData | null>({
     queryKey: ["session"],
@@ -136,6 +147,18 @@ function OrganizationDetail() {
   const myMembership = members.find((m) => m.userId === session?.user?.id);
   const canManageMembers = myMembership?.role === "owner" || myMembership?.role === "admin";
   const isOwner = myMembership?.role === "owner";
+
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
+    queryKey: orgProjectsQueryKey(orgId),
+    queryFn: async (): Promise<OrgProjectsResult["data"]> => {
+      const result = await apiClient.listProjects({
+        organizationId: orgId,
+        limit: 100,
+      });
+      return result.data ?? [];
+    },
+    enabled: !!orgId,
+  });
 
   const pendingInvitationsCount = invitations.filter((i) => i.status === "pending").length;
 
@@ -515,6 +538,10 @@ function OrganizationDetail() {
                 <Key className="h-4 w-4 mr-1.5" />
                 API Keys ({apiKeys.length})
               </TabsTrigger>
+              <TabsTrigger value="projects" className="shrink-0">
+                <FolderGit className="h-4 w-4 mr-1.5" />
+                Projects ({projects.length})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="members" className="space-y-6 pt-4">
@@ -659,6 +686,42 @@ function OrganizationDetail() {
                 </div>
               ) : (
                 <EmptyState label="No API keys" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="projects" className="space-y-4 pt-4">
+              {isLoadingProjects ? (
+                <div className="space-y-2">
+                  {[1, 2].map((n) => (
+                    <div
+                      key={n}
+                      className="h-14 animate-pulse rounded-xl border border-border bg-muted"
+                    />
+                  ))}
+                </div>
+              ) : projects.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {projects.map((project) => (
+                    <Link
+                      key={project.id}
+                      to="/projects/$kind/$slug"
+                      params={{ kind: project.kind, slug: project.slug }}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-border-strong"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="truncate text-sm font-semibold text-foreground">
+                          {project.title}
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {project.kind} · @{project.slug}
+                        </div>
+                      </div>
+                      <Chip accent>{project.visibility}</Chip>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="No projects attributed to this organization yet" />
               )}
             </TabsContent>
           </Tabs>
