@@ -5,7 +5,7 @@ import { useApiClient } from "@/app";
 import { ApiKeyReveal } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { claimCardCopy, formatUsd } from "@/lib/admin/credit-claims";
+import { canRetry, claimCardCopy, formatUsd } from "@/lib/admin/credit-claims";
 
 const CREDIT_STATUS_KEY = ["credit-status"];
 
@@ -25,6 +25,23 @@ export function CreditClaimCard() {
   });
 
   const data = status.data;
+  if (status.isError) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <p className="text-sm text-muted-foreground">Claim status could not be loaded.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={status.isRefetching}
+            onClick={() => void status.refetch()}
+          >
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
   if (!data) return null;
 
   if (claim.data) {
@@ -51,8 +68,7 @@ export function CreditClaimCard() {
   const { available, amountUsd, eligibility, claim: existing } = data;
   const amount = formatUsd(amountUsd);
   const canClaim =
-    available &&
-    eligibility === "eligible" &&
+    canRetry(available, eligibility) &&
     (!existing || existing.status === "failed" || existing.status === "pending");
 
   if (!existing && !available) return null;
@@ -60,6 +76,7 @@ export function CreditClaimCard() {
   const copy = claimCardCopy({
     amountUsd,
     available,
+    statusReason: data.statusReason,
     eligibility,
     claimsCloseAt: data.claimsCloseAt,
     existing,
@@ -77,7 +94,7 @@ export function CreditClaimCard() {
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{copy.description}</p>
           </div>
         </div>
-        {canClaim && (
+        {canClaim && existing?.status !== "pending" && (
           <Button
             size="sm"
             className="w-full rounded-full sm:w-auto"

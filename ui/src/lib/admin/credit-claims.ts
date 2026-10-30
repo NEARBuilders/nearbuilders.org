@@ -7,15 +7,33 @@ export function formatUsd(amount: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
 }
 
+export function windowCopy(
+  statusReason: NonNullable<CreditStatus["statusReason"]>,
+  claimsCloseAt: string | null,
+): string {
+  switch (statusReason) {
+    case "not_enabled":
+      return "API credit claims are not open yet.";
+    case "not_configured":
+      return "API credit claims are not configured yet.";
+    case "closed":
+      return claimsCloseAt
+        ? `The claim window closed ${new Date(claimsCloseAt).toLocaleDateString()}.`
+        : "The claim window has closed.";
+  }
+}
+
 export function claimCardCopy({
   amountUsd,
   available,
+  statusReason,
   eligibility,
   claimsCloseAt,
   existing,
 }: {
   amountUsd: number;
   available: boolean;
+  statusReason: CreditStatus["statusReason"];
   eligibility: CreditStatus["eligibility"];
   claimsCloseAt: string | null;
   existing: Pick<
@@ -31,6 +49,8 @@ export function claimCardCopy({
     description = "Credits are available once your builder profile is approved.";
   } else if (eligibility === "needs_near_account") {
     description = "Link a NEAR account to claim API credits.";
+  } else if (!available && statusReason) {
+    description = windowCopy(statusReason, claimsCloseAt);
   } else if (claimsCloseAt) {
     description += ` Offering closes ${new Date(claimsCloseAt).toLocaleDateString()}.`;
   }
@@ -48,21 +68,23 @@ export function claimCardCopy({
       title = "Your NEAR AI Cloud key was revoked";
       description = "Reach out to the NEAR Builders team if you think this is a mistake.";
       break;
-    case "failed":
-      title = "You can try claiming again";
-      description = "The last attempt did not finish. You can try again.";
-      break;
     case "pending":
-      description = "Your key is still being created. Try again in a couple of minutes.";
+      title = "Your claim is being processed";
+      if (canRetry(available, eligibility)) {
+        description = "Your key is still being created. Try again in a couple of minutes.";
+      }
       break;
-    default:
-      if (!available && eligibility === "eligible") {
-        description = claimsCloseAt
-          ? "The claim window has closed."
-          : "API credit claims are not open right now.";
+    case "failed":
+      if (canRetry(available, eligibility)) {
+        title = "You can try claiming again";
+        description = "The last attempt did not finish. You can try again.";
       }
       break;
   }
 
   return { title, description };
+}
+
+export function canRetry(available: boolean, eligibility: CreditStatus["eligibility"]): boolean {
+  return available && eligibility === "eligible";
 }

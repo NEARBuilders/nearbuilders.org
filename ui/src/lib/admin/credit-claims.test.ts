@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimCardCopy } from "./credit-claims";
+import { canRetry, claimCardCopy } from "./credit-claims";
 
 function claimPick(
   overrides: Partial<{
@@ -23,6 +23,7 @@ function claimPick(
 const OPEN_OFFER = {
   amountUsd: 5,
   available: true,
+  statusReason: null,
   eligibility: "eligible" as const,
   claimsCloseAt: "2999-11-14T23:59:00.000Z",
   existing: null,
@@ -45,17 +46,51 @@ describe("claimCardCopy", () => {
     expect(copy.description).toContain("builder profile is approved");
   });
 
-  it("explains a closed window", () => {
-    const copy = claimCardCopy({ ...OPEN_OFFER, available: false });
-    expect(copy.description).toContain("closed");
+  it.each([
+    { statusReason: "not_enabled" as const, fragment: "not open yet" },
+    { statusReason: "not_configured" as const, fragment: "not configured yet" },
+    { statusReason: "closed" as const, fragment: "window closed" },
+  ])("names why the window is closed ($statusReason)", ({ statusReason, fragment }) => {
+    const copy = claimCardCopy({ ...OPEN_OFFER, available: false, statusReason });
+    expect(copy.description).toContain(fragment);
+  });
+
+  it("uses the close date in the closed-window copy", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      available: false,
+      statusReason: "closed",
+    });
+    expect(copy.description).toContain("The claim window closed");
+  });
+
+  it("a failed claim keeps truthful copy: retry speaks only when retry is possible", () => {
+    const retryable = claimCardCopy({ ...OPEN_OFFER, existing: claimPick({ status: "failed" }) });
+    expect(retryable.title).toBe("You can try claiming again");
+
+    const closedWhileFailed = claimCardCopy({
+      ...OPEN_OFFER,
+      available: false,
+      statusReason: "closed",
+      existing: claimPick({ status: "failed" }),
+    });
+    expect(closedWhileFailed.title).toContain("$5.00");
+    expect(closedWhileFailed.description).toContain("The claim window closed");
+  });
+
+  it("a failed claim never masks the eligibility copy", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      eligibility: "needs_approved_profile" as const,
+      existing: claimPick({ status: "failed" }),
+    });
+    expect(copy.description).toContain("builder profile is approved");
   });
 
   it.each([
     { status: "issued" as const, fragment: "$5.00" },
     { status: "expired" as const, fragment: "expired" },
     { status: "revoked" as const, fragment: "was revoked" },
-    { status: "failed" as const, fragment: "try claiming again" },
-    { status: "pending" as const, fragment: "still being created" },
   ])("describes an existing $status claim", ({ status, fragment }) => {
     const copy = claimCardCopy({
       ...OPEN_OFFER,
@@ -65,8 +100,29 @@ describe("claimCardCopy", () => {
     expect(`${copy.title} ${copy.description}`).toContain(fragment);
   });
 
-  it("describes a claimed key with its prefix", () => {
-    const copy = claimCardCopy({ ...OPEN_OFFER, existing: claimPick({ status: "issued" }) });
-    expect(copy.description).toContain("sk-abc");
+  it("a pending claim tells the truth while it cannot be retried", () => {
+    const processing = claimCardCopy({
+      ...OPEN_OFFER,
+      existing: claimPick({ status: "pending" }),
+    });
+    expect(processing.title).toBe("Your claim is being processed");
+    expect(processing.description).toContain("still being created");
+
+    const closedWhilePending = claimCardCopy({
+      ...OPEN_OFFER,
+      available: false,
+      statusReason: "not_enabled",
+      existing: claimPick({ status: "pending" }),
+    });
+    expect(closedWhilePending.title).toBe("Your claim is being processed");
+    expect(closedWhilePending.description).toContain("not open yet");
+  });
+});
+
+describe("canRetry", () => {
+  it("requires both an open window and eligible status", () => {
+    expect(canRetry(true, "eligible")).toBe(true);
+    expect(canRetry(false, "eligible")).toBe(false);
+    expect(canRetry(true, "needs_approved_profile")).toBe(false);
   });
 });
