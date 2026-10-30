@@ -1,4 +1,14 @@
-import { bigint, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+import type { BuilderCatalogMetadata } from "../services/catalog-metadata";
 
 export const builders = pgTable(
   "builders",
@@ -11,6 +21,7 @@ export const builders = pgTable(
     skills: text("skills"),
     location: text("location"),
     links: text("links"),
+    catalog: jsonb("catalog").$type<BuilderCatalogMetadata>(),
     /** Set when the owner withdraws their profile from the public directory; null while listed. */
     withdrawnAt: timestamp("withdrawn_at"),
     createdAt: timestamp("created_at").defaultNow(),

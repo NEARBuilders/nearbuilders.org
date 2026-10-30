@@ -13,6 +13,7 @@ import {
 } from "@/components/builder-form";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { Button } from "@/components/ui/button";
+import { builderCatalogFromFormValues, emptyBuilderCatalog } from "@/lib/builder-catalog";
 import type { ResolvedNearProfile } from "@/lib/near-social";
 import {
   initializeNominationToken,
@@ -337,6 +338,7 @@ function BuilderProfileForm({
         skills: parseBuilderSkills(values.skills),
         location: normalizeLocation(values.location) ?? undefined,
         links: composeLinks(values.links),
+        catalog: builderCatalogFromFormValues(values.catalog) ?? undefined,
       }),
     onSuccess: async (result) => {
       sessionStorage.removeItem(NOMINATION_STORAGE_KEY);
@@ -364,6 +366,7 @@ function BuilderProfileForm({
           ? { twitter: referralContext.nomineeXUsername }
           : {}),
       }),
+      catalog: emptyBuilderCatalog(),
     } satisfies BuilderFormValues,
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {

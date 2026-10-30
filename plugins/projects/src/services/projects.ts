@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { projectApps, projectCollaborators, projectMentions, projects } from "../db/schema";
+import { normalizeProjectCatalog, type ProjectCatalogMetadata } from "./catalog-metadata";
 
 function toIsoString(value: Date | string | null | undefined): string {
   if (!value) return "";
@@ -147,6 +148,7 @@ export interface Project {
   repository: string | null;
   domain: string | null;
   logoUrl: string | null;
+  catalog: ProjectCatalogMetadata | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -325,6 +327,7 @@ export class ProjectService extends Context.Service<
         ownerId?: string;
         domain?: string;
         logoUrl?: string;
+        catalog?: ProjectCatalogMetadata | null;
         collaborators?: string[];
       },
       userId: string,
@@ -350,6 +353,7 @@ export class ProjectService extends Context.Service<
         organizationId?: string | null;
         domain?: string;
         logoUrl?: string;
+        catalog?: ProjectCatalogMetadata | null;
       },
       userId: string,
       userRole?: string,
@@ -621,6 +625,7 @@ function mapProject(p: any): Project {
     repository: p.repository ?? null,
     domain: p.domain ?? null,
     logoUrl: p.logoUrl ?? null,
+    catalog: normalizeProjectCatalog(p.catalog),
     createdAt: toIsoString(p.createdAt),
     updatedAt: toIsoString(p.updatedAt),
   };
@@ -950,6 +955,7 @@ export const ProjectServiceLive = Layer.effect(
           const repository = normalizeOptionalText(input.repository);
           const domain = normalizeOptionalText(input.domain);
           const logoUrl = normalizeOptionalText(input.logoUrl);
+          const catalog = normalizeProjectCatalog(input.catalog);
 
           assertProjectShape({
             kind: input.kind,
@@ -974,6 +980,7 @@ export const ProjectServiceLive = Layer.effect(
               repository,
               domain,
               logoUrl,
+              catalog,
               createdAt: now,
               updatedAt: now,
             }),
@@ -1022,6 +1029,7 @@ export const ProjectServiceLive = Layer.effect(
             repository,
             domain,
             logoUrl,
+            catalog,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
             collaborators: createdCollaborators,
@@ -1102,6 +1110,10 @@ export const ProjectServiceLive = Layer.effect(
             input.logoUrl !== undefined
               ? normalizeOptionalText(input.logoUrl)
               : (existing.logoUrl ?? null);
+          const nextCatalog =
+            input.catalog !== undefined
+              ? normalizeProjectCatalog(input.catalog)
+              : normalizeProjectCatalog(existing.catalog);
 
           assertProjectShape({
             kind: nextKind,
@@ -1120,6 +1132,7 @@ export const ProjectServiceLive = Layer.effect(
           if (input.repository !== undefined) updates.repository = nextRepository;
           if (input.domain !== undefined) updates.domain = nextDomain;
           if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
+          if (input.catalog !== undefined) updates.catalog = nextCatalog;
           if (input.organizationId !== undefined) updates.organizationId = input.organizationId;
           if (userRole === "admin" && input.ownerId !== undefined)
             updates.ownerId = input.ownerId.trim();
@@ -1144,6 +1157,7 @@ export const ProjectServiceLive = Layer.effect(
             repository: updates.repository ?? existing.repository ?? null,
             domain: nextDomain,
             logoUrl: nextLogoUrl,
+            catalog: nextCatalog,
             createdAt: toIsoString(existing.createdAt),
             updatedAt: toIsoString(now),
           };

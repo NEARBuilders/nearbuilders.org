@@ -28,6 +28,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
+import { ProjectCatalogFields } from "@/components/project-catalog-fields";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
 import {
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { emptyProjectCatalog, validateProjectCatalog } from "@/lib/project-catalog";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import {
   getProjectFormValidation,
@@ -700,6 +702,26 @@ export function ProjectFormLayout({
               )}
             </div>
           </section>
+
+          {kind === "project" && (
+            <form.Field
+              name="catalog"
+              validators={{
+                onChange: ({ value }: any) => validateProjectCatalog(value),
+                onSubmit: ({ value }: any) => validateProjectCatalog(value),
+              }}
+            >
+              {(field: any) => (
+                <ProjectCatalogFields
+                  value={field.state.value ?? emptyProjectCatalog()}
+                  onChange={(next) => field.handleChange(next)}
+                  description={currentDescription}
+                  logoUrl={formValues.logoUrl}
+                  showErrors
+                />
+              )}
+            </form.Field>
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:space-y-5 lg:self-start">

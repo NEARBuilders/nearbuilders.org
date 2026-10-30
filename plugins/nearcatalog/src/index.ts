@@ -79,6 +79,11 @@ export default createPlugin({
         return { data: yield* catalog.searchProjects(input.query) };
       }),
 
+      listCatalogCategories: builder.listCatalogCategories.effect(function* () {
+        const catalog = yield* CatalogService;
+        return { data: yield* catalog.listCategories() };
+      }),
+
       getCatalogProject: builder.getCatalogProject.effect(function* ({ input }) {
         const catalog = yield* CatalogService;
         return { data: yield* catalog.getProject(input.slug) };

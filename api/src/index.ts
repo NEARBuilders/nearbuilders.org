@@ -68,6 +68,38 @@ function normalizedBuilderProfile(input: { skills?: string[]; location?: string 
   };
 }
 
+const PREFERRED_CONTACT_LINK_KEYS = {
+  Telegram: "telegram",
+  Discord: "discord",
+  X: "twitter",
+  Website: "website",
+} as const;
+
+function assertPreferredContact(
+  catalog:
+    | {
+        preferredContact?: keyof typeof PREFERRED_CONTACT_LINK_KEYS | "Email";
+        publicEmail?: string;
+      }
+    | undefined,
+  links: Record<string, string> | undefined,
+) {
+  const contact = catalog?.preferredContact;
+  if (!contact) return;
+  const filled =
+    contact === "Email"
+      ? Boolean(catalog?.publicEmail?.trim())
+      : Boolean(links?.[PREFERRED_CONTACT_LINK_KEYS[contact]]?.trim());
+  if (!filled) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        contact === "Email"
+          ? "Add a public email to use email as your preferred contact"
+          : `Add your ${contact} link to use ${contact} as your preferred contact`,
+    });
+  }
+}
+
 function notificationContext(context: Context) {
   return {
     ...context,
@@ -231,6 +263,17 @@ export default createPlugin.withPlugins<PluginEntries>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const assertKnownCatalogCategories = async (categories?: string[]) => {
+      if (!categories || categories.length === 0) return;
+      const known = await services.plugins.nearcatalog().listCatalogCategories({});
+      const ids = new Set(known.data.map((category) => category.id));
+      const unknown = categories.filter((category) => !ids.has(category.trim()));
+      if (unknown.length > 0) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: `Unknown NEAR Catalog categories: ${unknown.join(", ")}`,
+        });
+      }
+    };
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
@@ -545,6 +588,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
+          assertPreferredContact(input.catalog, input.links);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -555,6 +599,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
               skills: tags.skills,
               location: tags.location,
               links: input.links,
+              catalog: input.catalog,
             },
             source: nomination?.source ?? "web",
             ...(nomination
@@ -891,6 +936,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
         return await services.plugins.nearcatalog().searchCatalogProjects(input);
       }),
 
+      listCatalogCategories: builder.listCatalogCategories.handler(async () => {
+        return await services.plugins.nearcatalog().listCatalogCategories({});
+      }),
+
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().getCatalogProject(input);
       }),
@@ -1075,6 +1124,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         const visibility = enforceContentCreationVisibility(
           context.user,
           context.near,
@@ -1109,6 +1159,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;

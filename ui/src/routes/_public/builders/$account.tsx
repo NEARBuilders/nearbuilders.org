@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleAlert,
   EyeOff,
+  Mail,
   MapPin,
   Pencil,
   Plus,
@@ -330,8 +331,11 @@ function LoadedProfile({
 
   const displayName = builder.name || profile?.name || account;
   const bio = builder.bio || profile?.description || null;
+  const catalogRole = [builder.catalog?.jobTitle, builder.catalog?.organization]
+    .filter(Boolean)
+    .join(" at ");
 
-  const avatarUrl = getNearSocialAvatarUrl(profile);
+  const avatarUrl = builder.catalog?.avatarUrl || getNearSocialAvatarUrl(profile);
   const backgroundUrl = getNearSocialBannerUrl(profile);
   const allLinks = mergeSocialLinks(profile?.linktree, builder.links);
 
@@ -463,10 +467,24 @@ function LoadedProfile({
                   )}
                 </div>
                 <p className="text-sm font-mono text-brand-cyan mt-1">{account}</p>
-                {builder.location && (
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1.5">
-                    <MapPin size={13} />
-                    {builder.location}
+                {catalogRole && <p className="mt-2 text-sm text-foreground">{catalogRole}</p>}
+                {(builder.location || builder.catalog?.publicEmail) && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    {builder.location && (
+                      <span className="flex items-center gap-1.5">
+                        <MapPin size={13} />
+                        {builder.location}
+                      </span>
+                    )}
+                    {builder.catalog?.publicEmail && (
+                      <a
+                        href={`mailto:${builder.catalog.publicEmail}`}
+                        className="flex items-center gap-1.5 hover:text-foreground"
+                      >
+                        <Mail size={13} />
+                        {builder.catalog.publicEmail}
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
