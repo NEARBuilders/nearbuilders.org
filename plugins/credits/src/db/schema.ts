@@ -1,4 +1,12 @@
-import { integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const creditClaimStatuses = ["pending", "issued", "failed", "revoked"] as const;
 
@@ -29,5 +37,18 @@ export const creditClaims = pgTable(
 export const nearAiSessions = pgTable("nearai_sessions", {
   id: text("id").primaryKey(),
   refreshToken: text("refresh_token").notNull(),
+  refreshExpiresAt: timestamp("refresh_expires_at", { mode: "date", withTimezone: true }),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+});
+
+export const creditSettings = pgTable("credits_settings", {
+  id: text("id").primaryKey(),
+  enabled: boolean("enabled").default(false).notNull(),
+  amountUsd: numeric("amount_usd", { precision: 10, scale: 2 }).default("5.00").notNull(),
+  claimsCloseAt: timestamp("claims_close_at", { mode: "date", withTimezone: true }),
+  keyExpiresAt: timestamp("key_expires_at", { mode: "date", withTimezone: true }),
+  nearAiWorkspaceId: text("near_ai_workspace_id").default("").notNull(),
+  nearAiLoginAccountId: text("near_ai_login_account_id").default("").notNull(),
+  updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });

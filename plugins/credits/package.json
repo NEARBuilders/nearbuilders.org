@@ -21,6 +21,7 @@
     "@orpc/contract": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
+    "@scure/base": "2.4.0",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "pg": "catalog:",
@@ -36,8 +37,8 @@
     "@types/pg": "catalog:",
     "dotenv": "^17.2.3",
     "drizzle-kit": "catalog:",
-    "everything-dev": "catalog:",
     "every-plugin": "catalog:",
+    "everything-dev": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "catalog:"
   },

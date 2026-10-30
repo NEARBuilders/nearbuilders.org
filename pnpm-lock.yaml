@@ -804,6 +804,9 @@ importers:
       '@orpc/server':
         specifier: 'catalog:'
         version: 2.0.0-beta.35
+      '@scure/base':
+        specifier: 2.4.0
+        version: 2.4.0
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@electric-sql/pglite@0.4.6)(@libsql/client@0.17.0(encoding@0.1.13))(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(bun-types@1.4.4)(kysely@0.29.7)(pg@8.23.1)
