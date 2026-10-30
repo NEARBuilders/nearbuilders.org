@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { BuildBanner } from "@/components/build-banner";
 import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
+import { CreditClaimCard } from "@/components/credit-claim-card";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { NearProfile } from "@/components/near-profile";
 import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
@@ -240,6 +241,8 @@ function Dashboard() {
     <DashboardPageFrame>
       {restricted && <RestrictedAreaNotice area={restricted} />}
       <BuildBanner />
+
+      <CreditClaimCard />
 
       <DashboardHeader
         nearAccountId={nearAccountId}
