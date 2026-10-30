@@ -1,4 +1,20 @@
+import { base58, base64 } from "@scure/base";
+
 const NEAR_AI_BASE_URL = "https://cloud-api.near.ai/v1";
+
+export const PLUGIN_USER_AGENT = "nearbuilders-credits/1.0 (nearbuilders.org)";
+
+const ED25519_KEY_PREFIX = "ed25519:";
+
+export function signatureToBase64(signature: string): string {
+  const value = signature.trim();
+  if (!value.toLowerCase().startsWith(ED25519_KEY_PREFIX)) return value;
+  try {
+    return base64.encode(base58.decode(value.slice(ED25519_KEY_PREFIX.length)));
+  } catch {
+    throw new NearAiRequestError("Wallet returned an undecodable signature", 401);
+  }
+}
 
 export type NearAiKey = {
   id: string;
@@ -11,7 +27,21 @@ export type CreatedNearAiKey = NearAiKey & { key: string };
 
 export type NearAiRefreshTokenStore = {
   load(): Promise<string | null>;
-  save(refreshToken: string): Promise<void>;
+  save(refreshToken: string, expiresAt: Date | null): Promise<void>;
+};
+
+export type NearAiSignedMessage = {
+  accountId: string;
+  publicKey: string;
+  signature: string;
+  state?: string | null;
+};
+
+export type NearAiLoginPayload = {
+  message: string;
+  nonce: number[];
+  recipient: string;
+  callbackUrl?: string | null;
 };
 
 export type NearAiKeyClient = {
@@ -22,6 +52,20 @@ export type NearAiKeyClient = {
   }): Promise<CreatedNearAiKey>;
   findKeyByName(name: string): Promise<NearAiKey | null>;
   revokeKey(id: string): Promise<void>;
+  verifySession(): Promise<void>;
+  resetSession(): void;
+};
+
+export type NearAiLoginResult = {
+  refreshToken: string;
+  refreshExpiresAt: Date | null;
+};
+
+export type NearAiLoginClient = {
+  login(input: {
+    signedMessage: NearAiSignedMessage;
+    payload: NearAiLoginPayload;
+  }): Promise<NearAiLoginResult>;
 };
 
 export class NearAiRequestError extends Error {
@@ -50,6 +94,7 @@ type ListApiKeysResponse = {
 type AccessTokenResponse = {
   access_token: string;
   refresh_token: string;
+  refresh_token_expiration?: string | null;
 };
 
 const NANO_DOLLARS_PER_CENT = 10_000_000;
@@ -68,9 +113,14 @@ export function accessTokenExpiresAt(token: string, now = Date.now()): number {
 
 async function requestError(response: Response, action: string) {
   const body = (await response.json().catch(() => null)) as {
-    error?: { message?: string };
+    error?: { message?: string } | string;
+    error_description?: string;
+    message?: string;
   } | null;
-  const detail = body?.error?.message ?? response.statusText;
+  const detail =
+    typeof body?.error === "string"
+      ? (body.error_description ?? body.error)
+      : (body?.error?.message ?? body?.message ?? response.statusText);
   return new NearAiRequestError(
     `NEAR AI could not ${action} (${response.status}${detail ? `: ${detail}` : ""})`,
     response.status,
@@ -87,31 +137,35 @@ function toKey(response: ApiKeyResponse): NearAiKey {
 }
 
 export function createNearAiKeyClient(options: {
-  refreshToken: string;
-  userAgent: string;
-  workspaceId: string;
   store: NearAiRefreshTokenStore;
+  workspaceId: () => string | Promise<string>;
   baseUrl?: string;
   fetch?: typeof fetch;
 }): NearAiKeyClient {
   const baseUrl = (options.baseUrl ?? NEAR_AI_BASE_URL).replace(/\/+$/, "");
-  const workspaceUrl = `${baseUrl}/workspaces/${encodeURIComponent(options.workspaceId)}`;
+  const workspaceUrl = (workspaceId: string) =>
+    `${baseUrl}/workspaces/${encodeURIComponent(workspaceId)}`;
   const fetchImpl: typeof fetch = (input, init) =>
     (options.fetch ?? fetch)(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   let access: { token: string; expiresAt: number } | null = null;
   let minting: Promise<string> | null = null;
 
   const mintAccessToken = async () => {
-    const refreshToken = (await options.store.load()) ?? options.refreshToken;
+    const refreshToken = await options.store.load();
+    if (!refreshToken) {
+      throw new NearAiRequestError("NEAR AI session not signed in", 401);
+    }
     const response = await fetchImpl(`${baseUrl}/users/me/access-tokens`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${refreshToken}`, "User-Agent": options.userAgent },
+      headers: { Authorization: `Bearer ${refreshToken}`, "User-Agent": PLUGIN_USER_AGENT },
     });
     if (!response.ok) throw await requestError(response, "start a session");
     const body = (await response.json()) as AccessTokenResponse;
-    if (body.refresh_token && body.refresh_token !== refreshToken) {
-      await options.store.save(body.refresh_token);
-    }
+    const expiresAt = body.refresh_token_expiration
+      ? new Date(body.refresh_token_expiration)
+      : null;
+    const parsedExpiry = expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null;
+    await options.store.save(body.refresh_token ?? refreshToken, parsedExpiry);
     access = { token: body.access_token, expiresAt: accessTokenExpiresAt(body.access_token) };
     return body.access_token;
   };
@@ -127,7 +181,11 @@ export function createNearAiKeyClient(options: {
   };
 
   const request = async (path: string, init: RequestInit, action: string) => {
-    const response = await fetchImpl(`${workspaceUrl}${path}`, {
+    const workspace = await options.workspaceId();
+    if (!workspace.trim()) {
+      throw new NearAiRequestError("NEAR AI workspace not configured", 401);
+    }
+    const response = await fetchImpl(`${workspaceUrl(workspace)}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${await accessToken()}`,
@@ -187,6 +245,62 @@ export function createNearAiKeyClient(options: {
         if (error instanceof NearAiRequestError && error.status === 404) return;
         throw error;
       }
+    },
+
+    async verifySession() {
+      await accessToken();
+    },
+
+    resetSession() {
+      access = null;
+      minting = null;
+    },
+  };
+}
+
+export function createNearAiLoginClient(options: {
+  baseUrl?: string;
+  fetch?: typeof fetch;
+}): NearAiLoginClient {
+  const baseUrl = (options.baseUrl ?? NEAR_AI_BASE_URL).replace(/\/+$/, "");
+  const fetchImpl: typeof fetch = (input, init) =>
+    (options.fetch ?? fetch)(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+
+  return {
+    async login({ signedMessage, payload }) {
+      const response = await fetchImpl(`${baseUrl}/auth/near`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": PLUGIN_USER_AGENT },
+        body: JSON.stringify({
+          signed_message: {
+            accountId: signedMessage.accountId,
+            publicKey: signedMessage.publicKey,
+            signature: signedMessage.signature,
+            ...(signedMessage.state ? { state: signedMessage.state } : {}),
+          },
+          payload: {
+            message: payload.message,
+            nonce: payload.nonce,
+            recipient: payload.recipient,
+            ...(payload.callbackUrl ? { callbackUrl: payload.callbackUrl } : {}),
+          },
+        }),
+      });
+      if (!response.ok) throw await requestError(response, "sign in to NEAR AI Cloud");
+      const body = (await response.json()) as AccessTokenResponse;
+      if (!body.refresh_token) {
+        throw new NearAiRequestError(
+          "NEAR AI signed in without returning a refresh token",
+          response.status,
+        );
+      }
+      const expiresAt = body.refresh_token_expiration
+        ? new Date(body.refresh_token_expiration)
+        : null;
+      return {
+        refreshToken: body.refresh_token,
+        refreshExpiresAt: expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
+      };
     },
   };
 }

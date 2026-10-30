@@ -36,6 +36,13 @@ function fakeNearAi() {
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     requests.push({ method, url, body });
+    if (url === `${NEAR_AI}/auth/near` && method === "POST") {
+      return json({
+        access_token: "opaque-session",
+        refresh_token: "rt_login",
+        refresh_token_expiration: "2027-01-01T00:00:00Z",
+      });
+    }
     if (url === `${NEAR_AI}/users/me/access-tokens`) {
       return json({
         access_token: "opaque-session",
@@ -108,14 +115,17 @@ function userContext(
   };
 }
 
-const enabledSecrets = {
-  CREDITS_ENABLED: "true",
-  CREDITS_AMOUNT_USD: "5",
-  CREDITS_CLAIMS_CLOSE_AT: "2999-01-01T00:00:00Z",
-  CREDITS_KEY_EXPIRES_AT: "2999-02-01T00:00:00Z",
-  NEARAI_CREDITS_REFRESH_TOKEN: "rt_test",
-  NEARAI_CREDITS_USER_AGENT: "Mozilla/5.0 Test",
-  NEARAI_CREDITS_WORKSPACE_ID: WORKSPACE,
+const LOGIN_INPUT = {
+  signedMessage: {
+    accountId: "nearbuilding.near",
+    publicKey: "ed25519:test-key",
+    signature: "test-signature",
+  },
+  payload: {
+    message: "Sign in to NEAR AI Cloud",
+    nonce: Array.from({ length: 32 }, (_, index) => index),
+    recipient: "cloud.near.ai",
+  },
 };
 
 describe("Credit claims", () => {
@@ -128,10 +138,7 @@ describe("Credit claims", () => {
   });
 
   async function loadCredits(
-    options: {
-      secrets?: Record<string, string>;
-      builders?: Record<string, { withdrawnAt: string | null }>;
-    } = {},
+    options: { builders?: Record<string, { withdrawnAt: string | null }> } = {},
   ) {
     const nearAi = fakeNearAi();
     vi.stubGlobal("fetch", nearAi.fetchMock);
@@ -143,13 +150,7 @@ describe("Credit claims", () => {
     runtimes.push(runtime);
     const loaded = await runtime.usePlugin(
       "credits",
-      {
-        variables: {},
-        secrets: {
-          CREDITS_DATABASE_URL: "pglite::memory:",
-          ...(options.secrets ?? enabledSecrets),
-        },
-      },
+      { variables: {}, secrets: { CREDITS_DATABASE_URL: "pglite::memory:" } },
       {
         builders: {
           client: (context: { near?: { primaryAccountId?: string | null } }) => ({
@@ -184,8 +185,25 @@ describe("Credit claims", () => {
     return { loaded, client, admin, nearAi };
   }
 
+  async function enable(
+    admin: Awaited<ReturnType<typeof loadCredits>>["admin"],
+    overrides: Record<string, unknown> = {},
+  ) {
+    await admin.updateCreditSettings({
+      enabled: true,
+      amountUsd: 5,
+      claimsCloseAt: "2999-01-01T00:00:00Z",
+      keyExpiresAt: "2999-02-01T00:00:00Z",
+      nearAiWorkspaceId: WORKSPACE,
+      nearAiLoginAccountId: "nearbuilding.near",
+      ...overrides,
+    } as never);
+    await admin.loginNearAi(LOGIN_INPUT as never);
+  }
+
   it("issues a capped, expiring key to an approved builder once", async () => {
-    const { client, nearAi } = await loadCredits();
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "Alice.near", { ip: "203.0.113.7" }));
 
     await expect(alice.getCreditStatus({})).resolves.toEqual({
@@ -205,7 +223,9 @@ describe("Credit claims", () => {
       keyExpiresAt: "2999-02-01T00:00:00.000Z",
     });
 
-    const create = nearAi.requests.find((request) => request.method === "POST" && request.body);
+    const create = nearAi.requests.find(
+      (request) => request.url.endsWith("/api-keys") && request.method === "POST",
+    );
     expect(create?.body).toEqual({
       name: `nearbuilders-credit-${claimed.claim.id}`,
       expires_at: "2999-02-01T00:00:00.000Z",
@@ -224,7 +244,8 @@ describe("Credit claims", () => {
   });
 
   it("issues only one key when the same builder claims concurrently", async () => {
-    const { client, nearAi } = await loadCredits();
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
 
     const results = await Promise.allSettled([
@@ -238,9 +259,10 @@ describe("Credit claims", () => {
   });
 
   it("refuses builders without an approved profile", async () => {
-    const { client, nearAi } = await loadCredits({
+    const { client, admin, nearAi } = await loadCredits({
       builders: { "withdrawn.near": { withdrawnAt: "2026-10-02T00:00:00.000Z" } },
     });
+    await enable(admin);
 
     const newcomer = client(userContext("new-user", "newcomer.near"));
     await expect(newcomer.getCreditStatus({})).resolves.toMatchObject({
@@ -260,7 +282,7 @@ describe("Credit claims", () => {
       message: "Link a NEAR account to claim API credits",
     });
 
-    expect(nearAi.requests).toHaveLength(0);
+    expect(nearAi.state.created).toBe(0);
   });
 
   it("requires a signed-in user", async () => {
@@ -272,9 +294,8 @@ describe("Credit claims", () => {
   });
 
   it("refuses claims when disabled", async () => {
-    const { client, nearAi } = await loadCredits({
-      secrets: { ...enabledSecrets, CREDITS_ENABLED: "false" },
-    });
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin, { enabled: false });
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.getCreditStatus({})).resolves.toMatchObject({ available: false });
@@ -282,13 +303,12 @@ describe("Credit claims", () => {
       code: "FORBIDDEN",
       message: "Credit claims are not enabled",
     });
-    expect(nearAi.requests).toHaveLength(0);
+    expect(nearAi.state.created).toBe(0);
   });
 
   it("refuses claims after the close time", async () => {
-    const { client } = await loadCredits({
-      secrets: { ...enabledSecrets, CREDITS_CLAIMS_CLOSE_AT: "2000-01-01T00:00:00Z" },
-    });
+    const { client, admin } = await loadCredits();
+    await enable(admin, { claimsCloseAt: "2000-01-01T00:00:00Z" });
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.getCreditStatus({})).resolves.toMatchObject({ available: false });
@@ -298,20 +318,114 @@ describe("Credit claims", () => {
     });
   });
 
-  it("refuses claims when enabled but misconfigured", async () => {
-    const { client } = await loadCredits({
-      secrets: { ...enabledSecrets, NEARAI_CREDITS_WORKSPACE_ID: "" },
+  it("refuses claims before any configuration exists", async () => {
+    const { client, admin } = await loadCredits();
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      available: false,
+      amountUsd: 0,
     });
+    await expect(alice.claimCredits({})).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Credit claims are not configured",
+    });
+    await expect(admin.getCreditSettings({})).resolves.toEqual({ settings: null });
+  });
+
+  it("refuses claims when enabled but the workspace is missing", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
+    await admin.updateCreditSettings({
+      enabled: true,
+      amountUsd: 5,
+      claimsCloseAt: "2999-01-01T00:00:00Z",
+      keyExpiresAt: "2999-02-01T00:00:00Z",
+      nearAiWorkspaceId: "",
+      nearAiLoginAccountId: "nearbuilding.near",
+    } as never);
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.claimCredits({})).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "Credit claims are not configured",
     });
+    expect(nearAi.state.created).toBe(0);
+  });
+
+  it("requires a NEAR AI session to claim and recovers after signing in", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await admin.updateCreditSettings({
+      enabled: true,
+      amountUsd: 5,
+      claimsCloseAt: "2999-01-01T00:00:00Z",
+      keyExpiresAt: "2999-02-01T00:00:00Z",
+      nearAiWorkspaceId: WORKSPACE,
+      nearAiLoginAccountId: "nearbuilding.near",
+    } as never);
+
+    await expect(admin.nearAiSessionStatus({})).resolves.toEqual({
+      status: "absent",
+      refreshExpiresAt: null,
+    });
+
+    await expect(alice.claimCredits({})).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    await expect(admin.listCreditClaims({ limit: 10 })).resolves.toMatchObject({
+      data: [{ status: "failed", error: "NEAR AI session not signed in" }],
+    });
+    expect(nearAi.state.created).toBe(0);
+
+    await admin.loginNearAi(LOGIN_INPUT as never);
+    await expect(admin.nearAiSessionStatus({})).resolves.toEqual({
+      status: "valid",
+      refreshExpiresAt: "2027-01-01T00:00:00.000Z",
+    });
+
+    const retried = await alice.claimCredits({});
+    expect(retried.claim.status).toBe("issued");
+    expect(nearAi.state.created).toBe(1);
+  });
+
+  it("rejects a login signed by a different account than the guardrail", async () => {
+    const { admin } = await loadCredits();
+    await admin.updateCreditSettings({
+      enabled: true,
+      amountUsd: 5,
+      claimsCloseAt: "2999-01-01T00:00:00Z",
+      keyExpiresAt: "2999-02-01T00:00:00Z",
+      nearAiWorkspaceId: WORKSPACE,
+      nearAiLoginAccountId: "nearbuilding.near",
+    } as never);
+
+    await expect(
+      admin.loginNearAi({
+        signedMessage: { ...LOGIN_INPUT.signedMessage, accountId: "someone-else.near" },
+        payload: LOGIN_INPUT.payload,
+      } as never),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only nearbuilding.near can sign in the NEAR AI credentials",
+    });
+  });
+
+  it("supports claiming without a claims close date", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin, { claimsCloseAt: null });
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      available: true,
+      claimsCloseAt: null,
+    });
+    await expect(alice.claimCredits({})).resolves.toMatchObject({ claim: { status: "issued" } });
+    expect(nearAi.state.created).toBe(1);
   });
 
   it("lets a builder retry after NEAR AI fails", async () => {
-    const { client, nearAi } = await loadCredits();
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     nearAi.state.failCreates = 1;
     const alice = client(userContext("alice-user", "alice.near"));
 
@@ -326,7 +440,8 @@ describe("Credit claims", () => {
   });
 
   it("revokes a key that was created when its response was lost, then issues a new one", async () => {
-    const { client, nearAi } = await loadCredits();
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     nearAi.state.createButLoseResponse = 1;
     const alice = client(userContext("alice-user", "alice.near"));
 
@@ -341,6 +456,7 @@ describe("Credit claims", () => {
 
   it("lets admins list claims with same-IP counts and revoke keys", async () => {
     const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near", { ip: "203.0.113.7" }));
     const bob = client(userContext("bob-user", "bob.near", { ip: "203.0.113.7" }));
     const aliceClaim = await alice.claimCredits({});
@@ -371,7 +487,8 @@ describe("Credit claims", () => {
   });
 
   it("keeps admin routes away from members", async () => {
-    const { client } = await loadCredits();
+    const { client, admin } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.listCreditClaims({ limit: 10 })).rejects.toMatchObject({
@@ -380,12 +497,30 @@ describe("Credit claims", () => {
     await expect(alice.revokeCreditClaim({ id: "any" })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+    await expect(alice.getCreditSettings({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      alice.updateCreditSettings({
+        enabled: true,
+        amountUsd: 1,
+        claimsCloseAt: null,
+        keyExpiresAt: null,
+        nearAiWorkspaceId: "ws",
+        nearAiLoginAccountId: "",
+      } as never),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(alice.nearAiSessionStatus({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(alice.loginNearAi(LOGIN_INPUT as never)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    await expect(admin.nearAiSessionStatus({})).resolves.toMatchObject({ status: "valid" });
   });
 
   it("lets each signed-in builder claim once, even with several NEAR accounts", async () => {
-    const { client, nearAi } = await loadCredits({
+    const { client, admin, nearAi } = await loadCredits({
       builders: { "alice.near": { withdrawnAt: null }, "alice-alt.near": { withdrawnAt: null } },
     });
+    await enable(admin);
 
     await client(userContext("alice-user", "alice.near")).claimCredits({});
     const other = client(userContext("alice-user", "alice-alt.near"));
@@ -399,6 +534,7 @@ describe("Credit claims", () => {
 
   it("shows a key as expired after its expiry and never issues another", async () => {
     const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
     await alice.claimCredits({});
 
@@ -419,21 +555,9 @@ describe("Credit claims", () => {
     expect(nearAi.state.created).toBe(1);
   });
 
-  it("refuses to start when keys would expire before claims close", async () => {
-    const { client, nearAi } = await loadCredits({
-      secrets: { ...enabledSecrets, CREDITS_KEY_EXPIRES_AT: "2998-01-01T00:00:00Z" },
-    });
-    const alice = client(userContext("alice-user", "alice.near"));
-
-    await expect(alice.claimCredits({})).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "Credit claims are not configured",
-    });
-    expect(nearAi.requests).toHaveLength(0);
-  });
-
   it("keeps a revocation and revokes the key when an admin revokes mid-claim", async () => {
     const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
     const hold = nearAi.holdNextCreate();
 
@@ -452,7 +576,8 @@ describe("Credit claims", () => {
   });
 
   it("leaves one live key when a stale claim is retried while the first is still running", async () => {
-    const { client, nearAi } = await loadCredits();
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
     const hold = nearAi.holdNextCreate();
 
@@ -475,6 +600,7 @@ describe("Credit claims", () => {
 
   it("revokes a key whose creation response was lost when the claim is revoked", async () => {
     const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
     nearAi.state.createButLoseResponse = 1;
     const alice = client(userContext("alice-user", "alice.near"));
 
