@@ -268,6 +268,12 @@ export default createPlugin({
         return { data: result };
       }),
 
+      getBuildersByUserIds: builder.getBuildersByUserIds.effect(function* ({ input }) {
+        const builders = yield* BuilderService;
+        const result = yield* runService(builders.getBuildersByUserIds(input.userIds));
+        return { data: result };
+      }),
+
       getMyBuilderProfile: builder.getMyBuilderProfile.use(requireAuth).effect(function* ({
         context,
       }) {
