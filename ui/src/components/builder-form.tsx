@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApiClient } from "@/app";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Textarea } from "@/components/ui/textarea";
+import { useNearAccountId } from "@/hooks";
 import {
   type BuilderCatalogFormValues,
   builderCatalogFromFormValues,
@@ -313,6 +315,7 @@ function BuilderCatalogFields({ form, field }: { form: any; field: any }) {
   const update = (patch: Partial<BuilderCatalogFormValues>) =>
     field.handleChange({ ...value, ...patch });
   const errorFor = (key: keyof typeof errors) => (showErrors ? errors[key] : undefined);
+  const nearAccountId = useNearAccountId();
   const textFields = [
     { key: "organization", label: "Organization", placeholder: "Where you work or build" },
     { key: "team", label: "Team", placeholder: "Team inside the organization" },
@@ -392,20 +395,18 @@ function BuilderCatalogFields({ form, field }: { form: any; field: any }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="catalog-avatarUrl">Avatar URL</Label>
-            <Input
+            <Label htmlFor="catalog-avatarUrl">Avatar</Label>
+            <HelperText>Leave empty to use your NEAR Social profile image.</HelperText>
+            <ImageUploadField
               id="catalog-avatarUrl"
+              shape="round"
               value={value.avatarUrl}
-              onChange={(e) => update({ avatarUrl: e.target.value })}
+              onChange={(url) => update({ avatarUrl: url })}
               onBlur={field.handleBlur}
-              placeholder="https://example.com/avatar.png"
-              aria-invalid={Boolean(errorFor("avatarUrl"))}
+              error={errorFor("avatarUrl")}
+              fallbackAccount={nearAccountId}
+              fallbackLabel="Showing your NEAR Social avatar."
             />
-            {errorFor("avatarUrl") ? (
-              <ErrorText>{errorFor("avatarUrl")}</ErrorText>
-            ) : (
-              <HelperText>Leave empty to use your NEAR Social profile image.</HelperText>
-            )}
           </div>
         </div>
       )}

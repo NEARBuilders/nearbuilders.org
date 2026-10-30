@@ -83,4 +83,23 @@ describe("catalog readiness", () => {
       }).ready,
     ).toBe(true);
   });
+
+  it("counts an uploaded logo as complete", () => {
+    const readiness = getCatalogReadiness({
+      description: "Short description",
+      logoUrl: "https://cdn.everything.dev/storage/feedback/builder.near/2b7c-logo.png",
+      catalog: { tagline: "One line", categories: ["defi"] },
+    });
+    expect(readiness.missing.map((item) => item.key)).toEqual([]);
+    expect(readiness.ready).toBe(true);
+  });
+
+  it("does not count an unsafe logo value as complete", () => {
+    const readiness = getCatalogReadiness({
+      description: "Short description",
+      logoUrl: "javascript:alert(1)",
+      catalog: { tagline: "One line", categories: ["defi"] },
+    });
+    expect(readiness.missing.map((item) => item.key)).toEqual(["logo"]);
+  });
 });

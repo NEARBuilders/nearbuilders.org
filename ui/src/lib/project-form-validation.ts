@@ -106,7 +106,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   ownerId: "Owner",
   organizationId: "Organization",
   domain: "Domain",
-  logoUrl: "Logo URL",
+  logoUrl: "Logo",
   catalog: "NEAR Catalog",
   collaborators: "Collaborators",
 };
