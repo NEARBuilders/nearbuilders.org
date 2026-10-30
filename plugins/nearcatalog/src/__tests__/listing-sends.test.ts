@@ -29,7 +29,6 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
 });
 
 const token = "nc-plugin-token-9c1d";
-const submitUrl = "https://submit.catalog.example/v1";
 
 function testUser(id: string, role: string) {
   return {
@@ -85,7 +84,7 @@ describe("NearCatalog plugin sending", { timeout: 20_000 }, () => {
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         requests.push({ url: String(input), init });
-        return Response.json({ slug: "lantern-pay" });
+        return Response.json({ status: "success", submission_id: "sub-1" });
       }),
     );
     const dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-nearcatalog-sends-"));
@@ -123,8 +122,8 @@ describe("NearCatalog plugin sending", { timeout: 20_000 }, () => {
     };
   }
 
-  it("stays off without both secrets", async () => {
-    const plugin = await loadPlugin({ NEARCATALOG_SUBMIT_URL: submitUrl });
+  it("stays off without the partner key", async () => {
+    const plugin = await loadPlugin({ NEARCATALOG_CONTACT: "team@nearbuilders.example" });
 
     const approved = await plugin.approve();
 
@@ -135,16 +134,19 @@ describe("NearCatalog plugin sending", { timeout: 20_000 }, () => {
     });
   });
 
-  it("sends with the configured token and keeps it out of every reply", async () => {
+  it("sends to the partner endpoint with the key and keeps it out of every reply", async () => {
     const plugin = await loadPlugin({
-      NEARCATALOG_SUBMIT_URL: submitUrl,
-      NEARCATALOG_SUBMIT_TOKEN: token,
+      NEARCATALOG_PARTNER_KEY: token,
+      NEARCATALOG_CONTACT: "team@nearbuilders.example",
     });
 
     const approved = await plugin.approve();
 
-    expect(approved.data).toMatchObject({ status: "published", sendStatus: "sent" });
-    expect(plugin.requests[0]?.url).toBe(`${submitUrl}/projects/project%3Aproject-1`);
+    expect(approved.data).toMatchObject({ status: "approved", sendStatus: "sent" });
+    expect(plugin.requests[0]?.url).toBe(
+      "https://indexer.nearcatalog.xyz/wp-json/nearcatalog/v1/partner-submit",
+    );
+    expect(plugin.requests[0]?.init?.method).toBe("POST");
     expect(new Headers(plugin.requests[0]?.init?.headers).get("authorization")).toBe(
       `Bearer ${token}`,
     );
@@ -155,8 +157,8 @@ describe("NearCatalog plugin sending", { timeout: 20_000 }, () => {
 
   it("keeps send status and retries admin only", async () => {
     const plugin = await loadPlugin({
-      NEARCATALOG_SUBMIT_URL: submitUrl,
-      NEARCATALOG_SUBMIT_TOKEN: token,
+      NEARCATALOG_PARTNER_KEY: token,
+      NEARCATALOG_CONTACT: "team@nearbuilders.example",
     });
     await plugin.approve();
 

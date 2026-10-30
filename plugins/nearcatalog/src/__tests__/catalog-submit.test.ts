@@ -1,14 +1,48 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  catalogSubmitRequest,
+  CATALOG_PARTNER_SUBMIT_URL,
+  catalogPartnerPayload,
   createCatalogSubmitClientFromConfig,
   createHttpCatalogSubmitClient,
 } from "../services/catalog-submit";
 
-const token = "nc-unit-token-41b2";
-const record = { slug: "lantern-pay", title: "Lantern Pay" };
+const token = "nc_partner_unit41b2";
+const contactInfo = "team@nearbuilders.example";
+const record = {
+  slug: "lantern-pay",
+  title: "Lantern Pay",
+  oneliner: "Payments for small shops",
+  description: "Lantern Pay lets small shops take NEAR payments.",
+  logo: "https://lantern.example.com/logo.png",
+  categories: ["payment", "developer-tooling"],
+  website: "https://lantern.example.com",
+  twitter: "",
+  medium: "",
+  telegram: "https://t.me/lanternpay",
+  github: "https://github.com/lantern-pay",
+  discord: "",
+  whitepaper: "",
+  "token-address": "",
+  "coingecko-address": "",
+  "nearsocial-address": "https://near.social/lantern.testnet",
+  dapp: "",
+  phase: "Testnet",
+  source: {
+    site: "nearbuilders.org",
+    url: "https://nearbuilders.org/projects/project/lantern-pay-x1",
+    nearAccount: "maker.testnet",
+    updatedAt: "2026-10-26T00:00:00.000Z",
+  },
+};
 
-function recordingFetch(reply: () => Response = () => Response.json({})) {
+const success = () =>
+  Response.json({
+    status: "success",
+    submission_id: "a1b2c3d4e5f6",
+    message: "Project submitted successfully. Awaiting curator review.",
+  });
+
+function recordingFetch(reply: () => Response = success) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetchImplementation = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(input), init: init ?? {} });
@@ -18,107 +52,78 @@ function recordingFetch(reply: () => Response = () => Response.json({})) {
 }
 
 describe("NEAR Catalog submit client", () => {
-  it("is off unless both the URL and the token are set", () => {
+  it("is off unless the partner key is set", () => {
     expect(createCatalogSubmitClientFromConfig({})).toBeNull();
     expect(
       createCatalogSubmitClientFromConfig({ url: "https://x.example", token: " " }),
     ).toBeNull();
-    expect(createCatalogSubmitClientFromConfig({ url: "", token })).toBeNull();
-    expect(createCatalogSubmitClientFromConfig({ url: "https://x.example", token })).not.toBeNull();
+    expect(createCatalogSubmitClientFromConfig({ token })).not.toBeNull();
   });
 
-  it("keeps the request shape in one place", () => {
-    expect(
-      catalogSubmitRequest("https://x.example/v1/", "upsert", "person", "person:robin.testnet", {
-        name: "Robin",
-      }),
-    ).toEqual({
-      url: "https://x.example/v1/people/person%3Arobin.testnet",
-      method: "PUT",
-      body: {
-        source: "nearbuilders",
-        externalId: "person:robin.testnet",
-        kind: "person",
-        record: { name: "Robin" },
-      },
-    });
-    expect(catalogSubmitRequest("https://x.example/v1", "remove", "project", "project:p1")).toEqual(
-      {
-        url: "https://x.example/v1/projects/project%3Ap1",
-        method: "DELETE",
-        body: { source: "nearbuilders", externalId: "project:p1", kind: "project" },
-      },
-    );
-  });
-
-  it("sends a Bearer token and reads the slug and URL from the reply", async () => {
-    const { calls, fetchImplementation } = recordingFetch(() =>
-      Response.json({ slug: "lantern", url: "https://nearcatalog.xyz/project/lantern" }),
-    );
-    const client = createHttpCatalogSubmitClient({
-      baseUrl: "https://x.example/v1",
-      token,
-      fetchImplementation,
-    });
-
-    const result = await client.upsertProject({ externalId: "project:p1", record });
-
-    expect(result).toEqual({ slug: "lantern", url: "https://nearcatalog.xyz/project/lantern" });
-    expect(calls[0]?.url).toBe("https://x.example/v1/projects/project%3Ap1");
-    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe(`Bearer ${token}`);
-    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
-      source: "nearbuilders",
-      externalId: "project:p1",
-      kind: "project",
-      record,
+  it("maps the export record to the partner-submit fields", () => {
+    expect(catalogPartnerPayload({ externalId: "project:p1", record, contactInfo })).toEqual({
+      project_name: "Lantern Pay",
+      project_description: "Lantern Pay lets small shops take NEAR payments.",
+      project_logo: "https://lantern.example.com/logo.png",
+      contact_info: contactInfo,
+      one_liner: "Payments for small shops",
+      primary_category: "Payment, Developer Tooling",
+      uid: "project:p1",
+      nearsocial_address: "lantern.testnet",
+      website: "https://lantern.example.com",
+      project_telegram: "https://t.me/lanternpay",
+      github: "https://github.com/lantern-pay",
+      project_phase: "Testnet",
     });
   });
 
-  it("falls back to the NEAR Catalog project page and ignores unsafe URLs", async () => {
-    const { fetchImplementation } = recordingFetch(() =>
-      Response.json({ slug: "lantern", url: "javascript:alert(1)" }),
-    );
-    const client = createHttpCatalogSubmitClient({
-      baseUrl: "https://x.example",
-      token,
-      fetchImplementation,
-    });
+  it("posts to the partner endpoint with a Bearer key and reads the submission id", async () => {
+    const { calls, fetchImplementation } = recordingFetch();
+    const client = createHttpCatalogSubmitClient({ token, contactInfo, fetchImplementation });
 
     await expect(client.upsertProject({ externalId: "project:p1", record })).resolves.toEqual({
-      slug: "lantern",
-      url: "https://nearcatalog.xyz/project/lantern",
+      submissionId: "a1b2c3d4e5f6",
     });
-    await expect(client.upsertPerson({ externalId: "person:a.testnet", record })).resolves.toEqual({
-      slug: "lantern",
-      url: null,
+    expect(calls[0]?.url).toBe(CATALOG_PARTNER_SUBMIT_URL);
+    expect(calls[0]?.init.method).toBe("POST");
+    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe(`Bearer ${token}`);
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      project_name: "Lantern Pay",
+      uid: "project:p1",
     });
   });
 
-  it("treats a 404 on remove as already removed", async () => {
-    const { fetchImplementation } = recordingFetch(() => new Response("", { status: 404 }));
-    const client = createHttpCatalogSubmitClient({
-      baseUrl: "https://x.example",
-      token,
-      fetchImplementation,
-    });
+  it("falls back to the project's Telegram link as the contact", async () => {
+    const { calls, fetchImplementation } = recordingFetch();
+    const client = createHttpCatalogSubmitClient({ token, fetchImplementation });
 
+    await client.upsertProject({ externalId: "project:p1", record });
+
+    expect(JSON.parse(String(calls[0]?.init.body)).contact_info).toBe("https://t.me/lanternpay");
     await expect(
-      client.remove({ kind: "project", externalId: "project:p1" }),
-    ).resolves.toBeUndefined();
+      client.upsertProject({ externalId: "project:p1", record: { ...record, telegram: "" } }),
+    ).rejects.toThrow(/No contact for NEAR Catalog/);
+  });
+
+  it("treats validation errors sent as 500 as a failed send with NEAR Catalog's message", async () => {
+    const { fetchImplementation } = recordingFetch(() =>
+      Response.json(
+        { code: "error", message: "Missing required fields: project_logo", data: null },
+        { status: 500 },
+      ),
+    );
+    const client = createHttpCatalogSubmitClient({ token, contactInfo, fetchImplementation });
+
     await expect(client.upsertProject({ externalId: "project:p1", record })).rejects.toThrow(
-      /returned 404/,
+      "NEAR Catalog returned 500: Missing required fields: project_logo",
     );
   });
 
-  it("never puts the token in an error", async () => {
+  it("never puts the key in an error", async () => {
     const { fetchImplementation } = recordingFetch(
       () => new Response(`invalid token ${token}`, { status: 401 }),
     );
-    const client = createHttpCatalogSubmitClient({
-      baseUrl: "https://x.example",
-      token,
-      fetchImplementation,
-    });
+    const client = createHttpCatalogSubmitClient({ token, contactInfo, fetchImplementation });
 
     const error = await client.upsertProject({ externalId: "project:p1", record }).catch((e) => e);
 
@@ -132,8 +137,8 @@ describe("NEAR Catalog submit client", () => {
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
       })) as typeof fetch;
     const client = createHttpCatalogSubmitClient({
-      baseUrl: "https://x.example",
       token,
+      contactInfo,
       fetchImplementation,
       timeoutMs: 50,
     });

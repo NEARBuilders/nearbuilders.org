@@ -150,6 +150,7 @@ describe("NEAR Catalog listing approval", () => {
       ? createCatalogSubmitClientFromConfig({
           url: submitUrl,
           token: submitToken,
+          contactInfo: "team@nearbuilders.example",
           fetchImplementation: options.submitFetch,
         })
       : null;
@@ -734,7 +735,7 @@ describe("NEAR Catalog listing approval", () => {
         });
         const reply = replies.shift();
         if (reply) return await reply();
-        return Response.json({ slug: "lantern-pay-nc" });
+        return Response.json({ status: "success", submission_id: "sub-1" });
       });
       return { requests, submitFetch: submitFetch as unknown as typeof fetch };
     }
@@ -757,7 +758,7 @@ describe("NEAR Catalog listing approval", () => {
       fetchSpy.mockRestore();
     });
 
-    it("sends the approved record and marks the listing published", async () => {
+    it("submits the approved project for NEAR Catalog review", async () => {
       const { requests, submitFetch } = catalogApi();
       const api = await loadApi({ submitFetch });
       await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
@@ -767,32 +768,25 @@ describe("NEAR Catalog listing approval", () => {
 
       expect(requests).toEqual([
         {
-          method: "PUT",
-          url: `${submitUrl}/projects/project%3Aproject-1`,
+          method: "POST",
+          url: submitUrl,
           authorization: `Bearer ${submitToken}`,
-          body: {
-            source: "nearbuilders",
-            externalId: "project:project-1",
-            kind: "project",
-            record: api.records.get("project:project-1")?.payload.record,
-          },
+          body: expect.objectContaining({
+            project_name: "Lantern Pay",
+            contact_info: "team@nearbuilders.example",
+            uid: "project:project-1",
+          }),
         },
       ]);
       expect(await api.listing("project", "project-1")).toMatchObject({
-        status: "published",
-        slug: "lantern-pay-nc",
-        catalogUrl: "https://nearcatalog.xyz/project/lantern-pay-nc",
+        status: "approved",
+        catalogUrl: null,
         sendStatus: "sent",
         sendAction: "upsert",
       });
-      const listed = await api.client({}).listCatalogListings({ kind: "project" });
-      expect(listed.data[0]).toMatchObject({
-        status: "published",
-        catalogUrl: "https://nearcatalog.xyz/project/lantern-pay-nc",
-      });
     });
 
-    it("updates small edits, waits on big edits until re-approved, then updates", async () => {
+    it("resubmits small edits, waits on big edits until re-approved, then resubmits", async () => {
       const { requests, submitFetch } = catalogApi();
       const api = await loadApi({ submitFetch });
       await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
@@ -803,7 +797,7 @@ describe("NEAR Catalog listing approval", () => {
         description: "Lantern Pay lets small shops and markets take NEAR payments.",
       });
       expect(requests).toHaveLength(2);
-      expect(requests[1]?.body.record.description).toBe(
+      expect(requests[1]?.body.project_description).toBe(
         "Lantern Pay lets small shops and markets take NEAR payments.",
       );
 
@@ -813,13 +807,13 @@ describe("NEAR Catalog listing approval", () => {
 
       await approveProject(api);
       expect(requests).toHaveLength(3);
-      expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual(
-        Array(3).fill(`PUT ${submitUrl}/projects/project%3Aproject-1`),
+      expect(requests.map((request) => request.body.uid)).toEqual(
+        Array(3).fill("project:project-1"),
       );
-      expect(requests[2]?.body.record.title).toBe("Lantern Checkout");
+      expect(requests[2]?.body.project_name).toBe("Lantern Checkout");
     });
 
-    it("removes a sent project when it is made private, and a person when withdrawn", async () => {
+    it("sends no people, and flags a sent project made private for manual removal", async () => {
       const { requests, submitFetch } = catalogApi();
       const api = await loadApi({ submitFetch });
       await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
@@ -834,18 +828,15 @@ describe("NEAR Catalog listing approval", () => {
       await api.client(owner()).updateProject({ id: "project-1", visibility: "private" });
       await api.client(owner()).withdrawMyBuilderProfile({});
 
-      expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
-        `PUT ${submitUrl}/projects/project%3Aproject-1`,
-        `PUT ${submitUrl}/people/person%3Amaker.testnet`,
-        `DELETE ${submitUrl}/projects/project%3Aproject-1`,
-        `DELETE ${submitUrl}/people/person%3Amaker.testnet`,
-      ]);
-      expect(await api.listing("project", "project-1")).toMatchObject({
+      expect(requests.map((request) => request.body.uid)).toEqual(["project:project-1"]);
+      expect(await api.listing("person", "maker.testnet")).toMatchObject({ sendStatus: null });
+      const removed = await api.listing("project", "project-1");
+      expect(removed).toMatchObject({
         status: "none",
-        catalogUrl: null,
-        sendStatus: "sent",
+        sendStatus: "failed",
         sendAction: "remove",
       });
+      expect(removed?.sendError).toMatch(/no partner remove route/);
     });
 
     it("never sends a removal for a listing that was never sent", async () => {
@@ -899,8 +890,8 @@ describe("NEAR Catalog listing approval", () => {
         .client(admin())
         .retryCatalogListingSend({ kind: "project", entityId: "project-1" });
 
-      expect(retried.data).toMatchObject({ status: "published", sendStatus: "sent" });
-      expect(requests.map((request) => request.body.externalId)).toEqual([
+      expect(retried.data).toMatchObject({ status: "approved", sendStatus: "sent" });
+      expect(requests.map((request) => request.body.uid)).toEqual([
         "project:project-1",
         "project:project-1",
       ]);

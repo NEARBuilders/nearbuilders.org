@@ -11,12 +11,7 @@ import {
 import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import { nearcatalogListings } from "../db/schema";
-import {
-  type CatalogSubmitClient,
-  type CatalogSubmitResult,
-  catalogExternalId,
-  catalogPageUrl,
-} from "./catalog-submit";
+import { type CatalogSubmitClient, catalogExternalId, catalogPageUrl } from "./catalog-submit";
 
 export type CatalogListing = z.infer<typeof CatalogListingSchema>;
 export type CatalogListingKind = z.infer<typeof CatalogListingKindSchema>;
@@ -89,7 +84,11 @@ function isListedRow(row: ListingRow) {
   return Boolean(row.record) && (row.status === "approved" || row.status === "published");
 }
 
+const NO_REMOVE_ROUTE =
+  "NEAR Catalog has no partner remove route. Ask the NEAR Catalog team to hide this listing.";
+
 function sendActionFor(row: ListingRow): "upsert" | "remove" | null {
+  if (row.kind !== "project") return null;
   if (row.status === "pending") return null;
   if (isListedRow(row)) return "upsert";
   if (!row.sendStatus) return null;
@@ -156,19 +155,13 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
   const request = (row: ListingRow, action: "upsert" | "remove") =>
     Effect.promise(async () => {
       if (!submitter) return { ok: false as const, error: "Sending to NEAR Catalog is off" };
-      const externalId = catalogExternalId(row.kind, row.entityId);
+      if (action === "remove") return { ok: false as const, error: NO_REMOVE_ROUTE };
       try {
-        if (action === "remove") {
-          await submitter.remove({ kind: row.kind, externalId });
-          return { ok: true as const, result: null };
-        }
-        const record =
-          row.kind === "project" ? { ...row.record, slug: row.slug } : { ...row.record };
-        const result: CatalogSubmitResult =
-          row.kind === "project"
-            ? await submitter.upsertProject({ externalId, record })
-            : await submitter.upsertPerson({ externalId, record });
-        return { ok: true as const, result };
+        await submitter.upsertProject({
+          externalId: catalogExternalId(row.kind, row.entityId),
+          record: { ...row.record, slug: row.slug },
+        });
+        return { ok: true as const };
       } catch (error) {
         return { ok: false as const, error: errorMessage(error) };
       }
@@ -191,29 +184,12 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
           updatedAt: now,
         });
       }
-      if (action === "remove") {
-        return yield* update(target, {
-          catalogUrl: null,
-          sendStatus: "sent",
-          sendAction: "remove",
-          sendError: null,
-          sendAttemptedAt: now,
-          sentAt: now,
-          updatedAt: now,
-        });
-      }
-      const slug = outcome.result?.slug ?? row.slug;
       return yield* update(target, {
-        status: "published",
-        slug,
-        catalogUrl: outcome.result?.url ?? catalogPageUrl(row.kind, slug),
-        publishedAt: row.publishedAt ?? now,
         sendStatus: "sent",
         sendAction: "upsert",
         sendError: null,
         sendAttemptedAt: now,
         sentAt: now,
-        changedAt: slug !== row.slug ? now : row.changedAt,
         updatedAt: now,
       });
     });

@@ -6,66 +6,60 @@ Approved listings are exported at `GET /api/v1/nearcatalog/export/{projects,peop
 
 ## Sending listings to NEAR Catalog
 
-The plugin can send approved listings straight to NEAR Catalog's API
-([#290](https://github.com/NEARBuilders/nearbuilders.org/issues/290)). It is off until both
-secrets are set:
+The plugin can send approved projects straight to NEAR Catalog's partner-submit API
+([#290](https://github.com/NEARBuilders/nearbuilders.org/issues/290)). It is off until the partner
+key is set:
 
 | Secret | What it is |
 | --- | --- |
-| `NEARCATALOG_SUBMIT_URL` | Base URL of NEAR Catalog's submission API, for example `https://api.nearcatalog.xyz/v1/submissions` |
-| `NEARCATALOG_SUBMIT_TOKEN` | Token NEAR Catalog gives nearbuilders.org. Sent only as a Bearer header, never logged, returned or shown in the UI |
+| `NEARCATALOG_PARTNER_KEY` | Partner key NEAR Catalog gives nearbuilders.org (`nc_partner_...`). Sent only in the auth header, never logged, returned or shown in the UI |
+| `NEARCATALOG_SUBMIT_URL` | Optional. Defaults to `https://indexer.nearcatalog.xyz/wp-json/nearcatalog/v1/partner-submit` |
+| `NEARCATALOG_CONTACT` | Email or Telegram handle NEAR Catalog's curators can reach us on. Without it, the project's Telegram link is used, and a project without one fails to send |
 
-With either one unset, approvals work exactly as before: nothing is sent, nothing is queued,
-and no error is stored. The export endpoints keep working in both modes.
+Without the key, approvals work exactly as before: nothing is sent, nothing is queued, and no
+error is stored. The export endpoints keep working in both modes.
 
 ### When it sends
 
-| Event on nearbuilders.org | Request |
+| Event on nearbuilders.org | What happens |
 | --- | --- |
-| An admin approves a listing | upsert |
-| A big edit goes back to review and an admin approves it again | upsert (same external id, so it updates) |
-| A small edit to an approved listing | upsert |
-| Rejected, withdrawn, made private, deleted or removed by an admin, after it was sent | remove |
+| An admin approves a project listing | submit |
+| A big edit goes back to review and an admin approves it again | submit (same `uid`, so it is an update request) |
+| A small edit to an approved project listing | submit |
+| Rejected, withdrawn, made private, deleted or removed by an admin, after it was sent | flagged in the admin tab: NEAR Catalog has no partner remove route, so ask their team to hide it |
 
-A pending re-review sends nothing, so NEAR Catalog keeps the last approved version until the
-admin decides.
+People listings are not sent: the partner API takes projects only. They stay in the people export.
+
+A pending re-review sends nothing. Every submission goes to NEAR Catalog's curators, and nothing
+changes on nearcatalog.xyz until they approve it. Unreviewed submissions expire after 7 days.
 
 The approval itself never waits on NEAR Catalog for long and never fails because of it. Each
 request times out after 5 seconds. A failure is saved on the listing (`send_status`,
 `send_action`, `send_error`, `send_attempted_at`) and shown in the admin dashboard's NEAR
 Catalog tab with a **Retry** button. Listings approved before sending was set up show a
-**Send** button there. Retries reuse the external id, so they can't create duplicates.
+**Send** button there. Retries reuse the `uid`, so NEAR Catalog matches them to the same project.
 
-On success the listing is marked `published`, and the slug and URL NEAR Catalog returns are
-stored. Without a URL in the reply, projects link to `https://nearcatalog.xyz/project/{slug}`.
+A successful send leaves the listing `approved` and records `send_status: sent`. It becomes
+`published` only once it is live on NEAR Catalog.
 
-### Request shape (proposal for NEAR Catalog to confirm)
+### Request
 
-NEAR Catalog hasn't published this API yet. This is what we send today. It lives in one place,
-`src/services/catalog-submit.ts`, so it can change once they confirm theirs.
+Follows NEAR Catalog's partner submission guide. It lives in one place,
+`src/services/catalog-submit.ts`.
 
 ```http
-PUT    {NEARCATALOG_SUBMIT_URL}/projects/{externalId}
-PUT    {NEARCATALOG_SUBMIT_URL}/people/{externalId}
-DELETE {NEARCATALOG_SUBMIT_URL}/projects/{externalId}
-DELETE {NEARCATALOG_SUBMIT_URL}/people/{externalId}
-Authorization: Bearer {NEARCATALOG_SUBMIT_TOKEN}
+POST {NEARCATALOG_SUBMIT_URL}
+Authorization: Bearer {NEARCATALOG_PARTNER_KEY}
 Content-Type: application/json
 ```
 
-- `externalId` is stable and URL-encoded: `project:<nearbuilders project id>` or
-  `person:<NEAR account>`.
-- Upsert body: `{ "source": "nearbuilders", "externalId", "kind": "project" | "person", "record" }`.
-  `record` is exactly one item of the export endpoint (same field names as NEAR Catalog's
-  submission form, categories as slugs such as `developer-tooling`).
-- Remove body: `{ "source": "nearbuilders", "externalId", "kind" }`. A `404` counts as removed.
-- Expected upsert reply: `{ "slug": "lantern-pay", "url": "https://nearcatalog.xyz/project/lantern-pay" }`.
-  Both are optional.
-- Any non-2xx reply or a timeout is a failure. The first 300 characters of the reply are kept as
-  the error.
-
-Open questions for NEAR Catalog are listed on #290: required fields, whether they publish right
-away or review first, and the people id.
+- Body: the export record mapped to NEAR Catalog's fields: `project_name`, `project_description`,
+  `project_logo`, `contact_info`, `one_liner`, `primary_category` (category labels, comma-separated,
+  first one primary), `uid` (`project:<nearbuilders project id>`), plus the links, phase and token
+  fields when set. Empty fields are left out.
+- Success is HTTP 200 with `{ "status": "success", "submission_id": "..." }`.
+- Anything else, or a timeout, is a failure. NEAR Catalog returns validation errors as 500 with a
+  `message` such as `Missing required fields: ...`. That message is kept as the error.
 
 ### Admin endpoints
 

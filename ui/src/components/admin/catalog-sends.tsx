@@ -14,7 +14,7 @@ type CatalogSend = Awaited<
 function sendLabel(send: CatalogSend) {
   if (send.sendStatus === "failed") {
     return {
-      text: send.sendAction === "remove" ? "Removal failed" : "Send failed",
+      text: send.sendAction === "remove" ? "Remove by hand" : "Send failed",
       variant: "destructive" as const,
     };
   }
@@ -46,7 +46,7 @@ export function CatalogSends() {
       if (result.data.sendStatus === "failed") {
         toast.error(result.data.sendError ?? "NEAR Catalog did not accept it");
       } else {
-        toast.success("Sent to NEAR Catalog");
+        toast.success("Sent to NEAR Catalog for review");
       }
       void queryClient.invalidateQueries({ queryKey: CATALOG_SENDS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["admin-proposals"] });
@@ -67,8 +67,8 @@ export function CatalogSends() {
           <h3 className="font-semibold text-foreground">Sending to NEAR Catalog</h3>
           <p className="text-sm text-muted-foreground">
             {enabled
-              ? "Approved listings are sent to NEAR Catalog. Rejected, withdrawn or private ones are removed there."
-              : "Off. Approved listings stay here and in the export until a NEAR Catalog API URL and token are set."}
+              ? "Approved projects are sent to NEAR Catalog's curators for review. NEAR Catalog has no remove route, so rejected, withdrawn or private ones that were sent are flagged here to ask their team to hide."
+              : "Off. Approved listings stay here and in the export until a NEAR Catalog partner key is set."}
           </p>
         </div>
         {failed > 0 ? <Badge variant="destructive">{failed} failed</Badge> : null}

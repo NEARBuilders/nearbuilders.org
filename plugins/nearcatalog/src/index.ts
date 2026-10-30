@@ -51,7 +51,8 @@ export default createPlugin({
   secrets: z.object({
     NEARCATALOG_DATABASE_URL: z.string().default("pglite:.bos/nearcatalog/:memory:"),
     NEARCATALOG_SUBMIT_URL: z.string().optional(),
-    NEARCATALOG_SUBMIT_TOKEN: z.string().optional(),
+    NEARCATALOG_PARTNER_KEY: z.string().optional(),
+    NEARCATALOG_CONTACT: z.string().optional(),
   }),
 
   context: ContextSchema,
@@ -62,7 +63,8 @@ export default createPlugin({
     Effect.sync(() => {
       const submitter = createCatalogSubmitClientFromConfig({
         url: config.secrets.NEARCATALOG_SUBMIT_URL,
-        token: config.secrets.NEARCATALOG_SUBMIT_TOKEN,
+        token: config.secrets.NEARCATALOG_PARTNER_KEY,
+        contactInfo: config.secrets.NEARCATALOG_CONTACT,
       });
       return Layer.mergeAll(
         CatalogServiceLive(config.variables.baseUrl),
