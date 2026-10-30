@@ -300,7 +300,7 @@ function CreditSettingsCard() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="credits-key-expires">Keys expire at</Label>
+            <Label htmlFor="credits-key-expires">Keys expire at (optional)</Label>
             <Input
               id="credits-key-expires"
               type="datetime-local"

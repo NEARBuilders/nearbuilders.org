@@ -40,7 +40,7 @@ export type NearAiKeyClient = {
   createKey(input: {
     name: string;
     spendLimitCents: number;
-    expiresAt: Date;
+    expiresAt: Date | null;
   }): Promise<CreatedNearAiKey>;
   findKeyByName(name: string): Promise<NearAiKey | null>;
   revokeKey(id: string): Promise<void>;
@@ -197,8 +197,8 @@ export function createNearAiKeyClient(options: {
           method: "POST",
           body: JSON.stringify({
             name,
-            expires_at: expiresAt.toISOString(),
             spendLimit: { amount: spendLimitCents * NANO_DOLLARS_PER_CENT, currency: "USD" },
+            ...(expiresAt ? { expires_at: expiresAt.toISOString() } : {}),
           }),
         },
         "create an API key",

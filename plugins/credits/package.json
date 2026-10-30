@@ -45,6 +45,7 @@
   "scripts": {
     "build": "every-plugin build",
     "dev": "every-plugin dev",
+    "audit:eligibility": "tsx scripts/audit-credits-eligibility.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",

@@ -65,7 +65,7 @@ type ClaimWindow =
   | {
       open: true;
       keys: NearAiKeyClient;
-      keyExpiresAt: Date;
+      keyExpiresAt: Date | null;
       amountCents: number;
     };
 
@@ -106,7 +106,7 @@ export function createCreditMethods(
     }
     const amount = validateAmountCents(Number(row.amountUsd));
     const workspaceId = row.nearAiWorkspaceId.trim();
-    if (!workspaceId || !amount.ok || !row.keyExpiresAt) {
+    if (!workspaceId || !amount.ok) {
       return {
         row,
         window: {
@@ -117,7 +117,10 @@ export function createCreditMethods(
       };
     }
     const current = now();
-    if ((row.claimsCloseAt && current >= row.claimsCloseAt) || current >= row.keyExpiresAt) {
+    if (
+      (row.claimsCloseAt && current >= row.claimsCloseAt) ||
+      (row.keyExpiresAt && current >= row.keyExpiresAt)
+    ) {
       return {
         row,
         window: { open: false, statusReason: "closed", reason: "Credit claims are closed" },
@@ -142,7 +145,7 @@ export function createCreditMethods(
     userId: string;
     ip: string | null;
     amountCents: number;
-    keyExpiresAt: Date;
+    keyExpiresAt: Date | null;
   }) => {
     const values = {
       userId: input.userId,
@@ -443,7 +446,9 @@ function keyName(claimId: string) {
 }
 
 function claimStatus(row: CreditClaimRow, now: Date): CreditClaimRow["status"] | "expired" {
-  return row.status === "issued" && row.keyExpiresAt <= now ? "expired" : row.status;
+  return row.status === "issued" && row.keyExpiresAt && row.keyExpiresAt <= now
+    ? "expired"
+    : row.status;
 }
 
 function toClaim(row: CreditClaimRow, now: Date) {
@@ -452,7 +457,7 @@ function toClaim(row: CreditClaimRow, now: Date) {
     status: claimStatus(row, now),
     keyPrefix: row.keyPrefix,
     spendLimitUsd: row.spendLimitCents / 100,
-    keyExpiresAt: row.keyExpiresAt.toISOString(),
+    keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
