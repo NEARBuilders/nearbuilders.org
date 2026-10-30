@@ -7,12 +7,12 @@ export default App({
   extends: "bos://dev.everything.near/everything.dev",
   platform: "2.0.0-rc.27",
   account: "nearbuilding.near",
-  domain: "nearbuilders.org",
+  domain: "preview.nearbuilders.org",
   title: "NEAR Builders",
   description: "The open platform for builders on NEAR.",
   testnet: "dev.allthethings.testnet",
   staging: {
-    domain: "staging.dev.everything.dev",
+    domain: "preview.nearbuilders.org",
   },
   repository: "https://github.com/nearbuilders/nearbuilders.org",
   ci: {
@@ -94,16 +94,7 @@ export default App({
     credits: {
       path: "plugins/credits",
       dependsOn: ["builders"],
-      secrets: [
-        "CREDITS_DATABASE_URL",
-        "CREDITS_ENABLED",
-        "CREDITS_AMOUNT_USD",
-        "CREDITS_CLAIMS_CLOSE_AT",
-        "CREDITS_KEY_EXPIRES_AT",
-        "NEARAI_CREDITS_REFRESH_TOKEN",
-        "NEARAI_CREDITS_USER_AGENT",
-        "NEARAI_CREDITS_WORKSPACE_ID",
-      ],
+      secrets: ["CREDITS_DATABASE_URL"],
     },
     nostr: {
       extends: "bos://nearbuilding.near/nostr.nearbuilders.org#plugins.nostr",

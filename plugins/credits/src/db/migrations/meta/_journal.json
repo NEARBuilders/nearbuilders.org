@@ -8,6 +8,27 @@
       "when": 1793306597157,
       "tag": "0000_create_credit_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793375540633,
+      "tag": "0001_aspiring_supreme_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793375884916,
+      "tag": "0002_lethal_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793381678741,
+      "tag": "0003_thankful_sandman",
+      "breakpoints": true
     }
   ]
 }

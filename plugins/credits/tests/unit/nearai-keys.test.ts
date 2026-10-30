@@ -2,11 +2,26 @@ import { describe, expect, it, vi } from "vitest";
 import {
   accessTokenExpiresAt,
   createNearAiKeyClient,
+  createNearAiLoginClient,
   NearAiRequestError,
+  PLUGIN_USER_AGENT,
 } from "@/services/nearai-keys";
 
 const BASE = "https://nearai.test/v1";
 const WORKSPACE = "ws-1";
+
+const LOGIN_INPUT = {
+  signedMessage: {
+    accountId: "nearbuilding.near",
+    publicKey: "ed25519:key",
+    signature: "base64-signature",
+  },
+  payload: {
+    message: "Sign in to NEAR AI Cloud" as const,
+    nonce: Array.from({ length: 32 }, (_, index) => index),
+    recipient: "cloud.near.ai" as const,
+  },
+};
 
 function jwt(exp: number) {
   const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
@@ -25,26 +40,24 @@ function apiKey(id: string, name: string, extra: Record<string, unknown> = {}) {
 }
 
 function setup(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
-  const saved: string[] = [];
-  let stored: string | null = null;
+  const saved: Array<{ token: string; expiresAt: Date | null }> = [];
+  let stored: string | null = "rt_seed";
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
     handler(String(input), init ?? {}),
   );
   const client = createNearAiKeyClient({
-    refreshToken: "rt_env",
-    userAgent: "Mozilla/5.0 Test",
-    workspaceId: WORKSPACE,
+    workspaceId: () => WORKSPACE,
     baseUrl: BASE,
     fetch: fetchMock as unknown as typeof fetch,
     store: {
       load: async () => stored,
-      save: async (token) => {
-        saved.push(token);
+      save: async (token, expiresAt) => {
+        saved.push({ token, expiresAt });
         stored = token;
       },
     },
   });
-  return { client, fetchMock, saved };
+  return { client, fetchMock, saved, setStored: (value: string | null) => (stored = value) };
 }
 
 function sessionResponse(refreshToken = "rt_env") {
@@ -94,8 +107,8 @@ describe("createNearAiKeyClient", () => {
     });
     const sessionCall = fetchMock.mock.calls[0]!;
     expect(sessionCall[1]?.headers).toEqual({
-      Authorization: "Bearer rt_env",
-      "User-Agent": "Mozilla/5.0 Test",
+      Authorization: "Bearer rt_seed",
+      "User-Agent": PLUGIN_USER_AGENT,
     });
   });
 
@@ -131,8 +144,33 @@ describe("createNearAiKeyClient", () => {
     await client.revokeKey("a");
     await client.revokeKey("b");
 
-    expect(authHeaders).toEqual(["Bearer rt_env", "Bearer rt_rotated_1"]);
-    expect(saved).toEqual(["rt_rotated_1", "rt_rotated_2"]);
+    expect(authHeaders).toEqual(["Bearer rt_seed", "Bearer rt_rotated_1"]);
+    expect(saved.map((entry) => entry.token)).toEqual(["rt_rotated_1", "rt_rotated_2"]);
+    expect(saved[0]!.expiresAt).toEqual(new Date("2027-01-01T00:00:00Z"));
+  });
+
+  it("fails before making any request when the session is missing", async () => {
+    const { client, fetchMock, setStored } = setup(() => sessionResponse());
+    setStored(null);
+
+    await expect(client.revokeKey("a")).rejects.toThrow("NEAR AI session not signed in");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("resets the cached session without touching the stored refresh token", async () => {
+    const { client, fetchMock } = setup((url) => {
+      if (url.endsWith("/users/me/access-tokens")) return sessionResponse();
+      return new Response(null, { status: 204 });
+    });
+
+    await client.revokeKey("a");
+    client.resetSession();
+    await client.revokeKey("b");
+
+    const sessionCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith("/users/me/access-tokens"),
+    );
+    expect(sessionCalls).toHaveLength(2);
   });
 
   it("starts only one session for concurrent requests", async () => {
@@ -217,5 +255,78 @@ describe("createNearAiKeyClient", () => {
     await expect(
       client.createKey({ name: "n", spendLimitCents: 500, expiresAt: new Date() }),
     ).rejects.toThrow("without returning it");
+  });
+});
+
+describe("createNearAiLoginClient", () => {
+  function loginSetup(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+      handler(String(input), init ?? {}),
+    );
+    const client = createNearAiLoginClient({
+      baseUrl: BASE,
+      fetch: fetchMock as unknown as typeof fetch,
+    });
+    return { client, fetchMock };
+  }
+
+  it("posts the signed message as cloud-api expects and returns the session", async () => {
+    const { client, fetchMock } = loginSetup(() =>
+      json({
+        access_token: "jwt",
+        refresh_token: "rt_abc",
+        refresh_token_expiration: "2027-01-01T00:00:00Z",
+      }),
+    );
+
+    await expect(client.login(LOGIN_INPUT)).resolves.toEqual({
+      refreshToken: "rt_abc",
+      refreshExpiresAt: new Date("2027-01-01T00:00:00Z"),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe(`${BASE}/auth/near`);
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toEqual({
+      "Content-Type": "application/json",
+      "User-Agent": PLUGIN_USER_AGENT,
+    });
+    const body = JSON.parse(String(init?.body));
+    expect(body).toEqual({
+      signed_message: {
+        accountId: "nearbuilding.near",
+        publicKey: "ed25519:key",
+        signature: "base64-signature",
+      },
+      payload: {
+        message: "Sign in to NEAR AI Cloud",
+        nonce: LOGIN_INPUT.payload.nonce,
+        recipient: "cloud.near.ai",
+      },
+    });
+  });
+
+  it("maps a rejecting NEAR AI login to an error with its status", async () => {
+    const { client } = loginSetup(() =>
+      json(
+        {
+          error: "invalid_auth",
+          error_description: "NEAR authentication failed",
+        },
+        401,
+      ),
+    );
+
+    await expect(client.login(LOGIN_INPUT)).rejects.toMatchObject({
+      status: 401,
+      message: "NEAR AI could not sign in to NEAR AI Cloud (401: NEAR authentication failed)",
+    });
+  });
+
+  it("errors when a successful login returns no refresh token", async () => {
+    const { client } = loginSetup(() => json({ access_token: "jwt" }));
+
+    await expect(client.login(LOGIN_INPUT)).rejects.toThrow("without returning a refresh token");
   });
 });

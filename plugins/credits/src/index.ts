@@ -6,13 +6,7 @@ import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { type Context, ContextSchema } from "./lib/context";
 import type { PluginsClient } from "./lib/plugins-client.gen";
-import {
-  CreditService,
-  CreditServiceLive,
-  clientIp,
-  creditEligibility,
-  parseCreditsConfig,
-} from "./services/credits";
+import { CreditService, CreditServiceLive, clientIp, creditEligibility } from "./services/credits";
 
 function attempt<A>(run: () => Promise<A>) {
   return Effect.tryPromise({
@@ -31,13 +25,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   secrets: z.object({
     CREDITS_DATABASE_URL: z.string().default("pglite:.bos/credits/:memory:"),
-    CREDITS_ENABLED: z.string().default(""),
-    CREDITS_AMOUNT_USD: z.string().default(""),
-    CREDITS_CLAIMS_CLOSE_AT: z.string().default(""),
-    CREDITS_KEY_EXPIRES_AT: z.string().default(""),
-    NEARAI_CREDITS_REFRESH_TOKEN: z.string().default(""),
-    NEARAI_CREDITS_USER_AGENT: z.string().default(""),
-    NEARAI_CREDITS_WORKSPACE_ID: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -46,17 +33,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const creditsConfig = parseCreditsConfig(config.secrets);
-      if (creditsConfig.enabled && creditsConfig.problems.length > 0) {
-        yield* Effect.logError(
-          `[Credits] Credit claims are enabled but misconfigured: ${creditsConfig.problems.join("; ")}`,
-        );
-      } else {
-        yield* Effect.logInfo(
-          `[Credits] Credit claims: ${creditsConfig.enabled ? "enabled" : "disabled"}`,
-        );
-      }
-      return CreditServiceLive(creditsConfig).pipe(Layer.provide(DatabaseLive(config)));
+      yield* Effect.logInfo(
+        "[Credits] Credit claims read their configuration from the credits_settings table",
+      );
+      return CreditServiceLive().pipe(Layer.provide(DatabaseLive(config)));
     }),
 
   createRouter: (builder, plugins) => {
@@ -123,6 +103,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
       revokeCreditClaim: builder.revokeCreditClaim.use(requireAdmin).effect(function* ({ input }) {
         const credits = yield* CreditService;
         return yield* attempt(() => credits.revokeClaim(input.id));
+      }),
+
+      getCreditSettings: builder.getCreditSettings.use(requireAdmin).effect(function* () {
+        const credits = yield* CreditService;
+        return yield* attempt(() => credits.getSettings());
+      }),
+
+      updateCreditSettings: builder.updateCreditSettings.use(requireAdmin).effect(function* ({
+        context,
+        input,
+      }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() => credits.updateSettings(input, context.userId));
+      }),
+
+      nearAiSessionStatus: builder.nearAiSessionStatus.use(requireAdmin).effect(function* () {
+        const credits = yield* CreditService;
+        return yield* attempt(() => credits.nearAiSessionStatus());
+      }),
+
+      loginNearAi: builder.loginNearAi.use(requireAdmin).effect(function* ({ input }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() => credits.loginNearAi(input));
       }),
     };
   },

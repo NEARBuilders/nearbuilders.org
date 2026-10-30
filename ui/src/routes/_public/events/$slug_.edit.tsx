@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { Save } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { Input } from "@/components";
@@ -144,10 +144,12 @@ function EditEventForm({ event, isAdmin }: { event: EventRecord; isAdmin: boolea
   const [lumaUrl, setLumaUrl] = useState(event.lumaUrl ?? "");
   const [visibility, setVisibility] = useState<Visibility>(event.visibility);
   const [status, setStatus] = useState<Status>(event.status);
-  const [startAt, setStartAt] = useState(toDateTimeLocalValue(new Date(event.startAt)));
-  const [endAt, setEndAt] = useState(
-    event.endAt ? toDateTimeLocalValue(new Date(event.endAt)) : "",
-  );
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  useEffect(() => {
+    setStartAt(toDateTimeLocalValue(new Date(event.startAt)));
+    setEndAt(event.endAt ? toDateTimeLocalValue(new Date(event.endAt)) : "");
+  }, [event.endAt, event.startAt]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {

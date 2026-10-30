@@ -3,8 +3,13 @@ import {
   buildTimelineEvents,
   calendarSourceId,
   type EventRecord,
+  formatEventDate,
   formatEventTimeRange,
+  groupEventsByDay,
   type LumaEvent,
+  type LumaTimelineEvent,
+  UTC_EVENT_TIME_FORMAT,
+  viewerEventTimeFormat,
 } from "./event-sources";
 
 const internalEvent: EventRecord = {
@@ -154,7 +159,7 @@ describe("formatEventTimeRange", () => {
       ...timeOptions,
       timeZone,
     });
-    const formatted = formatEventTimeRange(event);
+    const formatted = formatEventTimeRange(event, viewerEventTimeFormat());
 
     expect(formatted.startsWith(`${start} - ${end}`)).toBe(true);
     expect(formatted).not.toMatch(/GMT[+-]\d/);
@@ -167,10 +172,63 @@ describe("formatEventTimeRange", () => {
       ...timeOptions,
       timeZone,
     });
-    const formatted = formatEventTimeRange(event);
+    const formatted = formatEventTimeRange(event, viewerEventTimeFormat());
 
     expect(formatted.startsWith(start)).toBe(true);
     expect(formatted.length).toBeGreaterThan(start.length);
     expect(formatted).not.toMatch(/GMT[+-]\d/);
   });
+
+  it("formats deterministically in fixed UTC/en-US for stable server rendering", () => {
+    const event = {
+      startAt: "2026-08-01T12:00:00.000Z",
+      endAt: "2026-08-01T13:00:00.000Z",
+    };
+    expect(formatEventTimeRange(event, UTC_EVENT_TIME_FORMAT)).toBe("12:00 PM - 1:00 PM UTC");
+    const startOnly = { startAt: "2026-08-01T12:00:00.000Z", endAt: null };
+    expect(formatEventTimeRange(startOnly, UTC_EVENT_TIME_FORMAT)).toBe("12:00 PM UTC");
+  });
+
+  it("groups events by day in the requested time zone without locale drift", () => {
+    const groups = groupEventsByDay(
+      [lumaTimelineEvent("2026-08-01T23:30:00.000Z")],
+      UTC_EVENT_TIME_FORMAT,
+      "2026-08-01T12:00:00.000Z",
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      key: "2026-08-01",
+      primaryLabel: "Today",
+      secondaryLabel: "Saturday",
+    });
+    expect(groups[0]?.events[0]?.startAt).toBe("2026-08-01T23:30:00.000Z");
+  });
+
+  it("formats the event date deterministically in fixed UTC/en-US", () => {
+    expect(formatEventDate({ startAt: "2026-08-01T12:00:00.000Z" }, UTC_EVENT_TIME_FORMAT)).toBe(
+      "Saturday, August 1, 2026",
+    );
+  });
+
+  it("labels non-relative days in the fixed locale", () => {
+    const groups = groupEventsByDay(
+      [lumaTimelineEvent("2026-08-01T12:00:00.000Z")],
+      UTC_EVENT_TIME_FORMAT,
+      "2026-07-30T00:00:00.000Z",
+    );
+
+    expect(groups[0]).toMatchObject({ key: "2026-08-01", primaryLabel: "Aug 1" });
+  });
 });
+
+function lumaTimelineEvent(startAt: string): LumaTimelineEvent {
+  const event = lumaEvent("cal-a", "luma-1", "https://lu.ma/luma-1");
+  event.startAt = startAt;
+  return {
+    ...event,
+    key: "luma:cal-a:luma-1",
+    source: "luma",
+    sourceIds: [calendarSourceId("cal-a")],
+  };
+}
