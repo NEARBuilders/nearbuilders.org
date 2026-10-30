@@ -340,7 +340,7 @@ export function createCreditMethods(
         amountCents: window.amountCents,
         keyExpiresAt: window.keyExpiresAt,
       });
-      const name = keyName(row.id);
+      const name = keyName(input.nearAccountId, row.id);
       let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
@@ -425,7 +425,7 @@ export function createCreditMethods(
         await revokeWithKeys((client) => client.revokeKey(row.keyId!));
       } else {
         await revokeWithKeys(async (client) => {
-          const orphan = await client.findKeyByName(keyName(row.id));
+          const orphan = await client.findKeyByName(keyName(row.nearAccountId, row.id));
           if (orphan?.isActive) await client.revokeKey(orphan.id);
         });
       }
@@ -441,8 +441,8 @@ function isUniqueViolation(error: unknown): boolean {
   return false;
 }
 
-function keyName(claimId: string) {
-  return `nearbuilders-credit-${claimId}`;
+function keyName(nearAccountId: string, claimId: string) {
+  return `${nearAccountId}-nearbuilders-credit-${claimId}`;
 }
 
 function claimStatus(row: CreditClaimRow, now: Date): CreditClaimRow["status"] | "expired" {
