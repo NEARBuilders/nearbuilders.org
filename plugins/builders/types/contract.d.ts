@@ -1,5 +1,26 @@
 import "@orpc/openapi/extensions/route";
 import { z } from "zod";
+export declare const preferredContactEnum: z.ZodEnum<{
+    Discord: "Discord";
+    Email: "Email";
+    Telegram: "Telegram";
+    Website: "Website";
+    X: "X";
+}>;
+export declare const builderCatalogSchema: z.ZodObject<{
+    preferredContact: z.ZodOptional<z.ZodEnum<{
+        Discord: "Discord";
+        Email: "Email";
+        Telegram: "Telegram";
+        Website: "Website";
+        X: "X";
+    }>>;
+    organization: z.ZodOptional<z.ZodString>;
+    team: z.ZodOptional<z.ZodString>;
+    jobTitle: z.ZodOptional<z.ZodString>;
+    publicEmail: z.ZodOptional<z.ZodString>;
+    avatarUrl: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
 export declare const contract: {
     createTelegramNomination: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         headers: z.ZodObject<{
@@ -550,6 +571,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -584,6 +619,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -597,6 +646,49 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    getBuildersByUserIds: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        userIds: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            nearAccount: z.ZodString;
+            userId: z.ZodNullable<z.ZodString>;
+            name: z.ZodNullable<z.ZodString>;
+            bio: z.ZodNullable<z.ZodString>;
+            skills: z.ZodArray<z.ZodString>;
+            location: z.ZodNullable<z.ZodString>;
+            links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
+            withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, {
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
     getMyBuilderProfile: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         data: z.ZodNullable<z.ZodObject<{
             id: z.ZodString;
@@ -607,6 +699,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -635,6 +741,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -670,6 +790,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -703,6 +837,20 @@ export declare const contract: {
         skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
         location: z.ZodOptional<z.ZodString>;
         links: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        catalog: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            preferredContact: z.ZodOptional<z.ZodEnum<{
+                Discord: "Discord";
+                Email: "Email";
+                Telegram: "Telegram";
+                Website: "Website";
+                X: "X";
+            }>>;
+            organization: z.ZodOptional<z.ZodString>;
+            team: z.ZodOptional<z.ZodString>;
+            jobTitle: z.ZodOptional<z.ZodString>;
+            publicEmail: z.ZodOptional<z.ZodString>;
+            avatarUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
@@ -713,6 +861,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
@@ -756,6 +918,20 @@ export declare const contract: {
         skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
         location: z.ZodOptional<z.ZodString>;
         links: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        catalog: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            preferredContact: z.ZodOptional<z.ZodEnum<{
+                Discord: "Discord";
+                Email: "Email";
+                Telegram: "Telegram";
+                Website: "Website";
+                X: "X";
+            }>>;
+            organization: z.ZodOptional<z.ZodString>;
+            team: z.ZodOptional<z.ZodString>;
+            jobTitle: z.ZodOptional<z.ZodString>;
+            publicEmail: z.ZodOptional<z.ZodString>;
+            avatarUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
             id: z.ZodString;
@@ -766,6 +942,20 @@ export declare const contract: {
             skills: z.ZodArray<z.ZodString>;
             location: z.ZodNullable<z.ZodString>;
             links: z.ZodNullable<z.ZodRecord<z.ZodString, z.ZodString>>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                preferredContact: z.ZodOptional<z.ZodEnum<{
+                    Discord: "Discord";
+                    Email: "Email";
+                    Telegram: "Telegram";
+                    Website: "Website";
+                    X: "X";
+                }>>;
+                organization: z.ZodOptional<z.ZodString>;
+                team: z.ZodOptional<z.ZodString>;
+                jobTitle: z.ZodOptional<z.ZodString>;
+                publicEmail: z.ZodOptional<z.ZodString>;
+                avatarUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             withdrawnAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
