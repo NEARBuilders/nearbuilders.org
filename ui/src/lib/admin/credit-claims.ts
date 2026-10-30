@@ -58,11 +58,11 @@ export function claimCardCopy({
   switch (existing?.status) {
     case "issued":
       title = `${formatUsd(existing.spendLimitUsd)} NEAR AI Cloud credits claimed`;
-      description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}`;
+      description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
       break;
     case "expired":
       title = "Your NEAR AI Cloud key has expired";
-      description = `Key ${existing.keyPrefix ?? ""} expired ${new Date(existing.keyExpiresAt).toLocaleDateString()}. Each builder can claim credits once.`;
+      description = `Key ${existing.keyPrefix ?? ""} expired ${existing.keyExpiresAt ? new Date(existing.keyExpiresAt).toLocaleDateString() : ""}. Each builder can claim credits once.`;
       break;
     case "revoked":
       title = "Your NEAR AI Cloud key was revoked";

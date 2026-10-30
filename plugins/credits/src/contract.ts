@@ -19,7 +19,7 @@ export const CreditClaimSchema = z.object({
   status: z.enum(["pending", "issued", "expired", "failed", "revoked"]),
   keyPrefix: z.string().nullable(),
   spendLimitUsd: z.number().positive(),
-  keyExpiresAt: z.iso.datetime(),
+  keyExpiresAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 

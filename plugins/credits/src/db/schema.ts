@@ -19,7 +19,7 @@ export const creditClaims = pgTable(
     status: text("status", { enum: creditClaimStatuses }).notNull(),
     attempt: integer("attempt").default(1).notNull(),
     spendLimitCents: integer("spend_limit_cents").notNull(),
-    keyExpiresAt: timestamp("key_expires_at", { mode: "date", withTimezone: true }).notNull(),
+    keyExpiresAt: timestamp("key_expires_at", { mode: "date", withTimezone: true }),
     keyId: text("key_id"),
     keyPrefix: text("key_prefix"),
     ip: text("ip"),

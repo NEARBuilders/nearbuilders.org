@@ -89,6 +89,14 @@ export function validateSettings(input: SettingsInput):
 
   if (problems.length > 0) return { ok: false, problems, invalidFields };
 
+  if (input.enabled && !input.nearAiWorkspaceId.trim()) {
+    return {
+      ok: false,
+      problems: ["Open claims require a NEAR AI workspace ID"],
+      invalidFields: ["nearAiWorkspaceId"],
+    };
+  }
+
   return {
     ok: true,
     values: {

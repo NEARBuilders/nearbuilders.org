@@ -6,7 +6,7 @@ function claimPick(
     status: "pending" | "issued" | "failed" | "revoked" | "expired";
     keyPrefix: string | null;
     createdAt: string;
-    keyExpiresAt: string;
+    keyExpiresAt: string | null;
     spendLimitUsd: number;
   }> = {},
 ) {
@@ -98,6 +98,14 @@ describe("claimCardCopy", () => {
       existing: claimPick({ status, spendLimitUsd: 5 }),
     });
     expect(`${copy.title} ${copy.description}`).toContain(fragment);
+  });
+
+  it("says when a claimed key has no expiry", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      existing: claimPick({ status: "issued", keyExpiresAt: null }),
+    });
+    expect(copy.description).toContain("no expiry");
   });
 
   it("a pending claim tells the truth while it cannot be retried", () => {
