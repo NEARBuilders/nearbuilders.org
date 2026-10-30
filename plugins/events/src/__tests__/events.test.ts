@@ -97,4 +97,36 @@ describe("event moderation permissions", () => {
       visibility: "public",
     });
   });
+
+  it("keeps member-created events private until reviewed", async () => {
+    const member = loaded.createClient({
+      userId: "member-user",
+      near: testNear("member.near"),
+      user: testUser("member-user", "member"),
+    });
+    const created = await member.createEvent({
+      title: "Member event",
+      slug: "member-event",
+      visibility: "public",
+      startAt: "2026-08-02T12:00:00.000Z",
+    });
+    expect(created.visibility).toBe("private");
+    await expect(member.updateEvent({ id: created.id, visibility: "public" })).rejects.toThrow(
+      "requires admin approval",
+    );
+    const renamed = await member.updateEvent({ id: created.id, title: "Renamed event" });
+    expect(renamed.visibility).toBe("private");
+
+    const withoutNear = loaded.createClient({
+      userId: "plain-user",
+      user: testUser("plain-user", "member"),
+    });
+    await expect(
+      withoutNear.createEvent({
+        title: "No account",
+        slug: "no-account",
+        startAt: "2026-08-03T12:00:00.000Z",
+      }),
+    ).rejects.toThrow("Link a NEAR account");
+  });
 });

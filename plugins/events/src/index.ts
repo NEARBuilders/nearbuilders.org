@@ -65,6 +65,9 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
+    const allowsPublicVisibility = (context: object) =>
+      (context as { allowPublicVisibility?: boolean }).allowPublicVisibility === true;
+
     const getAlternateOwnerId = (context: {
       userId?: string | null;
       near?: { primaryAccountId?: string | null };
@@ -239,9 +242,19 @@ export default createPlugin({
 
       createEvent: builder.createEvent.use(requireAuth).effect(function* ({ input, context }) {
         const event = yield* EventService;
+        const isAdmin = context.user.role === "admin";
+        if (!isAdmin && !context.near?.primaryAccountId) {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Link a NEAR account to create content" }),
+          );
+        }
+        const visibility =
+          isAdmin || input.visibility !== "public" || allowsPublicVisibility(context)
+            ? input.visibility
+            : "private";
         return yield* runEvent(
           event.createEvent(
-            input,
+            { ...input, visibility },
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
@@ -262,6 +275,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
+            allowsPublicVisibility(context),
           ),
         ).pipe(
           Effect.mapError((error) =>
@@ -279,7 +293,9 @@ export default createPlugin({
         input,
       }) {
         const event = yield* EventService;
-        return yield* runEvent(event.updateEvent(input.id, input, input.ownerId, undefined));
+        return yield* runEvent(
+          event.updateEvent(input.id, input, input.ownerId, undefined, undefined, true),
+        );
       }),
 
       deleteEvent: builder.deleteEvent.use(requireAuth).effect(function* ({

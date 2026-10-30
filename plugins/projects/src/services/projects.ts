@@ -932,6 +932,13 @@ export const ProjectServiceLive = Layer.effect(
             );
 
             if (existingById) {
+              if (userRole !== "admin" && existingById.ownerId !== effectiveOwnerId) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", {
+                    message: "A project with this id already exists",
+                  }),
+                );
+              }
               return mapProject(existingById);
             }
           }

@@ -196,7 +196,17 @@ export default createPlugin({
     return {
       startActivityRegistration: builder.startActivityRegistration
         .use(requireAuth)
-        .effect(function* ({ input }) {
+        .effect(function* ({ input, context }) {
+          const coreCall =
+            (context as typeof context & { activityRegistration?: boolean })
+              .activityRegistration === true;
+          if (!coreCall) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Register Activity from the project page",
+              }),
+            );
+          }
           const { registration } = yield* ActivityIntegrations;
           return yield* Effect.promise(async () => {
             if (!registration) {

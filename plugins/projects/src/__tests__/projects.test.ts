@@ -70,6 +70,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const privateProject = await owner.createProject({
       kind: "idea",
@@ -98,6 +99,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const admin = loaded.createClient({
       userId: "admin-user",
@@ -135,6 +137,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const admin = loaded.createClient({
       userId: "admin-user",
@@ -184,6 +187,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const member = loaded.createClient({
       userId: "member-user",
@@ -215,6 +219,45 @@ describe("projects router visibility", () => {
       (await owner.listProjects({ ownerId: "owner.near" })).data.map((project) => project.id),
     ).toContain(unlisted.id);
   });
+
+  it("keeps member-created projects private unless the caller allows public", async () => {
+    const member = loaded.createClient({
+      userId: "member-user",
+      near: testNear("member.near"),
+      user: testUser("member-user", "member"),
+    });
+    const created = await member.createProject({
+      kind: "idea",
+      title: "Member idea",
+      slug: "member-idea",
+      content: "Member content",
+      visibility: "public",
+    });
+    expect(created.visibility).toBe("private");
+
+    await expect(
+      member.createProject({
+        id: privateProjectId,
+        kind: "idea",
+        title: "Copy",
+        slug: "copy-idea",
+        content: "Copy",
+      }),
+    ).rejects.toThrow("already exists");
+
+    const withoutNear = loaded.createClient({
+      userId: "plain-user",
+      user: testUser("plain-user", "member"),
+    });
+    await expect(
+      withoutNear.createProject({
+        kind: "idea",
+        title: "No account",
+        slug: "no-account-idea",
+        content: "Content",
+      }),
+    ).rejects.toThrow("Link a NEAR account");
+  });
 });
 
 describe("project identity fields", () => {
@@ -227,6 +270,7 @@ describe("project identity fields", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
 
   beforeAll(async () => {
@@ -533,6 +577,7 @@ describe("project collaborators", () => {
     userId: "owner-user",
     near: testNear("owner.near"),
     user: testUser("owner-user", "member"),
+    allowPublicVisibility: true,
   });
   const collabCtx = () => ({
     userId: "collab-user",
