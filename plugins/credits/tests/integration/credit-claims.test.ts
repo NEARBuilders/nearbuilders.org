@@ -228,7 +228,7 @@ describe("Credit claims", () => {
       (request) => request.url.endsWith("/api-keys") && request.method === "POST",
     );
     expect(create?.body).toEqual({
-      name: `nearbuilders-credit-${claimed.claim.id}`,
+      name: `alice.near-nearbuilders-credit-${claimed.claim.id}`,
       expires_at: "2999-02-01T00:00:00.000Z",
       spendLimit: { amount: 5_000_000_000, currency: "USD" },
     });
@@ -454,7 +454,7 @@ describe("Credit claims", () => {
       (request) => request.url.endsWith("/api-keys") && request.method === "POST",
     );
     expect(create?.body).toEqual({
-      name: `nearbuilders-credit-${claimed.claim.id}`,
+      name: `alice.near-nearbuilders-credit-${claimed.claim.id}`,
       spendLimit: { amount: 5_000_000_000, currency: "USD" },
     });
 
