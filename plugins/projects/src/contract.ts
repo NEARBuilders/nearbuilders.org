@@ -166,6 +166,7 @@ export const contract = oc.router({
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         repository: z.string().url().max(500).optional(),
         ownerId: z.string().optional(),
+        organizationId: z.string().nullable().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
       }),

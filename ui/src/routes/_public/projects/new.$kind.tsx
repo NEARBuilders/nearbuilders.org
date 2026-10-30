@@ -32,6 +32,7 @@ import {
   approvalSettingsQueryOptions,
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
+import { requireTeamArea } from "@/lib/team-workspace";
 import { cn } from "@/lib/utils";
 
 const LAST_KIND_KEY = "projects:last-kind";
@@ -45,6 +46,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   content: "",
   visibility: "public" as const,
   ownerId: "",
+  organizationId: "",
   domain: "",
   logoUrl: "",
   collaborators: [],
@@ -67,6 +69,7 @@ export const Route = createFileRoute("/_public/projects/new/$kind")({
     if (!session?.user) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    await requireTeamArea({ context, location });
   },
   head: () => ({
     meta: pageHead({
@@ -154,6 +157,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         content: values.content?.trim() || undefined,
         visibility: submitForReview ? "private" : values.visibility,
         ownerId: isAdmin ? values.ownerId?.trim() || defaultOwnerId || undefined : undefined,
+        organizationId: values.organizationId?.trim() || undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
         collaborators: collaborators.length > 0 ? collaborators : undefined,

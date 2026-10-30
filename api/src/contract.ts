@@ -1589,6 +1589,7 @@ export const contract = oc.router({
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         repository: z.string().url().max(500).optional(),
         ownerId: z.string().optional(),
+        organizationId: z.string().nullable().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
       }),
@@ -1837,6 +1838,16 @@ export const contract = oc.router({
     .input(z.object({ nearAccount: z.string() }))
     .output(z.object({ data: BuilderOutput }))
     .errors({ NOT_FOUND }),
+
+  getBuildersByUserIds: oc
+    .route({ method: "GET", path: "/v1/builders/by-user-ids" })
+    .input(
+      z.object({
+        userIds: z.array(z.string().min(1)).max(200),
+      }),
+    )
+    .output(z.object({ data: z.array(BuilderOutput) }))
+    .errors({ BAD_REQUEST }),
 
   getBuilderStats: oc
     .route({ method: "GET", path: "/v1/builders/{nearAccount}/stats" })

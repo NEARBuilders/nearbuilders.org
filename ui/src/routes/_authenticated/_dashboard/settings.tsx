@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated/_dashboard/settings")({
 });
 
 const tabs = [
+  { value: "workspace", to: "/settings/workspace", label: "Workspace" },
   { value: "profile", to: "/settings/profile", label: "Account" },
   { value: "auth-methods", to: "/settings/auth-methods", label: "Auth Methods" },
   { value: "api-keys", to: "/settings/api-keys", label: "API Keys" },
@@ -35,7 +36,7 @@ function SettingsLayout() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Manage your account details, sign-in methods, API keys, and security.
+            Manage your workspace, account details, sign-in methods, API keys, and security.
           </p>
         </div>
 
