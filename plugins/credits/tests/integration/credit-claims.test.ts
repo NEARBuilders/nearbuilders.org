@@ -208,6 +208,7 @@ describe("Credit claims", () => {
 
     await expect(alice.getCreditStatus({})).resolves.toEqual({
       available: true,
+      statusReason: null,
       amountUsd: 5,
       claimsCloseAt: "2999-01-01T00:00:00.000Z",
       eligibility: "eligible",
@@ -298,7 +299,10 @@ describe("Credit claims", () => {
     await enable(admin, { enabled: false });
     const alice = client(userContext("alice-user", "alice.near"));
 
-    await expect(alice.getCreditStatus({})).resolves.toMatchObject({ available: false });
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      available: false,
+      statusReason: "not_enabled",
+    });
     await expect(alice.claimCredits({})).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "Credit claims are not enabled",
@@ -311,7 +315,10 @@ describe("Credit claims", () => {
     await enable(admin, { claimsCloseAt: "2000-01-01T00:00:00Z" });
     const alice = client(userContext("alice-user", "alice.near"));
 
-    await expect(alice.getCreditStatus({})).resolves.toMatchObject({ available: false });
+    await expect(alice.getCreditStatus({})).resolves.toMatchObject({
+      available: false,
+      statusReason: "closed",
+    });
     await expect(alice.claimCredits({})).rejects.toMatchObject({
       code: "FORBIDDEN",
       message: "Credit claims are closed",
@@ -324,6 +331,7 @@ describe("Credit claims", () => {
 
     await expect(alice.getCreditStatus({})).resolves.toMatchObject({
       available: false,
+      statusReason: "not_configured",
       amountUsd: 0,
     });
     await expect(alice.claimCredits({})).rejects.toMatchObject({

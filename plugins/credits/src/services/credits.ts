@@ -61,7 +61,7 @@ type CreditClaimRow = typeof creditClaims.$inferSelect;
 const STALE_PENDING_MS = 2 * 60_000;
 
 type ClaimWindow =
-  | { open: false; reason: string }
+  | { open: false; reason: string; statusReason: "not_enabled" | "not_configured" | "closed" }
   | {
       open: true;
       keys: NearAiKeyClient;
@@ -99,6 +99,7 @@ export function createCreditMethods(
         row,
         window: {
           open: false,
+          statusReason: row ? "not_enabled" : "not_configured",
           reason: !row ? "Credit claims are not configured" : "Credit claims are not enabled",
         },
       };
@@ -106,11 +107,21 @@ export function createCreditMethods(
     const amount = validateAmountCents(Number(row.amountUsd));
     const workspaceId = row.nearAiWorkspaceId.trim();
     if (!workspaceId || !amount.ok || !row.keyExpiresAt) {
-      return { row, window: { open: false, reason: "Credit claims are not configured" } };
+      return {
+        row,
+        window: {
+          open: false,
+          statusReason: "not_configured",
+          reason: "Credit claims are not configured",
+        },
+      };
     }
     const current = now();
     if ((row.claimsCloseAt && current >= row.claimsCloseAt) || current >= row.keyExpiresAt) {
-      return { row, window: { open: false, reason: "Credit claims are closed" } };
+      return {
+        row,
+        window: { open: false, statusReason: "closed", reason: "Credit claims are closed" },
+      };
     }
     return {
       row,
@@ -242,6 +253,7 @@ export function createCreditMethods(
       const claim = nearAccountId ? await findClaim(nearAccountId) : null;
       return {
         available: window.open,
+        statusReason: window.open ? null : window.statusReason,
         amountUsd: row ? Number(row.amountUsd) : 0,
         claimsCloseAt: row?.claimsCloseAt?.toISOString() ?? null,
         eligibility,

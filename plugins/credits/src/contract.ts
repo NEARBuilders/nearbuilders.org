@@ -77,6 +77,8 @@ export const CreditEligibilitySchema = z.enum([
   "needs_approved_profile",
 ]);
 
+export const CreditWindowReasonSchema = z.enum(["not_enabled", "not_configured", "closed"]);
+
 export const contract = oc.router({
   getCreditStatus: oc
     .route({ method: "GET", path: "/v1/credits/status" })
@@ -84,6 +86,7 @@ export const contract = oc.router({
     .output(
       z.object({
         available: z.boolean(),
+        statusReason: CreditWindowReasonSchema.nullable(),
         amountUsd: z.number().min(0),
         claimsCloseAt: z.iso.datetime().nullable(),
         eligibility: CreditEligibilitySchema,
