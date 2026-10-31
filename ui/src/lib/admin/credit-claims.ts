@@ -7,6 +7,10 @@ export function formatUsd(amount: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
 }
 
+export function creditStatusQueryKey(userId: string, nearAccountId: string) {
+  return ["credit-status", userId, nearAccountId] as const;
+}
+
 export function windowCopy(
   statusReason: NonNullable<CreditStatus["statusReason"]>,
   claimsCloseAt: string | null,

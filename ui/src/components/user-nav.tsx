@@ -33,8 +33,7 @@ export function UserNav({ className }: { className?: string }) {
       await auth.near.disconnect().catch(() => {});
     },
     onSuccess: async () => {
-      queryClient.setQueryData(["session"], null);
-      await queryClient.invalidateQueries({ queryKey: ["session"] });
+      queryClient.clear();
       navigate({ to: "/", replace: true });
     },
     onError: (error: Error) => {

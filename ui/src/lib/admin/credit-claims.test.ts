@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRetry, claimCardCopy } from "./credit-claims";
+import { canRetry, claimCardCopy, creditStatusQueryKey } from "./credit-claims";
 
 function claimPick(
   overrides: Partial<{
@@ -132,5 +132,14 @@ describe("canRetry", () => {
     expect(canRetry(true, "eligible")).toBe(true);
     expect(canRetry(false, "eligible")).toBe(false);
     expect(canRetry(true, "needs_approved_profile")).toBe(false);
+  });
+});
+
+describe("creditStatusQueryKey", () => {
+  it("scopes the cache by signed-in user and NEAR account", () => {
+    const base = creditStatusQueryKey("user-1", "efiz.near");
+    expect(creditStatusQueryKey("user-1", "efiz.near")).toEqual(base);
+    expect(creditStatusQueryKey("user-2", "efiz.near")).not.toEqual(base);
+    expect(creditStatusQueryKey("user-1", "work.efiz.near")).not.toEqual(base);
   });
 });
