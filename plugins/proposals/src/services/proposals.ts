@@ -152,6 +152,7 @@ export class ProposalService extends Context.Service<
       actorId: string;
       actor?: { name?: string; email?: string };
       resubmissionPolicy?: ResubmissionPolicy;
+      canResubmitForOthers?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     approve: (input: {
       pluginId: string;
@@ -407,6 +408,19 @@ export const ProposalServiceLive = Layer.effect(
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
                 message: "A lifecycle action is already in progress",
+              }),
+            );
+          }
+
+          if (
+            existing &&
+            existing.createdBy !== input.actorId &&
+            !input.resubmissionPolicy &&
+            !input.canResubmitForOthers
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the original submitter can resubmit this proposal",
               }),
             );
           }

@@ -103,5 +103,22 @@ export default App({
         clientName: "nearbuilders.org",
       },
     },
+    storage: {
+      extends: "bos://nearbuilding.near/feedback.nearbuilders.org#plugins.storage",
+      ui: false,
+      variables: {
+        allowedContentTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+        maxUploadBytes: 5242880,
+      },
+      secrets: [
+        "STORAGE_DATABASE_URL",
+        "STORAGE_ENDPOINT",
+        "STORAGE_BUCKET",
+        "STORAGE_REGION",
+        "STORAGE_PUBLIC_URL",
+        "STORAGE_ACCESS_KEY_ID",
+        "STORAGE_SECRET_ACCESS_KEY",
+      ],
+    },
   },
 });
