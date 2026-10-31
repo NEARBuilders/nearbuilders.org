@@ -1,4 +1,5 @@
 import "@orpc/openapi/extensions/route";
+import { cityNodeFilterSchema, cityNodeKeySchema } from "@everything-dev/builders-plugin/city-node";
 import { eventIterator, oc } from "@orpc/contract";
 import {
   BAD_REQUEST,
@@ -123,6 +124,16 @@ const XNominationInput = z
     },
   );
 
+const CityNodeOutput = z.object({
+  key: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  kind: z.string(),
+  parentKey: z.string().nullable(),
+  parentId: z.string().nullable(),
+  depth: z.number().int().nonnegative(),
+});
+
 const BuilderCatalog = z.object({
   preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]).optional(),
   organization: z.string().trim().max(100).optional(),
@@ -153,6 +164,7 @@ const BuilderProfileSubmissionInput = z.object({
   skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
+  cityNode: cityNodeKeySchema.optional(),
   catalog: BuilderCatalog.optional(),
 });
 
@@ -669,6 +681,7 @@ const ProjectOutput = z.object({
   repository: z.string().nullable(),
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
+  cityNode: z.string().nullable(),
   catalog: ProjectCatalog.nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -774,6 +787,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  cityNode: z.string().nullable(),
   catalog: BuilderCatalog.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
@@ -854,6 +868,17 @@ export const contract = oc.router({
   getApprovalSettings: oc.route({ method: "GET", path: "/approval/settings" }).output(
     z.object({
       requireAdminApproval: z.boolean(),
+    }),
+  ),
+
+  listCityNodes: oc.route({ method: "GET", path: "/v1/city-nodes" }).output(
+    z.object({
+      data: z.array(CityNodeOutput),
+      meta: z.object({
+        baseUrl: z.string(),
+        available: z.boolean(),
+        fetchedAt: z.iso.datetime().nullable(),
+      }),
     }),
   ),
 
@@ -1737,6 +1762,7 @@ export const contract = oc.router({
         query: z.string().trim().max(200).optional(),
         sort: z.enum(["newest", "oldest"]).optional(),
         slugs: z.string().max(10_100).optional(),
+        cityNode: cityNodeFilterSchema,
         limit: z.coerce.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -1772,6 +1798,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        cityNode: cityNodeKeySchema.nullable().optional(),
         catalog: ProjectCatalog.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
@@ -1839,6 +1866,7 @@ export const contract = oc.router({
         organizationId: z.string().nullable().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        cityNode: cityNodeKeySchema.nullable().optional(),
         catalog: ProjectCatalog.nullable().optional(),
       }),
     )
@@ -2065,6 +2093,7 @@ export const contract = oc.router({
       z.object({
         search: z.string().optional(),
         skill: z.string().optional(),
+        cityNode: cityNodeFilterSchema,
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -2131,6 +2160,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
         catalog: BuilderCatalog.nullable().optional(),
       }),
     )

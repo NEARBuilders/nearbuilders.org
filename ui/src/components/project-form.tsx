@@ -27,6 +27,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useAuthClient } from "@/app";
 import { Input } from "@/components";
+import { CityNodePicker } from "@/components/city-node-picker";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { ProjectCatalogFields } from "@/components/project-catalog-fields";
@@ -918,6 +919,21 @@ export function ProjectFormLayout({
                     creatorMode && isFieldVisible("logoUrl"),
                   )}
                 />
+              )}
+            </form.Field>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+            <FieldLabel htmlFor="cityNode">City node</FieldLabel>
+            <form.Field name="cityNode">
+              {(field: any) => (
+                <div className="mt-3">
+                  <CityNodePicker
+                    id="cityNode"
+                    value={field.state.value ?? ""}
+                    onChange={(value) => field.handleChange(value)}
+                  />
+                </div>
               )}
             </form.Field>
           </section>

@@ -27,6 +27,7 @@ import {
   createCatalogListings,
   isSystemActor,
 } from "./services/catalog-listings";
+import { createCityNodeDirectory } from "./services/city-nodes";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -167,6 +168,7 @@ class ApiServices extends EffectContext.Service<
   ApiServices,
   {
     reviewEvaluation: ReturnType<typeof createReviewEvaluationSweep>;
+    cityNodes: ReturnType<typeof createCityNodeDirectory>;
     chiefBotUsername: string;
     requireAdminApproval: boolean;
   }
@@ -199,6 +201,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       .string()
       .regex(/^[A-Za-z0-9_]*$/)
       .default(""),
+    cityNodeUrl: z.url().default("https://citynode.app"),
   }),
 
   secrets: z.object({
@@ -250,6 +253,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
             return {
               reviewEvaluation,
+              cityNodes: createCityNodeDirectory({ baseUrl: config.variables.cityNodeUrl }),
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
             };
@@ -270,6 +274,13 @@ export default createPlugin.withPlugins<PluginEntries>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const assertKnownCityNode = async (
+      context: Parameters<typeof apiServices>[0],
+      key: string | null | undefined,
+    ) => {
+      const error = await apiServices(context).cityNodes.assertKnown(key);
+      if (error) throw new ORPCError("BAD_REQUEST", { message: error });
+    };
     const catalogListings = services.catalogListings;
     const syncCatalogListing = async (
       kind: CatalogListingKind,
@@ -652,6 +663,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
+          await assertKnownCityNode(context, input.cityNode);
           assertPreferredContact(input.catalog, input.links);
           const proposalInput = {
             pluginId: "builders",
@@ -663,6 +675,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
               skills: tags.skills,
               location: tags.location,
               links: input.links,
+              cityNode: input.cityNode,
               catalog: input.catalog,
             },
             source: nomination?.source ?? "web",
@@ -1224,6 +1237,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
           }
         }),
 
+      listCityNodes: builder.listCityNodes.handler(async ({ context }) => {
+        return await apiServices(context).cityNodes.list();
+      }),
+
       listProjects: builder.listProjects.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjects(input);
       }),
@@ -1237,6 +1254,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCityNode(context, input.cityNode);
         await assertKnownCatalogCategories(input.catalog?.categories);
         const visibility = enforceContentCreationVisibility(
           context.user,
@@ -1272,6 +1290,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCityNode(context, input.cityNode);
         await assertKnownCatalogCategories(input.catalog?.categories);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
@@ -1479,6 +1498,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
+          await assertKnownCityNode(context, input.cityNode);
           const updated = await services.plugins.builders(context).updateBuilderProfile(input);
           await syncCatalogListing("person", updated.data.nearAccount, context);
           return updated;

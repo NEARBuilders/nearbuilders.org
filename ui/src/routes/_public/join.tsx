@@ -337,6 +337,7 @@ function BuilderProfileForm({
         bio: values.bio.trim(),
         skills: parseBuilderSkills(values.skills),
         location: normalizeLocation(values.location) ?? undefined,
+        cityNode: values.cityNode || undefined,
         links: composeLinks(values.links),
         catalog: builderCatalogFromFormValues(values.catalog) ?? undefined,
       }),
@@ -360,6 +361,7 @@ function BuilderProfileForm({
       bio: socialProfile?.description ?? "",
       skills: "",
       location: "",
+      cityNode: "",
       links: initialFormLinks(undefined, {
         ...(socialProfile?.linktree ?? {}),
         ...(nominationSource === "x" && referralContext?.nomineeXUsername

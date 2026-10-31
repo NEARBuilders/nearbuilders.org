@@ -71,6 +71,13 @@
       "when": 1793000000000,
       "tag": "0009_project_catalog_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0010_project_city_node",
+      "breakpoints": true
     }
   ]
 }

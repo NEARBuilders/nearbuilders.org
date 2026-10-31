@@ -126,6 +126,7 @@ const createCallbacks: Record<string, CreateCallback> = {
         payload.links && typeof payload.links === "object" && !Array.isArray(payload.links)
           ? (payload.links as Record<string, string>)
           : undefined,
+      cityNode: readString(payload.cityNode),
       catalog: readObject<BuilderCatalogInput>(payload.catalog),
     });
     return result.data.nearAccount;
@@ -178,6 +179,7 @@ const createCallbacks: Record<string, CreateCallback> = {
       organizationId: readString(payload.organizationId),
       domain: readString(payload.domain),
       logoUrl: readString(payload.logoUrl),
+      cityNode: readString(payload.cityNode),
       catalog: readObject<ProjectCatalogInput>(payload.catalog),
     });
     assertProjectProposalOwner(result.ownerId, ownerId);

@@ -113,6 +113,7 @@ export interface Builder {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  cityNode: string | null;
   catalog: BuilderCatalogMetadata | null;
   withdrawnAt: string | null;
   createdAt: string;
@@ -149,6 +150,7 @@ function rowToBuilder(row: any): Builder {
     skills: parseSkills(row.skills),
     location: row.location ?? null,
     links: parseLinks(row.links),
+    cityNode: row.cityNode ?? null,
     catalog: normalizeBuilderCatalog(row.catalog),
     withdrawnAt: row.withdrawnAt ? toIsoString(row.withdrawnAt) : null,
     createdAt: toIsoString(row.createdAt),
@@ -328,6 +330,7 @@ export class BuilderService extends Context.Service<
     listBuilders: (input: {
       search?: string;
       skill?: string;
+      cityNode?: string;
       limit?: number;
       cursor?: string;
     }) => Effect.Effect<
@@ -365,6 +368,7 @@ export class BuilderService extends Context.Service<
       skills?: string[];
       location?: string;
       links?: Record<string, string>;
+      cityNode?: string | null;
       catalog?: BuilderCatalogMetadata | null;
     }) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
@@ -376,6 +380,7 @@ export class BuilderService extends Context.Service<
         skills?: string[];
         location?: string;
         links?: Record<string, string>;
+        cityNode?: string | null;
         catalog?: BuilderCatalogMetadata | null;
       },
       userId: string,
@@ -480,6 +485,10 @@ export const BuilderServiceLive = Layer.effect(
 
           if (input.skill) {
             conditions.push(ilike(builders.skills, `%${input.skill}%`));
+          }
+
+          if (input.cityNode) {
+            conditions.push(eq(builders.cityNode, input.cityNode));
           }
 
           const whereClause = and(...conditions);
@@ -592,6 +601,7 @@ export const BuilderServiceLive = Layer.effect(
                     tags.skills !== undefined ? serializeSkills(tags.skills) : existing.skills,
                   location: tags.location !== undefined ? tags.location : existing.location,
                   links: input.links !== undefined ? serializeLinks(input.links) : existing.links,
+                  cityNode: input.cityNode !== undefined ? input.cityNode : existing.cityNode,
                   catalog,
                   updatedAt: now,
                 })
@@ -635,6 +645,7 @@ export const BuilderServiceLive = Layer.effect(
               skills: serializeSkills(tags.skills),
               location: tags.location ?? null,
               links: serializeLinks(input.links),
+              cityNode: input.cityNode ?? null,
               catalog,
               createdAt: now,
               updatedAt: now,
@@ -652,6 +663,7 @@ export const BuilderServiceLive = Layer.effect(
             skills: tags.skills ?? [],
             location: tags.location ?? null,
             links: input.links && Object.keys(input.links).length > 0 ? input.links : null,
+            cityNode: input.cityNode ?? null,
             catalog,
             withdrawnAt: null,
             createdAt: toIsoString(now),
@@ -697,6 +709,7 @@ export const BuilderServiceLive = Layer.effect(
           if (tags.skills !== undefined) updates.skills = serializeSkills(tags.skills);
           if (tags.location !== undefined) updates.location = tags.location;
           if (input.links !== undefined) updates.links = serializeLinks(input.links);
+          if (input.cityNode !== undefined) updates.cityNode = input.cityNode;
           if (input.catalog !== undefined) updates.catalog = normalizeBuilderCatalog(input.catalog);
 
           const contactError = preferredContactError(

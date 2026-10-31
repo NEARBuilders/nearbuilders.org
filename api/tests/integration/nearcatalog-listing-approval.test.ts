@@ -88,6 +88,7 @@ function catalogProject(overrides: Record<string, unknown> = {}) {
     repository: "https://github.com/example/lantern-pay",
     domain: "lantern.example.com",
     logoUrl: "https://lantern.example.com/logo.png",
+    cityNode: null,
     catalog: {
       tagline: "Payments for small shops",
       categories: ["payment"],
@@ -111,6 +112,7 @@ function catalogBuilder(overrides: Record<string, unknown> = {}) {
     skills: ["TypeScript"],
     location: null,
     links: { telegram: "https://t.me/robinmaker" },
+    cityNode: null,
     catalog: {
       preferredContact: "Telegram",
       organization: "Lantern",

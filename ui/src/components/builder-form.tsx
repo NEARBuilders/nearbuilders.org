@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApiClient } from "@/app";
+import { CityNodePicker } from "@/components/city-node-picker";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export type BuilderFormValues = {
   bio: string;
   skills: string;
   location: string;
+  cityNode: string;
   links: Record<string, string>;
   catalog: BuilderCatalogFormValues;
 };
@@ -82,6 +84,7 @@ function useExistingSkillTags(): string[] {
 
 export function BuilderFormFields({ form, required = false }: { form: any; required?: boolean }) {
   const skillsRaw = useStore(form.store, (s: any) => s.values.skills ?? "");
+  const location = useStore(form.store, (s: any) => s.values.location ?? "");
   const skills = parseBuilderSkills(skillsRaw);
   const existingSkills = useExistingSkillTags();
 
@@ -148,6 +151,20 @@ export function BuilderFormFields({ form, required = false }: { form: any; requi
           }}
         </form.Field>
       </div>
+
+      <form.Field name="cityNode">
+        {(field: any) => (
+          <div className="space-y-1.5">
+            <Label htmlFor="cityNode">City node</Label>
+            <CityNodePicker
+              id="cityNode"
+              value={field.state.value ?? ""}
+              onChange={(value) => field.handleChange(value)}
+              location={location}
+            />
+          </div>
+        )}
+      </form.Field>
 
       <form.Field
         name="bio"
