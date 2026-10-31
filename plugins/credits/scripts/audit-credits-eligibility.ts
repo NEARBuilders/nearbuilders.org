@@ -31,10 +31,7 @@ function parseArgs(argv: string[]) {
   };
 }
 
-async function openDatabase(
-  _name: string,
-  url: string | undefined,
-): Promise<Client | null> {
+async function openDatabase(_name: string, url: string | undefined): Promise<Client | null> {
   if (!url) return null;
   const client = new Client({ connectionString: url });
   await client.connect();
