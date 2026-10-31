@@ -12,6 +12,7 @@ import {
   resolveProjectProposalOwner,
 } from "../lib/project-proposal-owner";
 import { readString, readStringArray, requireObjectPayload } from "../lib/utils";
+import { CATALOG_LISTING_PLUGIN_ID, createCatalogListings } from "./catalog-listings";
 
 type ProposalData = Pick<
   z.infer<typeof ProposalSchema>,
@@ -225,13 +226,27 @@ const createCallbacks: Record<string, CreateCallback> = {
     return result.id;
   },
   [CATALOG_CLAIM_PLUGIN_ID]: applyCatalogClaimProposal,
+  [CATALOG_LISTING_PLUGIN_ID]: (plugins, proposal, context) =>
+    createCatalogListings(plugins).apply(proposal, context),
 };
+
+async function syncRemovedListing(
+  plugins: Omit<PluginsClient, "auth">,
+  kind: "project" | "person",
+  entityId: string,
+  context: Context,
+) {
+  await createCatalogListings(plugins)
+    .sync(kind, entityId, context)
+    .catch((error) => console.error("[NearCatalog] Listing sync after removal failed:", error));
+}
 
 const removeCallbacks: Record<string, RemoveCallback> = {
   builders: async (plugins, proposal, context) => {
     await plugins.builders(context).deleteBuilder({
       nearAccount: proposal.entityId,
     });
+    await syncRemovedListing(plugins, "person", proposal.entityId, context);
   },
   projects: async (plugins, proposal, context) => {
     const projectId = proposal.appliedResourceId ?? proposal.entityId;
@@ -246,6 +261,7 @@ const removeCallbacks: Record<string, RemoveCallback> = {
     } catch (error) {
       if (!isNotFoundError(error)) throw error;
     }
+    await syncRemovedListing(plugins, "project", projectId, context);
   },
   events: async (plugins, proposal, context) => {
     const eventId = proposal.appliedResourceId ?? proposal.entityId;
@@ -267,6 +283,9 @@ const removeCallbacks: Record<string, RemoveCallback> = {
     if (revoked.data.activityEventId) {
       await plugins.activity(context).hideActivity({ id: revoked.data.activityEventId });
     }
+  },
+  [CATALOG_LISTING_PLUGIN_ID]: async (plugins, proposal) => {
+    await createCatalogListings(plugins).remove(proposal);
   },
 };
 

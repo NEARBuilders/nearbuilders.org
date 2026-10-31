@@ -2,7 +2,7 @@ import type { ApiClient } from "@/app";
 import type { XNominationGroup } from "@/lib/x-nomination-queue";
 
 type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
-type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
+type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog" | "nearcatalog-listing";
 type ProposalReviewStatus = ProposalRecord["reviewStatus"];
 
 export type ProposalExportOptions = {
@@ -107,6 +107,7 @@ const TYPE_HEADERS: Record<ProposalPluginId, string[]> = {
     "ownerId",
   ],
   nearcatalog: ["nearAccount", "projectSlug", "roles"],
+  "nearcatalog-listing": ["kind", "entityId", "ownerId", "slug", "title", "record"],
 };
 
 function getCommonRow(proposal: ProposalRecord): unknown[] {

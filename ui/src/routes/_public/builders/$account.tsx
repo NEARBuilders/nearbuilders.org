@@ -19,9 +19,11 @@ import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
 import { BuilderProfileStats } from "@/components/builder-profile-stats";
+import { CatalogListingPanel } from "@/components/catalog-listing-panel";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
+import { CatalogListedBadge } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -332,6 +334,25 @@ function LoadedProfile({
 
       {isOwner && <LegacySocialImportPrompt profile={profile} className="mb-6" />}
 
+      <ClientOnly>
+        {isOwner && !builder.withdrawnAt && (
+          <div className="mb-6">
+            <CatalogListingPanel
+              target={{ kind: "person" }}
+              visible={isOwner}
+              version={builder.updatedAt}
+              editAction={
+                <Button asChild size="sm" variant="outline" className="w-fit">
+                  <Link to="/builders/$account/edit" params={{ account }}>
+                    Edit profile
+                  </Link>
+                </Button>
+              }
+            />
+          </div>
+        )}
+      </ClientOnly>
+
       <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
         <div
           // oxlint-disable-next-line shadcn/no-arbitrary-values -- near.social banners are 1500x500 (3:1); no Tailwind aspect scale token matches
@@ -418,6 +439,7 @@ function LoadedProfile({
                     <CheckCircle2 className="size-3" />
                     Approved
                   </Badge>
+                  <CatalogListedBadge kind="person" entityId={account} linked />
                   {activeProposal && (
                     <Badge
                       variant="secondary"

@@ -3,6 +3,7 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import {
   Activity,
   AtSign,
+  BookCheck,
   CalendarDays,
   CircleAlert,
   FolderKanban,
@@ -30,6 +31,7 @@ const TAB_ICONS: Record<(typeof ADMIN_TABS)[number]["icon"], typeof Hammer> = {
   FolderKanban,
   CalendarDays,
   Activity,
+  BookCheck,
   AtSign,
   Send,
   KeyRound,

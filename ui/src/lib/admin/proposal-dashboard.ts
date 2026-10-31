@@ -2,7 +2,12 @@ import type { ApiClient } from "@/app";
 
 export type ProposalRecord = Awaited<ReturnType<ApiClient["getProposals"]>>["data"][number];
 export type ProposalAuditEntry = Awaited<ReturnType<ApiClient["getAuditLog"]>>["data"][number];
-export type ProposalPluginId = "builders" | "projects" | "events" | "nearcatalog";
+export type ProposalPluginId =
+  | "builders"
+  | "projects"
+  | "events"
+  | "nearcatalog"
+  | "nearcatalog-listing";
 export type ProposalReviewStatus = ProposalRecord["reviewStatus"];
 export type DashboardStatus = "all" | ProposalReviewStatus;
 
@@ -35,6 +40,7 @@ export type AdminTab =
   | "projects"
   | "events"
   | "activity"
+  | "catalog"
   | "x-nominations"
   | "telegram"
   | "credits";
@@ -67,6 +73,13 @@ export const ADMIN_TABS = [
     to: "/admin/dashboard/activity",
     pluginId: "nearcatalog" as ProposalPluginId,
     icon: "Activity" as const,
+  },
+  {
+    value: "catalog",
+    label: "NEAR Catalog",
+    to: "/admin/dashboard/catalog",
+    pluginId: "nearcatalog-listing" as ProposalPluginId,
+    icon: "BookCheck" as const,
   },
   {
     value: "x-nominations",
@@ -130,6 +143,10 @@ export function getProposalTitle(proposal: ProposalRecord): string {
   return readString(payload.title) ?? proposal.entityId;
 }
 
+export function getCatalogListingRecord(proposal: ProposalRecord): Record<string, unknown> {
+  return readPayload(readPayload(proposal.payload).record);
+}
+
 export function getProposalDescriptor(proposal: ProposalRecord): string {
   const payload = readPayload(proposal.payload);
   if (proposal.pluginId === "builders") {
@@ -142,6 +159,14 @@ export function getProposalDescriptor(proposal: ProposalRecord): string {
   if (proposal.pluginId === "events") {
     return readString(payload.location) ?? readString(payload.slug) ?? "Event proposal";
   }
+  if (proposal.pluginId === "nearcatalog-listing") {
+    const record = getCatalogListingRecord(proposal);
+    return (
+      readString(record.oneliner) ??
+      readString(record.organization) ??
+      (payload.kind === "person" ? "Builder profile" : "Project")
+    );
+  }
   return readStringArray(payload.roles).join(", ") || "NearCatalog contribution";
 }
 
@@ -149,12 +174,15 @@ export function getProposalTypeLabel(proposal: ProposalRecord): string {
   const payload = readPayload(proposal.payload);
   if (proposal.pluginId === "projects") return getProjectKind(payload.kind);
   if (proposal.pluginId === "nearcatalog") return "NearCatalog";
+  if (proposal.pluginId === "nearcatalog-listing") {
+    return readPayload(proposal.payload).kind === "person" ? "Catalog person" : "Catalog project";
+  }
   if (proposal.pluginId === "events") return "Event";
   return "Builder";
 }
 
 export function hasCanonicalPage(proposal: ProposalRecord): boolean {
-  return proposal.pluginId !== "nearcatalog";
+  return proposal.pluginId !== "nearcatalog" && proposal.pluginId !== "nearcatalog-listing";
 }
 
 export type ProposalState = {
@@ -218,12 +246,17 @@ export function formatAuditAction(entry: ProposalAuditEntry, pluginId: ProposalP
   if (entry.action === "apply_retried") return "Application retried";
   if (entry.action === "approval_revocation_started") return "Revocation started";
   if (entry.action === "removal_retried") return "Revocation retried";
-  if (entry.action === "applied") return pluginId === "nearcatalog" ? "Verified" : "Made public";
+  if (entry.action === "applied") {
+    if (pluginId === "nearcatalog") return "Verified";
+    if (pluginId === "nearcatalog-listing") return "Approved for NEAR Catalog";
+    return "Made public";
+  }
   if (entry.action === "approval_revoked") return "Approval revoked";
   if (entry.action === "removed") {
     if (!isSystemAuditEntry(entry)) return "Approval revoked";
     if (pluginId === "builders") return "Removed from directory";
     if (pluginId === "nearcatalog") return "Verification removed";
+    if (pluginId === "nearcatalog-listing") return "Taken off NEAR Catalog";
     return "Made private";
   }
   if (entry.action === "apply_failed") return "Publishing failed";

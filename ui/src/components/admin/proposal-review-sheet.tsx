@@ -44,6 +44,7 @@ import {
   formatDateTime,
   getAuditActor,
   getAuditDetail,
+  getCatalogListingRecord,
   getProjectKind,
   getProposalState,
   getProposalTitle,
@@ -64,6 +65,7 @@ function getCategoryLabel(pluginId: string) {
   if (pluginId === "builders") return "Builder proposal";
   if (pluginId === "projects") return "Project proposal";
   if (pluginId === "events") return "Event proposal";
+  if (pluginId === "nearcatalog-listing") return "NEAR Catalog listing";
   return "Activity claim";
 }
 
@@ -76,6 +78,9 @@ function getRevocationDescription(proposal: ProposalRecord) {
   }
   if (proposal.pluginId === "events") {
     return "This makes the event private.";
+  }
+  if (proposal.pluginId === "nearcatalog-listing") {
+    return "This takes the record out of the NEAR Catalog export.";
   }
   return "This removes the verified Catalog contribution.";
 }
@@ -193,7 +198,88 @@ function ProposalDestination({ proposal }: { proposal: ProposalRecord }) {
       </Button>
     );
   }
+  if (proposal.pluginId === "nearcatalog-listing") {
+    const link = readString(payload.link);
+    if (!link?.startsWith("/")) return null;
+    return (
+      <Button asChild size="sm" variant="outline" className="h-10 sm:h-8">
+        <a href={link}>
+          {payload.kind === "person" ? "View builder" : "View project"}
+          <ArrowUpRight />
+        </a>
+      </Button>
+    );
+  }
   return null;
+}
+
+function CatalogRecordValue({ value }: { value: unknown }) {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? (
+      <span className="flex flex-wrap gap-1.5">
+        {value.map((item) => (
+          <Badge key={String(item)} variant="secondary" className="rounded-full">
+            {String(item)}
+          </Badge>
+        ))}
+      </span>
+    ) : (
+      <span className="text-muted-foreground">empty</span>
+    );
+  }
+  if (value && typeof value === "object") {
+    return (
+      <span className="block space-y-1">
+        {Object.entries(value).map(([key, nested]) => (
+          <span key={key} className="block break-all">
+            <span className="text-muted-foreground">{key}: </span>
+            {String(nested)}
+          </span>
+        ))}
+      </span>
+    );
+  }
+  const text = typeof value === "string" ? value : String(value ?? "");
+  return text ? (
+    <span className="whitespace-pre-wrap break-words">{text}</span>
+  ) : (
+    <span className="text-muted-foreground">empty</span>
+  );
+}
+
+function CatalogListingPreview({ proposal }: { proposal: ProposalRecord }) {
+  const payload = readPayload(proposal.payload);
+  const record = getCatalogListingRecord(proposal);
+  const image = readString(record.logo) ?? readString(record.avatar);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        This is the exact record the NEAR Catalog export will publish once you approve it, using
+        NEAR Catalog's field names.
+      </p>
+      {isSafeImageUrl(image) && (
+        <img
+          src={image ?? undefined}
+          alt=""
+          className="size-12 rounded-md border border-border object-cover"
+        />
+      )}
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+        <MetadataItem label="Kind" value={payload.kind === "person" ? "Person" : "Project"} />
+        <MetadataItem label="Catalog slug" value={readString(payload.slug) ?? "none"} mono />
+      </div>
+      <dl className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        {Object.entries(record).map(([field, value]) => (
+          <div key={field} className="grid gap-1 px-4 py-2.5 text-sm sm:grid-cols-3">
+            <dt className="font-mono text-xs text-muted-foreground">{field}</dt>
+            <dd className="min-w-0 text-foreground sm:col-span-2">
+              <CatalogRecordValue value={value} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 }
 
 function readStringRecord(value: unknown): Record<string, string> {
@@ -306,6 +392,10 @@ function ProposalContent({
         )}
       </div>
     );
+  }
+
+  if (proposal.pluginId === "nearcatalog-listing") {
+    return <CatalogListingPreview proposal={proposal} />;
   }
 
   if (proposal.pluginId === "nearcatalog") {
