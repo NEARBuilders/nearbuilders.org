@@ -1,5 +1,37 @@
 import "@orpc/openapi/extensions/route";
 import { z } from "zod";
+export declare const catalogPhaseEnum: z.ZodEnum<{
+    inactive: "inactive";
+    mainnet: "mainnet";
+    prototype: "prototype";
+    "still building": "still building";
+    testnet: "testnet";
+}>;
+export declare const CATALOG_LINK_KEYS: readonly ["twitter", "telegram", "discord", "github", "medium", "whitepaper", "nearsocial", "linkedin", "youtube"];
+export declare const projectCatalogSchema: z.ZodObject<{
+    tagline: z.ZodOptional<z.ZodString>;
+    categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    phase: z.ZodOptional<z.ZodEnum<{
+        inactive: "inactive";
+        mainnet: "mainnet";
+        prototype: "prototype";
+        "still building": "still building";
+        testnet: "testnet";
+    }>>;
+    links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+        discord: "discord";
+        github: "github";
+        linkedin: "linkedin";
+        medium: "medium";
+        nearsocial: "nearsocial";
+        telegram: "telegram";
+        twitter: "twitter";
+        whitepaper: "whitepaper";
+        youtube: "youtube";
+    }> & z.core.$partial, z.ZodString>>;
+    tokenContract: z.ZodOptional<z.ZodString>;
+    coingeckoId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
 export declare const contract: {
     listProjects: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         organizationId: z.ZodOptional<z.ZodString>;
@@ -57,6 +89,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -108,6 +164,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
             apps: z.ZodArray<z.ZodObject<{
@@ -173,6 +253,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
             apps: z.ZodArray<z.ZodObject<{
@@ -230,6 +334,30 @@ export declare const contract: {
         ownerId: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
         logoUrl: z.ZodOptional<z.ZodString>;
+        catalog: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
         collaborators: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
@@ -258,6 +386,30 @@ export declare const contract: {
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
         logoUrl: z.ZodNullable<z.ZodString>;
+        catalog: z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
         collaborators: z.ZodOptional<z.ZodArray<z.ZodObject<{
@@ -330,8 +482,33 @@ export declare const contract: {
         }>>;
         repository: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
+        organizationId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         domain: z.ZodOptional<z.ZodString>;
         logoUrl: z.ZodOptional<z.ZodString>;
+        catalog: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         ownerId: z.ZodString;
@@ -359,6 +536,30 @@ export declare const contract: {
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
         logoUrl: z.ZodNullable<z.ZodString>;
+        catalog: z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>, {
@@ -425,6 +626,30 @@ export declare const contract: {
         repository: z.ZodOptional<z.ZodString>;
         domain: z.ZodOptional<z.ZodString>;
         logoUrl: z.ZodOptional<z.ZodString>;
+        catalog: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>, z.ZodObject<{
         id: z.ZodString;
         ownerId: z.ZodString;
@@ -452,6 +677,30 @@ export declare const contract: {
         repository: z.ZodNullable<z.ZodString>;
         domain: z.ZodNullable<z.ZodString>;
         logoUrl: z.ZodNullable<z.ZodString>;
+        catalog: z.ZodNullable<z.ZodObject<{
+            tagline: z.ZodOptional<z.ZodString>;
+            categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            phase: z.ZodOptional<z.ZodEnum<{
+                inactive: "inactive";
+                mainnet: "mainnet";
+                prototype: "prototype";
+                "still building": "still building";
+                testnet: "testnet";
+            }>>;
+            links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                discord: "discord";
+                github: "github";
+                linkedin: "linkedin";
+                medium: "medium";
+                nearsocial: "nearsocial";
+                telegram: "telegram";
+                twitter: "twitter";
+                whitepaper: "whitepaper";
+                youtube: "youtube";
+            }> & z.core.$partial, z.ZodString>>;
+            tokenContract: z.ZodOptional<z.ZodString>;
+            coingeckoId: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
         createdAt: z.ZodISODateTime;
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>, {
@@ -642,6 +891,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -688,6 +961,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -730,6 +1027,30 @@ export declare const contract: {
             repository: z.ZodNullable<z.ZodString>;
             domain: z.ZodNullable<z.ZodString>;
             logoUrl: z.ZodNullable<z.ZodString>;
+            catalog: z.ZodNullable<z.ZodObject<{
+                tagline: z.ZodOptional<z.ZodString>;
+                categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                phase: z.ZodOptional<z.ZodEnum<{
+                    inactive: "inactive";
+                    mainnet: "mainnet";
+                    prototype: "prototype";
+                    "still building": "still building";
+                    testnet: "testnet";
+                }>>;
+                links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                    discord: "discord";
+                    github: "github";
+                    linkedin: "linkedin";
+                    medium: "medium";
+                    nearsocial: "nearsocial";
+                    telegram: "telegram";
+                    twitter: "twitter";
+                    whitepaper: "whitepaper";
+                    youtube: "youtube";
+                }> & z.core.$partial, z.ZodString>>;
+                tokenContract: z.ZodOptional<z.ZodString>;
+                coingeckoId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>>;
             createdAt: z.ZodISODateTime;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -969,6 +1290,30 @@ export declare const contract: {
                 repository: z.ZodNullable<z.ZodString>;
                 domain: z.ZodNullable<z.ZodString>;
                 logoUrl: z.ZodNullable<z.ZodString>;
+                catalog: z.ZodNullable<z.ZodObject<{
+                    tagline: z.ZodOptional<z.ZodString>;
+                    categories: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                    phase: z.ZodOptional<z.ZodEnum<{
+                        inactive: "inactive";
+                        mainnet: "mainnet";
+                        prototype: "prototype";
+                        "still building": "still building";
+                        testnet: "testnet";
+                    }>>;
+                    links: z.ZodOptional<z.ZodRecord<z.ZodEnum<{
+                        discord: "discord";
+                        github: "github";
+                        linkedin: "linkedin";
+                        medium: "medium";
+                        nearsocial: "nearsocial";
+                        telegram: "telegram";
+                        twitter: "twitter";
+                        whitepaper: "whitepaper";
+                        youtube: "youtube";
+                    }> & z.core.$partial, z.ZodString>>;
+                    tokenContract: z.ZodOptional<z.ZodString>;
+                    coingeckoId: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>;
                 createdAt: z.ZodISODateTime;
                 updatedAt: z.ZodISODateTime;
             }, z.core.$strip>;

@@ -95,14 +95,24 @@ export function buildTimelineEvents(
     );
 }
 
+export type EventTimeFormat = {
+  timeZone: string;
+  locale?: Intl.LocalesArgument;
+};
+
+export const UTC_EVENT_TIME_FORMAT: EventTimeFormat = {
+  timeZone: "UTC",
+  locale: "en-US",
+};
+
+export function viewerEventTimeFormat(): EventTimeFormat {
+  return { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+}
+
 const EVENT_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: "numeric",
   minute: "2-digit",
 };
-
-function viewerTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
 
 function zoneNameFromParts(
   date: Date,
@@ -121,36 +131,112 @@ function isOffsetZoneLabel(value: string) {
   return /^(GMT|UTC)([+-]|$)/i.test(value) || /^[+-]\d/.test(value);
 }
 
-function namedZoneFromLongLabel(date: Date, timeZone: string) {
-  const longName = zoneNameFromParts(date, timeZone, { timeZoneName: "long" }, "en-US");
+function namedZoneFromLongLabel(date: Date, timeZone: string, locale: string) {
+  const longName = zoneNameFromParts(date, timeZone, { timeZoneName: "long" }, locale);
   if (!longName || isOffsetZoneLabel(longName) || /\d/.test(longName)) return "";
   const initials = longName.match(/\b[A-Z]/g);
   if (!initials || initials.length < 2 || initials.length > 5) return "";
   return initials.join("");
 }
 
-function formatLocalTime(date: Date, timeZone: string) {
-  return date.toLocaleTimeString(undefined, { ...EVENT_TIME_OPTIONS, timeZone });
+function formatLocalTime(date: Date, format: EventTimeFormat): string {
+  return new Intl.DateTimeFormat(format.locale, {
+    ...EVENT_TIME_OPTIONS,
+    timeZone: format.timeZone,
+  }).format(date);
 }
 
-function formatLocalTimeZone(date: Date, timeZone: string) {
-  for (const locale of [undefined, "en-IN", "en-GB", "en-US"] as const) {
-    const shortName = zoneNameFromParts(date, timeZone, { timeZoneName: "short" }, locale);
+function formatLocalTimeZone(date: Date, format: EventTimeFormat) {
+  const zone = format.timeZone;
+  if (!zone.includes("/") && /^(GMT|UTC)$/i.test(zone)) return zone.toUpperCase();
+  for (const locale of [format.locale, "en-IN", "en-GB", "en-US"] as const) {
+    const shortName = zoneNameFromParts(date, zone, { timeZoneName: "short" }, locale);
     if (shortName && !isOffsetZoneLabel(shortName)) return shortName;
   }
   return (
-    namedZoneFromLongLabel(date, timeZone) ||
-    zoneNameFromParts(date, timeZone, { timeZoneName: "short" })
+    namedZoneFromLongLabel(date, zone, "en-US") ||
+    zoneNameFromParts(date, zone, { timeZoneName: "short" }, format.locale)
   );
 }
 
-export function formatEventTimeRange(event: Pick<TimelineEvent, "startAt" | "endAt">) {
-  const timeZone = viewerTimeZone();
+export function formatEventTimeRange(
+  event: Pick<TimelineEvent, "startAt" | "endAt">,
+  format: EventTimeFormat,
+) {
   const start = new Date(event.startAt);
   const end = event.endAt ? new Date(event.endAt) : null;
   const range = end
-    ? `${formatLocalTime(start, timeZone)} - ${formatLocalTime(end, timeZone)}`
-    : formatLocalTime(start, timeZone);
-  const zone = formatLocalTimeZone(start, timeZone);
+    ? `${formatLocalTime(start, format)} - ${formatLocalTime(end, format)}`
+    : formatLocalTime(start, format);
+  const zone = formatLocalTimeZone(start, format);
   return zone ? `${range} ${zone}` : range;
+}
+
+export function formatEventDate(event: { startAt: string }, format: EventTimeFormat) {
+  return new Intl.DateTimeFormat(format.locale, {
+    timeZone: format.timeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(event.startAt));
+}
+
+export type EventDayGroupData = {
+  key: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  events: TimelineEvent[];
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function zonedDayKey(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function groupEventsByDay(
+  events: TimelineEvent[],
+  format: EventTimeFormat,
+  nowISO: string,
+): EventDayGroupData[] {
+  const groups: EventDayGroupData[] = [];
+  const index = new Map<string, EventDayGroupData>();
+  const now = new Date(nowISO);
+  const todayKey = zonedDayKey(now, format.timeZone);
+  const tomorrowKey = zonedDayKey(new Date(now.getTime() + DAY_MS), format.timeZone);
+  const dateLabel = new Intl.DateTimeFormat(format.locale, {
+    timeZone: format.timeZone,
+    month: "short",
+    day: "numeric",
+  });
+  const weekdayLabel = new Intl.DateTimeFormat(format.locale, {
+    timeZone: format.timeZone,
+    weekday: "long",
+  });
+  for (const event of events) {
+    const start = new Date(event.startAt);
+    const key = zonedDayKey(start, format.timeZone);
+    let group = index.get(key);
+    if (!group) {
+      group = {
+        key,
+        primaryLabel:
+          key === todayKey ? "Today" : key === tomorrowKey ? "Tomorrow" : dateLabel.format(start),
+        secondaryLabel: weekdayLabel.format(start),
+        events: [],
+      };
+      index.set(key, group);
+      groups.push(group);
+    }
+    group.events.push(event);
+  }
+  return groups;
 }

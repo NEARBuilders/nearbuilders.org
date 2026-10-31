@@ -16,16 +16,18 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { CalendarFilters } from "@/components/events/calendar-filters";
-import { EventDayGroup, type EventDayGroupData } from "@/components/events/event-day-group";
+import { EventDayGroup } from "@/components/events/event-day-group";
 import { LumaEventCard } from "@/components/events/luma-event-card";
 import { Button } from "@/components/ui/button";
+import { useClientValue, useEventTimeRange } from "@/hooks";
 import { useBookmark } from "@/lib/bookmarks";
 import {
   buildTimelineEvents,
   type EventRecord,
   type EventTab,
-  formatEventTimeRange,
-  type TimelineEvent,
+  groupEventsByDay,
+  UTC_EVENT_TIME_FORMAT,
+  viewerEventTimeFormat,
 } from "@/lib/events/event-sources";
 import { downloadIcsFile } from "@/lib/ics";
 import { pageHead, publicPages } from "@/lib/page-meta";
@@ -191,7 +193,16 @@ function EventsPage() {
       ),
     [disabledSourceIds, lumaEvents, past, tab, timeBoundary, upcoming],
   );
-  const dayGroups = useMemo(() => groupByDay(visibleEvents), [visibleEvents]);
+  const viewerTimeFormat = useMemo(() => viewerEventTimeFormat(), []);
+  const utcDayGroups = useMemo(
+    () => groupEventsByDay(visibleEvents, UTC_EVENT_TIME_FORMAT, timeBoundary),
+    [timeBoundary, visibleEvents],
+  );
+  const viewerDayGroups = useMemo(
+    () => groupEventsByDay(visibleEvents, viewerTimeFormat, timeBoundary),
+    [timeBoundary, viewerTimeFormat, visibleEvents],
+  );
+  const dayGroups = useClientValue(() => viewerDayGroups, utcDayGroups);
   const isLumaInitialLoading =
     lumaCalendarsQuery.isLoading ||
     (lumaCalendars.length > 0 &&
@@ -354,6 +365,7 @@ function EventCard({
   const participants = participantsQuery.data?.data ?? [];
   const visibleParticipants = participants.slice(0, 4);
   const extraParticipantCount = Math.max(0, event.participantCount - visibleParticipants.length);
+  const timeRange = useEventTimeRange(event);
   return (
     <div className="group relative rounded-lg border border-border bg-card transition-all duration-200 hover:shadow-lg">
       <div className="absolute right-4 top-3 z-10 flex items-center gap-1 sm:right-5">
@@ -431,7 +443,7 @@ function EventCard({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock size={12} className="shrink-0" />
-                {formatEventTimeRange(event)}
+                {timeRange}
               </span>
             </div>
             <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
@@ -619,41 +631,4 @@ function EventGroupsSkeleton() {
       ))}
     </div>
   );
-}
-
-function groupByDay(events: TimelineEvent[]): EventDayGroupData[] {
-  const groups: EventDayGroupData[] = [];
-  const index = new Map<string, EventDayGroupData>();
-  const now = new Date();
-  const today = startOfDay(now);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  for (const event of events) {
-    const start = new Date(event.startAt);
-    const key = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
-    let group = index.get(key);
-    if (!group) {
-      const eventDay = startOfDay(start);
-      const isToday = eventDay.getTime() === today.getTime();
-      const isTomorrow = eventDay.getTime() === tomorrow.getTime();
-      group = {
-        key,
-        primaryLabel: isToday
-          ? "Today"
-          : isTomorrow
-            ? "Tomorrow"
-            : start.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-        secondaryLabel: start.toLocaleDateString(undefined, { weekday: "long" }),
-        events: [],
-      };
-      index.set(key, group);
-      groups.push(group);
-    }
-    group.events.push(event);
-  }
-  return groups;
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

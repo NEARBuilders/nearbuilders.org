@@ -29,12 +29,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import {
   getNearSocialAvatarUrl,
   getNearSocialBannerUrl,
   type ResolvedNearProfile,
 } from "@/lib/near-social";
-import { activityFeedQueryOptions } from "@/lib/queries/activity";
+import {
+  builderActivityFilters,
+  builderOwnedProjectsOptions,
+  builderTeamProjectsOptions,
+  prefetchBuilderProfile,
+} from "@/lib/queries/builder-profile";
 import type { ProposalPayload } from "@/lib/queries/builders";
 import {
   builderDetailOptions,
@@ -44,56 +50,23 @@ import {
   upvoteCountsOptions,
   userVotesOptions,
 } from "@/lib/queries/builders";
-import { claimedCatalogProjectsQueryOptions } from "@/lib/queries/catalog";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { linkLabel, mergeSocialLinks } from "@/lib/social-links";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_public/builders/$account")({
   loader: async ({ params, context }) => {
-    const { queryClient, apiClient, session } = context;
-    const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
-
-    const builderResult = await queryClient
-      .fetchQuery(builderDetailOptions(apiClient, params.account))
-      .catch(() => null);
-
-    const proposalsResult = await queryClient
-      .fetchQuery(builderProposalsOptions(apiClient, params.account))
-      .catch(() => {
-        queryClient.resetQueries({ queryKey: ["proposals", "builders", params.account] });
-        return null;
-      });
-
-    const proposalsData = proposalsResult as { data?: { id: string }[] } | null;
-    const proposalIds = proposalsData?.data?.map((p) => p.id) ?? [];
-
-    await queryClient
-      .fetchQuery(nearProfileOptions(context.authClient, params.account))
-      .catch(() => {
-        queryClient.resetQueries({ queryKey: ["near-profile", params.account] });
-      });
-
-    await Promise.allSettled([
-      queryClient.prefetchInfiniteQuery(
-        activityFeedQueryOptions(apiClient, { actor: params.account }),
-      ),
-      queryClient.prefetchQuery(claimedCatalogProjectsQueryOptions(apiClient, params.account)),
-      queryClient.prefetchQuery(builderStatsOptions(apiClient, params.account)),
-    ]);
-
-    if (proposalIds.length > 0) {
-      await Promise.allSettled(
-        [
-          queryClient.prefetchQuery(upvoteCountsOptions(apiClient, proposalIds)),
-          isAuthenticated &&
-            queryClient.prefetchQuery(userVotesOptions(apiClient, proposalIds, true)),
-        ].filter(Boolean),
-      );
-    }
+    const { queryClient, apiClient, authClient, session } = context;
+    const builder = await prefetchBuilderProfile({
+      queryClient,
+      apiClient,
+      authClient,
+      account: params.account,
+      isAuthenticated: Boolean(session?.user && !session.user.isAnonymous),
+    });
 
     return {
-      builder: builderResult?.data ?? null,
+      builder,
       siteName: context.runtimeConfig?.runtime?.title ?? "NEAR Builders",
       siteUrl: getSiteUrl(context.runtimeConfig, `/builders/${params.account}`),
       imageUrl: getAssetUrl(context.runtimeConfig, "/metadata.png"),
@@ -300,15 +273,9 @@ function LoadedProfile({
   const apiClient = useApiClient();
   const [activeTab, setActiveTab] = useState<BuilderProfileTab>("projects");
 
-  const { data: projectsResult, isLoading: projectsLoading } = useQuery({
-    queryKey: ["builder-projects", account],
-    queryFn: () =>
-      apiClient.listProjects({
-        ownerId: account,
-        visibility: "public",
-        limit: 6,
-      }),
-  });
+  const { data: projectsResult, isLoading: projectsLoading } = useQuery(
+    builderOwnedProjectsOptions(apiClient, account),
+  );
 
   const {
     data: statsResult,
@@ -318,17 +285,12 @@ function LoadedProfile({
 
   const projects = projectsResult?.data ?? [];
 
-  const { data: teamProjectsResult, isLoading: teamProjectsLoading } = useQuery({
-    queryKey: ["builder-team-projects", account],
-    queryFn: () =>
-      apiClient.listProjects({
-        collaboratorId: account,
-        visibility: "public",
-        limit: 6,
-      }),
-  });
+  const { data: teamProjectsResult, isLoading: teamProjectsLoading } = useQuery(
+    builderTeamProjectsOptions(apiClient, account),
+  );
 
   const teamProjects = teamProjectsResult?.data ?? [];
+  const activityFilters = builderActivityFilters(account);
 
   const displayName = builder.name || profile?.name || account;
   const bio = builder.bio || profile?.description || null;
@@ -336,7 +298,7 @@ function LoadedProfile({
     .filter(Boolean)
     .join(" at ");
 
-  const avatarUrl = builder.catalog?.avatarUrl || getNearSocialAvatarUrl(profile);
+  const avatarUrl = resolveBuilderAvatarUrl(builder.catalog?.avatarUrl, profile);
   const backgroundUrl = getNearSocialBannerUrl(profile);
   const allLinks = mergeSocialLinks(profile?.linktree, builder.links);
 
@@ -599,7 +561,7 @@ function LoadedProfile({
             <TabsContent value="activity" className="mt-5">
               <TooltipProvider>
                 <ActivityFeed
-                  filters={{ actor: account }}
+                  filters={activityFilters}
                   emptyHint={`${displayName} has no activity yet.`}
                 />
               </TooltipProvider>
