@@ -5,7 +5,12 @@ import { useApiClient } from "@/app";
 import { ApiKeyReveal } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { canRetry, claimCardCopy, creditStatusQueryKey, formatUsd } from "@/lib/admin/credit-claims";
+import {
+  canRetry,
+  claimCardCopy,
+  creditStatusQueryKey,
+  formatUsd,
+} from "@/lib/admin/credit-claims";
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
