@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Shield, Trash2, User, UserCog } from "lucide-react";
+import { Mail, RefreshCw, Shield, Trash2, User } from "lucide-react";
 import type { ApiClient } from "@/app";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -67,27 +67,6 @@ export function MemberCard({
               >
                 <Shield className="h-3 w-3 mr-1" />
                 make owner
-              </Button>
-            )}
-            {member.role !== "admin" && (
-              <Button
-                onClick={() => onUpdateRole("admin")}
-                disabled={isUpdatingRole}
-                variant="outline"
-                size="sm"
-              >
-                <UserCog className="h-3 w-3 mr-1" />
-                make admin
-              </Button>
-            )}
-            {member.role !== "member" && (
-              <Button
-                onClick={() => onUpdateRole("member")}
-                disabled={isUpdatingRole}
-                variant="outline"
-                size="sm"
-              >
-                make member
               </Button>
             )}
           </div>

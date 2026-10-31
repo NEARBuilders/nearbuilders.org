@@ -9,6 +9,7 @@ import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
+  internalOrganizationCleanup?: boolean;
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
@@ -59,6 +60,13 @@ export default createPlugin({
         throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
       }
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
+    });
+
+    const requireInternalOrganizationCleanup = builder.middleware(async ({ context, next }) => {
+      if (context.internalOrganizationCleanup !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Internal organization cleanup required" });
+      }
+      return next({ context });
     });
 
     const getAlternateOwnerId = (context: {
@@ -253,6 +261,24 @@ export default createPlugin({
               }
               throw squashed;
             }
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: squashed instanceof Error ? squashed.message : String(squashed),
+            });
+          }
+
+          return exit.value;
+        }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireInternalOrganizationCleanup)
+        .handler(async ({ input }) => {
+          const exit = await Effect.runPromiseExit(
+            services.project.clearOrganizationAttribution(input.organizationId),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            if (squashed instanceof ORPCError) throw squashed;
             throw new ORPCError("INTERNAL_SERVER_ERROR", {
               message: squashed instanceof Error ? squashed.message : String(squashed),
             });

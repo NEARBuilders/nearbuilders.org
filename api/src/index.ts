@@ -205,6 +205,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const getOrganizationMember = async (context: Context, organizationId: string) => {
+      const organization = context.organization;
+      if (
+        !organization ||
+        organization.activeOrganizationId !== organizationId ||
+        !organization.member
+      ) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization access denied" });
+      }
+
+      return organization.member;
+    };
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
@@ -1100,6 +1112,60 @@ export default createPlugin.withPlugins<PluginsClient>()({
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {
         return await services.plugins.projects(context).deleteProject(input);
       }),
+
+      leaveOrganization: builder.leaveOrganization
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const member = await getOrganizationMember(context, input.organizationId);
+          if (member.role.split(",").includes("owner")) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Transfer ownership before leaving the organization",
+            });
+          }
+
+          if (!services.auth) {
+            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Auth service unavailable" });
+          }
+          const result = await services.auth(context).leaveOrganization({
+            organizationId: input.organizationId,
+          });
+          if (!result.success) {
+            throw new ORPCError("BAD_REQUEST", { message: "Organization leave was not completed" });
+          }
+          return { left: result.success };
+        }),
+
+      deleteOrganization: builder.deleteOrganization
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const member = await getOrganizationMember(context, input.organizationId);
+          if (!member.role.split(",").includes("owner")) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only an organization owner can delete it",
+            });
+          }
+
+          await services.plugins
+            .projects({
+              ...context,
+              internalOrganizationCleanup: true,
+            })
+            .clearOrganizationAttribution({ organizationId: input.organizationId });
+
+          if (!services.auth) {
+            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Auth service unavailable" });
+          }
+          const result = await services.auth(context).deleteOrganization({
+            organizationId: input.organizationId,
+          });
+          if (!result.success) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Organization deletion was not completed",
+            });
+          }
+
+          return { deleted: result.success };
+        }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjectsForApp(input);

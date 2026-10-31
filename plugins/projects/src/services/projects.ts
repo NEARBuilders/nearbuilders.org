@@ -360,6 +360,10 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
+    clearOrganizationAttribution: (
+      organizationId: string,
+    ) => Effect.Effect<{ cleared: number }, ORPCError<string, unknown>>;
+
     listProjectApps: (projectId: string) => Effect.Effect<ProjectApp[], ORPCError<string, unknown>>;
 
     linkAppToProject: (
@@ -1096,6 +1100,19 @@ export const ProjectServiceLive = Layer.effect(
           yield* Effect.promise(() => db.delete(projects).where(eq(projects.id, id)));
 
           return { deleted: true };
+        }),
+
+      clearOrganizationAttribution: (organizationId) =>
+        Effect.gen(function* () {
+          const updated = (yield* Effect.promise(() =>
+            db
+              .update(projects)
+              .set({ organizationId: null, updatedAt: new Date() })
+              .where(eq(projects.organizationId, organizationId))
+              .returning({ id: projects.id }),
+          )) as Array<{ id: string }>;
+
+          return { cleared: updated.length };
         }),
 
       listProjectApps: (projectId) =>
