@@ -7,7 +7,7 @@ export default App({
   extends: "bos://dev.everything.near/everything.dev",
   platform: "2.0.0-rc.27",
   account: "nearbuilding.near",
-  domain: "preview.nearbuilders.org",
+  domain: "nearbuilders.org",
   title: "NEAR Builders",
   description: "The open platform for builders on NEAR.",
   testnet: "dev.allthethings.testnet",
