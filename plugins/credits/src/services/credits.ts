@@ -1,89 +1,36 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
+import type { z } from "zod";
+import type { CreditEligibilitySchema } from "../contract";
 import { type Database, DatabaseTag } from "../db/layer";
-import { creditClaims, nearAiSessions } from "../db/schema";
-import { createNearAiKeyClient, type NearAiKeyClient } from "./nearai-keys";
+import { creditClaims } from "../db/schema";
+import {
+  createNearAiKeyClient,
+  createNearAiLoginClient,
+  type NearAiKeyClient,
+  type NearAiLoginClient,
+  type NearAiLoginPayload,
+  type NearAiRefreshTokenStore,
+  NearAiRequestError,
+  type NearAiSignedMessage,
+  signatureToBase64,
+} from "./nearai-keys";
+import {
+  readSessionExpiry,
+  readSessionToken,
+  readSettings,
+  type SettingsInput,
+  type SettingsRow,
+  settingsToDto,
+  validateAmountCents,
+  validateSettings,
+  writeSession,
+  writeSettings,
+} from "./settings";
 
-const ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
-
-export function parseEnabledFlag(value: string | undefined | null): boolean {
-  return ENABLED_VALUES.has((value ?? "").trim().toLowerCase());
-}
-
-export type CreditsSecrets = {
-  CREDITS_ENABLED: string;
-  CREDITS_AMOUNT_USD: string;
-  CREDITS_CLAIMS_CLOSE_AT: string;
-  CREDITS_KEY_EXPIRES_AT: string;
-  NEARAI_CREDITS_REFRESH_TOKEN: string;
-  NEARAI_CREDITS_USER_AGENT: string;
-  NEARAI_CREDITS_WORKSPACE_ID: string;
-};
-
-export type CreditsConfig = {
-  enabled: boolean;
-  amountCents: number;
-  claimsCloseAt: Date | null;
-  keyExpiresAt: Date | null;
-  refreshToken: string;
-  userAgent: string;
-  workspaceId: string;
-  problems: string[];
-};
-
-export type CreditEligibility = "eligible" | "needs_near_account" | "needs_approved_profile";
-
-type CreditClaimRow = typeof creditClaims.$inferSelect;
-
-const DEFAULT_AMOUNT_CENTS = 500;
-const STALE_PENDING_MS = 2 * 60_000;
-
-function parseDate(value: string, name: string, problems: string[]) {
-  if (!value.trim()) {
-    problems.push(`${name} is not set`);
-    return null;
-  }
-  const date = new Date(value.trim());
-  if (Number.isNaN(date.getTime())) {
-    problems.push(`${name} is not a valid date`);
-    return null;
-  }
-  return date;
-}
-
-function parseAmountCents(value: string, problems: string[]) {
-  if (!value.trim()) return DEFAULT_AMOUNT_CENTS;
-  const amount = Number(value.trim());
-  const cents = Math.round(amount * 100);
-  if (!Number.isFinite(amount) || cents <= 0 || Math.abs(amount * 100 - cents) > 1e-6) {
-    problems.push("CREDITS_AMOUNT_USD must be a positive dollar amount with at most two decimals");
-    return DEFAULT_AMOUNT_CENTS;
-  }
-  return cents;
-}
-
-export function parseCreditsConfig(secrets: CreditsSecrets): CreditsConfig {
-  const problems: string[] = [];
-  const config = {
-    enabled: parseEnabledFlag(secrets.CREDITS_ENABLED),
-    amountCents: parseAmountCents(secrets.CREDITS_AMOUNT_USD, problems),
-    claimsCloseAt: parseDate(secrets.CREDITS_CLAIMS_CLOSE_AT, "CREDITS_CLAIMS_CLOSE_AT", problems),
-    keyExpiresAt: parseDate(secrets.CREDITS_KEY_EXPIRES_AT, "CREDITS_KEY_EXPIRES_AT", problems),
-    refreshToken: secrets.NEARAI_CREDITS_REFRESH_TOKEN.trim(),
-    userAgent: secrets.NEARAI_CREDITS_USER_AGENT.trim(),
-    workspaceId: secrets.NEARAI_CREDITS_WORKSPACE_ID.trim(),
-    problems,
-  };
-  if (!config.refreshToken) problems.push("NEARAI_CREDITS_REFRESH_TOKEN is not set");
-  if (!config.userAgent) problems.push("NEARAI_CREDITS_USER_AGENT is not set");
-  if (!config.workspaceId) problems.push("NEARAI_CREDITS_WORKSPACE_ID is not set");
-  if (config.claimsCloseAt && config.keyExpiresAt && config.keyExpiresAt <= config.claimsCloseAt) {
-    problems.push("CREDITS_KEY_EXPIRES_AT must be after CREDITS_CLAIMS_CLOSE_AT");
-  }
-  return config;
-}
+export type CreditEligibility = z.infer<typeof CreditEligibilitySchema>;
 
 export function creditEligibility(
   nearAccountId: string | null | undefined,
@@ -98,64 +45,34 @@ export function clientIp(headers: Headers | undefined) {
   return headers?.get("cf-connecting-ip")?.trim() || null;
 }
 
-function claimStatus(row: CreditClaimRow, now: Date): CreditClaimRow["status"] | "expired" {
-  return row.status === "issued" && row.keyExpiresAt <= now ? "expired" : row.status;
-}
-
-function keyName(claimId: string) {
-  return `nearbuilders-credit-${claimId}`;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  for (let cause = error; cause; cause = (cause as { cause?: unknown }).cause) {
-    if ((cause as { code?: unknown }).code === "23505") return true;
-  }
-  return false;
-}
-
-function toClaim(row: CreditClaimRow, now: Date) {
-  return {
-    id: row.id,
-    status: claimStatus(row, now),
-    keyPrefix: row.keyPrefix,
-    spendLimitUsd: row.spendLimitCents / 100,
-    keyExpiresAt: row.keyExpiresAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-  };
-}
-
-function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
-  return {
-    ...toClaim(row, now),
-    nearAccountId: row.nearAccountId,
-    userId: row.userId,
-    ip: row.ip,
-    ipClaimCount,
-    error: row.error,
-    revokedAt: row.revokedAt?.toISOString() ?? null,
-  };
-}
-
-function refreshTokenStore(db: Database, envRefreshToken: string) {
-  const id = createHash("sha256").update(envRefreshToken).digest("hex");
+function refreshTokenStore(db: Database) {
   return {
     async load() {
-      const [row] = await db
-        .select({ refreshToken: nearAiSessions.refreshToken })
-        .from(nearAiSessions)
-        .where(eq(nearAiSessions.id, id));
-      return row?.refreshToken ?? null;
+      return readSessionToken(db);
     },
-    async save(refreshToken: string) {
-      await db
-        .insert(nearAiSessions)
-        .values({ id, refreshToken })
-        .onConflictDoUpdate({
-          target: nearAiSessions.id,
-          set: { refreshToken, updatedAt: new Date() },
-        });
+    async save(refreshToken: string, expiresAt: Date | null) {
+      await writeSession(db, refreshToken, expiresAt);
     },
   };
+}
+
+type CreditClaimRow = typeof creditClaims.$inferSelect;
+
+const STALE_PENDING_MS = 2 * 60_000;
+
+type ClaimWindow =
+  | { open: false; reason: string; statusReason: "not_enabled" | "not_configured" | "closed" }
+  | {
+      open: true;
+      keys: NearAiKeyClient;
+      keyExpiresAt: Date | null;
+      amountCents: number;
+    };
+
+type WindowState = { row: SettingsRow | null; window: ClaimWindow };
+
+function toIso(date: Date | null) {
+  return date?.toISOString() ?? null;
 }
 
 function conflict(message: string) {
@@ -170,23 +87,49 @@ function unavailable() {
 
 export function createCreditMethods(
   db: Database,
-  config: CreditsConfig,
-  keys: NearAiKeyClient | null,
+  keys: NearAiKeyClient,
+  login: NearAiLoginClient,
+  store: NearAiRefreshTokenStore,
   now: () => Date = () => new Date(),
 ) {
-  const claimWindow = () => {
-    if (!config.enabled) return { open: false as const, reason: "Credit claims are not enabled" };
-    if (config.problems.length > 0 || !config.keyExpiresAt || !keys) {
-      return { open: false as const, reason: "Credit claims are not configured" };
+  const currentWindow = async (): Promise<WindowState> => {
+    const row = await readSettings(db);
+    if (!row?.enabled) {
+      return {
+        row,
+        window: {
+          open: false,
+          statusReason: row ? "not_enabled" : "not_configured",
+          reason: !row ? "Credit claims are not configured" : "Credit claims are not enabled",
+        },
+      };
+    }
+    const amount = validateAmountCents(Number(row.amountUsd));
+    const workspaceId = row.nearAiWorkspaceId.trim();
+    if (!workspaceId || !amount.ok) {
+      return {
+        row,
+        window: {
+          open: false,
+          statusReason: "not_configured",
+          reason: "Credit claims are not configured",
+        },
+      };
     }
     const current = now();
     if (
-      (config.claimsCloseAt && current >= config.claimsCloseAt) ||
-      current >= config.keyExpiresAt
+      (row.claimsCloseAt && current >= row.claimsCloseAt) ||
+      (row.keyExpiresAt && current >= row.keyExpiresAt)
     ) {
-      return { open: false as const, reason: "Credit claims are closed" };
+      return {
+        row,
+        window: { open: false, statusReason: "closed", reason: "Credit claims are closed" },
+      };
     }
-    return { open: true as const, keys, keyExpiresAt: config.keyExpiresAt };
+    return {
+      row,
+      window: { open: true, keys, keyExpiresAt: row.keyExpiresAt, amountCents: amount.cents },
+    };
   };
 
   const findClaim = async (nearAccountId: string) => {
@@ -201,13 +144,14 @@ export function createCreditMethods(
     nearAccountId: string;
     userId: string;
     ip: string | null;
-    keyExpiresAt: Date;
+    amountCents: number;
+    keyExpiresAt: Date | null;
   }) => {
     const values = {
       userId: input.userId,
       ip: input.ip,
       status: "pending" as const,
-      spendLimitCents: config.amountCents,
+      spendLimitCents: input.amountCents,
       keyExpiresAt: input.keyExpiresAt,
       error: null,
       updatedAt: now(),
@@ -275,16 +219,106 @@ export function createCreditMethods(
     return result?.total ?? 0;
   };
 
+  async function revokeWithKeys(run: (client: NearAiKeyClient) => Promise<void>) {
+    try {
+      await run(keys);
+    } catch (error) {
+      if (error instanceof NearAiRequestError) {
+        throw new ORPCError("SERVICE_UNAVAILABLE", {
+          message:
+            "NEAR AI credentials could not process this revocation. Try again in a few minutes.",
+        });
+      }
+      throw error;
+    }
+  }
+
   return {
+    async getSettings() {
+      const row = await readSettings(db);
+      return { settings: row ? settingsToDto(row) : null };
+    },
+
+    async updateSettings(input: SettingsInput, updatedBy: string) {
+      const result = validateSettings(input);
+      if (!result.ok) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: result.problems.join("; "),
+          data: { invalidFields: result.invalidFields },
+        });
+      }
+      const row = await writeSettings(db, result.values, updatedBy, now());
+      return { settings: settingsToDto(row) };
+    },
+
     async getStatus(nearAccountId: string | null, eligibility: CreditEligibility) {
+      const { row, window } = await currentWindow();
       const claim = nearAccountId ? await findClaim(nearAccountId) : null;
       return {
-        available: claimWindow().open,
-        amountUsd: config.amountCents / 100,
-        claimsCloseAt: config.claimsCloseAt?.toISOString() ?? null,
+        available: window.open,
+        statusReason: window.open ? null : window.statusReason,
+        amountUsd: row ? Number(row.amountUsd) : 0,
+        claimsCloseAt: row?.claimsCloseAt?.toISOString() ?? null,
         eligibility,
         claim: claim ? toClaim(claim, now()) : null,
       };
+    },
+
+    async nearAiSessionStatus() {
+      const refreshExpiresAt = await readSessionExpiry(db);
+      try {
+        await keys.verifySession();
+        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+      } catch (error) {
+        if (error instanceof NearAiRequestError && error.status === 401) {
+          return {
+            status: error.message.includes("not signed in")
+              ? ("absent" as const)
+              : ("expired" as const),
+            refreshExpiresAt: toIso(refreshExpiresAt),
+          };
+        }
+        if (error instanceof NearAiRequestError) {
+          throw new ORPCError("SERVICE_UNAVAILABLE", {
+            message: "NEAR AI could not be reached. Try again in a few minutes.",
+          });
+        }
+        throw error;
+      }
+    },
+
+    async loginNearAi(input: { signedMessage: NearAiSignedMessage; payload: NearAiLoginPayload }) {
+      const settings = await readSettings(db);
+      const guardAccount = settings?.nearAiLoginAccountId.trim();
+      if (!guardAccount) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Set the NEAR AI login account in credits settings first",
+        });
+      }
+      if (input.signedMessage.accountId.toLowerCase() !== guardAccount.toLowerCase()) {
+        throw new ORPCError("FORBIDDEN", {
+          message: `Only ${guardAccount} can sign in the NEAR AI credentials`,
+        });
+      }
+      try {
+        const { refreshToken, refreshExpiresAt } = await login.login({
+          signedMessage: {
+            ...input.signedMessage,
+            signature: signatureToBase64(input.signedMessage.signature),
+          },
+          payload: input.payload,
+        });
+        await store.save(refreshToken, refreshExpiresAt);
+        keys.resetSession();
+        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+      } catch (error) {
+        if (error instanceof NearAiRequestError) {
+          throw new ORPCError(error.status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
+            message: error.message,
+          });
+        }
+        throw error;
+      }
     },
 
     async claim(input: {
@@ -293,17 +327,20 @@ export function createCreditMethods(
       ip: string | null;
       eligibility: CreditEligibility;
     }) {
-      const state = claimWindow();
-      if (!state.open) throw new ORPCError("FORBIDDEN", { message: state.reason });
+      const { window } = await currentWindow();
+      if (!window.open) throw new ORPCError("FORBIDDEN", { message: window.reason });
       if (input.eligibility !== "eligible") {
         throw new ORPCError("FORBIDDEN", {
           message: "An approved builder profile is required to claim API credits",
         });
       }
 
-      const { keys } = state;
-      const { row, retry } = await acquireClaim({ ...input, keyExpiresAt: state.keyExpiresAt });
-      const name = keyName(row.id);
+      const { row, retry } = await acquireClaim({
+        ...input,
+        amountCents: window.amountCents,
+        keyExpiresAt: window.keyExpiresAt,
+      });
+      const name = keyName(input.nearAccountId, row.id);
       let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
@@ -376,14 +413,6 @@ export function createCreditMethods(
     async revokeClaim(id: string) {
       const [row] = await db.select().from(creditClaims).where(eq(creditClaims.id, id));
       if (!row) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
-      if (!keys) {
-        if (row.status === "revoked") {
-          return { data: toAdminClaim(row, await countClaimsFromIp(row.ip), now()) };
-        }
-        throw new ORPCError("SERVICE_UNAVAILABLE", {
-          message: "NEAR AI credentials are not configured",
-        });
-      }
       const [revoked] =
         row.status === "revoked"
           ? [row]
@@ -393,13 +422,55 @@ export function createCreditMethods(
               .where(eq(creditClaims.id, row.id))
               .returning();
       if (row.keyId) {
-        await keys.revokeKey(row.keyId);
+        await revokeWithKeys((client) => client.revokeKey(row.keyId!));
       } else {
-        const orphan = await keys.findKeyByName(keyName(row.id));
-        if (orphan?.isActive) await keys.revokeKey(orphan.id);
+        await revokeWithKeys(async (client) => {
+          const orphan = await client.findKeyByName(keyName(row.nearAccountId, row.id));
+          if (orphan?.isActive) await client.revokeKey(orphan.id);
+        });
       }
       return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now()) };
     },
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  for (let cause = error; cause; cause = (cause as { cause?: unknown }).cause) {
+    if ((cause as { code?: unknown }).code === "23505") return true;
+  }
+  return false;
+}
+
+function keyName(nearAccountId: string, claimId: string) {
+  return `${nearAccountId}-nearbuilders-credit-${claimId}`;
+}
+
+function claimStatus(row: CreditClaimRow, now: Date): CreditClaimRow["status"] | "expired" {
+  return row.status === "issued" && row.keyExpiresAt && row.keyExpiresAt <= now
+    ? "expired"
+    : row.status;
+}
+
+function toClaim(row: CreditClaimRow, now: Date) {
+  return {
+    id: row.id,
+    status: claimStatus(row, now),
+    keyPrefix: row.keyPrefix,
+    spendLimitUsd: row.spendLimitCents / 100,
+    keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
+  return {
+    ...toClaim(row, now),
+    nearAccountId: row.nearAccountId,
+    userId: row.userId,
+    ip: row.ip,
+    ipClaimCount,
+    error: row.error,
+    revokedAt: row.revokedAt?.toISOString() ?? null,
   };
 }
 
@@ -409,20 +480,17 @@ export class CreditService extends Context.Service<CreditService, CreditMethods>
   "credits/CreditService",
 ) {}
 
-export const CreditServiceLive = (config: CreditsConfig) =>
+export const CreditServiceLive = () =>
   Layer.effect(
     CreditService,
     Effect.gen(function* () {
       const db = yield* DatabaseTag;
-      const keys =
-        config.refreshToken && config.userAgent && config.workspaceId
-          ? createNearAiKeyClient({
-              refreshToken: config.refreshToken,
-              userAgent: config.userAgent,
-              workspaceId: config.workspaceId,
-              store: refreshTokenStore(db, config.refreshToken),
-            })
-          : null;
-      return createCreditMethods(db, config, keys);
+      const store = refreshTokenStore(db);
+      const keys = createNearAiKeyClient({
+        store,
+        workspaceId: async () => (await readSettings(db))?.nearAiWorkspaceId ?? "",
+      });
+      const login = createNearAiLoginClient({});
+      return createCreditMethods(db, keys, login, store);
     }),
   );

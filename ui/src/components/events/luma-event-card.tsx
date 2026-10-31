@@ -1,8 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Clock, MapPin, Video } from "lucide-react";
-import { formatEventTimeRange, type LumaTimelineEvent } from "@/lib/events/event-sources";
+import { useEventTimeRange } from "@/hooks";
+import type { LumaTimelineEvent } from "@/lib/events/event-sources";
 
 export function LumaEventCard({ event }: { event: LumaTimelineEvent }) {
+  const timeRange = useEventTimeRange(event);
   const locationLabel = event.location
     ? event.location
     : event.locationType === "offline"
@@ -17,7 +19,7 @@ export function LumaEventCard({ event }: { event: LumaTimelineEvent }) {
         </span>
         <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Clock size={12} className="shrink-0" />
-          {formatEventTimeRange(event)}
+          {timeRange}
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
           {isPhysical ? (

@@ -280,6 +280,45 @@ export default createPlugin.withPlugins<PluginEntries>()({
         .sync(kind, entityId, context)
         .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
     };
+    const canEditProposalEntity = async (
+      pluginId: string,
+      entityId: string,
+      context: Context,
+    ): Promise<boolean> => {
+      const callerIds = [
+        context.userId,
+        (context.user as { walletAddress?: string | null } | undefined)?.walletAddress,
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+      ].filter((id): id is string => Boolean(id));
+      try {
+        if (pluginId === "projects") {
+          const { data: project } = await services.plugins
+            .projects(context)
+            .getProject({ id: entityId });
+          const organizationIds = (
+            (context as { organizations?: Array<{ id: string }> }).organizations ?? []
+          ).map(({ id }) => id);
+          return (
+            callerIds.includes(project.ownerId) ||
+            (!!project.organizationId && organizationIds.includes(project.organizationId)) ||
+            (project.collaborators ?? []).some(
+              (collaborator) =>
+                collaborator.status === "accepted" &&
+                callerIds.includes(collaborator.collaboratorOwnerId),
+            )
+          );
+        }
+        if (pluginId === "events") {
+          const { data: event } = await services.plugins.events(context).getEvent({ id: entityId });
+          return callerIds.includes(event.ownerId);
+        }
+      } catch (error) {
+        if (error instanceof ORPCError && error.code === "NOT_FOUND") return false;
+        throw error;
+      }
+      return false;
+    };
     const assertKnownCatalogCategories = async (categories?: string[]) => {
       if (!categories || categories.length === 0) return;
       const known = await services.plugins.nearcatalog().listCatalogCategories({});
@@ -741,6 +780,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
           .proposals({
             ...context,
             allowPrivateSubmission: input.pluginId === "projects" || input.pluginId === "events",
+            canResubmitForOthers: await canEditProposalEntity(
+              input.pluginId,
+              input.entityId,
+              context,
+            ),
           })
           .propose(input);
       }),

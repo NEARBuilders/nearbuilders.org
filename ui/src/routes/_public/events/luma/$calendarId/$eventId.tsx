@@ -167,7 +167,7 @@ function formatDisplayPrice(price: { amount: number; currency: string; isFlexibl
   const currency = price.currency.toUpperCase();
   let label: string;
   try {
-    const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+    const formatter = new Intl.NumberFormat("en-US", { style: "currency", currency });
     const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
     label = formatter.format(price.amount / 10 ** digits);
   } catch {

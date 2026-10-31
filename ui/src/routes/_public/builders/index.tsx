@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
@@ -64,6 +64,7 @@ interface BuilderLike {
   bio: string | null;
   skills: string[];
   location: string | null;
+  catalog?: { avatarUrl?: string | null } | null;
 }
 
 type BuilderCategory = "all" | "approved" | "nominated";
@@ -669,6 +670,7 @@ function BuildersPage() {
                         bio={card.builder.bio}
                         skills={card.builder.skills}
                         location={card.builder.location}
+                        catalogAvatarUrl={card.builder.catalog?.avatarUrl}
                         proposal={proposal}
                         nominationCount={nominationCount}
                         hasNominated={hasNominated}
@@ -821,6 +823,7 @@ function BuilderCard({
   bio: bioProp,
   skills: skillsProp,
   location: locationProp,
+  catalogAvatarUrl,
   displayNameOverride,
   bioOverride,
   skillsOverride,
@@ -839,6 +842,7 @@ function BuilderCard({
   bio?: string | null;
   skills?: string[];
   location?: string | null;
+  catalogAvatarUrl?: string | null;
   displayNameOverride?: string;
   bioOverride?: string | null;
   skillsOverride?: string[];
@@ -860,7 +864,7 @@ function BuilderCard({
       : displayNameOverride
     : displayName || profile?.name || nearAccount;
 
-  const avatarUrl = getNearSocialAvatarUrl(profile);
+  const avatarUrl = resolveBuilderAvatarUrl(catalogAvatarUrl, profile);
 
   const resolvedBio = bioOverride ?? bioProp ?? profile?.description ?? null;
   const resolvedSkills = skillsOverride ?? skillsProp ?? [];

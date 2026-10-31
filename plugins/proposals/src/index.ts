@@ -18,6 +18,7 @@ type ProposalContext = AuthContext & {
   allowPrivateSubmission?: boolean;
   [REVIEW_EVALUATOR]?: true;
   resubmissionPolicy?: "rejected-only" | "rejected-or-removed";
+  canResubmitForOthers?: boolean;
 };
 
 const ProposalContextSchema = z.custom<ProposalContext>();
@@ -182,6 +183,10 @@ export default createPlugin({
           actorId,
           actor: context.user ?? undefined,
           resubmissionPolicy: context.resubmissionPolicy,
+          canResubmitForOthers:
+            context.canResubmitForOthers === true ||
+            context.user?.role === "admin" ||
+            (input.pluginId === "builders" && input.entityId === actorId),
         });
         yield* publishProposalEvent("proposed", result);
         return { data: result };

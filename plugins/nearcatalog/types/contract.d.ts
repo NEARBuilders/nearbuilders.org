@@ -45,6 +45,10 @@ export declare const CatalogClaimHistorySchema: z.ZodObject<{
     }>;
     occurredAt: z.ZodISODateTime;
 }, z.core.$strip>;
+export declare const CatalogCategorySchema: z.ZodObject<{
+    id: z.ZodString;
+    label: z.ZodString;
+}, z.core.$strip>;
 export declare const ClaimedCatalogProjectSchema: z.ZodObject<{
     project: z.ZodObject<{
         slug: z.ZodString;
@@ -135,6 +139,12 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    listCatalogCategories: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            label: z.ZodString;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, object>;
     getCatalogProject: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         slug: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
