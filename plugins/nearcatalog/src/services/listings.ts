@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, asc, eq, gt, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import type { z } from "zod";
 import {
@@ -11,6 +11,7 @@ import {
 import type { Database } from "../db";
 import { DatabaseTag } from "../db/layer";
 import { nearcatalogListings } from "../db/schema";
+import { type CatalogSubmitClient, catalogExternalId, catalogPageUrl } from "./catalog-submit";
 
 export type CatalogListing = z.infer<typeof CatalogListingSchema>;
 export type CatalogListingKind = z.infer<typeof CatalogListingKindSchema>;
@@ -21,6 +22,7 @@ type ExportedPerson = z.infer<typeof CatalogExportPersonSchema>;
 
 const LISTED_STATUSES = ["approved", "published", "pending"] as const;
 const REMOVED_STATUSES = ["none", "rejected"] as const;
+const SEND_LIST_LIMIT = 100;
 
 function readText(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -51,6 +53,12 @@ function rowToListing(row: ListingRow): CatalogListing {
     approvedAt: toIsoOrNull(row.approvedAt),
     publishedAt: toIsoOrNull(row.publishedAt),
     removedAt: toIsoOrNull(row.removedAt),
+    catalogUrl: row.catalogUrl ?? null,
+    sendStatus: row.sendStatus ?? null,
+    sendAction: row.sendAction ?? null,
+    sendError: row.sendError ?? null,
+    sendAttemptedAt: toIsoOrNull(row.sendAttemptedAt),
+    sentAt: toIsoOrNull(row.sentAt),
     changedAt: toIso(row.changedAt),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
@@ -72,7 +80,28 @@ export function parseCatalogRecord(kind: CatalogListingKind, record: unknown) {
   return Effect.succeed(parsed.data as Record<string, unknown>);
 }
 
-export function createListingMethods(db: Database) {
+function isListedRow(row: ListingRow) {
+  return Boolean(row.record) && (row.status === "approved" || row.status === "published");
+}
+
+const NO_REMOVE_ROUTE =
+  "NEAR Catalog has no partner remove route. Ask the NEAR Catalog team to hide this listing.";
+
+function sendActionFor(row: ListingRow): "upsert" | "remove" | null {
+  if (row.kind !== "project") return null;
+  if (row.status === "pending") return null;
+  if (isListedRow(row)) return "upsert";
+  if (!row.sendStatus) return null;
+  if (row.sendAction === "remove" && row.sendStatus === "sent") return null;
+  return "remove";
+}
+
+function errorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.slice(0, 500) || "NEAR Catalog request failed";
+}
+
+export function createListingMethods(db: Database, submitter: CatalogSubmitClient | null = null) {
   const load = (target: ListingTarget) =>
     Effect.promise(() =>
       db
@@ -123,7 +152,56 @@ export function createListingMethods(db: Database) {
         .returning(),
     ).pipe(Effect.map((rows) => (rows[0] ? rowToListing(rows[0]) : null)));
 
+  const request = (row: ListingRow, action: "upsert" | "remove") =>
+    Effect.promise(async () => {
+      if (!submitter) return { ok: false as const, error: "Sending to NEAR Catalog is off" };
+      if (action === "remove") return { ok: false as const, error: NO_REMOVE_ROUTE };
+      try {
+        const result = await submitter.upsertProject({
+          externalId: catalogExternalId(row.kind, row.entityId),
+          record: { ...row.record, slug: row.slug },
+        });
+        return { ok: true as const, fallbackContact: result.fallbackContact };
+      } catch (error) {
+        return { ok: false as const, error: errorMessage(error) };
+      }
+    });
+
+  const deliver = (target: ListingTarget) =>
+    Effect.gen(function* () {
+      const row = yield* load(target);
+      if (!row) return null;
+      const action = submitter ? sendActionFor(row) : null;
+      if (!action) return rowToListing(row);
+      const outcome = yield* request(row, action);
+      const now = new Date();
+      if (!outcome.ok) {
+        return yield* update(target, {
+          sendStatus: "failed",
+          sendAction: action,
+          sendError: outcome.error,
+          sendAttemptedAt: now,
+          updatedAt: now,
+        });
+      }
+      if (outcome.fallbackContact) {
+        yield* Effect.logWarning(
+          `NEAR Catalog: ${row.kind} ${row.entityId} has no public team contact, sent with NEARCATALOG_CONTACT`,
+        );
+      }
+      return yield* update(target, {
+        sendStatus: "sent",
+        sendAction: "upsert",
+        sendError: null,
+        sendAttemptedAt: now,
+        sentAt: now,
+        updatedAt: now,
+      });
+    });
+
   return {
+    sendingEnabled: () => submitter !== null,
+
     getListing: (target: ListingTarget) =>
       load(target).pipe(Effect.map((row) => (row ? rowToListing(row) : null))),
 
@@ -221,7 +299,7 @@ export function createListingMethods(db: Database) {
             new ORPCError("INTERNAL_SERVER_ERROR", { message: "Could not save catalog listing" }),
           );
         }
-        return rowToListing(row);
+        return (yield* deliver(input)) ?? rowToListing(row);
       }),
 
     reject: (target: ListingTarget) =>
@@ -229,13 +307,14 @@ export function createListingMethods(db: Database) {
         const existing = yield* load(target);
         if (!existing) return null;
         const now = new Date();
-        return yield* update(target, {
+        yield* update(target, {
           status: "rejected",
           publishedAt: null,
           removedAt: existing.record ? now : existing.removedAt,
           changedAt: existing.record ? now : existing.changedAt,
           updatedAt: now,
         });
+        return yield* deliver(target);
       }),
 
     withdraw: (target: ListingTarget) =>
@@ -244,13 +323,14 @@ export function createListingMethods(db: Database) {
         if (!existing) return null;
         if (existing.status === "none") return rowToListing(existing);
         const now = new Date();
-        return yield* update(target, {
+        yield* update(target, {
           status: "none",
           publishedAt: null,
           removedAt: existing.record ? now : existing.removedAt,
           changedAt: existing.record ? now : existing.changedAt,
           updatedAt: now,
         });
+        return yield* deliver(target);
       }),
 
     listListed: (kind: CatalogListingKind) =>
@@ -275,10 +355,7 @@ export function createListingMethods(db: Database) {
             entityId: row.entityId,
             slug: row.slug,
             status: published ? ("published" as const) : ("approved" as const),
-            catalogUrl:
-              published && row.kind === "project"
-                ? `https://nearcatalog.xyz/project/${encodeURIComponent(row.slug)}`
-                : null,
+            catalogUrl: published ? (row.catalogUrl ?? catalogPageUrl(row.kind, row.slug)) : null,
           };
         });
       }),
@@ -326,7 +403,61 @@ export function createListingMethods(db: Database) {
           return existing ? rowToListing(existing) : null;
         }
         const now = new Date();
-        return yield* update(target, { record, changedAt: now, updatedAt: now });
+        yield* update(target, { record, changedAt: now, updatedAt: now });
+        return yield* deliver(target);
+      }),
+
+    retrySend: (target: ListingTarget) =>
+      Effect.gen(function* () {
+        if (!submitter) {
+          return yield* Effect.fail(
+            new ORPCError("BAD_REQUEST", { message: "Sending to NEAR Catalog is not set up" }),
+          );
+        }
+        const existing = yield* load(target);
+        if (!existing) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Catalog listing not found" }),
+          );
+        }
+        const notSent = isListedRow(existing) && !existing.sendStatus;
+        if (existing.sendStatus !== "failed" && !notSent) {
+          return yield* Effect.fail(
+            new ORPCError("BAD_REQUEST", { message: "Nothing to send for this listing" }),
+          );
+        }
+        const listing = yield* deliver(target);
+        if (!listing) {
+          return yield* Effect.fail(
+            new ORPCError("NOT_FOUND", { message: "Catalog listing not found" }),
+          );
+        }
+        return listing;
+      }),
+
+    listSends: () =>
+      Effect.gen(function* () {
+        const rows = yield* Effect.promise(() =>
+          db
+            .select()
+            .from(nearcatalogListings)
+            .where(
+              or(
+                isNotNull(nearcatalogListings.sendStatus),
+                and(
+                  isNotNull(nearcatalogListings.record),
+                  inArray(nearcatalogListings.status, ["approved", "published"]),
+                  isNull(nearcatalogListings.sendStatus),
+                ),
+              ),
+            )
+            .orderBy(
+              desc(sql`${nearcatalogListings.sendStatus} = 'failed'`),
+              desc(nearcatalogListings.updatedAt),
+            )
+            .limit(SEND_LIST_LIMIT),
+        );
+        return { enabled: submitter !== null, data: rows.map(rowToListing) };
       }),
   };
 }
@@ -425,10 +556,11 @@ export class ListingService extends Context.Service<ListingService, ListingMetho
   "nearcatalog/ListingService",
 ) {}
 
-export const ListingServiceLive = Layer.effect(
-  ListingService,
-  Effect.gen(function* () {
-    const db = yield* DatabaseTag;
-    return { ...createListingMethods(db), ...createExportMethods(db) };
-  }),
-);
+export const ListingServiceLive = (submitter: CatalogSubmitClient | null = null) =>
+  Layer.effect(
+    ListingService,
+    Effect.gen(function* () {
+      const db = yield* DatabaseTag;
+      return { ...createListingMethods(db, submitter), ...createExportMethods(db) };
+    }),
+  );
