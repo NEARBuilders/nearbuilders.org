@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, or } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { eventParticipants, events } from "../db/schema";
 
@@ -114,7 +114,7 @@ function eventWriteError(error: unknown) {
   return new ORPCError("BAD_REQUEST", { message: message || "Could not save event" });
 }
 
-export class EventService extends Context.Tag("events/EventService")<
+export class EventService extends Context.Service<
   EventService,
   {
     listEvents: (
@@ -201,6 +201,7 @@ export class EventService extends Context.Tag("events/EventService")<
       userId: string,
       userRole?: string,
       alternateUserId?: string,
+      allowPublicVisibility?: boolean,
     ) => Effect.Effect<EventRecord, ORPCError<string, unknown>>;
     deleteEvent: (
       id: string,
@@ -208,7 +209,7 @@ export class EventService extends Context.Tag("events/EventService")<
       alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
   }
->() {}
+>()("events/EventService") {}
 
 const viewableEvent = (
   db: any,
@@ -473,6 +474,21 @@ export const EventServiceLive = Layer.effect(
             );
           }
 
+          if (input.id) {
+            const [existingById] = yield* Effect.promise(() =>
+              db.select().from(events).where(eq(events.id, input.id!)).limit(1),
+            );
+            if (existingById) {
+              if (userRole !== "admin" && !isOwner(existingById.ownerId, userId, alternateUserId)) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", { message: "An event with this id already exists" }),
+                );
+              }
+              const participantCount = yield* countParticipants(db, existingById.id);
+              return rowToEvent(existingById, participantCount);
+            }
+          }
+
           const now = new Date();
           const id = input.id ?? generateId();
           const startAt = parseDate(input.startAt, "Start date");
@@ -511,7 +527,7 @@ export const EventServiceLive = Layer.effect(
           return rowToEvent(event, participantCount);
         }),
 
-      updateEvent: (id, input, userId, userRole, alternateUserId) =>
+      updateEvent: (id, input, userId, userRole, alternateUserId, allowPublicVisibility) =>
         Effect.gen(function* () {
           const canEdit = yield* canEditEvent(db, id, userId, alternateUserId);
           if (!canEdit) {
@@ -523,6 +539,19 @@ export const EventServiceLive = Layer.effect(
           );
           if (!existing) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
+          }
+
+          if (
+            input.visibility === "public" &&
+            existing.visibility !== "public" &&
+            userRole !== "admin" &&
+            !allowPublicVisibility
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Making an event public requires admin approval",
+              }),
+            );
           }
 
           const startAt = input.startAt ? parseDate(input.startAt, "Start date") : existing.startAt;

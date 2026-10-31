@@ -4,14 +4,14 @@ import {
   normalizeLocation,
   normalizeSkills,
 } from "@everything-dev/builders-plugin/builder-tags";
+import { ORPCError } from "@orpc/server";
+import { Effect, Context as EffectContext, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Effect } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
-import type { PluginsClient } from "./lib/plugins-types.gen";
+import { type PluginEntries, toPluginsClient } from "./lib/plugin-clients";
 import {
   autoApprovalContext,
   parseRequireAdminApproval,
@@ -21,6 +21,12 @@ import {
 } from "./services/approval-settings";
 import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
+import {
+  CATALOG_LISTING_PLUGIN_ID,
+  type CatalogListingKind,
+  createCatalogListings,
+  isSystemActor,
+} from "./services/catalog-listings";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -66,6 +72,38 @@ function normalizedBuilderProfile(input: { skills?: string[]; location?: string 
     skills: input.skills ? normalizeSkills(input.skills) : undefined,
     location: normalizeLocation(input.location ?? "") || undefined,
   };
+}
+
+const PREFERRED_CONTACT_LINK_KEYS = {
+  Telegram: "telegram",
+  Discord: "discord",
+  X: "twitter",
+  Website: "website",
+} as const;
+
+function assertPreferredContact(
+  catalog:
+    | {
+        preferredContact?: keyof typeof PREFERRED_CONTACT_LINK_KEYS | "Email";
+        publicEmail?: string;
+      }
+    | undefined,
+  links: Record<string, string> | undefined,
+) {
+  const contact = catalog?.preferredContact;
+  if (!contact) return;
+  const filled =
+    contact === "Email"
+      ? Boolean(catalog?.publicEmail?.trim())
+      : Boolean(links?.[PREFERRED_CONTACT_LINK_KEYS[contact]]?.trim());
+  if (!filled) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        contact === "Email"
+          ? "Add a public email to use email as your preferred contact"
+          : `Add your ${contact} link to use ${contact} as your preferred contact`,
+    });
+  }
 }
 
 function notificationContext(context: Context) {
@@ -125,7 +163,33 @@ function enforceContentCreationVisibility(
   return resolveContentCreationVisibility({ isAdmin, allowPublic, inputVisibility });
 }
 
-export default createPlugin.withPlugins<PluginsClient>()({
+class ApiServices extends EffectContext.Service<
+  ApiServices,
+  {
+    reviewEvaluation: ReturnType<typeof createReviewEvaluationSweep>;
+    chiefBotUsername: string;
+    requireAdminApproval: boolean;
+  }
+>()("api/ApiServices") {}
+
+function apiServices(context: { "effect/context": EffectContext.Context<any> }) {
+  return EffectContext.get(context["effect/context"], ApiServices);
+}
+
+function createRouterServices(entries: PluginEntries) {
+  const { auth, ...restPlugins } = toPluginsClient(entries);
+  return {
+    auth,
+    plugins: restPlugins,
+    activity: createProposalActivity(restPlugins),
+    notifications: createProposalNotifications(restPlugins),
+    orchestration: createProposalOrchestration(restPlugins),
+    catalogClaims: createCatalogClaims(restPlugins),
+    catalogListings: createCatalogListings(restPlugins),
+  };
+}
+
+export default createPlugin.withPlugins<PluginEntries>()({
   variables: z.object({
     reviewEvaluationEnabled: z.boolean().default(true),
     reviewEvaluationIntervalMs: z.number().int().min(10_000).default(120_000),
@@ -143,6 +207,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     NEARAI_MODEL: z.string().default(""),
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
+    BETTER_AUTH_SECRET: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -150,61 +215,71 @@ export default createPlugin.withPlugins<PluginsClient>()({
   contract,
 
   initialize: (config, plugins) =>
-    Effect.sync(() => {
-      const { auth, ...restPlugins } = plugins;
-      const activity = createProposalActivity(restPlugins);
-      const notifications = createProposalNotifications(restPlugins);
-      const orchestration = createProposalOrchestration(restPlugins);
-      const catalogClaims = createCatalogClaims(restPlugins);
-      const reviewModel = config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
-      const reviewEvaluation = createReviewEvaluationSweep({
-        plugins: restPlugins,
-        assessor: config.secrets.NEARAI_API_KEY
-          ? createNearAiAssessor({
-              apiKey: config.secrets.NEARAI_API_KEY,
-              model: reviewModel,
-            })
-          : null,
-        githubToken: config.secrets.GITHUB_TOKEN,
-        intervalMs: config.variables.reviewEvaluationIntervalMs,
-        batchSize: config.variables.reviewEvaluationBatchSize,
-      });
-      if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
-      console.log(
-        "[API] Review evaluation:",
-        config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
-        config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
-      );
-      const requireAdminApproval = parseRequireAdminApproval(config.secrets.REQUIRE_ADMIN_APPROVAL);
-      console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
-      console.log("[API] Services Initialized");
-      console.log("[API] Auth client available:", Boolean(auth));
-      console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
-      return {
-        auth,
-        plugins: restPlugins,
-        activity,
-        notifications,
-        orchestration,
-        catalogClaims,
-        reviewEvaluation,
-        chiefBotUsername: config.variables.chiefBotUsername,
-        requireAdminApproval,
-      };
-    }),
-
-  shutdown: (services) =>
-    Effect.sync(() => services.reviewEvaluation.stop()).pipe(
-      Effect.zipRight(Effect.log("[API] Shutdown")),
+    Effect.sync(() =>
+      Layer.effect(
+        ApiServices,
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const { auth, ...restPlugins } = toPluginsClient(plugins);
+            const reviewModel =
+              config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
+            const reviewEvaluation = createReviewEvaluationSweep({
+              plugins: restPlugins,
+              assessor: config.secrets.NEARAI_API_KEY
+                ? createNearAiAssessor({
+                    apiKey: config.secrets.NEARAI_API_KEY,
+                    model: reviewModel,
+                  })
+                : null,
+              githubToken: config.secrets.GITHUB_TOKEN,
+              intervalMs: config.variables.reviewEvaluationIntervalMs,
+              batchSize: config.variables.reviewEvaluationBatchSize,
+            });
+            if (config.variables.reviewEvaluationEnabled) reviewEvaluation.start();
+            console.log(
+              "[API] Review evaluation:",
+              config.variables.reviewEvaluationEnabled ? "enabled" : "disabled",
+              config.secrets.NEARAI_API_KEY ? `(checks + NEAR AI ${reviewModel})` : "(checks only)",
+            );
+            const requireAdminApproval = parseRequireAdminApproval(
+              config.secrets.REQUIRE_ADMIN_APPROVAL,
+            );
+            console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
+            console.log("[API] Services Initialized");
+            console.log("[API] Auth client available:", Boolean(auth));
+            console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
+            return {
+              reviewEvaluation,
+              chiefBotUsername: config.variables.chiefBotUsername,
+              requireAdminApproval,
+            };
+          }),
+          (services) =>
+            Effect.sync(() => services.reviewEvaluation.stop()).pipe(
+              Effect.andThen(Effect.log("[API] Shutdown")),
+            ),
+        ),
+      ),
     ),
 
-  createRouter: (services, builder) => {
+  createRouter: (builder, plugins) => {
+    const services = createRouterServices(plugins);
     const { requireAuth, requireAdmin, requireAuthOrApiKey, requireApiKey } =
       createAuthMiddleware(builder);
     const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const catalogListings = services.catalogListings;
+    const syncCatalogListing = async (
+      kind: CatalogListingKind,
+      entityId: string,
+      context: Context,
+    ) => {
+      await catalogListings
+        .sync(kind, entityId, context)
+        .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
+    };
     const getOrganizationMember = async (context: Context, organizationId: string) => {
       const organization = context.organization;
       if (
@@ -214,13 +289,67 @@ export default createPlugin.withPlugins<PluginsClient>()({
       ) {
         throw new ORPCError("FORBIDDEN", { message: "Organization access denied" });
       }
-
       return organization.member;
+    };
+    const canEditProposalEntity = async (
+      pluginId: string,
+      entityId: string,
+      context: Context,
+    ): Promise<boolean> => {
+      const callerIds = [
+        context.userId,
+        (context.user as { walletAddress?: string | null } | undefined)?.walletAddress,
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+      ].filter((id): id is string => Boolean(id));
+      try {
+        if (pluginId === "projects") {
+          const { data: project } = await services.plugins
+            .projects(context)
+            .getProject({ id: entityId });
+          const organizationIds = (
+            (context as { organizations?: Array<{ id: string }> }).organizations ?? []
+          ).map(({ id }) => id);
+          return (
+            callerIds.includes(project.ownerId) ||
+            (!!project.organizationId && organizationIds.includes(project.organizationId)) ||
+            (project.collaborators ?? []).some(
+              (collaborator) =>
+                collaborator.status === "accepted" &&
+                callerIds.includes(collaborator.collaboratorOwnerId),
+            )
+          );
+        }
+        if (pluginId === "events") {
+          const { data: event } = await services.plugins.events(context).getEvent({ id: entityId });
+          return callerIds.includes(event.ownerId);
+        }
+      } catch (error) {
+        if (error instanceof ORPCError && error.code === "NOT_FOUND") return false;
+        throw error;
+      }
+      return false;
+    };
+    const assertKnownCatalogCategories = async (categories?: string[]) => {
+      if (!categories || categories.length === 0) return;
+      const known = await services.plugins.nearcatalog().listCatalogCategories({});
+      const ids = new Set(known.data.map((category) => category.id));
+      const unknown = categories.filter((category) => !ids.has(category.trim()));
+      if (unknown.length > 0) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: `Unknown NEAR Catalog categories: ${unknown.join(", ")}`,
+        });
+      }
     };
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
     ) => {
+      if (input.pluginId === CATALOG_LISTING_PLUGIN_ID && isSystemActor(context)) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "NEAR Catalog listings need a human admin to approve them",
+        });
+      }
       const proposalsClient = services.plugins.proposals(context);
       const approval = await proposalsClient.approve(input);
       const proposal = {
@@ -290,6 +419,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         createdBy: rejected.data.createdBy,
         rejectionReason: rejected.data.rejectionReason,
       };
+      if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+        await catalogListings.reject(proposal);
+      }
       await notifyRejection(proposal, context);
       return rejected;
     };
@@ -457,8 +589,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         timestamp: new Date().toISOString(),
       })),
 
-      getApprovalSettings: builder.getApprovalSettings.handler(async () => ({
-        requireAdminApproval: services.requireAdminApproval,
+      getApprovalSettings: builder.getApprovalSettings.handler(async ({ context }) => ({
+        requireAdminApproval: apiServices(context).requireAdminApproval,
       })),
 
       authHealth: builder.authHealth.use(requireAuth).handler(async () => ({
@@ -531,6 +663,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             });
           }
           const tags = normalizedBuilderProfile(input);
+          assertPreferredContact(input.catalog, input.links);
           const proposalInput = {
             pluginId: "builders",
             entityId: nearAccount.toLowerCase(),
@@ -541,6 +674,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               skills: tags.skills,
               location: tags.location,
               links: input.links,
+              catalog: input.catalog,
             },
             source: nomination?.source ?? "web",
             ...(nomination
@@ -571,7 +705,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
           if (
             shouldAutoApproveBuilderProfile({
-              requireAdminApproval: services.requireAdminApproval,
+              requireAdminApproval: apiServices(context).requireAdminApproval,
               previous: previousProposal,
               submitted: proposal.data,
             })
@@ -635,6 +769,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
             message: "Use the Catalog claim proposal endpoint",
           });
         }
+        if (input.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Use the NEAR Catalog listing endpoint",
+          });
+        }
         assertValidBuilderProposalAccount(input);
         if (input.pluginId === "builders") {
           const result = await nominateBuilder(
@@ -652,6 +791,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
           .proposals({
             ...context,
             allowPrivateSubmission: input.pluginId === "projects" || input.pluginId === "events",
+            canResubmitForOthers: await canEditProposalEntity(
+              input.pluginId,
+              input.entityId,
+              context,
+            ),
           })
           .propose(input);
       }),
@@ -751,8 +895,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
       reevaluateProposal: builder.reevaluateProposal
         .use(requireAdmin)
-        .handler(async ({ input }) => {
-          return await services.reviewEvaluation.evaluateOne(input);
+        .handler(async ({ input, context }) => {
+          return await apiServices(context).reviewEvaluation.evaluateOne(input);
         }),
 
       decideTelegramReview: builder.decideTelegramReview
@@ -774,7 +918,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAdmin)
         .handler(async ({ context }) => {
           return await createTelegramLinkCode(services.plugins, context, {
-            botUsername: services.chiefBotUsername,
+            botUsername: apiServices(context).chiefBotUsername,
           });
         }),
 
@@ -877,6 +1021,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.nearcatalog().searchCatalogProjects(input);
       }),
 
+      listCatalogCategories: builder.listCatalogCategories.handler(async () => {
+        return await services.plugins.nearcatalog().listCatalogCategories({});
+      }),
+
       getCatalogProject: builder.getCatalogProject.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().getCatalogProject(input);
       }),
@@ -891,6 +1039,45 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireAuth)
         .handler(async ({ context }) => {
           return await catalogClaims.getMine(context);
+        }),
+
+      exportCatalogProjects: builder.exportCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogProjects(input);
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogPeople(input);
+      }),
+
+      listCatalogListings: builder.listCatalogListings.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listCatalogListings(input);
+      }),
+
+      markCatalogListingPublished: builder.markCatalogListingPublished
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await services.plugins
+            .nearcatalog(context)
+            .markCatalogListingPublished(input);
+          return { data: { status: result.data.status, slug: result.data.slug } };
+        }),
+
+      getMyCatalogListing: builder.getMyCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.getStatus(input, context);
+        }),
+
+      submitCatalogListing: builder.submitCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.submit(input, context);
+        }),
+
+      withdrawMyCatalogListing: builder.withdrawMyCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.withdraw(input, context);
         }),
 
       listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
@@ -946,7 +1133,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             ? project.ownerId
             : undefined;
           return await services.plugins
-            .activity(context)
+            .activity({ ...context, activityRegistration: true })
             .startActivityRegistration({ ...input, nearAccountId });
         }),
 
@@ -1061,14 +1248,15 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       createProject: builder.createProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         const visibility = enforceContentCreationVisibility(
           context.user,
           context.near,
           input.visibility,
-          !services.requireAdminApproval,
+          !apiServices(context).requireAdminApproval,
         );
         const created = await services.plugins
-          .projects(context)
+          .projects({ ...context, allowPublicVisibility: visibility === "public" })
           .createProject({ ...input, visibility });
         const invited =
           (created as { collaborators?: Array<{ collaboratorOwnerId: string }> })?.collaborators ??
@@ -1095,22 +1283,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
       }),
 
       updateProject: builder.updateProject.use(requireAuth).handler(async ({ input, context }) => {
+        await assertKnownCatalogCategories(input.catalog?.categories);
         // With approval off, members may publish directly, except projects an admin
         // has already rejected or removed: those still need an admin to make them public.
         let allowPublicVisibility = false;
-        if (!services.requireAdminApproval && input.visibility === "public") {
+        if (!apiServices(context).requireAdminApproval && input.visibility === "public") {
           const latest = await services.plugins
             .proposals(evaluatorContext)
             .getProposals({ pluginId: "projects", entityId: input.id, limit: 1 });
           allowPublicVisibility = !wasModeratedByAdmin(latest.data[0]);
         }
-        return await services.plugins
+        const updated = await services.plugins
           .projects({ ...context, allowPublicVisibility })
           .updateProject(input);
+        await syncCatalogListing("project", input.id, context);
+        return updated;
       }),
 
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.projects(context).deleteProject(input);
+        const deleted = await services.plugins.projects(context).deleteProject(input);
+        await syncCatalogListing("project", input.id, context);
+        return deleted;
       }),
 
       leaveOrganization: builder.leaveOrganization
@@ -1146,10 +1339,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           }
 
           await services.plugins
-            .projects({
-              ...context,
-              internalOrganizationCleanup: true,
-            })
+            .projects({ ...context, internalOrganizationCleanup: true })
             .clearOrganizationAttribution({ organizationId: input.organizationId });
 
           if (!services.auth) {
@@ -1163,7 +1353,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Organization deletion was not completed",
             });
           }
-
           return { deleted: result.success };
         }),
 
@@ -1293,6 +1482,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return await services.plugins.builders(context).getBuilder(input);
       }),
 
+      getBuildersByUserIds: builder.getBuildersByUserIds.handler(async ({ input, context }) => {
+        return await services.plugins.builders(context).getBuildersByUserIds(input);
+      }),
+
       getBuilderStats: builder.getBuilderStats.handler(async ({ input, context }) => {
         const [projects, ideas, catalogProjects] = await Promise.allSettled([
           services.plugins.projects(context).listProjects({
@@ -1331,7 +1524,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
       withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(context).withdrawMyBuilderProfile(input);
+          const withdrawn = await services.plugins
+            .builders(context)
+            .withdrawMyBuilderProfile(input);
+          await syncCatalogListing("person", withdrawn.data.nearAccount, context);
+          return withdrawn;
         }),
 
       restoreMyBuilderProfile: builder.restoreMyBuilderProfile
@@ -1343,7 +1540,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(context).updateBuilderProfile(input);
+          const updated = await services.plugins.builders(context).updateBuilderProfile(input);
+          await syncCatalogListing("person", updated.data.nearAccount, context);
+          return updated;
         }),
 
       listRegistryApps: builder.listRegistryApps.handler(async ({ input }) => {

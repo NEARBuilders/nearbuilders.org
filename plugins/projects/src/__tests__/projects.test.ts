@@ -18,6 +18,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -32,10 +33,11 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0006_global_project_slugs.sql",
     "0007_project_logo_url.sql",
     "0008_project_collaborators.sql",
+    "0009_project_catalog_metadata.sql",
   ];
   const timestamps = [
     1778189697079, 1778192982329, 1778251917340, 1778260000000, 1778515758620, 1749700000000,
-    1781818000000, 1781900000000, 1782000000000,
+    1781818000000, 1781900000000, 1782000000000, 1793000000000,
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -68,6 +70,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const privateProject = await owner.createProject({
       kind: "idea",
@@ -96,6 +99,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const admin = loaded.createClient({
       userId: "admin-user",
@@ -133,6 +137,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const admin = loaded.createClient({
       userId: "admin-user",
@@ -182,6 +187,7 @@ describe("projects router visibility", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
     const member = loaded.createClient({
       userId: "member-user",
@@ -213,6 +219,60 @@ describe("projects router visibility", () => {
       (await owner.listProjects({ ownerId: "owner.near" })).data.map((project) => project.id),
     ).toContain(unlisted.id);
   });
+
+  it("keeps member-created projects private unless the caller allows public", async () => {
+    const member = loaded.createClient({
+      userId: "member-user",
+      near: testNear("member.near"),
+      user: testUser("member-user", "member"),
+    });
+    const created = await member.createProject({
+      kind: "idea",
+      title: "Member idea",
+      slug: "member-idea",
+      content: "Member content",
+      visibility: "public",
+    });
+    expect(created.visibility).toBe("private");
+
+    await expect(
+      member.createProject({
+        id: privateProjectId,
+        kind: "idea",
+        title: "Copy",
+        slug: "copy-idea",
+        content: "Copy",
+      }),
+    ).rejects.toThrow("already exists");
+
+    const ownerByAlternateId = await loaded
+      .createClient({
+        userId: "owner.near",
+        near: testNear("owner-new.near"),
+        user: testUser("owner.near", "member"),
+      })
+      .createProject({
+        id: privateProjectId,
+        kind: "idea",
+        title: "Retry",
+        slug: "retry-idea",
+        content: "Retry",
+      });
+    expect(ownerByAlternateId.id).toBe(privateProjectId);
+
+    const withoutNear = loaded.createClient({
+      userId: "plain-user",
+      user: testUser("plain-user", "member"),
+    });
+    await expect(
+      withoutNear.createProject({
+        kind: "idea",
+        title: "No account",
+        slug: "no-account-idea",
+        content: "Content",
+      }),
+    ).rejects.toThrow("Link a NEAR account");
+  });
 });
 
 describe("project identity fields", () => {
@@ -225,6 +285,7 @@ describe("project identity fields", () => {
       userId: "owner-user",
       near: testNear("owner.near"),
       user: testUser("owner-user", "member"),
+      allowPublicVisibility: true,
     });
 
   beforeAll(async () => {
@@ -371,6 +432,78 @@ describe("project identity fields", () => {
     ).rejects.toThrow();
   });
 
+  it("stores, normalizes and clears NEAR Catalog metadata", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "project",
+      title: "Catalog product",
+      slug: "catalog-product",
+      repository: "https://github.com/example/catalog",
+      domain: "catalog.example.com",
+      catalog: {
+        tagline: "  One line about it  ",
+        categories: ["defi", "dex", "defi"],
+        phase: "testnet",
+        links: { twitter: "https://x.com/example", telegram: " " },
+        tokenContract: "Token.Example.near",
+        coingeckoId: "example-token",
+      },
+    });
+    expect(created.catalog).toEqual({
+      tagline: "One line about it",
+      categories: ["defi", "dex"],
+      phase: "testnet",
+      links: { twitter: "https://x.com/example" },
+      tokenContract: "token.example.near",
+      coingeckoId: "example-token",
+    });
+
+    const read = await loaded.createClient().getProjectBySlug({ slug: "catalog-product" });
+    expect(read.data.catalog).toEqual(created.catalog);
+
+    const renamed = await owner.updateProject({ id: created.id, title: "Catalog product 2" });
+    expect(renamed.catalog).toEqual(created.catalog);
+
+    const updated = await owner.updateProject({
+      id: created.id,
+      catalog: { tagline: "New line", categories: ["wallet"] },
+    });
+    expect(updated.catalog).toEqual({ tagline: "New line", categories: ["wallet"] });
+
+    const cleared = await owner.updateProject({ id: created.id, catalog: null });
+    expect(cleared.catalog).toBeNull();
+    expect((await loaded.createClient().getProject({ id: created.id })).data.catalog).toBeNull();
+
+    const emptied = await owner.updateProject({ id: created.id, catalog: { tagline: " " } });
+    expect(emptied.catalog).toBeNull();
+  });
+
+  it("rejects invalid NEAR Catalog metadata", async () => {
+    const owner = ownerClient();
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Catalog validation idea",
+      slug: "catalog-validation-idea",
+      content: "Idea content",
+    });
+    expect(created.catalog).toBeNull();
+
+    const invalid = [
+      { tagline: "a".repeat(141) },
+      { categories: ["Not A Slug"] },
+      { categories: ["a", "b", "c", "d", "e", "f", "g"] },
+      { links: { twitter: "ftp://x.com/example" } },
+      { links: { myspace: "https://myspace.com/example" } },
+      { tokenContract: "not a contract" },
+      { coingeckoId: "Bad Id!" },
+    ];
+    for (const catalog of invalid) {
+      await expect(
+        owner.updateProject({ id: created.id, catalog: catalog as never }),
+      ).rejects.toThrow();
+    }
+  });
+
   it("returns slug batches in request order and omits unknown or private rows", async () => {
     const anonymous = loaded.createClient();
     const owner = ownerClient();
@@ -459,6 +592,7 @@ describe("project collaborators", () => {
     userId: "owner-user",
     near: testNear("owner.near"),
     user: testUser("owner-user", "member"),
+    allowPublicVisibility: true,
   });
   const collabCtx = () => ({
     userId: "collab-user",

@@ -18,6 +18,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -102,5 +103,26 @@ describe("activity router", () => {
     await admin.hideActivity({ id: trusted.id });
     const uploads = await loaded.createClient().getActivityFeed({ source: "manual" });
     expect(uploads.data.map((event) => event.id)).toEqual([manual.id]);
+  });
+
+  it("starts project registration only through the core handler", async () => {
+    const context = {
+      userId: "member",
+      near: testNear("alice.near"),
+      user: testUser("member", "member"),
+    };
+    const input = {
+      projectId: "proj_other",
+      nearAccountId: "alice.near",
+      eventTypes: [{ name: "commit", pointValue: 1 }],
+    };
+    await expect(
+      loaded.createClient(context).startActivityRegistration(input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      loaded
+        .createClient({ ...context, activityRegistration: true })
+        .startActivityRegistration(input),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
   });
 });

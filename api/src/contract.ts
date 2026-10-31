@@ -1,3 +1,5 @@
+import "@orpc/openapi/extensions/route";
+import { eventIterator, oc } from "@orpc/contract";
 import {
   BAD_REQUEST,
   CONNECTION_ERROR,
@@ -8,8 +10,7 @@ import {
   TIMEOUT,
   UNAUTHORIZED,
 } from "every-plugin/errors";
-import { eventIterator, oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 
 const NOMINATION_CONFLICT = {
   status: 409,
@@ -122,6 +123,29 @@ const XNominationInput = z
     },
   );
 
+const BuilderCatalog = z.object({
+  preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]).optional(),
+  organization: z.string().trim().max(100).optional(),
+  team: z.string().trim().max(100).optional(),
+  jobTitle: z.string().trim().max(80).optional(),
+  publicEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .refine((value) => value.length === 0 || z.email().safeParse(value).success, {
+      message: "Enter a valid email address",
+    })
+    .optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((value) => value.length === 0 || HttpUrl.safeParse(value).success, {
+      message: "Avatar URL must be an absolute http(s) URL",
+    })
+    .optional(),
+});
+
 const BuilderProfileSubmissionInput = z.object({
   nominationToken: z.string().min(1).max(256).optional(),
   name: z.string().trim().min(1).max(100),
@@ -129,6 +153,7 @@ const BuilderProfileSubmissionInput = z.object({
   skills: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
   location: z.string().trim().max(100).optional(),
   links: z.record(z.string(), HttpUrl).optional(),
+  catalog: BuilderCatalog.optional(),
 });
 
 const BuilderNominationInput = z.object({
@@ -211,7 +236,13 @@ export const ProposalAuditEntrySchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
-export const REVIEW_DIGEST_PLUGIN_IDS = ["builders", "projects", "events", "nearcatalog"] as const;
+export const REVIEW_DIGEST_PLUGIN_IDS = [
+  "builders",
+  "projects",
+  "events",
+  "nearcatalog",
+  "nearcatalog-listing",
+] as const;
 const ReviewDigestPluginId = z.enum(REVIEW_DIGEST_PLUGIN_IDS);
 const ReviewVerdict = z.enum(["ready", "review", "spam"]);
 
@@ -455,6 +486,86 @@ const ClaimedCatalogProjectSchema = z.object({
   ),
 });
 
+const CatalogExportUrl = z.union([z.literal(""), z.url({ protocol: /^https?$/ })]);
+
+const CatalogExportProjectSchema = z.strictObject({
+  slug: z.string().min(1).max(120),
+  title: z.string().min(1).max(400),
+  oneliner: z.string().min(1).max(400),
+  description: z.string().min(1).max(2000),
+  logo: z.url({ protocol: /^https?$/ }),
+  categories: z.array(z.string().min(1).max(60)).min(1).max(6),
+  website: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  medium: CatalogExportUrl,
+  telegram: CatalogExportUrl,
+  github: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  whitepaper: CatalogExportUrl,
+  "token-address": z.string().max(64),
+  "coingecko-address": z.string().max(100),
+  "nearsocial-address": CatalogExportUrl,
+  dapp: CatalogExportUrl,
+  phase: z.string().max(40),
+  source: z.strictObject({
+    site: z.string().min(1),
+    url: z.url(),
+    nearAccount: z.string(),
+    updatedAt: z.iso.datetime(),
+  }),
+});
+
+const CatalogExportPersonSchema = z.strictObject({
+  name: z.string().min(1).max(100),
+  preferredContact: z.enum(["Email", "Telegram", "Discord", "X", "Website"]),
+  description: z.string().min(1).max(2000),
+  organization: z.string().max(100),
+  team: z.string().max(100),
+  jobTitle: z.string().max(80),
+  email: z.union([z.literal(""), z.email()]),
+  telegram: CatalogExportUrl,
+  twitter: CatalogExportUrl,
+  discord: CatalogExportUrl,
+  website: CatalogExportUrl,
+  avatar: CatalogExportUrl,
+  nearProjects: z.string(),
+  nearAccount: z.string().min(1).max(100),
+});
+
+const CatalogExportInput = z.object({ since: z.iso.datetime().optional() });
+
+const CatalogExportMeta = z.object({
+  generatedAt: z.iso.datetime(),
+  since: z.iso.datetime().nullable(),
+  count: z.number().int().nonnegative(),
+});
+
+const CatalogListingKind = z.enum(["project", "person"]);
+
+const CatalogListingTarget = z
+  .object({
+    kind: CatalogListingKind,
+    projectId: z.string().trim().min(1).max(255).optional(),
+  })
+  .refine((value) => value.kind === "person" || Boolean(value.projectId), {
+    message: "projectId is required for project listings",
+    path: ["projectId"],
+  });
+
+const CatalogListingStatusSchema = z.object({
+  kind: CatalogListingKind,
+  entityId: z.string(),
+  status: z.enum(["none", "pending", "approved", "rejected", "published"]),
+  slug: z.string().nullable(),
+  listed: z.boolean(),
+  rejectionReason: z.string().nullable(),
+  eligible: z.boolean(),
+  ineligibleReason: z.string().nullable(),
+  missing: z.array(z.string()),
+  record: z.record(z.string(), z.unknown()),
+  approvedRecord: z.record(z.string(), z.unknown()).nullable(),
+});
+
 const CatalogClaimProposalSchema = z.object({
   id: z.string(),
   projectSlug: CatalogProjectSlugSchema,
@@ -490,6 +601,60 @@ function isAbsoluteHttpUrl(value: string) {
   }
 }
 
+const ProjectCatalogLinkUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.length === 0 || isAbsoluteHttpUrl(value), {
+    message: "Links must be absolute http(s) URLs",
+  });
+
+const ProjectCatalog = z.object({
+  tagline: z.string().trim().max(140).optional(),
+  categories: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(60)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    )
+    .max(6)
+    .optional(),
+  phase: z.enum(["mainnet", "testnet", "prototype", "still building", "inactive"]).optional(),
+  links: z
+    .partialRecord(
+      z.enum([
+        "twitter",
+        "telegram",
+        "discord",
+        "github",
+        "medium",
+        "whitepaper",
+        "nearsocial",
+        "linkedin",
+        "youtube",
+      ]),
+      ProjectCatalogLinkUrl,
+    )
+    .optional(),
+  tokenContract: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*$/, {
+      message: "Token contract must be a NEAR account id",
+    })
+    .optional(),
+  coingeckoId: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, { message: "CoinGecko id must use lowercase letters, digits and -" })
+    .optional(),
+});
+
 const ProjectOutput = z.object({
   id: z.string(),
   ownerId: z.string(),
@@ -504,6 +669,7 @@ const ProjectOutput = z.object({
   repository: z.string().nullable(),
   domain: z.string().nullable(),
   logoUrl: z.string().nullable(),
+  catalog: ProjectCatalog.nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -608,6 +774,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  catalog: BuilderCatalog.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -1209,6 +1376,11 @@ export const contract = oc.router({
     .output(z.object({ data: z.array(CatalogProjectSchema) }))
     .errors({ BAD_REQUEST, ...CatalogErrors }),
 
+  listCatalogCategories: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/categories" })
+    .input(z.object({}))
+    .output(z.object({ data: z.array(z.object({ id: z.string(), label: z.string() })) })),
+
   getCatalogProject: oc
     .route({ method: "GET", path: "/v1/nearcatalog/projects/{slug}" })
     .input(
@@ -1235,6 +1407,81 @@ export const contract = oc.router({
     .route({ method: "GET", path: "/v1/nearcatalog/claim-proposals/me" })
     .output(z.object({ data: z.array(CatalogClaimProposalSchema) }))
     .errors({ UNAUTHORIZED }),
+
+  exportCatalogProjects: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/projects" })
+    .input(CatalogExportInput)
+    .output(
+      z.object({
+        data: z.array(CatalogExportProjectSchema),
+        removed: z.array(
+          z.object({ slug: z.string(), nearAccount: z.string(), removedAt: z.iso.datetime() }),
+        ),
+        meta: CatalogExportMeta,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  exportCatalogPeople: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/export/people" })
+    .input(CatalogExportInput)
+    .output(
+      z.object({
+        data: z.array(CatalogExportPersonSchema),
+        removed: z.array(
+          z.object({ nearAccount: z.string(), name: z.string(), removedAt: z.iso.datetime() }),
+        ),
+        meta: CatalogExportMeta,
+      }),
+    )
+    .errors({ BAD_REQUEST }),
+
+  listCatalogListings: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings" })
+    .input(z.object({ kind: CatalogListingKind }))
+    .output(
+      z.object({
+        data: z.array(
+          z.object({
+            kind: CatalogListingKind,
+            entityId: z.string(),
+            slug: z.string(),
+            status: z.enum(["approved", "published"]),
+            catalogUrl: z.string().url().nullable(),
+          }),
+        ),
+      }),
+    ),
+
+  markCatalogListingPublished: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/published" })
+    .input(
+      z.object({
+        kind: CatalogListingKind,
+        entityId: z.string().trim().min(1).max(255),
+        slug: z.string().trim().min(1).max(120).optional(),
+      }),
+    )
+    .output(z.object({ data: z.object({ status: z.string(), slug: z.string() }) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  getMyCatalogListing: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings/me" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  submitCatalogListing: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/me" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  withdrawMyCatalogListing: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/me/withdraw" })
+    .input(CatalogListingTarget)
+    .output(z.object({ data: CatalogListingStatusSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   listCatalogClaims: oc
     .route({ method: "GET", path: "/v1/nearcatalog/claims" })
@@ -1525,6 +1772,7 @@ export const contract = oc.router({
         ownerId: z.string().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        catalog: ProjectCatalog.nullable().optional(),
         collaborators: z.array(z.string().min(1).max(255)).max(20).optional(),
       }),
     )
@@ -1588,8 +1836,10 @@ export const contract = oc.router({
         visibility: z.enum(["private", "unlisted", "public"]).optional(),
         repository: z.string().url().max(500).optional(),
         ownerId: z.string().optional(),
+        organizationId: z.string().nullable().optional(),
         domain: z.string().max(255).optional(),
         logoUrl: optionalLogoUrl,
+        catalog: ProjectCatalog.nullable().optional(),
       }),
     )
     .output(ProjectOutput)
@@ -1849,6 +2099,16 @@ export const contract = oc.router({
     .output(z.object({ data: BuilderOutput }))
     .errors({ NOT_FOUND }),
 
+  getBuildersByUserIds: oc
+    .route({ method: "GET", path: "/v1/builders/by-user-ids" })
+    .input(
+      z.object({
+        userIds: z.array(z.string().min(1)).max(200),
+      }),
+    )
+    .output(z.object({ data: z.array(BuilderOutput) }))
+    .errors({ BAD_REQUEST }),
+
   getBuilderStats: oc
     .route({ method: "GET", path: "/v1/builders/{nearAccount}/stats" })
     .input(z.object({ nearAccount: z.string().min(1).max(100) }))
@@ -1883,6 +2143,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        catalog: BuilderCatalog.nullable().optional(),
       }),
     )
     .output(z.object({ data: BuilderOutput }))

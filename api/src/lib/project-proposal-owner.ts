@@ -1,4 +1,4 @@
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 
 // NEAR account ids: 2-64 chars of lowercase alphanumeric segments separated by
 // . - _ with no leading/trailing/adjacent separators. Opaque auth user ids and

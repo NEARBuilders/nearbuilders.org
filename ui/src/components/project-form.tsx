@@ -25,8 +25,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
+import { ImageUploadField } from "@/components/image-upload-field";
+import { ProjectCatalogFields } from "@/components/project-catalog-fields";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
 import {
@@ -38,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { resolveProjectNearAccount } from "@/lib/near-social";
+import { emptyProjectCatalog, validateProjectCatalog } from "@/lib/project-catalog";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import {
   getProjectFormValidation,
@@ -53,6 +58,7 @@ import {
 } from "@/lib/project-form-validation";
 import { fetchRepositoryReadme } from "@/lib/repository-content";
 import { cn } from "@/lib/utils";
+import { memberOrganizations, useOrganizationsQuery } from "@/lib/workspace";
 
 export type { ProjectFormValues } from "@/lib/project-form-validation";
 export {
@@ -146,6 +152,9 @@ export function ProjectFormLayout({
   const currentTitle = useStore(form.store, (s: any) => s.values.title ?? "");
   const currentDescription = useStore(form.store, (s: any) => s.values.description ?? "");
   const formValues = useStore(form.store, (s: any) => s.values) as Partial<ProjectFormValues>;
+  const logoFallbackAccount = resolveProjectNearAccount({
+    ownerId: formValues.ownerId?.trim() || defaultOwnerId,
+  });
   const validation = getProjectFormValidation({
     ...formValues,
     kind: kind as ProjectFormValues["kind"],
@@ -698,6 +707,26 @@ export function ProjectFormLayout({
               )}
             </div>
           </section>
+
+          {kind === "project" && (
+            <form.Field
+              name="catalog"
+              validators={{
+                onChange: ({ value }: any) => validateProjectCatalog(value),
+                onSubmit: ({ value }: any) => validateProjectCatalog(value),
+              }}
+            >
+              {(field: any) => (
+                <ProjectCatalogFields
+                  value={field.state.value ?? emptyProjectCatalog()}
+                  onChange={(next) => field.handleChange(next)}
+                  description={currentDescription}
+                  logoUrl={formValues.logoUrl}
+                  showErrors
+                />
+              )}
+            </form.Field>
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:space-y-5 lg:self-start">
@@ -809,6 +838,8 @@ export function ProjectFormLayout({
             </section>
           )}
 
+          <OrganizationField form={form} kindLabel={kindToLabel(kind)} />
+
           {(kind === "project" || kind === "idea") && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
               <FieldLabel htmlFor="domain" required={kind === "project"}>
@@ -864,9 +895,9 @@ export function ProjectFormLayout({
           )}
 
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
-            <FieldLabel htmlFor="logoUrl">Logo URL</FieldLabel>
+            <FieldLabel htmlFor="logoUrl">Logo</FieldLabel>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Optional absolute http(s) URL for the project logo.
+              Optional. Upload a square image for the project logo.
             </p>
             <form.Field
               name="logoUrl"
@@ -875,38 +906,45 @@ export function ProjectFormLayout({
                 onSubmit: ({ value }: any) => validateLogoUrl(value),
               }}
             >
-              {(field: any) => {
-                const err = fieldErrorFor(field, "logoUrl");
-                return (
-                  <>
-                    <Input
-                      id="logoUrl"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="https://example.com/logo.png"
-                      className={cn(
-                        "mt-3 font-mono text-sm",
-                        fieldStateClassName(
-                          field.state.value,
-                          err,
-                          false,
-                          creatorMode && isFieldVisible("logoUrl"),
-                        ),
-                      )}
-                      aria-invalid={Boolean(err)}
-                      aria-describedby={err ? "logo-feedback" : undefined}
-                    />
-                    {err && (
-                      <div id="logo-feedback">
-                        <ErrorText>{err}</ErrorText>
-                      </div>
-                    )}
-                  </>
-                );
-              }}
+              {(field: any) => (
+                <ImageUploadField
+                  id="logoUrl"
+                  value={field.state.value}
+                  onChange={(url) => field.handleChange(url)}
+                  onBlur={field.handleBlur}
+                  error={fieldErrorFor(field, "logoUrl")}
+                  fallbackAccount={logoFallbackAccount}
+                  fallbackLabel="Showing the NEAR Social avatar until you upload a logo."
+                  invalidClassName={fieldStateClassName(
+                    field.state.value,
+                    undefined,
+                    false,
+                    creatorMode && isFieldVisible("logoUrl"),
+                  )}
+                />
+              )}
             </form.Field>
           </section>
+
+          {kind === "project" && (
+            <form.Field
+              name="catalog"
+              validators={{
+                onChange: ({ value }: any) => validateProjectCatalog(value),
+                onSubmit: ({ value }: any) => validateProjectCatalog(value),
+              }}
+            >
+              {(field: any) => (
+                <ProjectCatalogFields
+                  value={field.state.value ?? emptyProjectCatalog()}
+                  onChange={(next) => field.handleChange(next)}
+                  description={currentDescription}
+                  logoUrl={formValues.logoUrl}
+                  showErrors
+                />
+              )}
+            </form.Field>
+          )}
 
           {isAdmin && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
@@ -1492,5 +1530,53 @@ export function NearSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function kindToLabel(kind: unknown): string {
+  const value = typeof kind === "string" ? kind : "";
+  const labels: Record<string, string> = {
+    project: "project",
+    idea: "idea",
+    scope: "scope",
+    result: "entry",
+  };
+  return labels[value] ?? "entry";
+}
+
+function OrganizationField({ form, kindLabel }: { form: any; kindLabel: string }) {
+  const auth = useAuthClient();
+  const { data: organizations } = useOrganizationsQuery(auth);
+  const orgs = memberOrganizations(organizations);
+
+  if (orgs.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
+      <FieldLabel>Organization</FieldLabel>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        Attribute this {kindLabel} to one of your organizations.
+      </p>
+      <form.Field name="organizationId">
+        {(field: any) => (
+          <Select
+            value={field.state.value || "none"}
+            onValueChange={(value) => field.handleChange(value === "none" ? "" : value)}
+          >
+            <SelectTrigger className="mt-3 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No organization</SelectItem>
+              {orgs.map((org) => (
+                <SelectItem key={org.id} value={org.id}>
+                  {org.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </form.Field>
+    </section>
   );
 }

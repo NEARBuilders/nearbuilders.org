@@ -14,6 +14,8 @@ import {
   type XNominationInput,
 } from "../services/builders";
 
+const PLUGIN_SCHEMA = "plugin_builders";
+
 function testNear(primaryAccountId: string) {
   return { primaryAccountId, linkedAccounts: [], hasNearAccount: true };
 }
@@ -27,6 +29,7 @@ function testUser(id: string) {
     image: null,
     role: "member",
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -37,6 +40,7 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0002_chunky_roxanne_simpson.sql",
     "0003_slimy_talos.sql",
     "0004_nervous_tiger_shark.sql",
+    "0005_builder_catalog_metadata.sql",
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -100,11 +104,21 @@ describe.sequential("Telegram builder nominations", () => {
 
   function botClient(apiKeyId = "telegram-bot-key") {
     return loaded.createClient({
+      userId: "nomination-bot-owner",
+      user: { ...testUser("nomination-bot-owner"), role: "admin" },
       apiKey: {
         id: apiKeyId,
         name: "Telegram bot",
         permissions: {},
       },
+    });
+  }
+
+  function memberKeyClient(permissions: Record<string, string[]> = {}) {
+    return loaded.createClient({
+      userId: "member-with-key",
+      user: testUser("member-with-key"),
+      apiKey: { id: "member-key", name: "Member key", permissions },
     });
   }
 
@@ -180,6 +194,42 @@ describe.sequential("Telegram builder nominations", () => {
     }
     return new URL(response.body.joinUrl).searchParams.get("nomination")!;
   }
+
+  it("only accepts admin-owned keys or keys granted nominations:write", async () => {
+    const input = createInput({
+      ...baseNomination,
+      sourceNominationId: "4401",
+      nomineeTelegramId: 4401,
+    });
+    const claim = {
+      nominationId: "missing-nomination",
+      nomineeTelegramId: 4401,
+      nomineeUsername: "key_scope_check",
+    };
+
+    await expect(memberKeyClient().createTelegramNomination(input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(memberKeyClient().createXNomination(createXInput())).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(memberKeyClient().claimTelegramNomination(claim)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(
+      memberKeyClient({ nominations: ["read"] }).createTelegramNomination(input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      loaded
+        .createClient({ userId: "member-with-key", user: testUser("member-with-key") })
+        .createTelegramNomination(input),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+    const granted = await memberKeyClient({ nominations: ["write"] }).createTelegramNomination(
+      input,
+    );
+    expect(granted.status).toBe(201);
+  });
 
   it("creates a stable verified nomination and replays the source idempotently", async () => {
     const first = await botClient().createTelegramNomination(createInput());
@@ -432,7 +482,11 @@ describe.sequential("Telegram builder nominations", () => {
       },
     });
     const client = isolated.createClient({
-      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+      apiKey: {
+        id: "telegram-bot-key",
+        name: "Telegram bot",
+        permissions: { nominations: ["write"] },
+      },
     });
     const response = await client.createTelegramNomination(
       createInput({
@@ -451,7 +505,7 @@ describe.sequential("Telegram builder nominations", () => {
     const token = new URL(claimed.joinUrl).searchParams.get("nomination")!;
 
     await isolatedRuntime.shutdown();
-    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`);
+    const driver = await createDatabaseDriver(`pglite:${isolatedDir}`, PLUGIN_SCHEMA);
     const [stored] = await driver.db.select().from(builderNominations).limit(1);
 
     expect(stored).toMatchObject({
@@ -477,7 +531,7 @@ describe.sequential("Telegram builder nominations", () => {
     const duplicateId = "nom_legacy_duplicate";
     const canonicalToken = createNominationToken(tokenSecret, canonicalId);
     const duplicateToken = createNominationToken(tokenSecret, duplicateId);
-    const legacyDriver = await createDatabaseDriver(databaseUrl);
+    const legacyDriver = await createDatabaseDriver(databaseUrl, PLUGIN_SCHEMA);
 
     for (const file of ["0000_large_power_man.sql", "0001_grey_prodigy.sql"]) {
       const source = await readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8");
@@ -568,7 +622,11 @@ describe.sequential("Telegram builder nominations", () => {
       },
     });
     const client = migrated.createClient({
-      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+      apiKey: {
+        id: "telegram-bot-key",
+        name: "Telegram bot",
+        permissions: { nominations: ["write"] },
+      },
     });
 
     await expect(client.resolveTelegramNomination({ token: duplicateToken })).resolves.toEqual({
@@ -594,7 +652,7 @@ describe.sequential("Telegram builder nominations", () => {
     });
 
     await migrationRuntime.shutdown();
-    const migratedDriver = await createDatabaseDriver(databaseUrl);
+    const migratedDriver = await createDatabaseDriver(databaseUrl, PLUGIN_SCHEMA);
     const rows = await migratedDriver.db.select().from(builderNominations);
     const xIdentities = await migratedDriver.db.select().from(builderXIdentities);
     const canonical = rows.find((row) => row.id === canonicalId);

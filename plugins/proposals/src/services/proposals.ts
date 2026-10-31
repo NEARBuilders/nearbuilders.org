@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
   proposalAuditLog,
@@ -139,7 +139,7 @@ async function appendAudit(
   });
 }
 
-export class ProposalService extends Context.Tag("proposals/ProposalService")<
+export class ProposalService extends Context.Service<
   ProposalService,
   {
     propose: (input: {
@@ -152,6 +152,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       actorId: string;
       actor?: { name?: string; email?: string };
       resubmissionPolicy?: ResubmissionPolicy;
+      canResubmitForOthers?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     approve: (input: {
       pluginId: string;
@@ -300,7 +301,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       telegramId: number;
     }) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
   }
->() {}
+>()("proposals/ProposalService") {}
 
 function isUniqueViolation(error: unknown): boolean {
   let current: unknown = error;
@@ -407,6 +408,19 @@ export const ProposalServiceLive = Layer.effect(
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
                 message: "A lifecycle action is already in progress",
+              }),
+            );
+          }
+
+          if (
+            existing &&
+            existing.createdBy !== input.actorId &&
+            !input.resubmissionPolicy &&
+            !input.canResubmitForOthers
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the original submitter can resubmit this proposal",
               }),
             );
           }

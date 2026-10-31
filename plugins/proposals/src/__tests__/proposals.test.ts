@@ -19,6 +19,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -1061,5 +1062,44 @@ describe.sequential("Proposals plugin", () => {
         expectedUpdatedAt: new Date().toISOString(),
       }),
     ).rejects.toThrow("Authentication required");
+  });
+
+  it("only lets the original submitter resubmit an existing proposal", async () => {
+    const memberClient = (id: string, extra: Record<string, unknown> = {}) =>
+      loaded.createClient({
+        userId: `user-${id}`,
+        near: testNear(`${id}.near`),
+        user: testUser(`user-${id}`, "member"),
+        ...extra,
+      });
+    const target = { pluginId: "builders", entityId: "resubmit-target.near" };
+
+    await memberClient("carol").propose({ ...target, payload: { name: "First" } });
+    await expect(
+      memberClient("dave").propose({ ...target, payload: { name: "Second" } }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const own = await memberClient("carol").propose({ ...target, payload: { name: "Edited" } });
+    expect(own.data).toMatchObject({ createdBy: "carol.near", payload: { name: "Edited" } });
+
+    const self = await memberClient("resubmit-target").propose({
+      ...target,
+      payload: { name: "Mine" },
+    });
+    expect(self.data).toMatchObject({ createdBy: "carol.near", payload: { name: "Mine" } });
+
+    const coEditor = await memberClient("dave", { canResubmitForOthers: true }).propose({
+      ...target,
+      payload: { name: "Co-edit" },
+    });
+    expect(coEditor.data.payload).toMatchObject({ name: "Co-edit" });
+
+    await expect(
+      memberClient("dave", { allowPrivateSubmission: true }).propose({
+        pluginId: "projects",
+        entityId: "proj_alice_private",
+        payload: { title: "Replaced" },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

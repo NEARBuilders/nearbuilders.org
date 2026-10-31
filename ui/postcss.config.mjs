@@ -1,8 +1,12 @@
 /**
+ * FRAMEWORK-OWNED — reconciled from the parent template by `bos upgrade`.
+ * Local edits are allowed: on the next upgrade the template version wins and your
+ * copy is backed up under `.bos/sync-backup/`. To make a change permanent, file an
+ * issue: https://github.com/NEARBuilders/everything-dev/issues
+ */
+/**
  * PostCSS configuration with Tailwind CSS.
  *
- * BE CAREFUL MODIFYING THIS FILE — changes will be overwritten by `bos sync` / `bos upgrade`.
- * Prefer upstream changes at https://github.com/nearbuilders/everything-dev
  */
 
 export default {

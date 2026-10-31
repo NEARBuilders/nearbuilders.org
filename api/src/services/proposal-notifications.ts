@@ -1,7 +1,7 @@
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { readString } from "../lib/utils";
 import { buildProposalApproval } from "./proposal-approval";
 
@@ -16,6 +16,18 @@ type NotificationsClient = ReturnType<PluginsClient["notifications"]>;
 export type ProposalNotificationInput = Parameters<NotificationsClient["createNotification"]>[0];
 export type ApprovalNotificationInput = ProposalNotificationInput;
 const CATALOG_CLAIM_PLUGIN_ID = "nearcatalog";
+const CATALOG_LISTING_PLUGIN_ID = "nearcatalog-listing";
+
+function catalogListingTarget(payload: unknown) {
+  const data =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : {};
+  return {
+    title: readString(data.title) ?? (data.kind === "person" ? "Your profile" : "Your project"),
+    link: readString(data.link) ?? "/dashboard",
+  };
+}
 
 export function buildApprovalNotification(
   proposal: ProposalData,
@@ -39,6 +51,18 @@ export function buildApprovalNotification(
       subject: "Project contribution approved",
       body: "Your NEAR Catalog contribution is now verified and visible.",
       link: `/builders/${proposal.createdBy}`,
+    };
+  }
+
+  if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+    const target = catalogListingTarget(proposal.payload);
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_listing_approved",
+      source: CATALOG_LISTING_PLUGIN_ID,
+      subject: `${target.title} approved for NEAR Catalog`,
+      body: "A NEAR Builders admin approved this listing for NEAR Catalog.",
+      link: target.link,
     };
   }
 
@@ -129,6 +153,23 @@ export function buildRejectionNotification(
     };
   }
 
+  if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+    const target = catalogListingTarget(proposal.payload);
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_listing_rejected",
+      source: CATALOG_LISTING_PLUGIN_ID,
+      subject: `${target.title} needs changes for NEAR Catalog`,
+      body: buildDecisionBody(
+        "Your NEAR Catalog listing was not approved.",
+        "Rejected",
+        reviewer,
+        reason,
+      ),
+      link: target.link,
+    };
+  }
+
   return null;
 }
 
@@ -193,6 +234,22 @@ export function buildRevocationNotification(
         reviewer,
       ),
       link: "/profile/activity?mode=claim",
+    };
+  }
+
+  if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+    const target = catalogListingTarget(proposal.payload);
+    return {
+      userId: proposal.createdBy,
+      type: "nearcatalog_listing_revoked",
+      source: CATALOG_LISTING_PLUGIN_ID,
+      subject: `${target.title} removed from NEAR Catalog`,
+      body: buildDecisionBody(
+        "Your NEAR Catalog listing approval was revoked.",
+        "Revoked",
+        reviewer,
+      ),
+      link: target.link,
     };
   }
 
