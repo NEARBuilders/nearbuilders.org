@@ -49,7 +49,7 @@ We use your information to:
 
 - Operate the platform and provide its features
 - Review builder profile submissions
-- Issue NEAR AI Cloud API keys to approved builders
+- Issue NEAR AI Cloud API keys to registered builders
 - Detect duplicate claims and prevent fraud and abuse, including reviewing claims that share an IP address
 - Provide customer support and respond to inquiries
 - Comply with legal obligations
@@ -59,7 +59,7 @@ We use your information to:
 
 We share your information only as follows:
 
-- **NEAR AI Cloud**: API keys for approved builders are issued through NEAR AI Cloud. Their handling of your API usage is governed by their terms and privacy policy.
+- **NEAR AI Cloud**: API keys for registered builders are issued through NEAR AI Cloud. Their handling of your API usage is governed by their terms and privacy policy.
 - **Service providers**: hosting and infrastructure providers that operate the platform on our behalf.
 - **Legal requirements**: when required by law, court order, or to protect the rights, property, or safety of NEAR Foundation, our users, or others, including for fraud protection.
 

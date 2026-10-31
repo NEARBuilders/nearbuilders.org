@@ -22,7 +22,7 @@ Builder profile submissions and proposals are reviewed by platform administrator
 
 ## 4. API Credit Claims
 
-During an offer window, approved builders may claim NEAR AI Cloud API credits, subject to the following:
+During an offer window, builders who complete registration may claim NEAR AI Cloud API credits, subject to the following:
 
 - Credits are limited to one claim per builder.
 - You may not use multiple accounts, wallets, or identities to claim credits more than once.

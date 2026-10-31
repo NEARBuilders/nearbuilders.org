@@ -37,6 +37,10 @@ import { useNearAccount } from "@/hooks";
 import { FEATURE_AREA_LABELS, type FeatureArea, isFeatureArea } from "@/lib/feature-areas";
 import type { ResolvedNearProfile } from "@/lib/near-social";
 import { pageHead } from "@/lib/page-meta";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import { nearProfileOptions } from "@/lib/queries/builders";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/dashboard")({
@@ -161,6 +165,9 @@ function Dashboard() {
   const builderProfile = builderResult?.data ?? null;
   const builderProposal = builderProposalResult?.data[0] ?? null;
 
+  const { data: approvalSettings } = useQuery(approvalSettingsQueryOptions(apiClient));
+  const requiresReview = requiresAdminApproval(approvalSettings);
+
   const { data: collaborationsData } = useQuery({
     queryKey: ["collaborations", "me", nearAccountId],
     queryFn: () => apiClient.listMyCollaborations({ limit: 20 }),
@@ -247,7 +254,7 @@ function Dashboard() {
       <DashboardHeader
         nearAccountId={nearAccountId}
         nearProfile={nearProfile}
-        showPublicProfile={Boolean(builderProfile)}
+        showPublicProfile={Boolean(builderProfile && !builderProfile.withdrawnAt)}
       />
 
       <CollaborationsPanel
@@ -286,6 +293,7 @@ function Dashboard() {
               builderProfile={builderProfile}
               builderProposal={builderProposal}
               isLoading={builderLoading || builderProposalLoading}
+              requiresReview={requiresReview}
               nearAccountId={nearAccountId}
               apiClient={apiClient}
             />
@@ -412,6 +420,7 @@ interface BuilderProfileData {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  withdrawnAt: string | null;
 }
 
 type ProposalStatus = "pending" | "approved" | "rejected" | "removed";
@@ -585,12 +594,14 @@ function BuilderProfileCard({
   builderProfile,
   builderProposal,
   isLoading,
+  requiresReview,
   nearAccountId,
   apiClient,
 }: {
   builderProfile: BuilderProfileData | null;
   builderProposal: BuilderProposalData | null;
   isLoading: boolean;
+  requiresReview: boolean;
   nearAccountId: string;
   apiClient: ReturnType<typeof useApiClient>;
 }) {
@@ -617,8 +628,12 @@ function BuilderProfileCard({
         skills,
         location: form.location.trim() || undefined,
       }),
-    onSuccess: () => {
-      toast.success("Builder profile submitted for review");
+    onSuccess: (result) => {
+      if (result.data.reviewStatus === "approved") {
+        toast.success("Builder profile published");
+      } else {
+        toast.success("Builder profile submitted for review");
+      }
       setShowRegisterForm(false);
       queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
       queryClient.invalidateQueries({ queryKey: ["builder-proposals", nearAccountId] });
@@ -654,7 +669,8 @@ function BuilderProfileCard({
           </div>
           <CardTitle className="text-base">Get discovered as a builder</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Register to appear in the NEAR Builders directory. Applications are reviewed by admins.
+            Register to appear in the NEAR Builders directory.
+            {requiresReview && " Applications are reviewed by admins."}
           </p>
         </CardHeader>
         <CardContent className="pt-0">
@@ -826,6 +842,37 @@ function BuilderProfileCard({
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (builderProfile?.withdrawnAt) {
+    return (
+      <Card className={profileCardClassName}>
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted">
+              <Hammer size={16} className="text-muted-foreground" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Profile withdrawn</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Your builder profile is hidden from the directory. Restore it to appear again and
+                claim API credits.
+              </p>
+            </div>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="w-full rounded-full border-brand-accent-border bg-background/70 sm:w-auto"
+          >
+            <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
+              Restore profile
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     );

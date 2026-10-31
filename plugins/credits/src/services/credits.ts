@@ -37,7 +37,8 @@ export function creditEligibility(
   builderProfile: { withdrawnAt: string | null } | null,
 ): CreditEligibility {
   if (!nearAccountId) return "needs_near_account";
-  if (!builderProfile || builderProfile.withdrawnAt) return "needs_approved_profile";
+  if (!builderProfile) return "needs_approved_profile";
+  if (builderProfile.withdrawnAt) return "needs_profile_restore";
   return "eligible";
 }
 

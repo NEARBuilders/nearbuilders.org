@@ -272,6 +272,9 @@ describe("Credit claims", () => {
     await expect(newcomer.claimCredits({})).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const withdrawn = client(userContext("w-user", "withdrawn.near"));
+    await expect(withdrawn.getCreditStatus({})).resolves.toMatchObject({
+      eligibility: "needs_profile_restore",
+    });
     await expect(withdrawn.claimCredits({})).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const noNear = client(userContext("google-user", null));
