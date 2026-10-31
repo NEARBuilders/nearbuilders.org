@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { Bot, ChevronDown, Copy, KeyRound } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
 import {
@@ -12,6 +12,12 @@ import {
   mcpUrlFromOrigin,
 } from "@/lib/agent-project-prompt";
 import type { ProjectKind } from "@/lib/draft-store";
+import {
+  clearPendingApiKey,
+  getPendingApiKey,
+  savePendingApiKey,
+  toPendingApiKey,
+} from "@/lib/pending-api-key";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -41,6 +47,11 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
 
+  useEffect(() => {
+    const pending = getPendingApiKey(AGENT_API_KEY_CONFIG_ID);
+    if (pending) setApiKey(pending.key);
+  }, []);
+
   const prompt = useMemo(() => {
     if (!apiKey) return null;
     return buildAgentProjectPrompt({
@@ -61,10 +72,21 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
       });
       if (error) throw new Error(error.message);
       if (!data?.key) throw new Error("API key was not returned");
-      return data.key;
+      return data;
     },
-    onSuccess: (key) => {
-      setApiKey(key);
+    onSuccess: (data) => {
+      setApiKey(data.key);
+      savePendingApiKey(
+        toPendingApiKey({
+          id: data.id,
+          key: data.key,
+          name: data.name ?? null,
+          prefix: data.prefix ?? null,
+          start: data.start ?? null,
+          createdAt: data.createdAt ?? undefined,
+          configId: AGENT_API_KEY_CONFIG_ID,
+        }),
+      );
       toast.success("API key created");
     },
     onError: (error: Error) => toast.error(error.message || "Failed to create API key"),
@@ -73,6 +95,13 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
   const copyPrompt = () => {
     if (!prompt) return;
     void copyText(prompt, "Prompt");
+    clearPendingApiKey();
+  };
+
+  const copyKey = () => {
+    if (!apiKey) return;
+    void copyText(apiKey, "API key");
+    clearPendingApiKey();
   };
 
   return (
@@ -107,12 +136,7 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
                   className="font-mono text-xs"
                   onFocus={(e) => e.target.select()}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void copyText(apiKey, "API key")}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={copyKey}>
                   <Copy className="h-3.5 w-3.5" />
                   copy key
                 </Button>

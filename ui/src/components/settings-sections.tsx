@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, KeyRound, Server, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Clock, KeyRound, RefreshCw, Server, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { type Passkey, useAuthClient } from "@/app";
 import {
@@ -15,6 +15,12 @@ import {
   ConfirmDialog,
 } from "@/components";
 import { Input } from "@/components/ui/input";
+import {
+  clearPendingApiKey,
+  getPendingApiKey,
+  savePendingApiKey,
+  toPendingApiKey,
+} from "@/lib/pending-api-key";
 
 type CreatedApiKey = ApiKeyRevealProps["apiKey"];
 
@@ -27,6 +33,10 @@ type ApiKeyItem = {
   createdAt: string | Date;
   expiresAt?: string | Date | null;
   lastRequest?: string | Date | null;
+  requestCount?: number | null;
+  rateLimitEnabled?: boolean | null;
+  rateLimitMax?: number | null;
+  rateLimitTimeWindow?: number | null;
 };
 
 export function useUserPasskeys(enabled = true) {
@@ -239,6 +249,21 @@ export function UserApiKeysPanel() {
     },
   });
 
+  useEffect(() => {
+    const pending = getPendingApiKey("user-keys");
+    if (pending) setCreatedApiKey(pending);
+  }, []);
+
+  const revealApiKey = (data: CreatedApiKey) => {
+    setCreatedApiKey(data);
+    savePendingApiKey(toPendingApiKey({ ...data, configId: "user-keys" }));
+  };
+
+  const dismissReveal = () => {
+    setCreatedApiKey(null);
+    clearPendingApiKey();
+  };
+
   const createMutation = useMutation({
     mutationFn: async (values: ApiKeyFormValues) => {
       const { data, error } = await auth.apiKey.create({
@@ -250,11 +275,51 @@ export function UserApiKeysPanel() {
       return data;
     },
     onSuccess: (data) => {
-      if (data) setCreatedApiKey(data as CreatedApiKey);
+      if (data) revealApiKey(data as CreatedApiKey);
       toast.success("API key created");
       queryClient.invalidateQueries({ queryKey: ["user-api-keys"] });
     },
     onError: (error: Error) => toast.error(error.message || "Failed to create API key"),
+  });
+
+  const replaceMutation = useMutation({
+    mutationFn: async (oldKey: ApiKeyItem) => {
+      const expiresInSeconds = oldKey.expiresAt
+        ? Math.floor((new Date(oldKey.expiresAt).getTime() - Date.now()) / 1000)
+        : undefined;
+      const { data, error } = await auth.apiKey.create({
+        configId: "user-keys",
+        name: oldKey.name ?? "Replaced key",
+        ...(expiresInSeconds !== undefined && expiresInSeconds > 0
+          ? { expiresIn: expiresInSeconds }
+          : {}),
+        ...(typeof oldKey.rateLimitEnabled === "boolean"
+          ? {
+              rateLimit: {
+                enabled: oldKey.rateLimitEnabled,
+                ...(oldKey.rateLimitMax != null ? { max: oldKey.rateLimitMax } : {}),
+                ...(oldKey.rateLimitTimeWindow != null
+                  ? { timeWindow: oldKey.rateLimitTimeWindow }
+                  : {}),
+              },
+            }
+          : {}),
+      });
+      if (error) throw new Error(error.message);
+      const { error: disableError } = await auth.apiKey.update({
+        keyId: oldKey.id,
+        enabled: false,
+        configId: "user-keys",
+      });
+      if (disableError) throw new Error(disableError.message);
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) revealApiKey(data as CreatedApiKey);
+      toast.success("API key replaced — the previous key is now disabled");
+      queryClient.invalidateQueries({ queryKey: ["user-api-keys"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to replace API key"),
   });
 
   const deleteMutation = useMutation({
@@ -276,6 +341,18 @@ export function UserApiKeysPanel() {
       description: `Permanently revoke ${keyName ?? "this key"}. Any service using it will stop working.`,
       onConfirm: () => {
         deleteMutation.mutate(keyId);
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleReplace = (key: ApiKeyItem) => {
+    const used = (key.requestCount ?? 0) > 0 || Boolean(key.lastRequest);
+    setConfirmConfig({
+      title: "Replace API key",
+      description: `A new key is created with the same name, expiry, and rate limit, and ${key.name ?? "this key"} is disabled immediately.${used ? " Anything still using the current secret will stop working." : ""} Copy the new secret when it appears — it is only shown once.`,
+      onConfirm: () => {
+        replaceMutation.mutate(key);
       },
     });
     setConfirmOpen(true);
@@ -305,9 +382,7 @@ export function UserApiKeysPanel() {
         </div>
       </div>
 
-      {createdApiKey && (
-        <ApiKeyReveal apiKey={createdApiKey} onDismiss={() => setCreatedApiKey(null)} />
-      )}
+      {createdApiKey && <ApiKeyReveal apiKey={createdApiKey} onDismiss={dismissReveal} />}
 
       <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -316,7 +391,8 @@ export function UserApiKeysPanel() {
               Personal API keys
             </h2>
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Revoke keys that are no longer used. Full key secrets are only shown once.
+              Full key secrets are only shown once. Lost a secret? Replace the key to get a new one
+              with the same settings.
             </p>
           </div>
           <Badge variant={enabledKeys > 0 ? "success" : "secondary"}>{enabledKeys} active</Badge>
@@ -331,7 +407,8 @@ export function UserApiKeysPanel() {
                 key={key.id}
                 apiKey={key}
                 onDelete={() => handleDelete(key.id, key.name)}
-                disabled={deleteMutation.isPending}
+                onReplace={key.enabled !== false ? () => handleReplace(key) : undefined}
+                disabled={deleteMutation.isPending || replaceMutation.isPending}
               />
             ))}
           </div>
@@ -347,7 +424,7 @@ export function UserApiKeysPanel() {
         description={confirmConfig.description}
         variant="destructive"
         onConfirm={confirmConfig.onConfirm}
-        isPending={deleteMutation.isPending}
+        isPending={deleteMutation.isPending || replaceMutation.isPending}
       />
     </div>
   );
@@ -393,10 +470,12 @@ function ApiKeysSummary({
 function ApiKeyListRow({
   apiKey,
   onDelete,
+  onReplace,
   disabled,
 }: {
   apiKey: ApiKeyItem;
   onDelete: () => void;
+  onReplace?: () => void;
   disabled: boolean;
 }) {
   const isEnabled = apiKey.enabled !== false;
@@ -425,16 +504,30 @@ function ApiKeyListRow({
           {apiKey.lastRequest && <span>Last used {formatApiKeyDate(apiKey.lastRequest)}</span>}
         </div>
       </div>
-      <Button
-        onClick={onDelete}
-        disabled={disabled}
-        variant="outline"
-        size="sm"
-        className="justify-self-start text-destructive hover:text-destructive sm:justify-self-auto"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        delete
-      </Button>
+      <div className="flex flex-wrap gap-2 justify-self-start sm:justify-self-auto">
+        {onReplace && (
+          <Button
+            onClick={onReplace}
+            disabled={disabled}
+            variant="outline"
+            size="sm"
+            title="Lost the secret? Get a fresh key with the same expiry and rate limit — the old one is disabled immediately."
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            replace
+          </Button>
+        )}
+        <Button
+          onClick={onDelete}
+          disabled={disabled}
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          delete
+        </Button>
+      </div>
     </div>
   );
 }

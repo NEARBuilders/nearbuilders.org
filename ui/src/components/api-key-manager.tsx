@@ -1,6 +1,7 @@
 import { Copy, KeyRound, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
@@ -106,13 +107,25 @@ export interface ApiKeyRevealProps {
 }
 
 export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
+  const [copied, setCopied] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(apiKey.key);
+      setCopied(true);
       toast.success("API key copied");
     } catch {
       toast.error("Failed to copy API key");
     }
+  };
+
+  const handleDismiss = () => {
+    if (copied) {
+      onDismiss();
+      return;
+    }
+    setCloseConfirmOpen(true);
   };
 
   return (
@@ -126,12 +139,13 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
             <div className="space-y-1">
               <div className="font-semibold text-foreground">New API key ready</div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Copy and store this key now. You will only be able to see the full secret once.
+                Copy and store this key now. You will only be able to see the full secret once, but
+                it stays here until you confirm — even if you refresh the page.
               </p>
             </div>
           </div>
-          <Button onClick={onDismiss} variant="outline" size="sm" className="self-start">
-            dismiss
+          <Button onClick={handleDismiss} variant="outline" size="sm" className="self-start">
+            {copied ? "done — I've saved my key" : "dismiss"}
           </Button>
         </div>
 
@@ -156,6 +170,15 @@ export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
           <InfoRow label="Created" value={new Date(apiKey.createdAt).toLocaleString()} />
         </div>
       </CardContent>
+      <ConfirmDialog
+        open={closeConfirmOpen}
+        onOpenChange={setCloseConfirmOpen}
+        title="Close without saving?"
+        description="You have not copied this key yet. If you lose it, the only option is to replace the key and update anything using it."
+        confirmLabel="close anyway"
+        variant="destructive"
+        onConfirm={onDismiss}
+      />
     </Card>
   );
 }
