@@ -17,6 +17,7 @@ const CONFLICT = {
 export const CreditClaimSchema = z.object({
   id: z.string(),
   status: z.enum(["pending", "issued", "expired", "failed", "revoked"]),
+  nearAccountId: z.string(),
   keyPrefix: z.string().nullable(),
   spendLimitUsd: z.number().positive(),
   keyExpiresAt: z.iso.datetime().nullable(),
@@ -24,7 +25,6 @@ export const CreditClaimSchema = z.object({
 });
 
 export const AdminCreditClaimSchema = CreditClaimSchema.extend({
-  nearAccountId: z.string(),
   userId: z.string(),
   ip: z.string().nullable(),
   ipClaimCount: z.number().int().nonnegative(),

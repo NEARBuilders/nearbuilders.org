@@ -4,6 +4,7 @@ import { canRetry, claimCardCopy, creditStatusQueryKey } from "./credit-claims";
 function claimPick(
   overrides: Partial<{
     status: "pending" | "issued" | "failed" | "revoked" | "expired";
+    nearAccountId: string;
     keyPrefix: string | null;
     createdAt: string;
     keyExpiresAt: string | null;
@@ -12,6 +13,7 @@ function claimPick(
 ) {
   return {
     status: "issued" as const,
+    nearAccountId: "efiz.near",
     keyPrefix: "sk-abc",
     createdAt: "2026-10-30T00:00:00.000Z",
     keyExpiresAt: "2999-11-25T23:59:00.000Z",
@@ -26,6 +28,7 @@ const OPEN_OFFER = {
   statusReason: null,
   eligibility: "eligible" as const,
   claimsCloseAt: "2999-11-14T23:59:00.000Z",
+  nearAccountId: "efiz.near",
   existing: null,
 };
 
@@ -106,6 +109,26 @@ describe("claimCardCopy", () => {
       existing: claimPick({ status: "issued", keyExpiresAt: null }),
     });
     expect(copy.description).toContain("no expiry");
+  });
+
+  it("keeps the key details for a claim made with the same account", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      existing: claimPick({ status: "issued" }),
+    });
+    expect(copy.description).toContain("Key sk-abc");
+    expect(copy.description).not.toContain("Nice try");
+  });
+
+  it("teases builders who claimed under a different account", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      nearAccountId: "work.efiz.near",
+      existing: claimPick({ status: "issued", nearAccountId: "efiz.near" }),
+    });
+    expect(copy.title).toBe("$5.00 NEAR AI Cloud credits claimed");
+    expect(copy.description).toContain("Nice try");
+    expect(copy.description).toContain("already claimed with efiz.near");
   });
 
   it("a pending claim tells the truth while it cannot be retried", () => {
