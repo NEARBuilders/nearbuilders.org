@@ -6,6 +6,7 @@ import { customAlphabet } from "nanoid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { AgentProjectCard } from "@/components/agent-project-card";
 import {
   ProjectFormLayout,
   type ProjectFormValues,
@@ -17,6 +18,7 @@ import {
   clearDraft,
   getDraft,
   type ProjectKind,
+  projectKindLabel,
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
@@ -194,13 +196,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
     },
     onSuccess: ({ project, submitForReview }, _values) => {
       clearDraft(routeKind as ProjectKind);
-      const kindLabels: Record<ProjectKind, string> = {
-        project: "Project",
-        idea: "Idea",
-        scope: "Scope",
-        result: "Result",
-      };
-      const label = kindLabels[routeKind as ProjectKind];
+      const label = projectKindLabel(routeKind as ProjectKind);
       toast.success(
         submitForReview
           ? `${label} created \u2014 submitted for review to go public`
@@ -251,7 +247,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const isFieldVisible = useFieldErrorVisibility(form);
   const visibleValidation = filterProjectFormValidation(validation, isFieldVisible);
   const slugPreview = generateSlug(formValues.title) || undefined;
-  const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
+  const kindLabel = projectKindLabel(routeKind as ProjectKind);
   const actionLabel =
     routeKind === "idea"
       ? "Create idea"
@@ -316,6 +312,10 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
           </div>
         </div>
       </div>
+
+      {canCreate && (
+        <AgentProjectCard kind={routeKind as ProjectKind} ownerId={defaultOwnerId || undefined} />
+      )}
 
       <form
         onSubmit={(e) => {

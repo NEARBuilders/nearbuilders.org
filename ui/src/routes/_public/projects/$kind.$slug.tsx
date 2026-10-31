@@ -41,15 +41,21 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/comp
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { isSafeImageUrl } from "@/lib/image-url";
-import { getNearSocialAvatarUrl, resolveProjectNearAccount } from "@/lib/near-social";
+import { getNearSocialAvatarUrl } from "@/lib/near-social";
 import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
-  fetchRepositoryLastCommitDate,
-  fetchRepositoryReadme,
-  mostRecentIsoDate,
-} from "@/lib/repository-content";
+  prefetchProjectDetail,
+  projectBySlugOptions,
+  projectCollaboratorsOptions,
+  projectLastCommitOptions,
+  projectReadmeOptions,
+  projectSocialAccount,
+  projectUpvoteCountOptions,
+  projectUserVoteOptions,
+} from "@/lib/queries/project-detail";
+import { mostRecentIsoDate } from "@/lib/repository-content";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 import { findActiveOrganization, useOrganizationsQuery } from "@/lib/workspace";
 import { feedbackRequestUrl } from "./-feedback-request";
@@ -60,13 +66,14 @@ export const Route = createFileRoute("/_public/projects/$kind/$slug")({
     if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
   },
   loader: async ({ params, context }) => {
-    const project = await context.queryClient
-      .ensureQueryData({
-        queryKey: ["project", params.slug],
-        queryFn: () => context.apiClient.getProjectBySlug({ slug: params.slug }),
-      })
-      .then((r) => r?.data ?? null)
-      .catch(() => null);
+    const { queryClient, apiClient, authClient, session } = context;
+    const project = await prefetchProjectDetail({
+      queryClient,
+      apiClient,
+      authClient,
+      slug: params.slug,
+      isAuthenticated: Boolean(session?.user && !session.user.isAnonymous),
+    });
 
     return {
       project,
@@ -151,53 +158,23 @@ function ProjectDetailPage() {
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const nearAccountId = auth.near.getAccountId();
 
-  const projectQuery = useQuery({
-    queryKey: ["project", slug],
-    queryFn: () => apiClient.getProjectBySlug({ slug }),
-  });
+  const projectQuery = useQuery(projectBySlugOptions(apiClient, slug));
 
   const project = projectQuery.data?.data;
   const projectId = project?.id;
   const { data: organizations } = useOrganizationsQuery(auth);
   const projectOrg = findActiveOrganization(organizations, project?.organizationId);
-  const projectSocialAccount =
-    resolveProjectNearAccount({
-      ownerId: project?.ownerId,
-      apps: (project as { apps?: Array<{ accountId: string }> } | undefined)?.apps,
-    }) ?? "";
-  const { data: projectSocialProfile } = useQuery(nearProfileOptions(auth, projectSocialAccount));
+  const { data: projectSocialProfile } = useQuery(
+    nearProfileOptions(auth, projectSocialAccount(project)),
+  );
   const canParticipate = Boolean(session?.user && !session.user.isAnonymous);
 
-  const readmeQuery = useQuery({
-    queryKey: ["readme", project?.id, project?.repository],
-    queryFn: async () => {
-      if (!project?.repository) return null;
-      return await fetchRepositoryReadme(project.repository);
-    },
-    enabled: project?.kind === "project" && Boolean(project?.repository),
-  });
-
-  const lastCommitQuery = useQuery({
-    queryKey: ["lastCommit", project?.id, project?.repository],
-    queryFn: async () => {
-      if (!project?.repository) return null;
-      return await fetchRepositoryLastCommitDate(project.repository);
-    },
-    enabled: project?.kind === "project" && Boolean(project?.repository),
-    staleTime: 5 * 60_000,
-  });
-
-  const upvoteCountQuery = useQuery({
-    queryKey: ["upvoteCount", projectId],
-    queryFn: () => apiClient.getUpvoteCount({ entityId: projectId! }),
-    enabled: Boolean(projectId),
-  });
-
+  const readmeQuery = useQuery(projectReadmeOptions(project));
+  const lastCommitQuery = useQuery(projectLastCommitOptions(project));
+  const upvoteCountQuery = useQuery(projectUpvoteCountOptions(apiClient, projectId));
   const userVoteQuery = useQuery({
-    queryKey: ["userVoteState", projectId],
-    queryFn: () => apiClient.getUserVote({ entityId: projectId! }),
+    ...projectUserVoteOptions(apiClient, projectId, canParticipate),
     select: (data): "up" | "down" | null => (data.hasUpvote ? "up" : null),
-    enabled: canParticipate && Boolean(projectId),
   });
 
   const deleteMutation = useMutation({
@@ -730,10 +707,7 @@ function CollaboratorsSection({
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const [inviteHandle, setInviteHandle] = useState("");
 
-  const collaboratorsQuery = useQuery({
-    queryKey: ["project-collaborators", projectId],
-    queryFn: () => apiClient.listCollaborators({ projectId }),
-  });
+  const collaboratorsQuery = useQuery(projectCollaboratorsOptions(apiClient, projectId));
 
   const collaborations = collaboratorsQuery.data?.data ?? [];
   const myIds = [
