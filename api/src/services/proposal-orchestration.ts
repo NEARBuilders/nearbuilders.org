@@ -162,7 +162,10 @@ const createCallbacks: Record<string, CreateCallback> = {
       if (!isNotFoundError(error)) throw error;
     }
 
-    const proposalOwnerContext = createProjectProposalOwnerContext(context, ownerId);
+    const proposalOwnerContext = {
+      ...createProjectProposalOwnerContext(context, ownerId),
+      allowPublicVisibility: true,
+    };
     const result = await plugins.projects(proposalOwnerContext).createProject({
       id: proposal.entityId,
       kind: payload.kind === "idea" ? "idea" : "project",
@@ -208,7 +211,10 @@ const createCallbacks: Record<string, CreateCallback> = {
       if (!isNotFoundError(error)) throw error;
     }
 
-    const proposalOwnerContext = createProjectProposalOwnerContext(context, ownerId);
+    const proposalOwnerContext = {
+      ...createProjectProposalOwnerContext(context, ownerId),
+      allowPublicVisibility: true,
+    };
     const result = await plugins.events(proposalOwnerContext).createEvent({
       id: proposal.entityId,
       title: readString(payload.title) ?? proposal.entityId,

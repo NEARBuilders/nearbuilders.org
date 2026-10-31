@@ -155,12 +155,24 @@ export default createPlugin({
       createProject: builder.createProject.use(requireAuth).effect(function* ({ input, context }) {
         const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
+        const isAdmin = context.user.role === "admin";
+        if (!isAdmin && !context.near?.primaryAccountId) {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Link a NEAR account to create content" }),
+          );
+        }
+        const visibility =
+          isAdmin || context.allowPublicVisibility === true
+            ? input.visibility
+            : input.visibility === "unlisted"
+              ? "unlisted"
+              : "private";
         return yield* project
           .createProject(
-            input,
+            { ...input, visibility },
             ownerId,
             context.user.role ?? undefined,
-            undefined,
+            getAlternateOwnerId(context),
             getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("createProject")));
