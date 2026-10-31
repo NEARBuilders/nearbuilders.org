@@ -366,8 +366,9 @@ function OrganizationDetail() {
 
   const deleteOrgMutation = useMutation({
     mutationFn: async () => {
-      const result = await apiClient.deleteOrganization({ organizationId: orgId });
-      if (!result.deleted) throw new Error("Organization deletion was not completed");
+      await apiClient.clearOrganizationAttribution({ organizationId: orgId });
+      const result = await apiClient.auth.deleteOrganization({ organizationId: orgId });
+      if (!result.success) throw new Error("Organization deletion was not completed");
     },
     onSuccess: async () => {
       toast.success("Organization deleted");

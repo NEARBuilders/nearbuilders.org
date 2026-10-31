@@ -1306,7 +1306,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
         return deleted;
       }),
 
-      deleteOrganization: builder.deleteOrganization
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
         .use(requireAuth)
         .handler(async ({ input, context }) => {
           const member = await getOrganizationMember(context, input.organizationId);
@@ -1316,22 +1316,9 @@ export default createPlugin.withPlugins<PluginEntries>()({
             });
           }
 
-          await services.plugins
+          return await services.plugins
             .projects({ ...context, internalOrganizationCleanup: true })
             .clearOrganizationAttribution({ organizationId: input.organizationId });
-
-          if (!services.auth) {
-            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Auth service unavailable" });
-          }
-          const result = await services.auth(context).deleteOrganization({
-            organizationId: input.organizationId,
-          });
-          if (!result.success) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Organization deletion was not completed",
-            });
-          }
-          return { deleted: result.success };
         }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
