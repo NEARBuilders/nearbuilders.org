@@ -33,6 +33,18 @@ describe("project catalog form values", () => {
     expect(projectCatalogFromFormValues(values)).toEqual(catalog);
   });
 
+  it("keeps links the form does not render, like a github link set over MCP", () => {
+    const catalog = {
+      tagline: "One line",
+      categories: ["defi"],
+      phase: "testnet" as const,
+      links: { github: "https://github.com/example" },
+    };
+    const values = projectCatalogToFormValues(catalog);
+    expect(values.links.github).toBe("https://github.com/example");
+    expect(projectCatalogFromFormValues(values)).toEqual(catalog);
+  });
+
   it("lowercases the token contract and CoinGecko id", () => {
     expect(
       projectCatalogFromFormValues({

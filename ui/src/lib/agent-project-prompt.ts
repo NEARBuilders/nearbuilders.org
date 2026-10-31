@@ -1,5 +1,5 @@
 import type { ProjectKind } from "./draft-store";
-import { CATALOG_PHASES } from "./project-catalog";
+import { CATALOG_LINKS, CATALOG_PHASES, type CatalogLinkKey } from "./project-catalog";
 
 /** Better Auth API-key config used by the settings page; keys created here show up there. */
 export const AGENT_API_KEY_CONFIG_ID = "user-keys";
@@ -8,18 +8,10 @@ export const AGENT_API_KEY_PURPOSE = "agent-project-creation";
 /** Agent keys are short-lived: 7 days. */
 export const AGENT_API_KEY_EXPIRES_IN = 7 * 24 * 60 * 60;
 
-/** Catalog link keys accepted by the projects contract. */
-export const AGENT_CATALOG_LINK_KEYS = [
-  "twitter",
-  "telegram",
-  "discord",
-  "github",
-  "medium",
-  "whitepaper",
-  "nearsocial",
-  "linkedin",
-  "youtube",
-] as const;
+/** Catalog link keys accepted by the projects contract; single source is CATALOG_LINKS. */
+export const AGENT_CATALOG_LINK_KEYS: readonly CatalogLinkKey[] = CATALOG_LINKS.map(
+  ({ key }) => key,
+);
 
 export function agentApiKeyName(kind: ProjectKind, now: Date = new Date()): string {
   return `Agent: new ${kind} (${now.toISOString().slice(0, 10)})`;
