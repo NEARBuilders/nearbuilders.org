@@ -132,8 +132,7 @@ function HeroSection() {
             <span className="block text-brand-accent">together.</span>
           </h1>
           <p className="mt-7 max-w-lg text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl">
-            Find collaborators, discover open projects, and ship community-owned products with
-            builders across NEAR.
+            Find collaborators, discover open projects, and ship products with builders on NEAR.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Button
