@@ -6,10 +6,13 @@ describe("creditEligibility", () => {
     expect(creditEligibility(null, null)).toBe("needs_near_account");
   });
 
-  it("requires a builder profile that is not withdrawn", () => {
+  it("requires a builder profile", () => {
     expect(creditEligibility("alice.near", null)).toBe("needs_approved_profile");
+  });
+
+  it("asks withdrawn builders to restore their profile", () => {
     expect(creditEligibility("alice.near", { withdrawnAt: "2026-10-01T00:00:00.000Z" })).toBe(
-      "needs_approved_profile",
+      "needs_profile_restore",
     );
   });
 

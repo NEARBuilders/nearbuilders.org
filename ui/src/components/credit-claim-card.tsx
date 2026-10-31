@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
@@ -10,7 +11,13 @@ import {
   claimCardCopy,
   creditStatusQueryKey,
   formatUsd,
+  needsProfileRestore,
+  needsRegistration,
 } from "@/lib/admin/credit-claims";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -59,6 +66,8 @@ export function CreditClaimCard({
     queryKey: creditStatusKey,
     queryFn: () => apiClient.credits.getCreditStatus({}),
   });
+
+  const approvalSettings = useQuery(approvalSettingsQueryOptions(apiClient));
 
   const claim = useMutation({
     mutationFn: () => apiClient.credits.claimCredits({}),
@@ -119,9 +128,12 @@ export function CreditClaimCard({
     statusReason: data.statusReason,
     eligibility,
     claimsCloseAt: data.claimsCloseAt,
+    requiresReview: requiresAdminApproval(approvalSettings.data),
     nearAccountId,
     existing,
   });
+  const registerCta = needsRegistration(eligibility, existing);
+  const restoreCta = needsProfileRestore(eligibility, existing);
 
   return (
     <Card className="border-brand-accent-border">
@@ -136,6 +148,18 @@ export function CreditClaimCard({
             {existing?.status === "issued" && <MoreCreditsNote />}
           </div>
         </div>
+        {registerCta && (
+          <Button asChild size="sm" className="w-full rounded-full sm:w-auto">
+            <Link to="/join">Register as a builder</Link>
+          </Button>
+        )}
+        {restoreCta && (
+          <Button asChild size="sm" variant="outline" className="w-full rounded-full sm:w-auto">
+            <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
+              Restore your builder profile
+            </Link>
+          </Button>
+        )}
         {canClaim && existing?.status !== "pending" && (
           <Button
             size="sm"

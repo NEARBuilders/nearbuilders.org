@@ -75,6 +75,7 @@ export const CreditEligibilitySchema = z.enum([
   "eligible",
   "needs_near_account",
   "needs_approved_profile",
+  "needs_profile_restore",
 ]);
 
 export const CreditWindowReasonSchema = z.enum(["not_enabled", "not_configured", "closed"]);

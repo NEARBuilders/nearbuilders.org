@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canRetry, claimCardCopy, creditStatusQueryKey } from "./credit-claims";
+import {
+  canRetry,
+  claimCardCopy,
+  creditStatusQueryKey,
+  needsProfileRestore,
+  needsRegistration,
+} from "./credit-claims";
 
 function claimPick(
   overrides: Partial<{
@@ -28,6 +34,7 @@ const OPEN_OFFER = {
   statusReason: null,
   eligibility: "eligible" as const,
   claimsCloseAt: "2999-11-14T23:59:00.000Z",
+  requiresReview: false,
   nearAccountId: "efiz.near",
   existing: null,
 };
@@ -44,9 +51,33 @@ describe("claimCardCopy", () => {
     expect(copy.description).not.toContain("closes");
   });
 
-  it("explains approved-profile eligibility", () => {
-    const copy = claimCardCopy({ ...OPEN_OFFER, eligibility: "needs_approved_profile" as const });
-    expect(copy.description).toContain("builder profile is approved");
+  it("prompts builders to complete registration when approval is off", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      eligibility: "needs_approved_profile" as const,
+      requiresReview: false,
+    });
+    expect(copy.description).toBe("Complete your builder registration to claim API credits.");
+    expect(copy.description).not.toContain("approved");
+  });
+
+  it("keeps the review wait truthful when admin approval is on", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      eligibility: "needs_approved_profile" as const,
+      requiresReview: true,
+    });
+    expect(copy.description).toBe(
+      "Credits are available once your builder registration is reviewed.",
+    );
+  });
+
+  it("asks withdrawn builders to restore their profile", () => {
+    const copy = claimCardCopy({
+      ...OPEN_OFFER,
+      eligibility: "needs_profile_restore" as const,
+    });
+    expect(copy.description).toBe("Restore your builder profile to claim API credits.");
   });
 
   it.each([
@@ -87,7 +118,7 @@ describe("claimCardCopy", () => {
       eligibility: "needs_approved_profile" as const,
       existing: claimPick({ status: "failed" }),
     });
-    expect(copy.description).toContain("builder profile is approved");
+    expect(copy.description).toContain("Complete your builder registration");
   });
 
   it.each([
@@ -164,5 +195,23 @@ describe("creditStatusQueryKey", () => {
     expect(creditStatusQueryKey("user-1", "efiz.near")).toEqual(base);
     expect(creditStatusQueryKey("user-2", "efiz.near")).not.toEqual(base);
     expect(creditStatusQueryKey("user-1", "work.efiz.near")).not.toEqual(base);
+  });
+});
+
+describe("needsRegistration", () => {
+  it("prompts only builders without a profile or claim", () => {
+    expect(needsRegistration("needs_approved_profile", null)).toBe(true);
+    expect(needsRegistration("needs_approved_profile", claimPick())).toBe(false);
+    expect(needsRegistration("eligible", null)).toBe(false);
+    expect(needsRegistration("needs_profile_restore", null)).toBe(false);
+    expect(needsRegistration("needs_near_account", null)).toBe(false);
+  });
+});
+
+describe("needsProfileRestore", () => {
+  it("prompts only withdrawn builders without a claim", () => {
+    expect(needsProfileRestore("needs_profile_restore", null)).toBe(true);
+    expect(needsProfileRestore("needs_profile_restore", claimPick())).toBe(false);
+    expect(needsProfileRestore("needs_approved_profile", null)).toBe(false);
   });
 });

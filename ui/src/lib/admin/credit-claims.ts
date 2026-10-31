@@ -33,6 +33,7 @@ export function claimCardCopy({
   statusReason,
   eligibility,
   claimsCloseAt,
+  requiresReview,
   nearAccountId,
   existing,
 }: {
@@ -41,6 +42,7 @@ export function claimCardCopy({
   statusReason: CreditStatus["statusReason"];
   eligibility: CreditStatus["eligibility"];
   claimsCloseAt: string | null;
+  requiresReview: boolean;
   nearAccountId: string | null;
   existing: Pick<
     ClaimView,
@@ -49,10 +51,14 @@ export function claimCardCopy({
 }): { title: string; description: string } {
   const amount = formatUsd(amountUsd);
   let title = `Claim ${amount} in NEAR AI Cloud credits`;
-  let description = "Approved builders get one NEAR AI Cloud API key for the NEAR Hackathon.";
+  let description = "Builders get one NEAR AI Cloud API key for the NEAR Hackathon.";
 
   if (eligibility === "needs_approved_profile") {
-    description = "Credits are available once your builder profile is approved.";
+    description = requiresReview
+      ? "Credits are available once your builder registration is reviewed."
+      : "Complete your builder registration to claim API credits.";
+  } else if (eligibility === "needs_profile_restore") {
+    description = "Restore your builder profile to claim API credits.";
   } else if (eligibility === "needs_near_account") {
     description = "Link a NEAR account to claim API credits.";
   } else if (!available && statusReason) {
@@ -97,4 +103,18 @@ export function claimCardCopy({
 
 export function canRetry(available: boolean, eligibility: CreditStatus["eligibility"]): boolean {
   return available && eligibility === "eligible";
+}
+
+export function needsRegistration(
+  eligibility: CreditStatus["eligibility"],
+  existing: Pick<ClaimView, "status"> | null,
+): boolean {
+  return !existing && eligibility === "needs_approved_profile";
+}
+
+export function needsProfileRestore(
+  eligibility: CreditStatus["eligibility"],
+  existing: Pick<ClaimView, "status"> | null,
+): boolean {
+  return !existing && eligibility === "needs_profile_restore";
 }
