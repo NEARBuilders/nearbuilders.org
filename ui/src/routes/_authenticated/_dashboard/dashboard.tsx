@@ -242,7 +242,7 @@ function Dashboard() {
       {restricted && <RestrictedAreaNotice area={restricted} />}
       <BuildBanner />
 
-      <CreditClaimCard />
+      <CreditClaimCard userId={user.id} nearAccountId={nearAccountId} />
 
       <DashboardHeader
         nearAccountId={nearAccountId}

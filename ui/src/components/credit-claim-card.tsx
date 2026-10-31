@@ -5,9 +5,7 @@ import { useApiClient } from "@/app";
 import { ApiKeyReveal } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { canRetry, claimCardCopy, formatUsd } from "@/lib/admin/credit-claims";
-
-const CREDIT_STATUS_KEY = ["credit-status"];
+import { canRetry, claimCardCopy, creditStatusQueryKey, formatUsd } from "@/lib/admin/credit-claims";
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -41,18 +39,25 @@ function MoreCreditsNote() {
   );
 }
 
-export function CreditClaimCard() {
+export function CreditClaimCard({
+  userId,
+  nearAccountId,
+}: {
+  userId: string;
+  nearAccountId: string;
+}) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
+  const creditStatusKey = creditStatusQueryKey(userId, nearAccountId);
 
   const status = useQuery({
-    queryKey: CREDIT_STATUS_KEY,
+    queryKey: creditStatusKey,
     queryFn: () => apiClient.credits.getCreditStatus({}),
   });
 
   const claim = useMutation({
     mutationFn: () => apiClient.credits.claimCredits({}),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: CREDIT_STATUS_KEY }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: creditStatusKey }),
     onError: (error: Error) => toast.error(error.message || "API credits could not be claimed"),
   });
 
