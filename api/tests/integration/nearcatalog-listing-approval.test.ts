@@ -406,6 +406,7 @@ describe("NEAR Catalog listing approval", () => {
       "nearsocial-address": "",
       dapp: "https://lantern.example.com/",
       phase: "testnet",
+      contact: "https://t.me/robinmaker",
       source: {
         site: "nearbuilders.org",
         url: "https://nearbuilders.org/projects/project/lantern-pay-x1",
@@ -773,7 +774,7 @@ describe("NEAR Catalog listing approval", () => {
           authorization: `Bearer ${submitToken}`,
           body: expect.objectContaining({
             project_name: "Lantern Pay",
-            contact_info: "team@nearbuilders.example",
+            contact_info: "https://t.me/robinmaker",
             uid: "project:project-1",
           }),
         },
@@ -784,6 +785,27 @@ describe("NEAR Catalog listing approval", () => {
         sendStatus: "sent",
         sendAction: "upsert",
       });
+      const sends = await api.client(admin()).listCatalogListingSends();
+      expect(sends.data[0]).toMatchObject({ entityId: "project-1", teamContact: true });
+    });
+
+    it("falls back to the NearBuilders contact and flags a project with no public team contact", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      api.builders.delete("maker.testnet");
+      api.projects.set(
+        "project-1",
+        catalogProject({
+          catalog: { ...catalogProject().catalog, links: {} },
+        }),
+      );
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+
+      await approveProject(api);
+
+      expect(requests[0]?.body.contact_info).toBe("team@nearbuilders.example");
+      const sends = await api.client(admin()).listCatalogListingSends();
+      expect(sends.data[0]).toMatchObject({ sendStatus: "sent", teamContact: false });
     });
 
     it("resubmits small edits, waits on big edits until re-approved, then resubmits", async () => {

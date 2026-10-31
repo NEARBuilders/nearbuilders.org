@@ -83,6 +83,7 @@ describe("NEAR Catalog submit client", () => {
 
     await expect(client.upsertProject({ externalId: "project:p1", record })).resolves.toEqual({
       submissionId: "a1b2c3d4e5f6",
+      fallbackContact: false,
     });
     expect(calls[0]?.url).toBe(CATALOG_PARTNER_SUBMIT_URL);
     expect(calls[0]?.init.method).toBe("POST");
@@ -93,15 +94,32 @@ describe("NEAR Catalog submit client", () => {
     });
   });
 
-  it("falls back to the project's Telegram link as the contact", async () => {
+  it("sends the team's own contact and falls back to ours only when there is none", async () => {
     const { calls, fetchImplementation } = recordingFetch();
-    const client = createHttpCatalogSubmitClient({ token, fetchImplementation });
+    const client = createHttpCatalogSubmitClient({ token, contactInfo, fetchImplementation });
+    const contactOf = (index: number) => JSON.parse(String(calls[index]?.init.body)).contact_info;
 
+    await expect(
+      client.upsertProject({
+        externalId: "project:p1",
+        record: { ...record, contact: "maker@lantern.example.com" },
+      }),
+    ).resolves.toMatchObject({ fallbackContact: false });
     await client.upsertProject({ externalId: "project:p1", record });
-
-    expect(JSON.parse(String(calls[0]?.init.body)).contact_info).toBe("https://t.me/lanternpay");
     await expect(
       client.upsertProject({ externalId: "project:p1", record: { ...record, telegram: "" } }),
+    ).resolves.toMatchObject({ fallbackContact: true });
+
+    expect([contactOf(0), contactOf(1), contactOf(2)]).toEqual([
+      "maker@lantern.example.com",
+      "https://t.me/lanternpay",
+      contactInfo,
+    ]);
+    await expect(
+      createHttpCatalogSubmitClient({ token, fetchImplementation }).upsertProject({
+        externalId: "project:p1",
+        record: { ...record, telegram: "" },
+      }),
     ).rejects.toThrow(/No contact for NEAR Catalog/);
   });
 

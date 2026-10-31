@@ -93,6 +93,9 @@ export function CatalogSends() {
                       {send.kind === "project" ? "Project" : "Person"}
                     </Badge>
                     <Badge variant={label.variant}>{label.text}</Badge>
+                    {send.teamContact === false ? (
+                      <Badge variant="outline">No team contact</Badge>
+                    ) : null}
                   </div>
                   {send.sendError && send.sendStatus === "failed" ? (
                     <p className="text-sm text-destructive">{send.sendError}</p>

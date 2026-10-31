@@ -8,7 +8,7 @@ const PROJECT_PHASES = ["Mainnet", "Testnet", "Prototype", "Still Building", "In
 
 export type CatalogSubmitKind = "project" | "person";
 
-export type CatalogSubmitResult = { submissionId: string | null };
+export type CatalogSubmitResult = { submissionId: string | null; fallbackContact: boolean };
 
 export interface CatalogSubmitClient {
   upsertProject(input: {
@@ -101,10 +101,11 @@ export function createHttpCatalogSubmitClient(options: {
 
   return {
     async upsertProject(input) {
-      const contactInfo = options.contactInfo || readText(input.record.telegram);
+      const teamContact = readText(input.record.contact) || readText(input.record.telegram);
+      const contactInfo = teamContact || options.contactInfo;
       if (!contactInfo) {
         throw new CatalogSubmitError(
-          "No contact for NEAR Catalog: set NEARCATALOG_CONTACT or add a Telegram link to the project",
+          "No contact for NEAR Catalog: the project team has no public contact and NEARCATALOG_CONTACT is not set",
         );
       }
       let response: Response;
@@ -146,7 +147,7 @@ export function createHttpCatalogSubmitClient(options: {
           ),
         );
       }
-      return { submissionId: readText(body.submission_id) || null };
+      return { submissionId: readText(body.submission_id) || null, fallbackContact: !teamContact };
     },
   };
 }

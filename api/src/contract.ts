@@ -507,6 +507,7 @@ const CatalogExportProjectSchema = z.strictObject({
   "nearsocial-address": CatalogExportUrl,
   dapp: CatalogExportUrl,
   phase: z.string().max(40),
+  contact: z.string().max(300).optional(),
   source: z.strictObject({
     site: z.string().min(1),
     url: z.url(),
@@ -578,6 +579,7 @@ const CatalogListingSendSchema = z.object({
   sendError: z.string().nullable(),
   sendAttemptedAt: z.iso.datetime().nullable(),
   sentAt: z.iso.datetime().nullable(),
+  teamContact: z.boolean().nullable(),
 });
 
 const CatalogClaimProposalSchema = z.object({

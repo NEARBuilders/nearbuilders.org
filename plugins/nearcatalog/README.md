@@ -14,7 +14,7 @@ key is set:
 | --- | --- |
 | `NEARCATALOG_PARTNER_KEY` | Partner key NEAR Catalog gives nearbuilders.org (`nc_partner_...`). Sent only in the auth header, never logged, returned or shown in the UI |
 | `NEARCATALOG_SUBMIT_URL` | Optional. Defaults to `https://indexer.nearcatalog.xyz/wp-json/nearcatalog/v1/partner-submit` |
-| `NEARCATALOG_CONTACT` | Email or Telegram handle NEAR Catalog's curators can reach us on. Without it, the project's Telegram link is used, and a project without one fails to send |
+| `NEARCATALOG_CONTACT` | NearBuilders team email or Telegram. Used only for projects with no public team contact (see below). Without it, such a project fails to send |
 
 Without the key, approvals work exactly as before: nothing is sent, nothing is queued, and no
 error is stored. The export endpoints keep working in both modes.
@@ -41,6 +41,22 @@ Catalog tab with a **Retry** button. Listings approved before sending was set up
 
 A successful send leaves the listing `approved` and records `send_status: sent`. It becomes
 `published` only once it is live on NEAR Catalog.
+
+### Contact
+
+NEAR Catalog needs a direct contact for each project team. `contact_info` is the first of these
+the team already made public on nearbuilders.org:
+
+1. The owner's preferred contact from their builder profile (public email, Telegram, Discord, X or website)
+2. The project's Telegram link
+3. The owner's public email, then their Telegram
+4. The project's X link, then the owner's
+5. The project's Discord link, then the owner's
+
+The builder's sign-in email is never used. If none of these is set, `NEARCATALOG_CONTACT` is sent
+instead, the plugin logs a warning, and the admin tab marks the project **No team contact** so
+someone can follow up. The picked contact is part of the export record as `contact` (empty when
+there is none).
 
 ### Request
 

@@ -109,6 +109,7 @@ export const CatalogExportProjectSchema = z.strictObject({
   "nearsocial-address": CatalogExportUrl,
   dapp: CatalogExportUrl,
   phase: z.string().max(40),
+  contact: z.string().max(300).optional(),
   source: z.strictObject({
     site: z.string().min(1),
     url: z.url(),

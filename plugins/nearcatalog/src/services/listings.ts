@@ -157,11 +157,11 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
       if (!submitter) return { ok: false as const, error: "Sending to NEAR Catalog is off" };
       if (action === "remove") return { ok: false as const, error: NO_REMOVE_ROUTE };
       try {
-        await submitter.upsertProject({
+        const result = await submitter.upsertProject({
           externalId: catalogExternalId(row.kind, row.entityId),
           record: { ...row.record, slug: row.slug },
         });
-        return { ok: true as const };
+        return { ok: true as const, fallbackContact: result.fallbackContact };
       } catch (error) {
         return { ok: false as const, error: errorMessage(error) };
       }
@@ -183,6 +183,11 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
           sendAttemptedAt: now,
           updatedAt: now,
         });
+      }
+      if (outcome.fallbackContact) {
+        yield* Effect.logWarning(
+          `NEAR Catalog: ${row.kind} ${row.entityId} has no public team contact, sent with NEARCATALOG_CONTACT`,
+        );
       }
       return yield* update(target, {
         sendStatus: "sent",

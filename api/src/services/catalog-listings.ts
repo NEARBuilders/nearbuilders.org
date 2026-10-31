@@ -93,7 +93,32 @@ function missingFields(checks: Array<[string, boolean]>) {
   return checks.filter(([, present]) => !present).map(([label]) => label);
 }
 
-export function buildProjectCatalogRecord(project: Project, slug: string) {
+export function projectTeamContact(project: Project, owner: Builder | null) {
+  const links = project.catalog?.links ?? {};
+  const active = owner && !owner.withdrawnAt ? owner : null;
+  const ownerLinks = active?.links ?? {};
+  const email = active?.catalog?.publicEmail?.trim() ?? "";
+  const preferred = active?.catalog?.preferredContact;
+  const byPreference = {
+    Email: email,
+    Telegram: absoluteUrl(ownerLinks.telegram),
+    Discord: absoluteUrl(ownerLinks.discord),
+    X: absoluteUrl(ownerLinks.twitter),
+    Website: absoluteUrl(ownerLinks.website),
+  };
+  return (
+    (preferred ? byPreference[preferred] : "") ||
+    absoluteUrl(links.telegram) ||
+    email ||
+    byPreference.Telegram ||
+    absoluteUrl(links.twitter) ||
+    byPreference.X ||
+    absoluteUrl(links.discord) ||
+    byPreference.Discord
+  );
+}
+
+export function buildProjectCatalogRecord(project: Project, slug: string, contact = "") {
   const catalog = project.catalog ?? null;
   const links = catalog?.links ?? {};
   const website = absoluteUrl(project.domain);
@@ -116,6 +141,7 @@ export function buildProjectCatalogRecord(project: Project, slug: string) {
     "nearsocial-address": absoluteUrl(links.nearsocial),
     dapp: website,
     phase: catalog?.phase ?? "",
+    contact,
     source: {
       site: "nearbuilders.org",
       url: `${SITE_URL}/projects/project/${project.slug}`,
@@ -247,6 +273,7 @@ export function toCatalogListingSend(listing: Listing) {
     sendError: listing.sendError,
     sendAttemptedAt: listing.sendAttemptedAt,
     sentAt: listing.sentAt,
+    teamContact: listing.kind === "project" ? Boolean(readString(record.contact)) : null,
   };
 }
 
@@ -306,7 +333,16 @@ export function createCatalogListings(
   ): Promise<Subject> => {
     const { data: project } = await plugins.projects(context).getProject({ id: projectId });
     const slug = listing?.slug ?? slugifyCatalogTitle(project.title);
-    const { record, missing } = buildProjectCatalogRecord(project, slug);
+    const owner = await plugins
+      .builders(context)
+      .getBuilder({ nearAccount: project.ownerId })
+      .then(({ data }) => data)
+      .catch(() => null);
+    const { record, missing } = buildProjectCatalogRecord(
+      project,
+      slug,
+      projectTeamContact(project, owner),
+    );
     const ineligibleReason =
       project.kind !== "project"
         ? "Only projects can be listed on NEAR Catalog"
