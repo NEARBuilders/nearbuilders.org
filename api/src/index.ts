@@ -280,6 +280,17 @@ export default createPlugin.withPlugins<PluginEntries>()({
         .sync(kind, entityId, context)
         .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
     };
+    const getOrganizationMember = async (context: Context, organizationId: string) => {
+      const organization = context.organization;
+      if (
+        !organization ||
+        organization.activeOrganizationId !== organizationId ||
+        !organization.member
+      ) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization access denied" });
+      }
+      return organization.member;
+    };
     const canEditProposalEntity = async (
       pluginId: string,
       entityId: string,
@@ -1294,6 +1305,21 @@ export default createPlugin.withPlugins<PluginEntries>()({
         await syncCatalogListing("project", input.id, context);
         return deleted;
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const member = await getOrganizationMember(context, input.organizationId);
+          if (!member.role.split(",").includes("owner")) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only an organization owner can delete it",
+            });
+          }
+
+          return await services.plugins
+            .projects({ ...context, internalOrganizationCleanup: true })
+            .clearOrganizationAttribution({ organizationId: input.organizationId });
+        }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjectsForApp(input);
