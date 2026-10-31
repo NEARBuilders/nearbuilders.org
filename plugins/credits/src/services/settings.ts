@@ -19,6 +19,7 @@ export type SettingsValues = {
   keyExpiresAt: Date | null;
   nearAiWorkspaceId: string;
   nearAiLoginAccountId: string;
+  nearAiOrgId: string;
 };
 
 const MAX_AMOUNT_CENTS = 9_999_999_999;
@@ -106,6 +107,7 @@ export function validateSettings(input: SettingsInput):
       keyExpiresAt: keyExpiresAt && !("invalid" in keyExpiresAt) ? keyExpiresAt : null,
       nearAiWorkspaceId: input.nearAiWorkspaceId.trim(),
       nearAiLoginAccountId: input.nearAiLoginAccountId.trim(),
+      nearAiOrgId: (input.nearAiOrgId ?? "").trim(),
     },
   };
 }
@@ -131,6 +133,7 @@ export async function writeSettings(
       keyExpiresAt: values.keyExpiresAt,
       nearAiWorkspaceId: values.nearAiWorkspaceId,
       nearAiLoginAccountId: values.nearAiLoginAccountId,
+      nearAiOrgId: values.nearAiOrgId,
       updatedBy,
       updatedAt,
     })
@@ -143,6 +146,7 @@ export async function writeSettings(
         keyExpiresAt: values.keyExpiresAt,
         nearAiWorkspaceId: values.nearAiWorkspaceId,
         nearAiLoginAccountId: values.nearAiLoginAccountId,
+        nearAiOrgId: values.nearAiOrgId,
         updatedBy,
         updatedAt,
       },
@@ -159,9 +163,34 @@ export function settingsToDto(row: SettingsRow): SettingsDto {
     keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,
     nearAiWorkspaceId: row.nearAiWorkspaceId,
     nearAiLoginAccountId: row.nearAiLoginAccountId,
+    nearAiOrgId: row.nearAiOrgId,
     updatedBy: row.updatedBy,
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+export type NearAiReporting = {
+  orgId: string | null;
+  reportingToken: string | null;
+};
+
+export async function readReporting(db: Database): Promise<NearAiReporting> {
+  const [row] = await db
+    .select({ orgId: nearAiSessions.orgId, reportingToken: nearAiSessions.reportingToken })
+    .from(nearAiSessions)
+    .where(eq(nearAiSessions.id, nearAiSessionsPrimaryId()));
+  return { orgId: row?.orgId ?? null, reportingToken: row?.reportingToken ?? null };
+}
+
+export async function writeReporting(db: Database, reporting: NearAiReporting): Promise<void> {
+  await db
+    .update(nearAiSessions)
+    .set({
+      orgId: reporting.orgId,
+      reportingToken: reporting.reportingToken,
+      updatedAt: new Date(),
+    })
+    .where(eq(nearAiSessions.id, nearAiSessionsPrimaryId()));
 }
 
 export async function readSessionToken(db: Database): Promise<string | null> {
