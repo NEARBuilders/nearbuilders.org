@@ -1,4 +1,5 @@
 import type { ApiClient } from "@/app";
+import { isSafeImageUrl } from "./image-url";
 
 export type ProjectCatalog = NonNullable<
   Awaited<ReturnType<ApiClient["getProjectBySlug"]>>["data"]["catalog"]
@@ -160,7 +161,7 @@ export function getCatalogReadiness(project: CatalogReadinessInput) {
       label: "Short description",
       complete: Boolean(project.description?.trim()),
     },
-    { key: "logo", label: "Logo", complete: Boolean(project.logoUrl?.trim()) },
+    { key: "logo", label: "Logo", complete: isSafeImageUrl(project.logoUrl) },
     {
       key: "categories",
       label: "At least one category",

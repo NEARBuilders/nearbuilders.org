@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import {
   getNearSocialAvatarUrl,
   getNearSocialBannerUrl,
@@ -335,7 +336,7 @@ function LoadedProfile({
     .filter(Boolean)
     .join(" at ");
 
-  const avatarUrl = builder.catalog?.avatarUrl || getNearSocialAvatarUrl(profile);
+  const avatarUrl = resolveBuilderAvatarUrl(builder.catalog?.avatarUrl, profile);
   const backgroundUrl = getNearSocialBannerUrl(profile);
   const allLinks = mergeSocialLinks(profile?.linktree, builder.links);
 
