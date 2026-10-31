@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Clock, MapPin, Video } from "lucide-react";
-import { type LumaTimelineEvent } from "@/lib/events/event-sources";
 import { useEventTimeRange } from "@/hooks";
+import type { LumaTimelineEvent } from "@/lib/events/event-sources";
 
 export function LumaEventCard({ event }: { event: LumaTimelineEvent }) {
   const timeRange = useEventTimeRange(event);
