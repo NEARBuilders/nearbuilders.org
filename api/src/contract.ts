@@ -1851,12 +1851,6 @@ export const contract = oc.router({
     .output(z.object({ deleted: z.boolean() }))
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN }),
 
-  leaveOrganization: oc
-    .route({ method: "POST", path: "/v1/organizations/{organizationId}/leave" })
-    .input(z.object({ organizationId: z.string().min(1) }))
-    .output(z.object({ left: z.boolean() }))
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
-
   deleteOrganization: oc
     .route({ method: "DELETE", path: "/v1/organizations/{organizationId}" })
     .input(z.object({ organizationId: z.string().min(1) }))

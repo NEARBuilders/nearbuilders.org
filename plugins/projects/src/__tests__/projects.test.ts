@@ -800,7 +800,13 @@ describe("project collaborators", () => {
   });
 
   it("clears attribution without deleting projects", async () => {
-    const owner = loaded.createClient(ownerCtx());
+    const owner = loaded.createClient({
+      ...ownerCtx(),
+      organizations: [
+        { id: "org-to-delete", role: "member" },
+        { id: "other-org", role: "member" },
+      ],
+    });
     const attributed = await owner.createProject({
       kind: "idea",
       title: "Attributed idea",

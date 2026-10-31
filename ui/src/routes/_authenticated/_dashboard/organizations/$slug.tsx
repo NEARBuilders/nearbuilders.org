@@ -354,7 +354,7 @@ function OrganizationDetail() {
 
   const leaveOrgMutation = useMutation({
     mutationFn: async () => {
-      await apiClient.leaveOrganization({ organizationId: orgId });
+      await apiClient.auth.leaveOrganization({ organizationId: orgId });
     },
     onSuccess: async () => {
       toast.success("You have left the organization");

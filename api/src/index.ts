@@ -1306,28 +1306,6 @@ export default createPlugin.withPlugins<PluginEntries>()({
         return deleted;
       }),
 
-      leaveOrganization: builder.leaveOrganization
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const member = await getOrganizationMember(context, input.organizationId);
-          if (member.role.split(",").includes("owner")) {
-            throw new ORPCError("FORBIDDEN", {
-              message: "Transfer ownership before leaving the organization",
-            });
-          }
-
-          if (!services.auth) {
-            throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Auth service unavailable" });
-          }
-          const result = await services.auth(context).leaveOrganization({
-            organizationId: input.organizationId,
-          });
-          if (!result.success) {
-            throw new ORPCError("BAD_REQUEST", { message: "Organization leave was not completed" });
-          }
-          return { left: result.success };
-        }),
-
       deleteOrganization: builder.deleteOrganization
         .use(requireAuth)
         .handler(async ({ input, context }) => {
