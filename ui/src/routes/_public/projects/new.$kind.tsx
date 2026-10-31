@@ -6,6 +6,7 @@ import { customAlphabet } from "nanoid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { AgentProjectCard } from "@/components/agent-project-card";
 import {
   ProjectFormLayout,
   type ProjectFormValues,
@@ -332,6 +333,10 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
           currentKind={routeKind}
         />
       </form>
+
+      {canCreate && (
+        <AgentProjectCard kind={routeKind as ProjectKind} ownerId={defaultOwnerId || undefined} />
+      )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
         {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- adds the device's safe-area inset (notch/home-indicator) on top of the base padding; not expressible as a fixed scale value */}
