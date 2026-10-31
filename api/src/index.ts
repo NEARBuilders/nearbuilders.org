@@ -1122,7 +1122,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             ? project.ownerId
             : undefined;
           return await services.plugins
-            .activity(context)
+            .activity({ ...context, activityRegistration: true })
             .startActivityRegistration({ ...input, nearAccountId });
         }),
 
@@ -1245,7 +1245,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
           !apiServices(context).requireAdminApproval,
         );
         const created = await services.plugins
-          .projects(context)
+          .projects({ ...context, allowPublicVisibility: visibility === "public" })
           .createProject({ ...input, visibility });
         const invited =
           (created as { collaborators?: Array<{ collaboratorOwnerId: string }> })?.collaborators ??

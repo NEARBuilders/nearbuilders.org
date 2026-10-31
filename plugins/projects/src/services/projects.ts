@@ -916,7 +916,7 @@ export const ProjectServiceLive = Layer.effect(
           return yield* mapProjectDetail(db, project, { userId, alternateUserId, userRole });
         }),
 
-      createProject: (input, userId, userRole, _alternateUserId, organizationMemberships) =>
+      createProject: (input, userId, userRole, alternateUserId, organizationMemberships) =>
         Effect.gen(function* () {
           yield* assertOrganizationAttribution(
             input.organizationId,
@@ -932,6 +932,16 @@ export const ProjectServiceLive = Layer.effect(
             );
 
             if (existingById) {
+              if (
+                userRole !== "admin" &&
+                !isProjectOwner(existingById.ownerId, userId, alternateUserId)
+              ) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", {
+                    message: "A project with this id already exists",
+                  }),
+                );
+              }
               return mapProject(existingById);
             }
           }

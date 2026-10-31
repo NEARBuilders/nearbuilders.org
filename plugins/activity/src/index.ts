@@ -7,7 +7,7 @@ import { z } from "zod";
 import { type ActivityEventSchema, contract } from "./contract";
 import type { Database } from "./db";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
-import { ContextSchema } from "./lib/context";
+import type { AuthContext } from "./lib/auth";
 import { ActivityService, ActivityServiceLive, SELF_REPORTED_SOURCE } from "./services/activity";
 import {
   ActivityGatewayWorker,
@@ -27,6 +27,12 @@ import {
   withReadCache,
 } from "./services/activity-reader";
 import { createActivityRegistrationClient } from "./services/activity-registration";
+
+type ActivityContext = AuthContext & {
+  activityRegistration?: boolean;
+};
+
+const ActivityContextSchema = z.custom<ActivityContext>();
 
 type ActivityEvent = z.infer<typeof ActivityEventSchema>;
 
@@ -131,7 +137,7 @@ export default createPlugin({
     ACTIVITY_SOURCE_ID: z.string().default("nearbuilders"),
   }),
 
-  context: ContextSchema,
+  context: ActivityContextSchema,
 
   contract,
 
@@ -196,7 +202,14 @@ export default createPlugin({
     return {
       startActivityRegistration: builder.startActivityRegistration
         .use(requireAuth)
-        .effect(function* ({ input }) {
+        .effect(function* ({ input, context }) {
+          if (context.activityRegistration !== true) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Register Activity from the project page",
+              }),
+            );
+          }
           const { registration } = yield* ActivityIntegrations;
           return yield* Effect.promise(async () => {
             if (!registration) {
