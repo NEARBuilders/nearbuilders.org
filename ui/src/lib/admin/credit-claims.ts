@@ -33,6 +33,7 @@ export function claimCardCopy({
   statusReason,
   eligibility,
   claimsCloseAt,
+  nearAccountId,
   existing,
 }: {
   amountUsd: number;
@@ -40,9 +41,10 @@ export function claimCardCopy({
   statusReason: CreditStatus["statusReason"];
   eligibility: CreditStatus["eligibility"];
   claimsCloseAt: string | null;
+  nearAccountId: string | null;
   existing: Pick<
     ClaimView,
-    "status" | "keyPrefix" | "createdAt" | "keyExpiresAt" | "spendLimitUsd"
+    "status" | "nearAccountId" | "keyPrefix" | "createdAt" | "keyExpiresAt" | "spendLimitUsd"
   > | null;
 }): { title: string; description: string } {
   const amount = formatUsd(amountUsd);
@@ -62,7 +64,11 @@ export function claimCardCopy({
   switch (existing?.status) {
     case "issued":
       title = `${formatUsd(existing.spendLimitUsd)} NEAR AI Cloud credits claimed`;
-      description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
+      if (nearAccountId && existing.nearAccountId !== nearAccountId) {
+        description = `Nice try — credits are one per builder. You already claimed with ${existing.nearAccountId} on ${new Date(existing.createdAt).toLocaleDateString()}.`;
+      } else {
+        description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
+      }
       break;
     case "expired":
       title = "Your NEAR AI Cloud key has expired";

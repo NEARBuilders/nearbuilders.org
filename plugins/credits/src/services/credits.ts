@@ -132,12 +132,20 @@ export function createCreditMethods(
     };
   };
 
-  const findClaim = async (nearAccountId: string) => {
-    const [row] = await db
+  const findClaim = async (input: { nearAccountId: string | null; userId: string }) => {
+    const conditions = [eq(creditClaims.userId, input.userId)];
+    if (input.nearAccountId) {
+      conditions.push(eq(creditClaims.nearAccountId, input.nearAccountId));
+    }
+    const rows = await db
       .select()
       .from(creditClaims)
-      .where(eq(creditClaims.nearAccountId, nearAccountId));
-    return row ?? null;
+      .where(or(...conditions));
+    return (
+      (input.nearAccountId && rows.find((row) => row.nearAccountId === input.nearAccountId)) ||
+      rows[0] ||
+      null
+    );
   };
 
   const acquireClaim = async (input: {
@@ -187,8 +195,11 @@ export function createCreditMethods(
       throw error;
     }
 
-    const existing = await findClaim(input.nearAccountId);
+    const existing = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
+    if (existing && existing.nearAccountId !== input.nearAccountId) {
+      throw conflict(`Credits were already claimed with ${existing.nearAccountId}`);
+    }
     throw alreadyClaimed;
   };
 
@@ -251,9 +262,9 @@ export function createCreditMethods(
       return { settings: settingsToDto(row) };
     },
 
-    async getStatus(nearAccountId: string | null, eligibility: CreditEligibility) {
+    async getStatus(nearAccountId: string | null, userId: string, eligibility: CreditEligibility) {
       const { row, window } = await currentWindow();
-      const claim = nearAccountId ? await findClaim(nearAccountId) : null;
+      const claim = await findClaim({ nearAccountId, userId });
       return {
         available: window.open,
         statusReason: window.open ? null : window.statusReason,
@@ -455,6 +466,7 @@ function toClaim(row: CreditClaimRow, now: Date) {
   return {
     id: row.id,
     status: claimStatus(row, now),
+    nearAccountId: row.nearAccountId,
     keyPrefix: row.keyPrefix,
     spendLimitUsd: row.spendLimitCents / 100,
     keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,

@@ -119,6 +119,7 @@ export function CreditClaimCard({
     statusReason: data.statusReason,
     eligibility,
     claimsCloseAt: data.claimsCloseAt,
+    nearAccountId,
     existing,
   });
 

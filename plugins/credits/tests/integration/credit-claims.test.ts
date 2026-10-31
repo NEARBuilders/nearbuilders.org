@@ -569,7 +569,13 @@ describe("Credit claims", () => {
     const other = client(userContext("alice-user", "alice-alt.near"));
     await expect(other.claimCredits({})).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "API credits were already claimed for this account",
+      message: "Credits were already claimed with alice.near",
+    });
+
+    const status = await other.getCreditStatus({});
+    expect(status.claim).toMatchObject({
+      status: "issued",
+      nearAccountId: "alice.near",
     });
 
     expect(nearAi.state.created).toBe(1);
