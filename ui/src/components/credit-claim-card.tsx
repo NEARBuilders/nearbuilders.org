@@ -10,6 +10,7 @@ import {
   canRetry,
   claimCardCopy,
   creditStatusQueryKey,
+  creditUsageQueryKey,
   formatUsd,
   needsProfileRestore,
   needsRegistration,
@@ -48,6 +49,41 @@ function MoreCreditsNote() {
       Need more? Purchase with crypto or credit card on{" "}
       <ExtLink href="https://cloud.near.ai">cloud.near.ai</ExtLink>
     </p>
+  );
+}
+
+function CreditUsageReadout({ userId, nearAccountId }: { userId: string; nearAccountId: string }) {
+  const apiClient = useApiClient();
+  const usage = useQuery({
+    queryKey: creditUsageQueryKey(userId, nearAccountId),
+    queryFn: () => apiClient.credits.getCreditUsage({}),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const data = usage.data?.usage;
+  if (!data) return null;
+  const percent = Math.min(100, Math.round((data.usedUsd / data.spendLimitUsd) * 100));
+
+  return (
+    <div className="w-full shrink-0 space-y-1.5 sm:w-44">
+      <p className="text-xs font-medium whitespace-nowrap text-foreground sm:text-right">
+        {formatUsd(data.usedUsd)} of {formatUsd(data.spendLimitUsd)} used
+      </p>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Credits used"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width]"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -148,6 +184,9 @@ export function CreditClaimCard({
             {existing?.status === "issued" && <MoreCreditsNote />}
           </div>
         </div>
+        {existing?.status === "issued" && (
+          <CreditUsageReadout userId={userId} nearAccountId={nearAccountId} />
+        )}
         {registerCta && (
           <Button asChild size="sm" className="w-full rounded-full sm:w-auto">
             <Link to="/join">Register as a builder</Link>

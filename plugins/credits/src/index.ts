@@ -93,6 +93,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
         );
       }),
 
+      getCreditUsage: builder.getCreditUsage.use(requireAuth).effect(function* ({ context }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() =>
+          credits.getUsage({
+            nearAccountId: context.near?.primaryAccountId?.toLowerCase() ?? null,
+            userId: context.userId,
+          }),
+        );
+      }),
+
       listCreditClaims: builder.listCreditClaims.use(requireAdmin).effect(function* ({ input }) {
         const credits = yield* CreditService;
         return yield* attempt(() =>

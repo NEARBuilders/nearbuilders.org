@@ -29,6 +29,13 @@
       "when": 1793381678741,
       "tag": "0003_thankful_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793485183819,
+      "tag": "0004_nappy_namor",
+      "breakpoints": true
     }
   ]
 }

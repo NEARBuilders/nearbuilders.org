@@ -32,6 +32,7 @@ export type CreditSettingsDraft = {
   keyExpiresAt: string;
   nearAiWorkspaceId: string;
   nearAiLoginAccountId: string;
+  nearAiOrgId: string;
 };
 
 function toDatetimeLocal(iso: string | null): string {
@@ -58,6 +59,7 @@ export function settingsDraft(settings: CreditSettings | null): CreditSettingsDr
     keyExpiresAt: toDatetimeLocal(settings?.keyExpiresAt ?? null),
     nearAiWorkspaceId: settings?.nearAiWorkspaceId ?? "",
     nearAiLoginAccountId: settings?.nearAiLoginAccountId ?? "",
+    nearAiOrgId: settings?.nearAiOrgId ?? "",
   };
 }
 
@@ -69,5 +71,6 @@ export function draftToInput(draft: CreditSettingsDraft): CreditSettingsInput {
     keyExpiresAt: fromDatetimeLocal(draft.keyExpiresAt),
     nearAiWorkspaceId: draft.nearAiWorkspaceId.trim(),
     nearAiLoginAccountId: draft.nearAiLoginAccountId.trim(),
+    nearAiOrgId: draft.nearAiOrgId.trim(),
   };
 }

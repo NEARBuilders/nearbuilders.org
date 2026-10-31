@@ -15,8 +15,8 @@ import {
   ApiKeyForm,
   type ApiKeyFormValues,
   ApiKeyReveal,
-  type ApiKeyRevealProps,
   Button,
+  type CreatedApiKey,
   Input,
   InvitationCard,
   MemberCard,
@@ -25,6 +25,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components";
+import type { ApiKeyItem } from "@/lib/api-keys";
 import { pageHead } from "@/lib/page-meta";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -34,18 +35,6 @@ type MemberItem = NonNullable<MembersResponse["data"]>["members"][number];
 
 type InvitationsResponse = Awaited<ReturnType<AuthClientType["organization"]["listInvitations"]>>;
 type InvitationItem = NonNullable<InvitationsResponse["data"]>[number];
-
-type ApiKeyItem = {
-  id: string;
-  name: string | null;
-  prefix: string | null;
-  start: string | null;
-  createdAt: string | Date;
-  expiresAt?: string | Date | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-type CreatedApiKey = ApiKeyRevealProps["apiKey"];
 
 const orgMembersQueryKey = (orgId: string) => ["org-members", orgId] as const;
 const orgInvitationsQueryKey = (orgId: string) => ["org-invitations", orgId] as const;
@@ -139,7 +128,7 @@ function OrganizationDetail() {
           query: { configId: "org-keys", organizationId: orgId },
         });
         if (error) throw new Error(error.message);
-        return (data?.apiKeys ?? []) as ApiKeyItem[];
+        return data?.apiKeys ?? [];
       },
       enabled: !!orgId,
     }).data ?? [];
@@ -251,7 +240,7 @@ function OrganizationDetail() {
       return data;
     },
     onSuccess: async (data) => {
-      if (data) setCreatedApiKey(data as CreatedApiKey);
+      if (data) setCreatedApiKey(data);
       toast.success("API key created");
       await queryClient.invalidateQueries({ queryKey: orgApiKeysQueryKey(orgId) });
     },

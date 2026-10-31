@@ -2,6 +2,9 @@ import type { ApiClient } from "@/app";
 
 export type CreditStatus = Awaited<ReturnType<ApiClient["credits"]["getCreditStatus"]>>;
 export type ClaimView = NonNullable<CreditStatus["claim"]>;
+export type CreditUsage = NonNullable<
+  Awaited<ReturnType<ApiClient["credits"]["getCreditUsage"]>>["usage"]
+>;
 
 export function formatUsd(amount: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -9,6 +12,10 @@ export function formatUsd(amount: number) {
 
 export function creditStatusQueryKey(userId: string, nearAccountId: string) {
   return ["credit-status", userId, nearAccountId] as const;
+}
+
+export function creditUsageQueryKey(userId: string, nearAccountId: string) {
+  return ["credit-usage", userId, nearAccountId] as const;
 }
 
 export function windowCopy(

@@ -3,6 +3,7 @@ export {
   type ApiKeyFormValues,
   ApiKeyReveal,
   type ApiKeyRevealProps,
+  type CreatedApiKey,
 } from "./api-key-manager";
 export { BuildBanner } from "./build-banner";
 export { CatalogClaimActivity } from "./catalog-claim-activity";
