@@ -7,10 +7,24 @@ import {
   buildAgentProjectPrompt,
   mcpUrlFromOrigin,
 } from "./agent-project-prompt";
-import { CATALOG_PHASES } from "./project-catalog";
+import { CATALOG_LINKS, CATALOG_PHASES } from "./project-catalog";
 
 const KEY = "api_testKey123";
 const MCP = "https://nearbuilders.org/api/mcp";
+
+// Mirrors the `links` enum in the projects contract (api/src/contract.ts).
+// If the contract changes, update this list and CATALOG_LINKS together.
+const CONTRACT_CATALOG_LINK_KEYS = [
+  "twitter",
+  "telegram",
+  "discord",
+  "github",
+  "medium",
+  "whitepaper",
+  "nearsocial",
+  "linkedin",
+  "youtube",
+] as const;
 
 describe("mcpUrlFromOrigin", () => {
   it("appends /api/mcp to the origin", () => {
@@ -29,6 +43,13 @@ describe("agentApiKeyName", () => {
   it("uses the settings-page key config and a purpose label", () => {
     expect(AGENT_API_KEY_CONFIG_ID).toBe("user-keys");
     expect(AGENT_API_KEY_PURPOSE).toBe("agent-project-creation");
+  });
+});
+
+describe("AGENT_CATALOG_LINK_KEYS", () => {
+  it("derives from CATALOG_LINKS and matches the projects contract", () => {
+    expect([...AGENT_CATALOG_LINK_KEYS]).toEqual(CATALOG_LINKS.map(({ key }) => key));
+    expect([...AGENT_CATALOG_LINK_KEYS]).toEqual([...CONTRACT_CATALOG_LINK_KEYS]);
   });
 });
 

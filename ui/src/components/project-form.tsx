@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { PROJECT_KIND_LABELS } from "@/lib/draft-store";
 import { resolveProjectNearAccount } from "@/lib/near-social";
 import { emptyProjectCatalog, validateProjectCatalog } from "@/lib/project-catalog";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
@@ -245,22 +246,22 @@ export function ProjectFormLayout({
   const kindOptions = [
     {
       value: "project" as const,
-      label: "Project",
+      label: PROJECT_KIND_LABELS.project,
       icon: <FileCode2 size={15} />,
     },
     {
       value: "idea" as const,
-      label: "Idea",
+      label: PROJECT_KIND_LABELS.idea,
       icon: <FileText size={15} />,
     },
     {
       value: "scope" as const,
-      label: "Scope",
+      label: PROJECT_KIND_LABELS.scope,
       icon: <Layers size={15} />,
     },
     {
       value: "result" as const,
-      label: "Result",
+      label: PROJECT_KIND_LABELS.result,
       icon: <BarChart2 size={15} />,
     },
   ];
@@ -280,14 +281,8 @@ export function ProjectFormLayout({
   return (
     <div className={cn("flex-1 bg-muted/40", mode === "create" && "pb-24 sm:pb-0")}>
       <div
-        className={cn(
-          "mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:px-8",
-          creatorMode
-            ? // oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent
-              "lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-5"
-            : // oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent
-              "lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7",
-        )}
+        // oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent
+        className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-7 lg:px-8"
       >
         <div className="min-w-0 space-y-5">
           <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
@@ -723,6 +718,7 @@ export function ProjectFormLayout({
                   description={currentDescription}
                   logoUrl={formValues.logoUrl}
                   showErrors
+                  eyebrow="Step 4"
                 />
               )}
             </form.Field>
@@ -925,26 +921,6 @@ export function ProjectFormLayout({
               )}
             </form.Field>
           </section>
-
-          {kind === "project" && (
-            <form.Field
-              name="catalog"
-              validators={{
-                onChange: ({ value }: any) => validateProjectCatalog(value),
-                onSubmit: ({ value }: any) => validateProjectCatalog(value),
-              }}
-            >
-              {(field: any) => (
-                <ProjectCatalogFields
-                  value={field.state.value ?? emptyProjectCatalog()}
-                  onChange={(next) => field.handleChange(next)}
-                  description={currentDescription}
-                  logoUrl={formValues.logoUrl}
-                  showErrors
-                />
-              )}
-            </form.Field>
-          )}
 
           {isAdmin && (
             <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">

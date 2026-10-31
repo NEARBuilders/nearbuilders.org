@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { Bot, Copy, KeyRound } from "lucide-react";
-import { useState } from "react";
+import { Bot, ChevronDown, Copy, KeyRound } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
 import {
@@ -12,6 +12,7 @@ import {
   mcpUrlFromOrigin,
 } from "@/lib/agent-project-prompt";
 import type { ProjectKind } from "@/lib/draft-store";
+import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
@@ -38,6 +39,17 @@ async function copyText(text: string, label: string) {
 export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
   const auth = useAuthClient();
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [promptOpen, setPromptOpen] = useState(false);
+
+  const prompt = useMemo(() => {
+    if (!apiKey) return null;
+    return buildAgentProjectPrompt({
+      mcpUrl: mcpUrlFromOrigin(window.location.origin),
+      apiKey,
+      kind,
+      ownerId,
+    });
+  }, [apiKey, kind, ownerId]);
 
   const createKey = useMutation({
     mutationFn: async () => {
@@ -59,18 +71,12 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
   });
 
   const copyPrompt = () => {
-    if (!apiKey) return;
-    const prompt = buildAgentProjectPrompt({
-      mcpUrl: mcpUrlFromOrigin(window.location.origin),
-      apiKey,
-      kind,
-      ownerId,
-    });
+    if (!prompt) return;
     void copyText(prompt, "Prompt");
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-3 pb-28 pt-2 sm:px-6 sm:pb-8 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-3 pt-2 sm:px-6 lg:px-8">
       <Card data-testid="agent-project-card">
         <CardContent className="space-y-4 p-5 sm:p-6">
           <div className="flex gap-3">
@@ -134,12 +140,42 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
               size="sm"
               variant={apiKey ? "default" : "outline"}
               onClick={copyPrompt}
-              disabled={!apiKey}
+              disabled={!prompt}
             >
               <Copy className="h-3.5 w-3.5" />
               Copy this prompt
             </Button>
           </div>
+
+          {prompt ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setPromptOpen((open) => !open)}
+                aria-expanded={promptOpen}
+                aria-controls="agent-prompt-preview"
+                className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
+              >
+                {promptOpen ? "Hide prompt" : "View prompt"}
+                <ChevronDown
+                  size={14}
+                  className={cn(
+                    "text-muted-foreground transition-transform",
+                    promptOpen && "rotate-180",
+                  )}
+                />
+              </button>
+              {promptOpen && (
+                <pre
+                  id="agent-prompt-preview"
+                  data-testid="agent-prompt-preview"
+                  className="max-h-80 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground"
+                >
+                  {prompt}
+                </pre>
+              )}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

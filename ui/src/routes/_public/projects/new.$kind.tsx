@@ -18,6 +18,7 @@ import {
   clearDraft,
   getDraft,
   type ProjectKind,
+  projectKindLabel,
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
@@ -192,13 +193,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
     },
     onSuccess: ({ project, submitForReview }, _values) => {
       clearDraft(routeKind as ProjectKind);
-      const kindLabels: Record<ProjectKind, string> = {
-        project: "Project",
-        idea: "Idea",
-        scope: "Scope",
-        result: "Result",
-      };
-      const label = kindLabels[routeKind as ProjectKind];
+      const label = projectKindLabel(routeKind as ProjectKind);
       toast.success(
         submitForReview
           ? `${label} created \u2014 submitted for review to go public`
@@ -249,7 +244,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
   const isFieldVisible = useFieldErrorVisibility(form);
   const visibleValidation = filterProjectFormValidation(validation, isFieldVisible);
   const slugPreview = generateSlug(formValues.title) || undefined;
-  const kindLabel = routeKind.charAt(0).toUpperCase() + routeKind.slice(1);
+  const kindLabel = projectKindLabel(routeKind as ProjectKind);
   const actionLabel =
     routeKind === "idea"
       ? "Create idea"
@@ -315,6 +310,10 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         </div>
       </div>
 
+      {canCreate && (
+        <AgentProjectCard kind={routeKind as ProjectKind} ownerId={defaultOwnerId || undefined} />
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -333,10 +332,6 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
           currentKind={routeKind}
         />
       </form>
-
-      {canCreate && (
-        <AgentProjectCard kind={routeKind as ProjectKind} ownerId={defaultOwnerId || undefined} />
-      )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 shadow-lg backdrop-blur-xl sm:hidden">
         {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- adds the device's safe-area inset (notch/home-indicator) on top of the base padding; not expressible as a fixed scale value */}
