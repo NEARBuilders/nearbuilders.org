@@ -28,6 +28,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { ProjectCatalogFields } from "@/components/project-catalog-fields";
 import { Label } from "@/components/ui/label";
 import { Markdown } from "@/components/ui/markdown";
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { resolveProjectNearAccount } from "@/lib/near-social";
 import { emptyProjectCatalog, validateProjectCatalog } from "@/lib/project-catalog";
 import { parseDescriptionFromContent, parseTitleFromContent } from "@/lib/project-content";
 import {
@@ -150,6 +152,9 @@ export function ProjectFormLayout({
   const currentTitle = useStore(form.store, (s: any) => s.values.title ?? "");
   const currentDescription = useStore(form.store, (s: any) => s.values.description ?? "");
   const formValues = useStore(form.store, (s: any) => s.values) as Partial<ProjectFormValues>;
+  const logoFallbackAccount = resolveProjectNearAccount({
+    ownerId: formValues.ownerId?.trim() || defaultOwnerId,
+  });
   const validation = getProjectFormValidation({
     ...formValues,
     kind: kind as ProjectFormValues["kind"],
@@ -890,9 +895,9 @@ export function ProjectFormLayout({
           )}
 
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
-            <FieldLabel htmlFor="logoUrl">Logo URL</FieldLabel>
+            <FieldLabel htmlFor="logoUrl">Logo</FieldLabel>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Optional absolute http(s) URL for the project logo.
+              Optional. Upload a square image for the project logo.
             </p>
             <form.Field
               name="logoUrl"
@@ -901,36 +906,23 @@ export function ProjectFormLayout({
                 onSubmit: ({ value }: any) => validateLogoUrl(value),
               }}
             >
-              {(field: any) => {
-                const err = fieldErrorFor(field, "logoUrl");
-                return (
-                  <>
-                    <Input
-                      id="logoUrl"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      placeholder="https://example.com/logo.png"
-                      className={cn(
-                        "mt-3 font-mono text-sm",
-                        fieldStateClassName(
-                          field.state.value,
-                          err,
-                          false,
-                          creatorMode && isFieldVisible("logoUrl"),
-                        ),
-                      )}
-                      aria-invalid={Boolean(err)}
-                      aria-describedby={err ? "logo-feedback" : undefined}
-                    />
-                    {err && (
-                      <div id="logo-feedback">
-                        <ErrorText>{err}</ErrorText>
-                      </div>
-                    )}
-                  </>
-                );
-              }}
+              {(field: any) => (
+                <ImageUploadField
+                  id="logoUrl"
+                  value={field.state.value}
+                  onChange={(url) => field.handleChange(url)}
+                  onBlur={field.handleBlur}
+                  error={fieldErrorFor(field, "logoUrl")}
+                  fallbackAccount={logoFallbackAccount}
+                  fallbackLabel="Showing the NEAR Social avatar until you upload a logo."
+                  invalidClassName={fieldStateClassName(
+                    field.state.value,
+                    undefined,
+                    false,
+                    creatorMode && isFieldVisible("logoUrl"),
+                  )}
+                />
+              )}
             </form.Field>
           </section>
 

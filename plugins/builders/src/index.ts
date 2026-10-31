@@ -75,10 +75,20 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const requireApiKey = builder.middleware(async ({ context, next }) => {
+    // Nomination bots act for other people, so their key must belong to an admin
+    // or carry the admin-granted nominations:write permission.
+    const requireNominationKey = builder.middleware(async ({ context, next }) => {
       if (!context.apiKey) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "API key required",
+        });
+      }
+      const canNominate =
+        context.user?.role === "admin" ||
+        (context.apiKey.permissions?.nominations ?? []).includes("write");
+      if (!canNominate) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "This API key can't submit nominations",
         });
       }
       return next({ context: { ...context, apiKey: context.apiKey } });
@@ -86,7 +96,7 @@ export default createPlugin({
 
     return {
       createTelegramNomination: builder.createTelegramNomination
-        .use(requireApiKey)
+        .use(requireNominationKey)
         .effect(function* ({ input, context, errors }) {
           const builders = yield* BuilderService;
           const nominationConfig = yield* NominationConfig;
@@ -122,7 +132,7 @@ export default createPlugin({
           };
         }),
 
-      createXNomination: builder.createXNomination.use(requireApiKey).effect(function* ({
+      createXNomination: builder.createXNomination.use(requireNominationKey).effect(function* ({
         input,
         context,
         errors,
@@ -151,7 +161,7 @@ export default createPlugin({
       }),
 
       claimTelegramNomination: builder.claimTelegramNomination
-        .use(requireApiKey)
+        .use(requireNominationKey)
         .effect(function* ({ input }) {
           const builders = yield* BuilderService;
           const nominationConfig = yield* NominationConfig;

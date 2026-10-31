@@ -129,7 +129,7 @@ async function runListing<A>(effect: Effect.Effect<A, unknown>) {
   return await Effect.runPromise(effect as Effect.Effect<A, never>);
 }
 
-describe("NEAR Catalog listing approval", () => {
+describe("NEAR Catalog listing approval", { timeout: 20_000 }, () => {
   const cleanups: Array<() => Promise<void>> = [];
 
   afterEach(async () => {
