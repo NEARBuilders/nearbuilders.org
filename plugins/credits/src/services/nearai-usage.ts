@@ -1,5 +1,10 @@
 import type { NearAiRefreshTokenStore } from "./nearai-keys";
-import { NearAiRequestError, PLUGIN_USER_AGENT, requestError } from "./nearai-keys";
+import {
+  type AccessTokenResponse,
+  NearAiRequestError,
+  PLUGIN_USER_AGENT,
+  requestError,
+} from "./nearai-keys";
 
 export type NearAiUsageTotals = {
   usedNanoUsd: number;
@@ -25,11 +30,6 @@ export type NearAiReportingClient = {
   provision(): Promise<NearAiReportingProvision | null>;
   getKeyUsage(input: { apiKeyId: string; startTime: Date }): Promise<NearAiUsageTotals | null>;
   getOrganizationUsage(): Promise<NearAiOrganizationUsage | null>;
-};
-
-type AccessTokenResponse = {
-  access_token: string;
-  refresh_token?: string | null;
 };
 
 type UsageSummaryResponse = {

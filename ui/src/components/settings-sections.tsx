@@ -7,37 +7,16 @@ import {
   ApiKeyForm,
   type ApiKeyFormValues,
   ApiKeyReveal,
-  type ApiKeyRevealProps,
   Badge,
   Button,
   Card,
   CardContent,
   ConfirmDialog,
+  type CreatedApiKey,
 } from "@/components";
 import { Input } from "@/components/ui/input";
-import {
-  clearPendingApiKey,
-  getPendingApiKey,
-  savePendingApiKey,
-  toPendingApiKey,
-} from "@/lib/pending-api-key";
-
-type CreatedApiKey = ApiKeyRevealProps["apiKey"];
-
-type ApiKeyItem = {
-  id: string;
-  name: string | null;
-  prefix: string | null;
-  start: string | null;
-  enabled?: boolean;
-  createdAt: string | Date;
-  expiresAt?: string | Date | null;
-  lastRequest?: string | Date | null;
-  requestCount?: number | null;
-  rateLimitEnabled?: boolean | null;
-  rateLimitMax?: number | null;
-  rateLimitTimeWindow?: number | null;
-};
+import type { ApiKeyItem } from "@/lib/api-keys";
+import { clearPendingApiKey, getPendingApiKey, savePendingApiKey } from "@/lib/pending-api-key";
 
 export function useUserPasskeys(enabled = true) {
   const auth = useAuthClient();
@@ -245,7 +224,7 @@ export function UserApiKeysPanel() {
         query: { configId: "user-keys" },
       });
       if (error) throw new Error(error.message);
-      return (data?.apiKeys ?? []) as ApiKeyItem[];
+      return data?.apiKeys ?? [];
     },
   });
 
@@ -256,7 +235,7 @@ export function UserApiKeysPanel() {
 
   const revealApiKey = (data: CreatedApiKey) => {
     setCreatedApiKey(data);
-    savePendingApiKey(toPendingApiKey({ ...data, configId: "user-keys" }));
+    savePendingApiKey({ ...data, configId: "user-keys" });
   };
 
   const dismissReveal = () => {
@@ -275,7 +254,7 @@ export function UserApiKeysPanel() {
       return data;
     },
     onSuccess: (data) => {
-      if (data) revealApiKey(data as CreatedApiKey);
+      if (data) revealApiKey(data);
       toast.success("API key created");
       queryClient.invalidateQueries({ queryKey: ["user-api-keys"] });
     },
@@ -315,7 +294,7 @@ export function UserApiKeysPanel() {
       return data;
     },
     onSuccess: (data) => {
-      if (data) revealApiKey(data as CreatedApiKey);
+      if (data) revealApiKey(data);
       toast.success("API key replaced — the previous key is now disabled");
       queryClient.invalidateQueries({ queryKey: ["user-api-keys"] });
     },

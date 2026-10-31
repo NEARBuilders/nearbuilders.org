@@ -8,7 +8,7 @@ export const SETTINGS_ID = "global";
 
 export type SettingsRow = typeof creditSettings.$inferSelect;
 
-export type SettingsInput = z.infer<typeof CreditSettingsInputSchema>;
+export type SettingsInput = z.input<typeof CreditSettingsInputSchema>;
 
 export type SettingsDto = z.infer<typeof CreditSettingsSchema>;
 
@@ -101,7 +101,7 @@ export function validateSettings(input: SettingsInput):
   return {
     ok: true,
     values: {
-      enabled: input.enabled,
+      enabled: input.enabled ?? false,
       amountCents: amount.ok ? amount.cents : 0,
       claimsCloseAt: claimsCloseAt && !("invalid" in claimsCloseAt) ? claimsCloseAt : null,
       keyExpiresAt: keyExpiresAt && !("invalid" in keyExpiresAt) ? keyExpiresAt : null,

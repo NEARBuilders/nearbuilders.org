@@ -106,6 +106,8 @@ export interface ApiKeyRevealProps {
   onDismiss: () => void;
 }
 
+export type CreatedApiKey = ApiKeyRevealProps["apiKey"];
+
 export function ApiKeyReveal({ apiKey, onDismiss }: ApiKeyRevealProps) {
   const [copied, setCopied] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);

@@ -12,12 +12,7 @@ import {
   mcpUrlFromOrigin,
 } from "@/lib/agent-project-prompt";
 import type { ProjectKind } from "@/lib/draft-store";
-import {
-  clearPendingApiKey,
-  getPendingApiKey,
-  savePendingApiKey,
-  toPendingApiKey,
-} from "@/lib/pending-api-key";
+import { clearPendingApiKey, getPendingApiKey, savePendingApiKey } from "@/lib/pending-api-key";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -76,17 +71,15 @@ export function AgentProjectCard({ kind, ownerId }: AgentProjectCardProps) {
     },
     onSuccess: (data) => {
       setApiKey(data.key);
-      savePendingApiKey(
-        toPendingApiKey({
-          id: data.id,
-          key: data.key,
-          name: data.name ?? null,
-          prefix: data.prefix ?? null,
-          start: data.start ?? null,
-          createdAt: data.createdAt ?? undefined,
-          configId: AGENT_API_KEY_CONFIG_ID,
-        }),
-      );
+      savePendingApiKey({
+        id: data.id,
+        key: data.key,
+        name: data.name ?? null,
+        prefix: data.prefix ?? null,
+        start: data.start ?? null,
+        createdAt: data.createdAt ?? undefined,
+        configId: AGENT_API_KEY_CONFIG_ID,
+      });
       toast.success("API key created");
     },
     onError: (error: Error) => toast.error(error.message || "Failed to create API key"),

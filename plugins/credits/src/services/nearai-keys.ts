@@ -83,9 +83,9 @@ type ListApiKeysResponse = {
   total: number;
 };
 
-type AccessTokenResponse = {
+export type AccessTokenResponse = {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string | null;
   refresh_token_expiration?: string | null;
 };
 

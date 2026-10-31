@@ -1,19 +1,24 @@
-const PENDING_API_KEY_STORAGE_KEY = "nearbuilders:pending-api-key";
+import type { CreatedApiKey } from "../components/api-key-manager";
 
-export interface PendingApiKey {
-  id: string;
-  key: string;
-  name: string | null;
-  prefix: string | null;
-  start: string | null;
+export type PendingApiKey = Pick<CreatedApiKey, "id" | "key" | "name" | "prefix" | "start"> & {
   createdAt: string;
   configId: string;
-}
+};
 
-export function savePendingApiKey(pending: PendingApiKey): void {
+export type PendingApiKeyInput = Omit<CreatedApiKey, "createdAt"> & {
+  createdAt?: string | Date | null;
+  configId: string;
+};
+
+const PENDING_API_KEY_STORAGE_KEY = "nearbuilders:pending-api-key";
+
+export function savePendingApiKey(pending: PendingApiKeyInput): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(PENDING_API_KEY_STORAGE_KEY, JSON.stringify(pending));
+    const parsed = pending.createdAt ? new Date(pending.createdAt) : new Date();
+    const createdAt = (Number.isNaN(parsed.getTime()) ? new Date() : parsed).toISOString();
+    const value: PendingApiKey = { ...pending, createdAt };
+    window.sessionStorage.setItem(PENDING_API_KEY_STORAGE_KEY, JSON.stringify(value));
   } catch {
     return;
   }
@@ -42,24 +47,4 @@ export function clearPendingApiKey(): void {
   } catch {
     return;
   }
-}
-
-export function toPendingApiKey(data: {
-  id: string;
-  key: string;
-  name: string | null;
-  prefix: string | null;
-  start: string | null;
-  createdAt?: string | Date | null;
-  configId: string;
-}): PendingApiKey {
-  return {
-    id: data.id,
-    key: data.key,
-    name: data.name ?? null,
-    prefix: data.prefix ?? null,
-    start: data.start ?? null,
-    createdAt: new Date(data.createdAt ?? Date.now()).toISOString(),
-    configId: data.configId,
-  };
 }
