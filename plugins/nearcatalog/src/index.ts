@@ -2,11 +2,12 @@ import { ORPCError } from "@orpc/server";
 import { Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
 import { z } from "zod";
-import { contract } from "./contract";
+import { CATALOG_LISTING_SYNC, contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { CatalogService, CatalogServiceLive } from "./services/catalog";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
+import { ListingService, ListingServiceLive } from "./services/listings";
 
 function matchesProjectQuery(
   project: {
@@ -58,12 +59,27 @@ export default createPlugin({
     Effect.sync(() =>
       Layer.mergeAll(
         CatalogServiceLive(config.variables.baseUrl),
-        ClaimServiceLive.pipe(Layer.provide(DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL))),
+        Layer.mergeAll(ClaimServiceLive, ListingServiceLive).pipe(
+          Layer.provide(DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL)),
+        ),
       ),
     ),
 
   createRouter: (builder) => {
     const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.user || !context.userId) {
+        throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
+      }
+      if (context.user.role !== "admin") {
+        throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
+      }
+      return next({ context });
+    });
+
+    const requireListingSync = builder.middleware(async ({ context, next }) => {
+      if ((context as unknown as Record<symbol, unknown>)[CATALOG_LISTING_SYNC] === true) {
+        return next({ context });
+      }
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
       }
@@ -164,6 +180,70 @@ export default createPlugin({
         const claims = yield* ClaimService;
         return { data: yield* claims.revokeClaim(input.id) };
       }),
+
+      exportCatalogProjects: builder.exportCatalogProjects.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return yield* listings.exportProjects(input.since);
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return yield* listings.exportPeople(input.since);
+      }),
+
+      listCatalogListings: builder.listCatalogListings.effect(function* ({ input }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.listListed(input.kind) };
+      }),
+
+      markCatalogListingPublished: builder.markCatalogListingPublished
+        .use(requireAdmin)
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.markPublished(input) };
+        }),
+
+      getCatalogListing: builder.getCatalogListing.use(requireListingSync).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.getListing(input) };
+      }),
+
+      markCatalogListingPending: builder.markCatalogListingPending
+        .use(requireListingSync)
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.markPending(input) };
+        }),
+
+      approveCatalogListing: builder.approveCatalogListing
+        .use(requireListingSync)
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.approve(input) };
+        }),
+
+      rejectCatalogListing: builder.rejectCatalogListing.use(requireListingSync).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.reject(input) };
+      }),
+
+      withdrawCatalogListing: builder.withdrawCatalogListing
+        .use(requireListingSync)
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.withdraw(input) };
+        }),
+
+      refreshCatalogListingRecord: builder.refreshCatalogListingRecord
+        .use(requireListingSync)
+        .effect(function* ({ input }) {
+          const listings = yield* ListingService;
+          return { data: yield* listings.refreshRecord(input) };
+        }),
     };
   },
 });

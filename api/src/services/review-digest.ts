@@ -74,6 +74,7 @@ const DASHBOARD_TABS: Record<ReviewDigestPluginId, string> = {
   projects: "projects",
   events: "events",
   nearcatalog: "activity",
+  "nearcatalog-listing": "catalog",
 };
 
 function isDigestPluginId(value: string): value is ReviewDigestPluginId {
@@ -99,6 +100,15 @@ export function reviewDigestTitle(
   return (title ?? proposal.entityId).trim().slice(0, 120);
 }
 
+function catalogListingDetail(payload: Record<string, unknown>): string {
+  const record = readPayload(payload.record);
+  const summary =
+    payload.kind === "person"
+      ? (readString(record.organization) ?? readString(record.jobTitle))
+      : readString(record.oneliner);
+  return summary ? `NEAR Catalog: ${summary}` : "NEAR Catalog listing";
+}
+
 export function reviewDigestDetail(
   proposal: Pick<ProposalRecord, "pluginId" | "payload">,
 ): string | null {
@@ -111,7 +121,9 @@ export function reviewDigestDetail(
         ? (readString(payload.repository) ?? readString(payload.domain))
         : proposal.pluginId === "events"
           ? readString(payload.location)
-          : (readStringArray(payload.roles) ?? []).join(", ");
+          : proposal.pluginId === "nearcatalog-listing"
+            ? catalogListingDetail(payload)
+            : (readStringArray(payload.roles) ?? []).join(", ");
   const trimmed = detail?.trim().slice(0, 80);
   return trimmed ? trimmed : null;
 }
@@ -193,6 +205,7 @@ export function buildReviewDigest(
     projects: 0,
     events: 0,
     nearcatalog: 0,
+    "nearcatalog-listing": 0,
   };
   const items: ReviewDigestItem[] = [];
 

@@ -21,6 +21,7 @@ import {
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { CatalogListingPanel } from "@/components/catalog-listing-panel";
 import { CityNodeChip } from "@/components/city-node-chip";
 import { NostrFeed } from "@/components/nostr-feed";
 import {
@@ -31,6 +32,7 @@ import {
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
 import { ProjectCatalogCard } from "@/components/project-catalog-details";
 import { ProjectReviewStatus } from "@/components/project-review-status";
+import { CatalogListedBadge } from "@/components/project-tags";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
@@ -494,6 +496,9 @@ function ProjectDetailPage() {
                   <KindChip kind={project.kind} />
                   <StatusChip status={project.status} />
                   <ProjectActivityBadge projectId={project.id} />
+                  {project.kind === "project" && (
+                    <CatalogListedBadge kind="project" entityId={project.id} linked />
+                  )}
                   <NewBadge createdAt={project.createdAt} />
                   <CityNodeChip cityNode={project.cityNode} />
                 </div>
@@ -545,6 +550,14 @@ function ProjectDetailPage() {
                   </Button>
                 )}
               </div>
+
+              {project.kind === "project" && project.visibility === "public" && isOwner && (
+                <CatalogListingPanel
+                  target={{ kind: "project", projectId: project.id }}
+                  visible={isOwner}
+                  version={project.updatedAt}
+                />
+              )}
 
               {project.kind === "project" && (
                 <ProjectCatalogCard
