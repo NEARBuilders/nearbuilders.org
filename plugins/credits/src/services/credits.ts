@@ -153,6 +153,14 @@ export function createCreditMethods(
     );
   };
 
+  const futureKeyExpiry = async (row: CreditClaimRow): Promise<Date | null> => {
+    const current = now();
+    if (row.keyExpiresAt && row.keyExpiresAt > current) return row.keyExpiresAt;
+    const settings = await readSettings(db);
+    const settingsExpiry = settings?.keyExpiresAt ?? null;
+    return settingsExpiry && settingsExpiry > current ? settingsExpiry : null;
+  };
+
   const acquireClaim = async (input: {
     nearAccountId: string;
     userId: string;
@@ -492,6 +500,103 @@ export function createCreditMethods(
         });
       }
       return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now(), null) };
+    },
+
+    async refreshClaim(id: string) {
+      const [row] = await db.select().from(creditClaims).where(eq(creditClaims.id, id));
+      if (!row) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
+      const status = claimStatus(row, now());
+      if (status !== "issued" && status !== "expired") {
+        throw conflict(
+          status === "pending"
+            ? "This claim is still being processed"
+            : "Only an issued or expired key can be replaced",
+        );
+      }
+
+      if (row.keyId) {
+        await keys.revokeKey(row.keyId).catch((error: unknown) => {
+          console.warn("[Credits] Old key could not be revoked during refresh:", row.id, error);
+          throw new ORPCError("SERVICE_UNAVAILABLE", {
+            message: "The current key could not be retired. Try again in a few minutes.",
+          });
+        });
+      } else {
+        const orphan = await keys
+          .findKeyByName(keyName(row.nearAccountId, row.id))
+          .catch(() => null);
+        if (orphan?.isActive) {
+          await keys.revokeKey(orphan.id).catch((error: unknown) => {
+            console.warn(
+              "[Credits] Orphan key could not be revoked during refresh:",
+              row.id,
+              error,
+            );
+            throw new ORPCError("SERVICE_UNAVAILABLE", {
+              message: "The current key could not be retired. Try again in a few minutes.",
+            });
+          });
+        }
+      }
+
+      const [updated] = await db
+        .update(creditClaims)
+        .set({
+          status: "replaceable",
+          keyId: null,
+          keyPrefix: null,
+          error: null,
+          attempt: sql`${creditClaims.attempt} + 1`,
+          updatedAt: now(),
+        })
+        .where(eq(creditClaims.id, row.id))
+        .returning();
+      if (!updated)
+        throw conflict("This claim changed while it was being updated. Check its status.");
+      return { data: toAdminClaim(updated, await countClaimsFromIp(row.ip), now(), null) };
+    },
+
+    async claimReplacement(input: { nearAccountId: string | null; userId: string }) {
+      const claim = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+      if (!claim) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
+      if (claimStatus(claim, now()) !== "replaceable") {
+        throw conflict("A replacement has not been approved for this account");
+      }
+      const expiry = await futureKeyExpiry(claim);
+      let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
+      try {
+        created = await keys.createKey({
+          name: keyName(claim.nearAccountId, claim.id),
+          spendLimitCents: claim.spendLimitCents,
+          expiresAt: expiry,
+        });
+      } catch (error) {
+        if (error instanceof NearAiRequestError) {
+          throw unavailable();
+        }
+        throw error;
+      }
+
+      const [updated] = await db
+        .update(creditClaims)
+        .set({
+          status: "issued",
+          keyId: created.id,
+          keyPrefix: created.keyPrefix,
+          keyExpiresAt: expiry,
+          error: null,
+          attempt: sql`${creditClaims.attempt} + 1`,
+          updatedAt: now(),
+        })
+        .where(and(eq(creditClaims.id, claim.id), eq(creditClaims.status, "replaceable")))
+        .returning();
+      if (!updated) {
+        await keys.revokeKey(created.id).catch((error: unknown) => {
+          console.warn("[Credits] Replacement key could not be rolled back:", created.id, error);
+        });
+        throw conflict("This claim changed while the key was being created. Check its status.");
+      }
+      return { key: created.key, claim: toClaim(updated, now()) };
     },
   };
 }

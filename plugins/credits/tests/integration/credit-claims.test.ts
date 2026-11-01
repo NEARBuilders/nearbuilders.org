@@ -593,12 +593,47 @@ describe("Credit claims", () => {
     expect(listed.data.map((claim) => claim.usedUsd).sort()).toEqual([0.5, 1.25]);
   });
 
+  it("lets an admin approve a replacement the builder saves on their dashboard", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
+    const alice = client(userContext("alice-user", "alice.near"));
+    const claimed = await alice.claimCredits({});
+
+    await expect(admin.refreshCreditClaim({ id: "missing" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    const approved = await admin.refreshCreditClaim({ id: claimed.claim.id });
+    expect(approved.data).toMatchObject({ status: "replaceable", keyPrefix: null });
+    expect(approved.data).not.toHaveProperty("key");
+    expect(nearAi.keys.get("key-1")?.is_active).toBe(false);
+
+    await expect(alice.claimCreditReplacement({})).resolves.toMatchObject({
+      key: "sk-abc2-secret",
+      claim: { status: "issued", keyPrefix: "sk-abc2", spendLimitUsd: 5 },
+    });
+    expect(nearAi.keys.get("key-2")?.is_active).toBe(true);
+
+    const status = await alice.getCreditStatus({});
+    expect(status.claim).toMatchObject({ status: "issued", keyPrefix: "sk-abc2" });
+    expect(JSON.stringify(status)).not.toContain("sk-abc1-secret");
+
+    await expect(alice.claimCreditReplacement({})).rejects.toMatchObject({ code: "CONFLICT" });
+    await admin.revokeCreditClaim({ id: claimed.claim.id });
+    await expect(admin.refreshCreditClaim({ id: claimed.claim.id })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
   it("keeps admin routes away from members", async () => {
     const { client, admin } = await loadCredits();
     await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.listCreditClaims({ limit: 10 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(alice.refreshCreditClaim({ id: "any" })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
     await expect(alice.revokeCreditClaim({ id: "any" })).rejects.toMatchObject({

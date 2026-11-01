@@ -6,6 +6,7 @@ import { useApiClient } from "@/app";
 import { ApiKeyReveal } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   canRetry,
   claimCardCopy,
@@ -61,10 +62,25 @@ function CreditUsageReadout({ userId, nearAccountId }: { userId: string; nearAcc
     retry: false,
   });
 
-  const data = usage.data?.usage;
-  if (!data) return null;
-  const percent = Math.min(100, Math.round((data.usedUsd / data.spendLimitUsd) * 100));
+  if (usage.isLoading) {
+    return (
+      <div className="w-full shrink-0 space-y-1.5 sm:w-44">
+        <Skeleton className="ml-auto h-3 w-28" />
+        <Skeleton className="h-1.5 w-full" />
+      </div>
+    );
+  }
 
+  const data = usage.data?.usage;
+  if (!data) {
+    return (
+      <p className="w-full shrink-0 text-xs text-muted-foreground sm:w-auto sm:text-right">
+        usage unavailable
+      </p>
+    );
+  }
+
+  const percent = Math.min(100, Math.round((data.usedUsd / data.spendLimitUsd) * 100));
   return (
     <div className="w-full shrink-0 space-y-1.5 sm:w-44">
       <p className="text-xs font-medium whitespace-nowrap text-foreground sm:text-right">
@@ -111,6 +127,35 @@ export function CreditClaimCard({
     onError: (error: Error) => toast.error(error.message || "API credits could not be claimed"),
   });
 
+  const replacement = useMutation({
+    mutationFn: () => apiClient.credits.claimCreditReplacement({}),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: creditStatusKey }),
+    onError: (error: Error) => toast.error(error.message || "Replacement key could not be created"),
+  });
+
+  const revealed = claim.data ?? replacement.data;
+  if (revealed) {
+    return (
+      <div className="space-y-2">
+        <ApiKeyReveal
+          apiKey={{
+            id: revealed.claim.id,
+            name: `NEAR AI Cloud · ${formatUsd(revealed.claim.spendLimitUsd)} credits`,
+            prefix: revealed.claim.keyPrefix?.replace(/\*+$/, "") ?? null,
+            start: null,
+            key: revealed.key,
+            createdAt: revealed.claim.createdAt,
+          }}
+          onDismiss={() => {
+            claim.reset();
+            replacement.reset();
+          }}
+        />
+        <GettingStartedNote />
+      </div>
+    );
+  }
+
   const data = status.data;
   if (status.isError) {
     return (
@@ -131,30 +176,12 @@ export function CreditClaimCard({
   }
   if (!data) return null;
 
-  if (claim.data) {
-    return (
-      <div className="space-y-2">
-        <ApiKeyReveal
-          apiKey={{
-            id: claim.data.claim.id,
-            name: `NEAR AI Cloud · ${formatUsd(claim.data.claim.spendLimitUsd)} credits`,
-            prefix: claim.data.claim.keyPrefix?.replace(/\*+$/, "") ?? null,
-            start: null,
-            key: claim.data.key,
-            createdAt: claim.data.claim.createdAt,
-          }}
-          onDismiss={() => claim.reset()}
-        />
-        <GettingStartedNote />
-      </div>
-    );
-  }
-
   const { available, amountUsd, eligibility, claim: existing } = data;
   const amount = formatUsd(amountUsd);
   const canClaim =
     canRetry(available, eligibility) &&
     (!existing || existing.status === "failed" || existing.status === "pending");
+  const canReplace = existing?.status === "replaceable";
 
   if (!existing && !available) return null;
 
@@ -186,6 +213,21 @@ export function CreditClaimCard({
         </div>
         {existing?.status === "issued" && (
           <CreditUsageReadout userId={userId} nearAccountId={nearAccountId} />
+        )}
+        {canReplace && (
+          <Button
+            size="sm"
+            className="w-full rounded-full sm:w-auto"
+            disabled={replacement.isPending}
+            onClick={() => replacement.mutate()}
+          >
+            {replacement.isPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <KeyRound className="size-3.5" />
+            )}
+            Save replacement key
+          </Button>
         )}
         {registerCta && (
           <Button asChild size="sm" className="w-full rounded-full sm:w-auto">
