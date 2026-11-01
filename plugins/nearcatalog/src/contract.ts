@@ -109,6 +109,7 @@ export const CatalogExportProjectSchema = z.strictObject({
   "nearsocial-address": CatalogExportUrl,
   dapp: CatalogExportUrl,
   phase: z.string().max(40),
+  contact: z.string().max(300).optional(),
   source: z.strictObject({
     site: z.string().min(1),
     url: z.url(),
@@ -134,6 +135,9 @@ export const CatalogExportPersonSchema = z.strictObject({
   nearAccount: z.string().min(1).max(100),
 });
 
+export const CatalogListingSendStatusSchema = z.enum(["sent", "failed"]);
+export const CatalogListingSendActionSchema = z.enum(["upsert", "remove"]);
+
 export const CatalogListingSchema = z.object({
   id: z.string(),
   kind: CatalogListingKindSchema,
@@ -146,6 +150,12 @@ export const CatalogListingSchema = z.object({
   approvedAt: z.iso.datetime().nullable(),
   publishedAt: z.iso.datetime().nullable(),
   removedAt: z.iso.datetime().nullable(),
+  catalogUrl: z.string().nullable(),
+  sendStatus: CatalogListingSendStatusSchema.nullable(),
+  sendAction: CatalogListingSendActionSchema.nullable(),
+  sendError: z.string().nullable(),
+  sendAttemptedAt: z.iso.datetime().nullable(),
+  sentAt: z.iso.datetime().nullable(),
   changedAt: z.iso.datetime(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -378,6 +388,18 @@ export const contract = oc.router({
     .input(CatalogListingTargetSchema)
     .output(z.object({ data: CatalogListingSchema.nullable() }))
     .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  listCatalogListingSends: oc
+    .route({ method: "GET", path: "/v1/internal/nearcatalog/listings/sends" })
+    .input(z.object({}))
+    .output(z.object({ enabled: z.boolean(), data: z.array(CatalogListingSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryCatalogListingSend: oc
+    .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/sends/retry" })
+    .input(CatalogListingTargetSchema)
+    .output(z.object({ data: CatalogListingSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   refreshCatalogListingRecord: oc
     .route({ method: "POST", path: "/v1/internal/nearcatalog/listings/refresh" })
