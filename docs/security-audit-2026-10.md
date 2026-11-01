@@ -2,7 +2,7 @@
 
 Audit for #321. It covers every oRPC procedure in the core API contract (`api/src/contract.ts`) and in the ten local plugins (activity, apps, bookmarks, builders, credits, events, nearcatalog, notifications, projects, proposals, votes). The `nostr` plugin is a remote (`bos://nearbuilding.near/nostr.nearbuilders.org`) and is out of scope.
 
-Line numbers refer to `main` at `bd322ed` (31 Oct 2026).
+Line numbers refer to `main` at `bd322ed` (31 Oct 2026). Three findings were fixed on `main` after that (#340, #343, #344). They are listed under Fixed findings, and the route tables below show the posture after those fixes.
 
 ## How requests reach the code
 
@@ -40,6 +40,14 @@ No core handler uses `Effect.promise`, `Effect.die` or `catchAll`. The two core 
 
 Severity: **High** means any user can act on someone else's data or skip moderation. **Medium** means a real gap that needs a precondition or only leaks data. **Low** means hardening. **Info** means noted, no action needed.
 
+### Fixed findings
+
+| ID | Sev | Finding | Fixed in |
+|---|---|---|---|
+| H-1 | High | Some core-only checks could be skipped by calling the plugin route directly. Activity registration ran its project owner, status and approval checks only in core `registerProjectActivity`. Project and event creation applied the NEAR-account and visibility rules only in core, and a create with an existing id didn't check who owned it. | #340: activity registration now runs only through core (server-only context marker); the projects and events plugins apply the NEAR-account and visibility rules themselves and refuse an existing id unless the caller owns it. |
+| H-2 | High | Resubmitting a proposal for an existing entity replaced its payload without checking who first submitted it. | #343: only the original submitter, the builder themself, an admin, or (through core) someone who can edit the project or event can resubmit. |
+| H-3 | High | The nomination bot routes accepted any API key, and any signed-in user can mint a key. | #344: these routes need a key that belongs to an admin or carries the admin-granted `nominations:write` permission. |
+
 ### Open findings
 
 | ID | Sev | Finding | Where | Proposed fix |
@@ -66,7 +74,7 @@ Things checked and found fine:
 - Secrets (`ACTIVITY_GATEWAY_API_KEY`, `LUMA_CALENDAR_API_KEYS`, `NEARAI_API_KEY`) are only sent as headers and never logged or returned.
 - Nomination tokens are HMAC-SHA256 with `timingSafeEqual`; only hashes are stored.
 - No plugin route takes the acting user from input. All use `context.userId` or `context.near.primaryAccountId`.
-- Context markers set by the core API (`serverNotification`, `allowPrivateSubmission`, `allowPublicVisibility`, the evaluator symbol) can't be set by an HTTP caller.
+- Context markers set by the core API (`serverNotification`, `allowPrivateSubmission`, `allowPublicVisibility`, `activityRegistration`, `canResubmitForOthers`, the evaluator symbol) can't be set by an HTTP caller.
 - NEAR AI keys are returned once on claim; only `keyPrefix`/`keyId` are stored.
 
 ## API-key acceptance
@@ -76,7 +84,7 @@ Today only `propose` accepts keys among user write routes (via `requireAuthOrApi
 Recommendation:
 - **Keep session-only:** admin routes, credits claims, profile and account changes, collaborator management.
 - **Allow scoped keys** (owner identity, explicit permission such as `projects:write`) for MCP and agent flows: `propose`, `createProject`/`updateProject`, `emitActivity`, votes and bookmarks. That needs `requireAuthOrApiKey` to resolve `userId` from the key owner.
-- **Bot routes** (Telegram, X): one shared rule for all of them, a named permission plus an admin-owned key, as `decideTelegramReview` uses.
+- **Bot routes** (Telegram, X): one shared rule for all of them. The review routes need `reviews:write` plus an admin-owned key; since #344 the nomination routes need an admin-owned key or `nominations:write`. Converging on one rule (permission plus admin owner) is part of ticket 14.
 
 ## Proposed fix tickets
 
@@ -104,7 +112,8 @@ Legend:
 - **Auth:** session required
 - **AoK:** session or API key
 - **Adm:** admin role
-- **Key(p):** API key with permission p; **Key (bot)** is a bot key
+- **Key(p):** API key with permission p
+- **Key (bot):** API key that belongs to an admin or carries `nominations:write`
 - **Core:** reached only in-process with a server-only context marker; not callable over HTTP
 
 "Owner" means the service checks that the caller owns or co-edits the row.
@@ -120,7 +129,7 @@ Validation is Zod on every route. The column notes only gaps.
 | createTelegramNomination, createXNomination, claimTelegramNomination | Key (bot), enforced in plugin | – | – | passthrough |
 | submitBuilderProfile | Auth | caller's own NEAR account; duplicate and pending guards | – | typed |
 | nominateBuilder | Auth | NEAR account; no self-nomination | – | passthrough |
-| propose | AoK | builders via `nominateBuilder`; private plugins need the core marker | payload/metadata unbounded (L-2) | passthrough |
+| propose | AoK | builders via `nominateBuilder`; private plugins need the core marker; resubmitting needs edit rights on the project or event (H-2) | payload/metadata unbounded (L-2) | passthrough |
 | approve, reject, dismissFailure, reopen, remove | Adm | admin | – | raw message to admin |
 | withdraw | Auth | creator or subject | – | typed |
 | getProposals, getProposalCount, getAuditLog, subscribeProposals | Pub | private plugins hidden (M-4) | cursor (M-3) | passthrough |
@@ -156,20 +165,20 @@ Validation is Zod on every route. The column notes only gaps.
 
 | Plugin | Route(s) | Auth | Ownership / admin | Notes |
 |---|---|---|---|---|
-| proposals | propose | AoK | resubmission policy from core | private plugins need the core marker |
+| proposals | propose | AoK | resubmission limited to the original submitter, the builder themself, admins, or core-checked editors (H-2) | private plugins need the core marker |
 | proposals | approve, reject, dismissFailure, reopen, remove, markApplied/ApplyFailed/Removed/RemoveFailed | Adm | admin | |
 | proposals | withdraw | Auth | creator or subject | |
 | proposals | getProposals, getProposalCount, getAuditLog, subscribe | Pub | `canReadProposal` | `subscribe` streams raw error text (M-3) |
 | proposals | getSubmissions, getReviewHistory, getEvaluations | Adm or Core | | |
 | proposals | getMySubmission | Auth | caller | |
 | proposals | recordEvaluation, acquireReviewLease, getProposalById, Telegram reviewer routes | Core | evaluator symbol | |
-| projects | createProject | Auth | owner from context; org attribution | |
+| projects | createProject | Auth + NEAR | owner from context; org attribution; private unless core allows public; existing id only for its owner | H-1 |
 | projects | updateProject, linkAppToProject, unlinkAppFromProject | Auth | `canEditProject` | |
 | projects | deleteProject | Auth | owner or admin | |
 | projects | applyReviewedProject | Adm | admin | M-1 |
 | projects | collaborator routes | Auth | owner / invitee | |
 | projects | list/get/mentions/apps | Pub | visibility rules | `listProjectApps` has no visibility check (Low) |
-| builders | createTelegramNomination, createXNomination, claimTelegramNomination | Key (bot) | – | |
+| builders | createTelegramNomination, createXNomination, claimTelegramNomination | Key (bot) | admin-owned key or `nominations:write` | H-3 |
 | builders | resolveTelegramNomination, resolveNomination | Pub | valid token | |
 | builders | finalizeTelegramNomination, finalizeNomination | Auth + NEAR | token | M-5 |
 | builders | listXNominationQueue, updateXNomination, getXNominationMetrics, createBuilder, deleteBuilder | Adm | admin | |
@@ -178,11 +187,11 @@ Validation is Zod on every route. The column notes only gaps.
 | votes | upvote, downvote, getUserVote(s) | Auth | caller | |
 | votes | getUpvoteCount(s), getUpvoteFeed, subscribe | Pub | – | L-4 |
 | bookmarks | bookmark, unbookmark, getUserBookmark | Auth | caller | L-7 |
-| activity | startActivityRegistration | Auth + NEAR | project checks in core `registerProjectActivity` | |
+| activity | startActivityRegistration | Core | only via core `registerProjectActivity`, which checks owner, status and approval | H-1 |
 | activity | emitActivity | Auth + NEAR | actor from context | M-2, L-2 |
 | activity | emitTrustedActivity, hideActivity, gateway admin routes, importActivityHistory | Adm | admin | M-2 |
 | activity | getActivityFeed, subscribeActivity, getLeaderboard, project activity reads | Pub | – | |
-| events | createEvent, updateEvent | Auth | owner | |
+| events | createEvent, updateEvent | Auth (+ NEAR to create) | owner; private unless admin or core allows public; existing id only for its owner | H-1 |
 | events | deleteEvent, joinEvent, leaveEvent | Auth | owner / self | |
 | events | applyReviewedEvent | Adm | admin | |
 | events | listEvents, getEvent, getEventBySlug, listEventParticipants, Luma reads | Pub | visibility rules | I-1 |
@@ -199,5 +208,5 @@ Validation is Zod on every route. The column notes only gaps.
 
 - [x] Per-route auth posture for every core and plugin route (tables above).
 - [x] Findings triaged by severity, with fix tickets proposed (not filed; see the list).
-- [ ] Zero unprotected write endpoints. No write route is unauthenticated. The remaining authorization gaps are M-1 and M-5.
+- [ ] Zero unprotected write endpoints. No write route is unauthenticated. H-1 to H-3 are fixed (#340, #343, #344); the remaining authorization gaps are M-1 and M-5.
 - [ ] Error responses free of internals. M-3 and L-1 remain. Zod validation is present on every route, with the size gaps in L-2.
