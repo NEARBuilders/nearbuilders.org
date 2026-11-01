@@ -2,6 +2,7 @@ import "@orpc/openapi/extensions/route";
 import { oc } from "@orpc/contract";
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
+import { cityNodeFilterSchema, cityNodeKeySchema } from "./lib/city-node";
 
 const INVALID_NOMINATION = {
   status: 404,
@@ -65,6 +66,7 @@ const BuilderOutput = z.object({
   skills: z.array(z.string()),
   location: z.string().nullable(),
   links: z.record(z.string(), z.string()).nullable(),
+  cityNode: z.string().nullable(),
   catalog: builderCatalogSchema.nullable(),
   withdrawnAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
@@ -433,6 +435,7 @@ export const contract = oc.router({
       z.object({
         search: z.string().optional(),
         skill: z.string().optional(),
+        cityNode: cityNodeFilterSchema,
         limit: z.number().int().min(1).max(100).optional(),
         cursor: z.string().optional(),
       }),
@@ -494,6 +497,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
         catalog: builderCatalogSchema.nullable().optional(),
       }),
     )
@@ -510,6 +514,7 @@ export const contract = oc.router({
         skills: z.array(z.string().max(50)).max(20).optional(),
         location: z.string().max(100).optional(),
         links: z.record(z.string(), z.string()).optional(),
+        cityNode: cityNodeKeySchema.nullable().optional(),
         catalog: builderCatalogSchema.nullable().optional(),
       }),
     )

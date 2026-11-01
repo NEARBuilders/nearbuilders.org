@@ -21,6 +21,7 @@ export const builders = pgTable(
     skills: text("skills"),
     location: text("location"),
     links: text("links"),
+    cityNode: text("city_node"),
     catalog: jsonb("catalog").$type<BuilderCatalogMetadata>(),
     /** Set when the owner withdraws their profile from the public directory; null while listed. */
     withdrawnAt: timestamp("withdrawn_at"),
@@ -31,6 +32,7 @@ export const builders = pgTable(
     uniqueIndex("builders_near_account_idx").on(table.nearAccount),
     index("builders_user_id_idx").on(table.userId),
     index("builders_withdrawn_at_idx").on(table.withdrawnAt),
+    index("builders_city_node_idx").on(table.cityNode),
   ],
 );
 

@@ -20,6 +20,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ActivityFeed } from "@/components/activity-feed";
 import { BuilderProfileStats } from "@/components/builder-profile-stats";
 import { CatalogListingPanel } from "@/components/catalog-listing-panel";
+import { CityNodeChip } from "@/components/city-node-chip";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributedProjects } from "@/components/contributed-projects";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
@@ -469,6 +470,11 @@ function LoadedProfile({
                         {builder.catalog.publicEmail}
                       </a>
                     )}
+                  </div>
+                )}
+                {builder.cityNode && (
+                  <div className="mt-2">
+                    <CityNodeChip cityNode={builder.cityNode} />
                   </div>
                 )}
               </div>
