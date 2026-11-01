@@ -1,3 +1,7 @@
+import type { ContractRouterClient } from "@orpc/contract";
+import { createRpcClient } from "every-plugin/client";
+import type { CityNodeAppContract } from "./citynode-contract";
+
 export type CityNodeKind = "country" | "state" | "city" | string;
 
 export type CityNode = {
@@ -14,6 +18,11 @@ export type CityNodeList = {
   data: CityNode[];
   meta: { baseUrl: string; available: boolean; fetchedAt: string | null };
 };
+
+export type CityNodeAppClient = Pick<
+  ContractRouterClient<CityNodeAppContract>,
+  "listNodeSummaries"
+>;
 
 type RawNode = {
   id: string;
@@ -84,13 +93,20 @@ export function buildCityNodeTree(raw: RawNode[]): CityNode[] {
   return ordered;
 }
 
+export function createCityNodeAppClient(baseUrl: string) {
+  return createRpcClient<CityNodeAppContract>({
+    hostUrl: baseUrl.replace(/\/+$/, ""),
+    path: "/api/rpc",
+  });
+}
+
 export function createCityNodeDirectory(options: {
   baseUrl: string;
-  fetch?: typeof fetch;
+  client?: CityNodeAppClient;
   now?: () => number;
 }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
+  const client = options.client ?? createCityNodeAppClient(baseUrl);
   const now = options.now ?? Date.now;
   let cached: { nodes: CityNode[]; fetchedAt: number } | null = null;
   let lastFailureAt = Number.NEGATIVE_INFINITY;
@@ -98,12 +114,11 @@ export function createCityNodeDirectory(options: {
 
   const refresh = async () => {
     try {
-      const response = await fetchImpl(`${baseUrl}/api/nodes/summaries?scope=all`, {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error(`citynode.app responded ${response.status}`);
-      const nodes = buildCityNodeTree(readRawNodes(await response.json()));
+      const summaries = await client.listNodeSummaries(
+        { scope: "all" },
+        { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+      );
+      const nodes = buildCityNodeTree(readRawNodes(summaries));
       cached = { nodes, fetchedAt: now() };
     } catch (error) {
       lastFailureAt = now();

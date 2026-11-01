@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildCityNodeTree, createCityNodeDirectory } from "../../src/services/city-nodes";
+import {
+  buildCityNodeTree,
+  type CityNodeAppClient,
+  createCityNodeAppClient,
+  createCityNodeDirectory,
+} from "../../src/services/city-nodes";
 
 function summary(id: string, slug: string, name: string, kind: string, parentId: string | null) {
   return {
@@ -26,11 +31,11 @@ const summaries = [
   summary("c-1", "lakeside", "Lakeside", "city", null),
 ];
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+type Summaries = typeof summaries;
+
+function fakeClient(listNodeSummaries: (...args: unknown[]) => Promise<Summaries>) {
+  const fn = vi.fn(listNodeSummaries);
+  return { fn, client: { listNodeSummaries: fn } as unknown as CityNodeAppClient };
 }
 
 describe("buildCityNodeTree", () => {
@@ -83,36 +88,58 @@ describe("buildCityNodeTree", () => {
   });
 });
 
+describe("createCityNodeAppClient", () => {
+  it("calls listNodeSummaries on citynode.app's oRPC endpoint as JSON", async () => {
+    const fetch = vi.fn(
+      async (_input: Request | string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ json: summaries }), {
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const result = await createCityNodeAppClient("https://citynode.test/").listNodeSummaries({
+        scope: "all",
+      });
+
+      expect(result).toHaveLength(4);
+      const [input, init] = fetch.mock.calls[0] ?? [""];
+      const request = typeof input === "string" ? new Request(input, init) : input;
+      expect(request.method).toBe("POST");
+      expect(request.url).toBe("https://citynode.test/api/rpc/listNodeSummaries");
+      expect(request.headers.get("content-type")).toContain("application/json");
+      expect(await request.json()).toEqual({ json: { scope: "all" } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe("createCityNodeDirectory", () => {
   it("reads citynode.app summaries once and serves the cached list", async () => {
-    const fetch = vi.fn(async () => jsonResponse(summaries));
-    const directory = createCityNodeDirectory({
-      baseUrl: "https://citynode.test/",
-      fetch: fetch as unknown as typeof globalThis.fetch,
-    });
+    const { fn, client } = fakeClient(async () => summaries);
+    const directory = createCityNodeDirectory({ baseUrl: "https://citynode.test/", client });
 
     const first = await directory.list();
     await directory.list();
 
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith(
-      "https://citynode.test/api/nodes/summaries?scope=all",
-      expect.anything(),
-    );
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith({ scope: "all" }, expect.anything());
     expect(first.meta).toMatchObject({ baseUrl: "https://citynode.test", available: true });
     expect(first.data).toHaveLength(4);
   });
 
   it("serves the stale list while refreshing in the background", async () => {
     let now = 0;
-    let release: (response: Response) => void = () => {};
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(summaries))
-      .mockReturnValueOnce(new Promise<Response>((resolve) => (release = resolve)));
+    let release: (value: Summaries) => void = () => {};
+    const responses = [
+      Promise.resolve(summaries),
+      new Promise<Summaries>((resolve) => (release = resolve)),
+    ];
+    const { fn, client } = fakeClient(() => responses.shift() as Promise<Summaries>);
     const directory = createCityNodeDirectory({
       baseUrl: "https://citynode.test",
-      fetch: fetch as unknown as typeof globalThis.fetch,
+      client,
       now: () => now,
     });
     await directory.list();
@@ -120,9 +147,9 @@ describe("createCityNodeDirectory", () => {
     now = 60 * 60_000;
     const stale = await directory.list();
 
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(2);
     expect(stale.data).toHaveLength(4);
-    release(jsonResponse(summaries.slice(0, 1)));
+    release(summaries.slice(0, 1));
     await vi.waitFor(async () => expect((await directory.list()).data).toHaveLength(1));
   });
 
@@ -130,10 +157,13 @@ describe("createCityNodeDirectory", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     let now = 0;
     let up = true;
-    const fetch = vi.fn(async () => (up ? jsonResponse(summaries) : jsonResponse({}, 502)));
+    const { fn, client } = fakeClient(async () => {
+      if (!up) throw new Error("Bad Gateway");
+      return summaries;
+    });
     const directory = createCityNodeDirectory({
       baseUrl: "https://citynode.test",
-      fetch: fetch as unknown as typeof globalThis.fetch,
+      client,
       now: () => now,
     });
     await directory.list();
@@ -141,7 +171,7 @@ describe("createCityNodeDirectory", () => {
     up = false;
     now = 60 * 60_000;
     await directory.list();
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
     const stale = await directory.list();
 
     expect(stale.meta.available).toBe(true);
@@ -151,12 +181,12 @@ describe("createCityNodeDirectory", () => {
 
   it("returns an empty list and backs off when citynode.app has never answered", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const fetch = vi.fn(async () => {
+    const { fn, client } = fakeClient(async () => {
       throw new Error("connect ECONNREFUSED");
     });
     const directory = createCityNodeDirectory({
       baseUrl: "https://citynode.test",
-      fetch: fetch as unknown as typeof globalThis.fetch,
+      client,
       now: () => 0,
     });
 
@@ -167,16 +197,14 @@ describe("createCityNodeDirectory", () => {
       data: [],
       meta: { baseUrl: "https://citynode.test", available: false, fetchedAt: null },
     });
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledTimes(1);
     await expect(directory.assertKnown(undefined)).resolves.toBeNull();
     await expect(directory.assertKnown("lakeside")).resolves.toMatch(/can't be checked/);
   });
 
   it("rejects slugs that are not on citynode.app", async () => {
-    const directory = createCityNodeDirectory({
-      baseUrl: "https://citynode.test",
-      fetch: (async () => jsonResponse(summaries)) as unknown as typeof globalThis.fetch,
-    });
+    const { client } = fakeClient(async () => summaries);
+    const directory = createCityNodeDirectory({ baseUrl: "https://citynode.test", client });
     await expect(directory.assertKnown("freedonia/west-province/hill-valley")).resolves.toBeNull();
     await expect(directory.assertKnown("hill-valley")).resolves.toBe(
       "Unknown city node: hill-valley",

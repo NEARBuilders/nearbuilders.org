@@ -77,7 +77,13 @@ function projectRecord(input: Record<string, unknown>, cityNode: string | null =
 
 describe("city node tags", () => {
   const runtime = createPluginRuntime({ registry: { api: { module: ApiPlugin } } });
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify(nodeSummaries), { status: 200 }));
+  const fetchMock = vi.fn(
+    async () =>
+      new Response(JSON.stringify({ json: nodeSummaries }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  );
   const proposals: Array<Record<string, unknown>> = [];
   const createProject = vi.fn(async (input: Record<string, unknown>) => ({
     ...projectRecord(input),
@@ -196,9 +202,9 @@ describe("city node tags", () => {
       },
     ]);
     expect(result.meta).toMatchObject({ baseUrl: "https://citynode.test", available: true });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://citynode.test/api/nodes/summaries?scope=all",
-      expect.anything(),
+    const [request] = fetchMock.mock.calls[0] as unknown as [Request | string];
+    expect(typeof request === "string" ? request : request.url).toBe(
+      "https://citynode.test/api/rpc/listNodeSummaries",
     );
   });
 
