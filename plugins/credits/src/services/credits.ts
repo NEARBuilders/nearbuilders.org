@@ -17,7 +17,9 @@ import {
   type NearAiSignedMessage,
   signatureToBase64,
 } from "./nearai-keys";
+import { createNearAiReportingClient, type NearAiReportingClient } from "./nearai-usage";
 import {
+  readReporting,
   readSessionExpiry,
   readSessionToken,
   readSettings,
@@ -26,6 +28,7 @@ import {
   settingsToDto,
   validateAmountCents,
   validateSettings,
+  writeReporting,
   writeSession,
   writeSettings,
 } from "./settings";
@@ -37,7 +40,8 @@ export function creditEligibility(
   builderProfile: { withdrawnAt: string | null } | null,
 ): CreditEligibility {
   if (!nearAccountId) return "needs_near_account";
-  if (!builderProfile || builderProfile.withdrawnAt) return "needs_approved_profile";
+  if (!builderProfile) return "needs_approved_profile";
+  if (builderProfile.withdrawnAt) return "needs_profile_restore";
   return "eligible";
 }
 
@@ -90,6 +94,7 @@ export function createCreditMethods(
   keys: NearAiKeyClient,
   login: NearAiLoginClient,
   store: NearAiRefreshTokenStore,
+  reporting: NearAiReportingClient,
   now: () => Date = () => new Date(),
 ) {
   const currentWindow = async (): Promise<WindowState> => {
@@ -132,12 +137,20 @@ export function createCreditMethods(
     };
   };
 
-  const findClaim = async (nearAccountId: string) => {
-    const [row] = await db
+  const findClaim = async (input: { nearAccountId: string | null; userId: string }) => {
+    const conditions = [eq(creditClaims.userId, input.userId)];
+    if (input.nearAccountId) {
+      conditions.push(eq(creditClaims.nearAccountId, input.nearAccountId));
+    }
+    const rows = await db
       .select()
       .from(creditClaims)
-      .where(eq(creditClaims.nearAccountId, nearAccountId));
-    return row ?? null;
+      .where(or(...conditions));
+    return (
+      (input.nearAccountId && rows.find((row) => row.nearAccountId === input.nearAccountId)) ||
+      rows[0] ||
+      null
+    );
   };
 
   const acquireClaim = async (input: {
@@ -187,8 +200,11 @@ export function createCreditMethods(
       throw error;
     }
 
-    const existing = await findClaim(input.nearAccountId);
+    const existing = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
+    if (existing && existing.nearAccountId !== input.nearAccountId) {
+      throw conflict(`Credits were already claimed with ${existing.nearAccountId}`);
+    }
     throw alreadyClaimed;
   };
 
@@ -251,9 +267,9 @@ export function createCreditMethods(
       return { settings: settingsToDto(row) };
     },
 
-    async getStatus(nearAccountId: string | null, eligibility: CreditEligibility) {
+    async getStatus(nearAccountId: string | null, userId: string, eligibility: CreditEligibility) {
       const { row, window } = await currentWindow();
-      const claim = nearAccountId ? await findClaim(nearAccountId) : null;
+      const claim = await findClaim({ nearAccountId, userId });
       return {
         available: window.open,
         statusReason: window.open ? null : window.statusReason,
@@ -266,9 +282,17 @@ export function createCreditMethods(
 
     async nearAiSessionStatus() {
       const refreshExpiresAt = await readSessionExpiry(db);
+      const reportingCredentials = await readReporting(db);
+      const usageReporting = Boolean(
+        reportingCredentials.orgId && reportingCredentials.reportingToken,
+      );
       try {
         await keys.verifySession();
-        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+        return {
+          status: "valid" as const,
+          refreshExpiresAt: toIso(refreshExpiresAt),
+          usageReporting,
+        };
       } catch (error) {
         if (error instanceof NearAiRequestError && error.status === 401) {
           return {
@@ -276,6 +300,7 @@ export function createCreditMethods(
               ? ("absent" as const)
               : ("expired" as const),
             refreshExpiresAt: toIso(refreshExpiresAt),
+            usageReporting,
           };
         }
         if (error instanceof NearAiRequestError) {
@@ -310,7 +335,17 @@ export function createCreditMethods(
         });
         await store.save(refreshToken, refreshExpiresAt);
         keys.resetSession();
-        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+        const provisioned = await reporting.provision();
+        if (provisioned) {
+          await writeReporting(db, provisioned).catch((error: unknown) => {
+            console.warn("[Credits] Reporting credentials could not be stored:", error);
+          });
+        }
+        return {
+          status: "valid" as const,
+          refreshExpiresAt: toIso(refreshExpiresAt),
+          usageReporting: Boolean(provisioned),
+        };
       } catch (error) {
         if (error instanceof NearAiRequestError) {
           throw new ORPCError(error.status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
@@ -376,6 +411,25 @@ export function createCreditMethods(
       return { key: created.key, claim: toClaim(issued, now()) };
     },
 
+    async getUsage(input: { nearAccountId: string | null; userId: string }) {
+      const claim = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+      if (!claim?.keyId) return { usage: null };
+      const status = claimStatus(claim, now());
+      if (status !== "issued" && status !== "expired") return { usage: null };
+      const used = await reporting.getKeyUsage({
+        apiKeyId: claim.keyId,
+        startTime: claim.createdAt,
+      });
+      if (!used) return { usage: null };
+      return {
+        usage: {
+          usedUsd: nanoUsdToUsd(used.usedNanoUsd),
+          spendLimitUsd: claim.spendLimitCents / 100,
+          keyExpiresAt: claim.keyExpiresAt?.toISOString() ?? null,
+        },
+      };
+    },
+
     async listClaims(input: { limit: number; offset: number }) {
       const [rows, [totals]] = await Promise.all([
         db
@@ -396,11 +450,19 @@ export function createCreditMethods(
               .groupBy(creditClaims.ip)
           : [];
       const countByIp = new Map(ipCounts.map((entry) => [entry.ip, entry.total]));
+      const usedByKey = rows.some((row) => row.keyId)
+        ? ((await reporting.getOrganizationUsage())?.usedNanoUsdByKeyId ?? null)
+        : null;
       const total = totals?.total ?? 0;
       const nextOffset = input.offset + rows.length;
       return {
         data: rows.map((row) =>
-          toAdminClaim(row, row.ip ? (countByIp.get(row.ip) ?? 1) : 0, now()),
+          toAdminClaim(
+            row,
+            row.ip ? (countByIp.get(row.ip) ?? 1) : 0,
+            now(),
+            row.keyId ? (usedByKey?.get(row.keyId) ?? null) : null,
+          ),
         ),
         meta: {
           total,
@@ -429,7 +491,7 @@ export function createCreditMethods(
           if (orphan?.isActive) await client.revokeKey(orphan.id);
         });
       }
-      return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now()) };
+      return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now(), null) };
     },
   };
 }
@@ -455,6 +517,7 @@ function toClaim(row: CreditClaimRow, now: Date) {
   return {
     id: row.id,
     status: claimStatus(row, now),
+    nearAccountId: row.nearAccountId,
     keyPrefix: row.keyPrefix,
     spendLimitUsd: row.spendLimitCents / 100,
     keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,
@@ -462,7 +525,12 @@ function toClaim(row: CreditClaimRow, now: Date) {
   };
 }
 
-function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
+function toAdminClaim(
+  row: CreditClaimRow,
+  ipClaimCount: number,
+  now: Date,
+  usedNanoUsd: number | null,
+) {
   return {
     ...toClaim(row, now),
     nearAccountId: row.nearAccountId,
@@ -471,7 +539,12 @@ function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
     ipClaimCount,
     error: row.error,
     revokedAt: row.revokedAt?.toISOString() ?? null,
+    usedUsd: usedNanoUsd === null ? null : nanoUsdToUsd(usedNanoUsd),
   };
+}
+
+function nanoUsdToUsd(nanoUsd: number) {
+  return Math.round(nanoUsd / 1e5) / 1e4;
 }
 
 type CreditMethods = ReturnType<typeof createCreditMethods>;
@@ -491,6 +564,17 @@ export const CreditServiceLive = () =>
         workspaceId: async () => (await readSettings(db))?.nearAiWorkspaceId ?? "",
       });
       const login = createNearAiLoginClient({});
-      return createCreditMethods(db, keys, login, store);
+      const reporting = createNearAiReportingClient({
+        store,
+        loadExpiresAt: () => readSessionExpiry(db),
+        readReporting: async () => {
+          const [stored, settingsRow] = await Promise.all([readReporting(db), readSettings(db)]);
+          return {
+            orgId: settingsRow?.nearAiOrgId.trim() || stored.orgId,
+            reportingToken: stored.reportingToken,
+          };
+        },
+      });
+      return createCreditMethods(db, keys, login, store, reporting);
     }),
   );

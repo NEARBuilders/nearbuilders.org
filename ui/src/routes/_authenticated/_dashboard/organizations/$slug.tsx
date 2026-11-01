@@ -15,8 +15,8 @@ import {
   ApiKeyForm,
   type ApiKeyFormValues,
   ApiKeyReveal,
-  type ApiKeyRevealProps,
   Button,
+  type CreatedApiKey,
   Input,
   InvitationCard,
   MemberCard,
@@ -25,6 +25,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components";
+import type { ApiKeyItem } from "@/lib/api-keys";
 import { pageHead } from "@/lib/page-meta";
 
 type AuthClientType = import("@/app").AuthClient;
@@ -34,18 +35,6 @@ type MemberItem = NonNullable<MembersResponse["data"]>["members"][number];
 
 type InvitationsResponse = Awaited<ReturnType<AuthClientType["organization"]["listInvitations"]>>;
 type InvitationItem = NonNullable<InvitationsResponse["data"]>[number];
-
-type ApiKeyItem = {
-  id: string;
-  name: string | null;
-  prefix: string | null;
-  start: string | null;
-  createdAt: string | Date;
-  expiresAt?: string | Date | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-type CreatedApiKey = ApiKeyRevealProps["apiKey"];
 
 const orgMembersQueryKey = (orgId: string) => ["org-members", orgId] as const;
 const orgInvitationsQueryKey = (orgId: string) => ["org-invitations", orgId] as const;
@@ -139,7 +128,7 @@ function OrganizationDetail() {
           query: { configId: "org-keys", organizationId: orgId },
         });
         if (error) throw new Error(error.message);
-        return (data?.apiKeys ?? []) as ApiKeyItem[];
+        return data?.apiKeys ?? [];
       },
       enabled: !!orgId,
     }).data ?? [];
@@ -251,7 +240,7 @@ function OrganizationDetail() {
       return data;
     },
     onSuccess: async (data) => {
-      if (data) setCreatedApiKey(data as CreatedApiKey);
+      if (data) setCreatedApiKey(data);
       toast.success("API key created");
       await queryClient.invalidateQueries({ queryKey: orgApiKeysQueryKey(orgId) });
     },
@@ -304,6 +293,30 @@ function OrganizationDetail() {
     },
   });
 
+  const transferOwnerMutation = useMutation({
+    mutationFn: async (member: MemberItem) => {
+      if (!session?.user?.id) throw new Error("Session unavailable");
+      const promoted = await auth.organization.updateMemberRole({
+        memberId: member.id,
+        role: "owner",
+        organizationId: orgId,
+      });
+      if (promoted.error) throw new Error(promoted.error.message);
+
+      const demoted = await auth.organization.updateMemberRole({
+        memberId: session.user.id,
+        role: "admin",
+        organizationId: orgId,
+      });
+      if (demoted.error) throw new Error(demoted.error.message);
+    },
+    onSuccess: async () => {
+      toast.success("Ownership transferred");
+      await queryClient.invalidateQueries({ queryKey: orgMembersQueryKey(orgId) });
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to transfer ownership"),
+  });
+
   const updateOrgMutation = useMutation({
     mutationFn: async ({ name, slug }: { name: string; slug: string }) => {
       const { error } = await auth.organization.update({
@@ -330,8 +343,7 @@ function OrganizationDetail() {
 
   const leaveOrgMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await auth.organization.leave({ organizationId: orgId });
-      if (error) throw new Error(error.message);
+      await apiClient.auth.leaveOrganization({ organizationId: orgId });
     },
     onSuccess: async () => {
       toast.success("You have left the organization");
@@ -343,8 +355,9 @@ function OrganizationDetail() {
 
   const deleteOrgMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await auth.organization.delete({ organizationId: orgId });
-      if (error) throw new Error(error.message);
+      await apiClient.clearOrganizationAttribution({ organizationId: orgId });
+      const result = await apiClient.auth.deleteOrganization({ organizationId: orgId });
+      if (!result.success) throw new Error("Organization deletion was not completed");
     },
     onSuccess: async () => {
       toast.success("Organization deleted");
@@ -553,7 +566,13 @@ function OrganizationDetail() {
                       member={member as never}
                       canManage={canManageMembers && member.userId !== session?.user?.id}
                       onRemove={() => removeMemberMutation.mutate(member)}
+                      onUpdateRole={
+                        isOwner && member.userId !== session?.user?.id
+                          ? () => transferOwnerMutation.mutate(member)
+                          : undefined
+                      }
                       isRemoving={removeMemberMutation.isPending}
+                      isUpdatingRole={transferOwnerMutation.isPending}
                     />
                   ))}
                 </div>

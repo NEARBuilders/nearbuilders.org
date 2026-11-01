@@ -61,6 +61,7 @@ describe("Credit settings", () => {
       keyExpiresAt: "2999-02-01T00:00:00.000Z",
       nearAiWorkspaceId: "ws-hackathon",
       nearAiLoginAccountId: "nearbuilding.near",
+      nearAiOrgId: "",
       updatedBy: "admin-user",
       updatedAt: expect.any(String),
     });

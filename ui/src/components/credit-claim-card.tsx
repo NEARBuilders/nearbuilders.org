@@ -1,13 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { ApiKeyReveal } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { canRetry, claimCardCopy, formatUsd } from "@/lib/admin/credit-claims";
-
-const CREDIT_STATUS_KEY = ["credit-status"];
+import {
+  canRetry,
+  claimCardCopy,
+  creditStatusQueryKey,
+  creditUsageQueryKey,
+  formatUsd,
+  needsProfileRestore,
+  needsRegistration,
+} from "@/lib/admin/credit-claims";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -41,18 +52,62 @@ function MoreCreditsNote() {
   );
 }
 
-export function CreditClaimCard() {
+function CreditUsageReadout({ userId, nearAccountId }: { userId: string; nearAccountId: string }) {
+  const apiClient = useApiClient();
+  const usage = useQuery({
+    queryKey: creditUsageQueryKey(userId, nearAccountId),
+    queryFn: () => apiClient.credits.getCreditUsage({}),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const data = usage.data?.usage;
+  if (!data) return null;
+  const percent = Math.min(100, Math.round((data.usedUsd / data.spendLimitUsd) * 100));
+
+  return (
+    <div className="w-full shrink-0 space-y-1.5 sm:w-44">
+      <p className="text-xs font-medium whitespace-nowrap text-foreground sm:text-right">
+        {formatUsd(data.usedUsd)} of {formatUsd(data.spendLimitUsd)} used
+      </p>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Credits used"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width]"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function CreditClaimCard({
+  userId,
+  nearAccountId,
+}: {
+  userId: string;
+  nearAccountId: string;
+}) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
+  const creditStatusKey = creditStatusQueryKey(userId, nearAccountId);
 
   const status = useQuery({
-    queryKey: CREDIT_STATUS_KEY,
+    queryKey: creditStatusKey,
     queryFn: () => apiClient.credits.getCreditStatus({}),
   });
 
+  const approvalSettings = useQuery(approvalSettingsQueryOptions(apiClient));
+
   const claim = useMutation({
     mutationFn: () => apiClient.credits.claimCredits({}),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: CREDIT_STATUS_KEY }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: creditStatusKey }),
     onError: (error: Error) => toast.error(error.message || "API credits could not be claimed"),
   });
 
@@ -109,8 +164,12 @@ export function CreditClaimCard() {
     statusReason: data.statusReason,
     eligibility,
     claimsCloseAt: data.claimsCloseAt,
+    requiresReview: requiresAdminApproval(approvalSettings.data),
+    nearAccountId,
     existing,
   });
+  const registerCta = needsRegistration(eligibility, existing);
+  const restoreCta = needsProfileRestore(eligibility, existing);
 
   return (
     <Card className="border-brand-accent-border">
@@ -125,6 +184,21 @@ export function CreditClaimCard() {
             {existing?.status === "issued" && <MoreCreditsNote />}
           </div>
         </div>
+        {existing?.status === "issued" && (
+          <CreditUsageReadout userId={userId} nearAccountId={nearAccountId} />
+        )}
+        {registerCta && (
+          <Button asChild size="sm" className="w-full rounded-full sm:w-auto">
+            <Link to="/join">Register as a builder</Link>
+          </Button>
+        )}
+        {restoreCta && (
+          <Button asChild size="sm" variant="outline" className="w-full rounded-full sm:w-auto">
+            <Link to="/builders/$account/edit" params={{ account: nearAccountId }}>
+              Restore your builder profile
+            </Link>
+          </Button>
+        )}
         {canClaim && existing?.status !== "pending" && (
           <Button
             size="sm"

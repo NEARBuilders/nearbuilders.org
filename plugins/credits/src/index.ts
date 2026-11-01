@@ -72,7 +72,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getCreditStatus: builder.getCreditStatus.use(requireAuth).effect(function* ({ context }) {
         const credits = yield* CreditService;
         const { nearAccountId, eligibility } = yield* attempt(() => resolveEligibility(context));
-        return yield* attempt(() => credits.getStatus(nearAccountId, eligibility));
+        return yield* attempt(() => credits.getStatus(nearAccountId, context.userId, eligibility));
       }),
 
       claimCredits: builder.claimCredits.use(requireAuth).effect(function* ({ context }) {
@@ -89,6 +89,16 @@ export default createPlugin.withPlugins<PluginsClient>()({
             userId: context.userId,
             ip: clientIp(context.reqHeaders),
             eligibility,
+          }),
+        );
+      }),
+
+      getCreditUsage: builder.getCreditUsage.use(requireAuth).effect(function* ({ context }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() =>
+          credits.getUsage({
+            nearAccountId: context.near?.primaryAccountId?.toLowerCase() ?? null,
+            userId: context.userId,
           }),
         );
       }),

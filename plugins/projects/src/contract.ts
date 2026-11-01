@@ -268,6 +268,15 @@ export const contract = oc.router({
     .output(z.object({ deleted: z.boolean() }))
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN }),
 
+  clearOrganizationAttribution: oc
+    .route({
+      method: "POST",
+      path: "/v1/internal/organizations/{organizationId}/projects/clear-attribution",
+    })
+    .input(z.object({ organizationId: z.string().min(1) }))
+    .output(z.object({ cleared: z.number().int().nonnegative() }))
+    .errors({ FORBIDDEN }),
+
   listProjectApps: oc
     .route({ method: "GET", path: "/v1/projects/{projectId}/apps" })
     .input(z.object({ projectId: z.string() }))

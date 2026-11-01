@@ -837,4 +837,38 @@ describe("project collaborators", () => {
     await expect(admin.deleteProject({ id: created.id })).resolves.toEqual({ deleted: true });
     await expect(owner.getProject({ id: created.id })).rejects.toThrow("Project not found");
   });
+
+  it("clears attribution without deleting projects", async () => {
+    const owner = loaded.createClient({
+      ...ownerCtx(),
+      organizations: [
+        { id: "org-to-delete", role: "member" },
+        { id: "other-org", role: "member" },
+      ],
+    });
+    const attributed = await owner.createProject({
+      kind: "idea",
+      title: "Attributed idea",
+      slug: "attributed-idea",
+      content: "# Attributed idea",
+      organizationId: "org-to-delete",
+      visibility: "public",
+    });
+    const unrelated = await owner.createProject({
+      kind: "idea",
+      title: "Unrelated idea",
+      slug: "unrelated-idea",
+      content: "# Unrelated idea",
+      organizationId: "other-org",
+      visibility: "public",
+    });
+    const cleanup = loaded.createClient({ internalOrganizationCleanup: true });
+
+    await expect(
+      cleanup.clearOrganizationAttribution({ organizationId: "org-to-delete" }),
+    ).resolves.toEqual({ cleared: 1 });
+
+    expect((await owner.getProject({ id: attributed.id })).data.organizationId).toBeNull();
+    expect((await owner.getProject({ id: unrelated.id })).data.organizationId).toBe("other-org");
+  });
 });

@@ -9,6 +9,7 @@ import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
+  internalOrganizationCleanup?: boolean;
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
@@ -74,6 +75,13 @@ export default createPlugin({
         throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
       }
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
+    });
+
+    const requireInternalOrganizationCleanup = builder.middleware(async ({ context, next }) => {
+      if (context.internalOrganizationCleanup !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Internal organization cleanup required" });
+      }
+      return next({ context });
     });
 
     const getAlternateOwnerId = (context: {
@@ -245,6 +253,15 @@ export default createPlugin({
             ),
           );
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireInternalOrganizationCleanup)
+        .effect(function* ({ input }) {
+          const project = yield* ProjectService;
+          return yield* project
+            .clearOrganizationAttribution(input.organizationId)
+            .pipe(Effect.catchCause(toRouteError("clearOrganizationAttribution")));
+        }),
 
       listProjectApps: builder.listProjectApps.effect(function* ({ input }) {
         const project = yield* ProjectService;
