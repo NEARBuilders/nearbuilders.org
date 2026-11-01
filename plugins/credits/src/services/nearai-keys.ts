@@ -83,9 +83,9 @@ type ListApiKeysResponse = {
   total: number;
 };
 
-type AccessTokenResponse = {
+export type AccessTokenResponse = {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string | null;
   refresh_token_expiration?: string | null;
 };
 
@@ -103,7 +103,7 @@ export function accessTokenExpiresAt(token: string, now = Date.now()): number {
   return now + ACCESS_TOKEN_FALLBACK_TTL_MS;
 }
 
-async function requestError(response: Response, action: string) {
+export async function requestError(response: Response, action: string) {
   const body = (await response.json().catch(() => null)) as {
     error?: { message?: string } | string;
     error_description?: string;

@@ -273,9 +273,31 @@ export function SiteShell() {
           </div>
 
           <div className="mt-14 flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              &copy; {new Date().getFullYear()} {appName}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <p className="text-xs text-muted-foreground">
+                &copy; {new Date().getFullYear()} {appName}
+              </p>
+              <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link
+                  to="/privacy-policy"
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  to="/terms-of-service"
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Terms of Service
+                </Link>
+                <Link
+                  to="/cookie-policy"
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Cookie Policy
+                </Link>
+              </nav>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href="https://github.com/nearbuilders"

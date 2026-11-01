@@ -12,7 +12,10 @@ import {
   parseBuilderSkills,
 } from "@/components/builder-form";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
+import { ErrorText, fieldError } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { builderCatalogFromFormValues, emptyBuilderCatalog } from "@/lib/builder-catalog";
 import type { ResolvedNearProfile } from "@/lib/near-social";
 import {
@@ -367,7 +370,8 @@ function BuilderProfileForm({
           : {}),
       }),
       catalog: emptyBuilderCatalog(),
-    } satisfies BuilderFormValues,
+      agreeTerms: false as boolean,
+    } satisfies BuilderFormValues & { agreeTerms: boolean },
     canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
       await mutation.mutateAsync(value);
@@ -413,22 +417,71 @@ function BuilderProfileForm({
 
         <BuilderFormFields form={form} required />
 
+        <form.Field
+          name="agreeTerms"
+          validators={{
+            onSubmit: ({ value }: { value: boolean }) =>
+              value ? undefined : "Please agree to the Terms of Service and Privacy Policy",
+          }}
+        >
+          {(field) => {
+            const err = fieldError(field.state.meta.errors[0]);
+            return (
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="agree-terms"
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => field.handleChange(checked === true)}
+                    onBlur={field.handleBlur}
+                    aria-invalid={Boolean(err)}
+                  />
+                  <Label
+                    htmlFor="agree-terms"
+                    className="text-sm font-normal leading-6 text-muted-foreground"
+                  >
+                    I agree to the{" "}
+                    <Link
+                      to="/terms-of-service"
+                      className="font-medium text-foreground underline underline-offset-2"
+                    >
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      to="/privacy-policy"
+                      className="font-medium text-foreground underline underline-offset-2"
+                    >
+                      Privacy Policy
+                    </Link>
+                  </Label>
+                </div>
+                {err && <ErrorText>{err}</ErrorText>}
+              </div>
+            );
+          }}
+        </form.Field>
+
         <div className="border-t border-border pt-4">
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting || mutation.isPending}
-                className="w-full rounded-full font-bold"
-              >
-                {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {mutation.isPending
-                  ? "Submitting…"
-                  : reviewRequired
-                    ? "Submit profile for review"
-                    : "Publish profile"}
-              </Button>
+              <form.Subscribe selector={(state) => state.values.agreeTerms !== true}>
+                {(notAgreed) => (
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={isSubmitting || mutation.isPending || notAgreed}
+                    className="w-full rounded-full font-bold"
+                  >
+                    {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                    {mutation.isPending
+                      ? "Submitting…"
+                      : reviewRequired
+                        ? "Submit profile for review"
+                        : "Publish profile"}
+                  </Button>
+                )}
+              </form.Subscribe>
             )}
           </form.Subscribe>
         </div>
