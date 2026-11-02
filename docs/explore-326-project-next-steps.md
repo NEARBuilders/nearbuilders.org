@@ -22,6 +22,8 @@ Related: NEARBuilders/activity.nearbuilders.org#97 (MCP registration flow), NEAR
   - It calls `registerProjectActivity` (`api/src/index.ts`). That checks the caller is the owner and the project is an active, approved, non-unlisted `project`.
   - It then starts a partner binding session on activity with our trusted key and opens the returned `/binding?sessionToken=…` URL.
   - If the project isn't eligible yet, the button is hidden and nothing explains why.
+- **We already have an agent-prompt pattern.** `ui/src/components/agent-project-card.tsx` ("Let your agent do this", on the new-project page) mints a short-lived API key and builds a copyable prompt pointing at our MCP endpoint (`buildAgentProjectPrompt` and `mcpUrlFromOrigin` in `ui/src/lib/agent-project-prompt.ts`, `/api/mcp`).
+- **The project page already has one owner panel.** `CatalogListingPanel` (NEAR Catalog listing) shows to owners of public projects in `$kind.$slug.tsx`.
 - **Feedback is a static link only.** `feedbackRequestUrl` (`ui/src/routes/_public/projects/-feedback-request.ts`) builds `https://feedback.nearbuilders.org/manage/new?project=<slug>`. The project page shows it as "Request feedback" to every visitor. nearbuilders.org never asks feedback about the project.
 
 **On feedback.nearbuilders.org** (paths in that repo)
@@ -44,7 +46,7 @@ Related: NEARBuilders/activity.nearbuilders.org#97 (MCP registration flow), NEAR
 
 **1. Where does the "next steps" surface live?**
 On the project page, as an owner-only "Next steps" panel. Creation already lands there, so it doubles as the post-creation success state.
-- **Panel:** two rows, Feedback and Activity, each with its status and one CTA. It sits above the description, next to the existing `ProjectReviewStatus` and `ProjectActivityRejected` blocks.
+- **Panel:** two rows, Feedback and Activity, each with its status and one CTA. It sits above the description, next to the existing `ProjectReviewStatus` and `ProjectActivityRejected` blocks, and uses the same card style as `CatalogListingPanel`. A NEAR Catalog row could join it later.
 - **Just created:** `new.$kind.tsx` adds `?created=1` when it navigates, so the panel can open expanded with a "Your project is live. Next:" line. No new route is needed.
 - **Dashboard:** each project row gets a small Feedback badge next to the existing `ProjectActivityBadge`, so status is visible across all projects.
 - **Collapsing:** once both rows are in a "done" state, the panel collapses to the two badges.
@@ -69,7 +71,7 @@ A server-side lookup, cached, through our own API. This is how Activity already 
 **3. What does activity registration look like (the #97 side)?**
 Our side doesn't need to wait for MCP.
 - **Today:** the owner registers through `RegisterActivityDialog`. Activity confirms through a page-delivery binding session, and our status read flips to `connected`, then `tracked` after the first published event.
-- **When #97 lands:** add a second tab to the dialog, "Use your agent", with the copyable prompt from activity. The prompt holds the MCP URL, an API-key placeholder and the project id or slug, so the agent registers against the right project. Status still comes from `getProjectActivity`, so nothing else changes on our side.
+- **When #97 lands:** add a second tab to the dialog, "Use your agent", with the copyable prompt from activity. The prompt holds the MCP URL, an API-key placeholder and the project id or slug, so the agent registers against the right project. Build it like `AgentProjectCard`, swapping our MCP URL for activity's. Status still comes from `getProjectActivity`, so nothing else changes on our side.
 - **Until #97 lands:** the tab can link to activity's `/skill` and say "paste this into your agent".
 - **States the panel should show:**
   - `none` with an eligible project: "Register Activity".
