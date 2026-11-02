@@ -243,7 +243,8 @@ export default createPlugin({
         return yield* runService(
           builders.updateXNomination({
             ...input,
-            actorUserId: context.userId,
+            // Recorded in updated_by: the admin's canonical owner id (#367).
+            actorUserId: context.near?.primaryAccountId ?? context.userId,
             joinBaseUrl: nominationConfig.joinBaseUrl,
             tokenSecret: nominationConfig.tokenSecret,
           }),

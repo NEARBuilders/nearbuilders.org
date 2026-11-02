@@ -31,6 +31,7 @@ export const eventParticipants = pgTable(
     eventId: text("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
+    /** The participant's owner id (primary account, or user id without NEAR), despite the name (#367). */
     userId: text("user_id").notNull(),
     walletAddress: text("wallet_address"),
     displayName: text("display_name"),
