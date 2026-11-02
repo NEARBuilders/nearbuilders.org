@@ -103,6 +103,18 @@ export default createPlugin.withPlugins<PluginsClient>()({
         );
       }),
 
+      claimCreditReplacement: builder.claimCreditReplacement.use(requireAuth).effect(function* ({
+        context,
+      }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() =>
+          credits.claimReplacement({
+            nearAccountId: context.near?.primaryAccountId?.toLowerCase() ?? null,
+            userId: context.userId,
+          }),
+        );
+      }),
+
       listCreditClaims: builder.listCreditClaims.use(requireAdmin).effect(function* ({ input }) {
         const credits = yield* CreditService;
         return yield* attempt(() =>
@@ -113,6 +125,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
       revokeCreditClaim: builder.revokeCreditClaim.use(requireAdmin).effect(function* ({ input }) {
         const credits = yield* CreditService;
         return yield* attempt(() => credits.revokeClaim(input.id));
+      }),
+
+      refreshCreditClaim: builder.refreshCreditClaim.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const credits = yield* CreditService;
+        return yield* attempt(() => credits.refreshClaim(input.id));
       }),
 
       getCreditSettings: builder.getCreditSettings.use(requireAdmin).effect(function* () {

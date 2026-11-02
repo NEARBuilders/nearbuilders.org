@@ -21,6 +21,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { type SessionData, sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { NearAiSessionCard } from "@/components/admin/near-ai-session-card";
 import { BuildBanner } from "@/components/build-banner";
 import { BuilderOnboardingChecklist } from "@/components/builder-onboarding-checklist";
 import { CreditClaimCard } from "@/components/credit-claim-card";
@@ -250,6 +251,8 @@ function Dashboard() {
       <BuildBanner />
 
       <CreditClaimCard userId={user.id} nearAccountId={nearAccountId} />
+
+      {user.role === "admin" && <NearAiSessionCard compact />}
 
       <DashboardHeader
         nearAccountId={nearAccountId}
