@@ -580,6 +580,36 @@ describe("project identity fields", () => {
     await expect(anonymous.listProjects({ limit: 101 })).rejects.toThrow();
     await expect(anonymous.listProjects({ limit: "nope" as unknown as number })).rejects.toThrow();
   });
+
+  it("pages through filtered results by cursor without gaps or duplicates", async () => {
+    const anonymous = loaded.createClient();
+
+    for (const sort of ["newest", "oldest"] as const) {
+      const filters = { kind: "idea" as const, query: "Batch", sort };
+      const everything = await anonymous.listProjects({ ...filters, limit: 100 });
+      expect(everything.data.length).toBeGreaterThanOrEqual(30);
+
+      const paged: string[] = [];
+      let cursor: string | undefined;
+      let pages = 0;
+      do {
+        const page = await anonymous.listProjects({ ...filters, limit: 7, cursor });
+        expect(page.meta.total).toBe(everything.meta.total);
+        paged.push(...page.data.map((project) => project.id));
+        cursor = page.meta.nextCursor ?? undefined;
+        expect(page.meta.hasMore).toBe(Boolean(cursor));
+        pages += 1;
+      } while (cursor);
+
+      expect(pages).toBe(Math.ceil(everything.meta.total / 7));
+      expect(new Set(paged).size).toBe(paged.length);
+      expect(paged).toEqual(everything.data.map((project) => project.id));
+    }
+
+    const past = await anonymous.listProjects({ kind: "idea", limit: 7, cursor: "1000" });
+    expect(past.data).toEqual([]);
+    expect(past.meta).toMatchObject({ hasMore: false, nextCursor: null });
+  });
 });
 
 describe("project collaborators", () => {

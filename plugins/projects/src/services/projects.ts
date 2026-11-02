@@ -856,7 +856,11 @@ export const ProjectServiceLive = Layer.effect(
               .select()
               .from(projects)
               .where(whereClause)
-              .orderBy(input.sort === "oldest" ? asc(projects.createdAt) : desc(projects.createdAt))
+              .orderBy(
+                ...(input.sort === "oldest"
+                  ? [asc(projects.createdAt), asc(projects.id)]
+                  : [desc(projects.createdAt), desc(projects.id)]),
+              )
               .limit(limit)
               .offset(offset),
           );
