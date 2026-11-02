@@ -834,7 +834,9 @@ function ProjectsList() {
       : 0;
   const totalProjectCount = localProjectTotal + catalogProjectTotal;
   const isProjectsLoading = (!isVerifiedOnly && isLoading) || (catalogEnabled && isCatalogLoading);
-  const isProjectsError = (!isVerifiedOnly && isError) || (catalogEnabled && isCatalogError);
+  const isProjectsError =
+    (!isVerifiedOnly && isError && !isFetchNextPageError) ||
+    (catalogEnabled && isCatalogError && !isFetchNextCatalogPageError);
   const isProjectsPaginationError =
     (!isVerifiedOnly && isFetchNextPageError) || (catalogEnabled && isFetchNextCatalogPageError);
   const hasMoreProjects =
@@ -1465,8 +1467,8 @@ function ProjectsList() {
                     rankedProjects.length > 0 && (
                       <ProjectPaginationError
                         ranking={activeSort === "votes"}
-                        onRetry={() => void retryProjects()}
-                        isRetrying={isFetching || isCatalogFetching}
+                        onRetry={() => void fetchMoreProjects()}
+                        isRetrying={isFetchingMoreProjects}
                       />
                     )}
 
