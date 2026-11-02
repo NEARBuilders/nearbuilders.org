@@ -230,7 +230,7 @@ export class ProposalService extends Context.Service<
       limit?: number;
       cursor?: string;
       privatePluginIds?: string[];
-      viewerId?: string;
+      viewerIds?: string[];
       isAdmin?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getProposalCount: (input: {
@@ -1211,12 +1211,12 @@ export const ProposalServiceLive = Layer.effect(
           if (!input.isAdmin && privatePluginIds.length > 0) {
             const publicProposal = notInArray(proposals.pluginId, privatePluginIds);
             conditions.push(
-              input.viewerId
+              input.viewerIds?.length
                 ? or(
                     publicProposal,
                     and(
                       inArray(proposals.pluginId, privatePluginIds),
-                      eq(proposals.createdBy, input.viewerId),
+                      inArray(proposals.createdBy, input.viewerIds),
                     ),
                   )
                 : publicProposal,

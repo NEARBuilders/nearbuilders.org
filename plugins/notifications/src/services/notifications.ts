@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { notifications } from "../db/schema";
@@ -49,10 +49,10 @@ function rowToNotification(row: typeof notifications.$inferSelect): Notification
   };
 }
 
-function listWhere(userId: string, read?: boolean) {
-  return read === undefined
-    ? eq(notifications.userId, userId)
-    : and(eq(notifications.userId, userId), eq(notifications.read, read));
+/** Notifications addressed to any of the caller's ids (#364). */
+function listWhere(recipientIds: readonly string[], read?: boolean) {
+  const mine = inArray(notifications.userId, [...recipientIds]);
+  return read === undefined ? mine : and(mine, eq(notifications.read, read));
 }
 
 export class NotificationService extends Context.Service<
@@ -62,7 +62,7 @@ export class NotificationService extends Context.Service<
       input: CreateNotificationInput,
     ) => Effect.Effect<NotificationRecord, ORPCError<string, unknown>>;
     getMyNotifications: (
-      userId: string,
+      recipientIds: readonly string[],
       input: ListNotificationsInput,
     ) => Effect.Effect<
       {
@@ -73,10 +73,10 @@ export class NotificationService extends Context.Service<
     >;
     markAsRead: (
       id: string,
-      userId: string,
+      recipientIds: readonly string[],
     ) => Effect.Effect<NotificationRecord, ORPCError<string, unknown>>;
     markAllAsRead: (
-      userId: string,
+      recipientIds: readonly string[],
     ) => Effect.Effect<{ updated: number }, ORPCError<string, unknown>>;
   }
 >()("notifications/NotificationService") {}
@@ -115,11 +115,11 @@ export const NotificationServiceLive = Layer.effect(
           return rowToNotification(created);
         }),
 
-      getMyNotifications: (userId, input) =>
+      getMyNotifications: (recipientIds, input) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 20, 100);
           const offset = input.cursor ? Math.max(Number.parseInt(input.cursor, 10) || 0, 0) : 0;
-          const where = listWhere(userId, input.read);
+          const where = listWhere(recipientIds, input.read);
 
           const [totalRow] = yield* Effect.promise(() =>
             db.select({ count: count() }).from(notifications).where(where),
@@ -147,13 +147,15 @@ export const NotificationServiceLive = Layer.effect(
           };
         }),
 
-      markAsRead: (id, userId) =>
+      markAsRead: (id, recipientIds) =>
         Effect.gen(function* () {
           const [updated] = yield* Effect.promise(() =>
             db
               .update(notifications)
               .set({ read: true })
-              .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+              .where(
+                and(eq(notifications.id, id), inArray(notifications.userId, [...recipientIds])),
+              )
               .returning(),
           );
 
@@ -169,13 +171,18 @@ export const NotificationServiceLive = Layer.effect(
           return rowToNotification(updated);
         }),
 
-      markAllAsRead: (userId) =>
+      markAllAsRead: (recipientIds) =>
         Effect.gen(function* () {
           const updated = yield* Effect.promise(() =>
             db
               .update(notifications)
               .set({ read: true })
-              .where(and(eq(notifications.userId, userId), eq(notifications.read, false)))
+              .where(
+                and(
+                  inArray(notifications.userId, [...recipientIds]),
+                  eq(notifications.read, false),
+                ),
+              )
               .returning({ id: notifications.id }),
           );
 
