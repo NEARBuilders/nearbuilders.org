@@ -15,7 +15,7 @@ Auth is not code in this repo. It lives upstream in [`NEARBuilders/everything-de
   - `GET /api/auth/account-info` returns the provider profile using the stored token.
 - **Default GitHub scopes are `read:user` and `user:email`** (`@better-auth/core/dist/social-providers/github.mjs#L15`). `emailVerified` is true only when GitHub's primary email is verified (L76).
 - **This app owns its settings page.** [`ui/src/routes/_authenticated/_dashboard/settings/auth-methods.tsx`](../ui/src/routes/_authenticated/_dashboard/settings/auth-methods.tsx) is a local route that wins over the auth-ui one. It renders `MethodCard`s for Email, NEAR Wallet (link via `auth.signIn.near()`), Phone and Passkeys (add/remove with a `ConfirmDialog`). It sums them into `linkedMethodCount` (L34).
-- **We already call GitHub server-side.** The review checks fetch `api.github.com/repos/{owner}/{repo}` with the app's `GITHUB_TOKEN` ([`api/src/services/review-checks.ts#L125`](../api/src/services/review-checks.ts#L125)).
+- **We already call GitHub server-side.** The review checks fetch `api.github.com/repos/{owner}/{repo}` with the app's `GITHUB_TOKEN` ([`api/src/services/review-checks.ts#L126`](../api/src/services/review-checks.ts#L126)).
 
 ### What goes wrong if we just set the client id
 Setting `socialProviders.github.clientId` plus `GITHUB_CLIENT_SECRET` alone makes GitHub a full sign-in method, with three side effects:
