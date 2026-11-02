@@ -15,6 +15,13 @@
       "when": 1790978951306,
       "tag": "0001_review_evaluations_and_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793583595654,
+      "tag": "0002_telegram_reviewer_near_account",
+      "breakpoints": true
     }
   ]
 }
