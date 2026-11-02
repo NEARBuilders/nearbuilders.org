@@ -201,6 +201,7 @@ export class EventService extends Context.Service<
       userId: string,
       userRole?: string,
       alternateUserId?: string,
+      allowPublicVisibility?: boolean,
     ) => Effect.Effect<EventRecord, ORPCError<string, unknown>>;
     deleteEvent: (
       id: string,
@@ -473,6 +474,21 @@ export const EventServiceLive = Layer.effect(
             );
           }
 
+          if (input.id) {
+            const [existingById] = yield* Effect.promise(() =>
+              db.select().from(events).where(eq(events.id, input.id!)).limit(1),
+            );
+            if (existingById) {
+              if (userRole !== "admin" && !isOwner(existingById.ownerId, userId, alternateUserId)) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", { message: "An event with this id already exists" }),
+                );
+              }
+              const participantCount = yield* countParticipants(db, existingById.id);
+              return rowToEvent(existingById, participantCount);
+            }
+          }
+
           const now = new Date();
           const id = input.id ?? generateId();
           const startAt = parseDate(input.startAt, "Start date");
@@ -511,7 +527,7 @@ export const EventServiceLive = Layer.effect(
           return rowToEvent(event, participantCount);
         }),
 
-      updateEvent: (id, input, userId, userRole, alternateUserId) =>
+      updateEvent: (id, input, userId, userRole, alternateUserId, allowPublicVisibility) =>
         Effect.gen(function* () {
           const canEdit = yield* canEditEvent(db, id, userId, alternateUserId);
           if (!canEdit) {
@@ -523,6 +539,19 @@ export const EventServiceLive = Layer.effect(
           );
           if (!existing) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
+          }
+
+          if (
+            input.visibility === "public" &&
+            existing.visibility !== "public" &&
+            userRole !== "admin" &&
+            !allowPublicVisibility
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Making an event public requires admin approval",
+              }),
+            );
           }
 
           const startAt = input.startAt ? parseDate(input.startAt, "Start date") : existing.startAt;

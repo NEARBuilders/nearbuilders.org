@@ -1,4 +1,6 @@
 import type { ApiClient } from "@/app";
+import { isSafeImageUrl } from "./image-url";
+import { getNearSocialAvatarUrl, type ResolvedNearProfile } from "./near-social";
 
 export type BuilderCatalog = NonNullable<
   Awaited<ReturnType<ApiClient["getBuilder"]>>["data"]["catalog"]
@@ -105,4 +107,12 @@ export function validateBuilderCatalog(
   links: Record<string, string | undefined> | undefined,
 ) {
   return Object.values(getBuilderCatalogErrors(values, links))[0];
+}
+
+export function resolveBuilderAvatarUrl(
+  catalogAvatarUrl: string | null | undefined,
+  profile: Pick<ResolvedNearProfile, "image"> | null | undefined,
+): string | null {
+  if (isSafeImageUrl(catalogAvatarUrl)) return catalogAvatarUrl.trim();
+  return getNearSocialAvatarUrl(profile);
 }

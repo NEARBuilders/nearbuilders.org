@@ -63,9 +63,7 @@ function SecurityTab({ user }: { user: { email?: string; isAnonymous?: boolean |
       await auth.near.disconnect().catch(() => {});
     },
     onSuccess: async () => {
-      queryClient.setQueryData(["session"], null);
-      queryClient.removeQueries({ queryKey: ["passkeys"] });
-      await queryClient.invalidateQueries({ queryKey: ["session"] });
+      queryClient.clear();
       navigate({ to: "/", replace: true });
     },
     onError: (err: Error) => toast.error(err.message),

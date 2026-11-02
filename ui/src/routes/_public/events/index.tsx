@@ -19,6 +19,7 @@ import { CalendarFilters } from "@/components/events/calendar-filters";
 import { EventDayGroup } from "@/components/events/event-day-group";
 import { LumaEventCard } from "@/components/events/luma-event-card";
 import { Button } from "@/components/ui/button";
+import { useClientValue, useEventTimeRange } from "@/hooks";
 import { useBookmark } from "@/lib/bookmarks";
 import {
   buildTimelineEvents,
@@ -30,7 +31,6 @@ import {
 } from "@/lib/events/event-sources";
 import { downloadIcsFile } from "@/lib/ics";
 import { pageHead, publicPages } from "@/lib/page-meta";
-import { useClientValue, useEventTimeRange } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 type EventProposalStatus = "pending" | "approved" | "rejected" | "removed";

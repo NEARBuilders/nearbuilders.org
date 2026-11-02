@@ -4,9 +4,15 @@ import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
-import { ContextSchema } from "./lib/context";
+import type { AuthContext } from "./lib/auth";
 import { EventService, EventServiceLive } from "./services/events";
 import { LumaService, parseLumaApiKeys } from "./services/luma";
+
+type EventsContext = AuthContext & {
+  allowPublicVisibility?: boolean;
+};
+
+const EventsContextSchema = z.custom<EventsContext>();
 
 class Luma extends Context.Service<Luma, LumaService>()("events/LumaService") {}
 
@@ -28,7 +34,7 @@ export default createPlugin({
     LUMA_CALENDAR_API_KEYS: z.string().default(""),
   }),
 
-  context: ContextSchema,
+  context: EventsContextSchema,
 
   contract,
 
@@ -239,9 +245,19 @@ export default createPlugin({
 
       createEvent: builder.createEvent.use(requireAuth).effect(function* ({ input, context }) {
         const event = yield* EventService;
+        const isAdmin = context.user.role === "admin";
+        if (!isAdmin && !context.near?.primaryAccountId) {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Link a NEAR account to create content" }),
+          );
+        }
+        const visibility =
+          isAdmin || input.visibility !== "public" || context.allowPublicVisibility === true
+            ? input.visibility
+            : "private";
         return yield* runEvent(
           event.createEvent(
-            input,
+            { ...input, visibility },
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
@@ -262,6 +278,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
             getAlternateOwnerId(context),
+            context.allowPublicVisibility === true,
           ),
         ).pipe(
           Effect.mapError((error) =>
@@ -279,7 +296,9 @@ export default createPlugin({
         input,
       }) {
         const event = yield* EventService;
-        return yield* runEvent(event.updateEvent(input.id, input, input.ownerId, undefined));
+        return yield* runEvent(
+          event.updateEvent(input.id, input, input.ownerId, undefined, undefined, true),
+        );
       }),
 
       deleteEvent: builder.deleteEvent.use(requireAuth).effect(function* ({

@@ -104,7 +104,7 @@ export function EvaluationPanel({ proposal }: { proposal: ProposalRecord }) {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: [EVALUATIONS_QUERY_KEY, [proposal.id]],
+    queryKey: [EVALUATIONS_QUERY_KEY, "proposal", proposal.id],
     queryFn: () => apiClient.getReviewEvaluations({ proposalIds: [proposal.id] }),
     staleTime: 30_000,
   });

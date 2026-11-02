@@ -8,6 +8,7 @@ const valid = {
   keyExpiresAt: "2999-02-01T00:00:00Z",
   nearAiWorkspaceId: " ws-hackathon ",
   nearAiLoginAccountId: " nearbuilding.near ",
+  nearAiOrgId: " org-1234 ",
 };
 
 describe("validateAmountCents", () => {
@@ -36,6 +37,7 @@ describe("validateSettings", () => {
         keyExpiresAt: new Date("2999-02-01T00:00:00Z"),
         nearAiWorkspaceId: "ws-hackathon",
         nearAiLoginAccountId: "nearbuilding.near",
+        nearAiOrgId: "org-1234",
       },
     });
   });
@@ -58,6 +60,7 @@ describe("validateSettings", () => {
         keyExpiresAt: null,
         nearAiWorkspaceId: "",
         nearAiLoginAccountId: "",
+        nearAiOrgId: "",
       },
     });
   });

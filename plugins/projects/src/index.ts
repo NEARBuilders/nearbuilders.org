@@ -9,6 +9,7 @@ import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
+  internalOrganizationCleanup?: boolean;
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
@@ -74,6 +75,13 @@ export default createPlugin({
         throw new ORPCError("FORBIDDEN", { message: "Admin access required" });
       }
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
+    });
+
+    const requireInternalOrganizationCleanup = builder.middleware(async ({ context, next }) => {
+      if (context.internalOrganizationCleanup !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Internal organization cleanup required" });
+      }
+      return next({ context });
     });
 
     const getAlternateOwnerId = (context: {
@@ -155,12 +163,24 @@ export default createPlugin({
       createProject: builder.createProject.use(requireAuth).effect(function* ({ input, context }) {
         const project = yield* ProjectService;
         const ownerId = context.near?.primaryAccountId ?? context.userId ?? undefined;
+        const isAdmin = context.user.role === "admin";
+        if (!isAdmin && !context.near?.primaryAccountId) {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Link a NEAR account to create content" }),
+          );
+        }
+        const visibility =
+          isAdmin || context.allowPublicVisibility === true
+            ? input.visibility
+            : input.visibility === "unlisted"
+              ? "unlisted"
+              : "private";
         return yield* project
           .createProject(
-            input,
+            { ...input, visibility },
             ownerId,
             context.user.role ?? undefined,
-            undefined,
+            getAlternateOwnerId(context),
             getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("createProject")));
@@ -233,6 +253,15 @@ export default createPlugin({
             ),
           );
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireInternalOrganizationCleanup)
+        .effect(function* ({ input }) {
+          const project = yield* ProjectService;
+          return yield* project
+            .clearOrganizationAttribution(input.organizationId)
+            .pipe(Effect.catchCause(toRouteError("clearOrganizationAttribution")));
+        }),
 
       listProjectApps: builder.listProjectApps.effect(function* ({ input }) {
         const project = yield* ProjectService;

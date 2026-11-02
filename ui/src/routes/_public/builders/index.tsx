@@ -31,6 +31,7 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient, useOrpc } from "@/app";
+import { CatalogListedBadge } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import { pageHead, publicPages } from "@/lib/page-meta";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -63,6 +68,7 @@ interface BuilderLike {
   bio: string | null;
   skills: string[];
   location: string | null;
+  catalog?: { avatarUrl?: string | null } | null;
 }
 
 type BuilderCategory = "all" | "approved" | "nominated";
@@ -224,6 +230,9 @@ function BuildersPage() {
     isAuthenticated &&
     !hasActiveBuilderProfile &&
     (ownBuilderProfileError || (Boolean(nearAccountId) && ownBuilderProposalError));
+
+  const { data: approvalSettings } = useQuery(approvalSettingsQueryOptions(apiClient));
+  const requiresReview = requiresAdminApproval(approvalSettings);
 
   const {
     data: proposalsData,
@@ -668,6 +677,7 @@ function BuildersPage() {
                         bio={card.builder.bio}
                         skills={card.builder.skills}
                         location={card.builder.location}
+                        catalogAvatarUrl={card.builder.catalog?.avatarUrl}
                         proposal={proposal}
                         nominationCount={nominationCount}
                         hasNominated={hasNominated}
@@ -716,7 +726,9 @@ function BuildersPage() {
             description={
               isAuthenticated
                 ? "Claim your profile and help collaborators discover your work."
-                : "Connect your NEAR wallet and submit your builder profile for review."
+                : requiresReview
+                  ? "Connect your NEAR wallet and submit your builder profile for review."
+                  : "Connect your NEAR wallet and create your builder profile."
             }
             label={isAuthenticated ? "Open your dashboard" : "Join NEAR Builders"}
             to={isAuthenticated ? "/dashboard" : JOIN_PATH}
@@ -820,6 +832,7 @@ function BuilderCard({
   bio: bioProp,
   skills: skillsProp,
   location: locationProp,
+  catalogAvatarUrl,
   displayNameOverride,
   bioOverride,
   skillsOverride,
@@ -838,6 +851,7 @@ function BuilderCard({
   bio?: string | null;
   skills?: string[];
   location?: string | null;
+  catalogAvatarUrl?: string | null;
   displayNameOverride?: string;
   bioOverride?: string | null;
   skillsOverride?: string[];
@@ -859,7 +873,7 @@ function BuilderCard({
       : displayNameOverride
     : displayName || profile?.name || nearAccount;
 
-  const avatarUrl = getNearSocialAvatarUrl(profile);
+  const avatarUrl = resolveBuilderAvatarUrl(catalogAvatarUrl, profile);
 
   const resolvedBio = bioOverride ?? bioProp ?? profile?.description ?? null;
   const resolvedSkills = skillsOverride ?? skillsProp ?? [];
@@ -923,6 +937,9 @@ function BuilderCard({
             {nearAccount}
           </p>
         </div>
+        {!isNominated && (
+          <CatalogListedBadge kind="person" entityId={nearAccount} className="mt-2" />
+        )}
         {resolvedBio ? (
           <p
             className={cn(

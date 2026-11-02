@@ -3,7 +3,7 @@ import { Bookmark, Globe, Share2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuthClient } from "@/app";
-import { KindBadge, PrivateIndicator } from "@/components/project-tags";
+import { CatalogListedBadge, KindBadge, PrivateIndicator } from "@/components/project-tags";
 import { Badge } from "@/components/ui/badge";
 import { NewBadge } from "@/components/ui/new-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -231,6 +231,9 @@ function ProjectDirectoryRowContent({
           <Badge variant="outline" className="px-1.5 py-0 text-3xs">
             Catalog
           </Badge>
+        )}
+        {project.source === "local" && project.kind === "project" && (
+          <CatalogListedBadge kind="project" entityId={project.id} />
         )}
         <span className="text-sm font-semibold text-foreground truncate flex-1 min-w-0">
           {project.title}

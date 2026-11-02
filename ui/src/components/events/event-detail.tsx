@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { useEventDateLabel, useEventTimeRange } from "@/hooks";
 import {
   formatEventDate as formatEventDateWithFormat,
   UTC_EVENT_TIME_FORMAT,
 } from "@/lib/events/event-sources";
-import { useEventDateLabel, useEventTimeRange } from "@/hooks";
 
 export type EventDetailData = {
   title: string;

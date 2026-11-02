@@ -7,6 +7,7 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { type ProjectKind, projectKindLabel } from "@/lib/draft-store";
 import { pageHead } from "@/lib/page-meta";
 import { projectCatalogFromFormValues, projectCatalogToFormValues } from "@/lib/project-catalog";
 import { normalizeDomain } from "@/lib/project-form-validation";
@@ -359,7 +360,7 @@ function EditFormInner({
     },
   });
 
-  const kindLabel = project.kind.charAt(0).toUpperCase() + project.kind.slice(1);
+  const kindLabel = projectKindLabel(project.kind as ProjectKind);
 
   return (
     <div className="flex min-h-page flex-col">

@@ -17,6 +17,7 @@ const CONFLICT = {
 export const CreditClaimSchema = z.object({
   id: z.string(),
   status: z.enum(["pending", "issued", "expired", "failed", "revoked"]),
+  nearAccountId: z.string(),
   keyPrefix: z.string().nullable(),
   spendLimitUsd: z.number().positive(),
   keyExpiresAt: z.iso.datetime().nullable(),
@@ -24,12 +25,18 @@ export const CreditClaimSchema = z.object({
 });
 
 export const AdminCreditClaimSchema = CreditClaimSchema.extend({
-  nearAccountId: z.string(),
   userId: z.string(),
   ip: z.string().nullable(),
   ipClaimCount: z.number().int().nonnegative(),
   error: z.string().nullable(),
   revokedAt: z.iso.datetime().nullable(),
+  usedUsd: z.number().min(0).nullable(),
+});
+
+export const CreditUsageSchema = z.object({
+  usedUsd: z.number().min(0),
+  spendLimitUsd: z.number().positive(),
+  keyExpiresAt: z.iso.datetime().nullable(),
 });
 
 export const CreditSettingsSchema = z.object({
@@ -39,6 +46,7 @@ export const CreditSettingsSchema = z.object({
   keyExpiresAt: z.iso.datetime().nullable(),
   nearAiWorkspaceId: z.string(),
   nearAiLoginAccountId: z.string(),
+  nearAiOrgId: z.string(),
   updatedBy: z.string().nullable(),
   updatedAt: z.iso.datetime(),
 });
@@ -50,6 +58,7 @@ export const CreditSettingsInputSchema = z.object({
   keyExpiresAt: z.iso.datetime().nullable(),
   nearAiWorkspaceId: z.string().max(256),
   nearAiLoginAccountId: z.string().max(256),
+  nearAiOrgId: z.string().max(256).default(""),
 });
 
 export const NearAiSignedMessageSchema = z.object({
@@ -69,12 +78,14 @@ export const NearAiLoginPayloadSchema = z.object({
 export const NearAiSessionSchema = z.object({
   status: z.enum(["valid", "expired", "absent"]),
   refreshExpiresAt: z.iso.datetime().nullable(),
+  usageReporting: z.boolean(),
 });
 
 export const CreditEligibilitySchema = z.enum([
   "eligible",
   "needs_near_account",
   "needs_approved_profile",
+  "needs_profile_restore",
 ]);
 
 export const CreditWindowReasonSchema = z.enum(["not_enabled", "not_configured", "closed"]);
@@ -100,6 +111,12 @@ export const contract = oc.router({
     .input(z.object({}))
     .output(z.object({ key: z.string(), claim: CreditClaimSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, CONFLICT, SERVICE_UNAVAILABLE }),
+
+  getCreditUsage: oc
+    .route({ method: "GET", path: "/v1/credits/usage" })
+    .input(z.object({}))
+    .output(z.object({ usage: CreditUsageSchema.nullable() }))
+    .errors({ UNAUTHORIZED }),
 
   listCreditClaims: oc
     .route({ method: "GET", path: "/v1/credits/claims" })

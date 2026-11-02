@@ -61,6 +61,7 @@ import {
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
+import { projectKindLabel } from "@/lib/draft-store";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   type ProjectKindFilter,
@@ -376,7 +377,7 @@ function ProjectCount({ total, loaded }: { total: number; loaded: number }) {
 
 function ProjectListLabel({ kind }: { kind: ProjectKindFilter }) {
   if (kind === "all") return "All entries";
-  return `${kind.charAt(0).toUpperCase()}${kind.slice(1)} entries`;
+  return `${projectKindLabel(kind)} entries`;
 }
 
 function VoteDataNotice() {

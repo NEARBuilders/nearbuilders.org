@@ -4,6 +4,7 @@ import {
   builderCatalogToFormValues,
   emptyBuilderCatalog,
   getBuilderCatalogErrors,
+  resolveBuilderAvatarUrl,
 } from "./builder-catalog";
 
 describe("builder catalog form values", () => {
@@ -61,5 +62,31 @@ describe("builder catalog validation", () => {
       avatarUrl: "Avatar URL must be an absolute http(s) URL",
       jobTitle: "Max 80 characters",
     });
+  });
+});
+
+describe("resolveBuilderAvatarUrl", () => {
+  const socialProfile = { image: { url: "https://ipfs.near.social/ipfs/bafy-avatar" } };
+
+  it("prefers the uploaded avatar", () => {
+    expect(
+      resolveBuilderAvatarUrl("https://cdn.example.com/feedback/a.near/avatar.png", socialProfile),
+    ).toBe("https://cdn.example.com/feedback/a.near/avatar.png");
+  });
+
+  it.each([
+    "",
+    null,
+    undefined,
+    "javascript:alert(1)",
+    "not a url",
+  ])("falls back to the NEAR Social avatar for %s", (value) => {
+    expect(resolveBuilderAvatarUrl(value, socialProfile)).toBe(
+      "https://ipfs.near.social/ipfs/bafy-avatar",
+    );
+  });
+
+  it("returns null with neither", () => {
+    expect(resolveBuilderAvatarUrl(null, null)).toBeNull();
   });
 });
