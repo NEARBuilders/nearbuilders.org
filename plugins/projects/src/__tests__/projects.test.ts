@@ -833,3 +833,75 @@ describe("project collaborators", () => {
     expect((await owner.getProject({ id: unrelated.id })).data.organizationId).toBe("other-org");
   });
 });
+
+describe("project ownership across linked NEAR accounts (#362)", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+
+  const linked = (userId: string, accounts: string[]) => ({
+    userId,
+    near: {
+      primaryAccountId: accounts[0]!,
+      linkedAccounts: accounts.map((accountId, index) => ({
+        accountId,
+        network: "mainnet",
+        publicKey: "",
+        isPrimary: index === 0,
+      })),
+      hasNearAccount: true,
+    },
+    user: testUser(userId, "member"),
+  });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-linked-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("keeps a project editable after the owner switches primary to a linked account", async () => {
+    const before = loaded.createClient(linked("ivy-user", ["ivy.near", "ivy-alt.near"]));
+    const created = await before.createProject({
+      kind: "idea",
+      title: "Switching idea",
+      slug: "switching-idea",
+      content: "c",
+      visibility: "private",
+    });
+    const after = loaded.createClient(linked("ivy-user", ["ivy-alt.near", "ivy.near"]));
+    expect((await after.getProject({ id: created.id })).data.id).toBe(created.id);
+    expect((await after.updateProject({ id: created.id, title: "Still mine" })).title).toBe(
+      "Still mine",
+    );
+
+    const stranger = loaded.createClient(linked("other-user", ["other.near"]));
+    await expect(stranger.getProject({ id: created.id })).rejects.toThrow("Project not found");
+  });
+
+  it("lets an invite sent to a linked account be accepted from another primary", async () => {
+    const owner = loaded.createClient(linked("jo-user", ["jo.near"]));
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Invite idea",
+      slug: "invite-idea",
+      content: "c",
+      visibility: "private",
+      collaborators: ["kim-alt.near"],
+    });
+    const kim = loaded.createClient(linked("kim-user", ["kim.near", "kim-alt.near"]));
+    expect(
+      (await kim.respondCollaborator({ projectId: created.id, action: "accept" })).status,
+    ).toBe("accepted");
+    expect((await kim.updateProject({ id: created.id, title: "Edited by kim" })).title).toBe(
+      "Edited by kim",
+    );
+  });
+});

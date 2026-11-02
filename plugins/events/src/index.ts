@@ -71,13 +71,25 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: {
+    /**
+     * Every id besides the canonical owner id that the caller's rows may be owned by: their
+     * other linked NEAR accounts and their user id (#362). A primary switch or a later NEAR
+     * link must not cost the caller their own records.
+     */
+    const getAlternateOwnerIds = (context: {
       userId?: string | null;
-      near?: { primaryAccountId?: string | null };
-    }) =>
-      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
-        ? (context.userId ?? undefined)
-        : undefined;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId?: string | null }> | null;
+      };
+    }): string[] => {
+      const ownerId = context.near?.primaryAccountId ?? context.userId;
+      const ids = [
+        ...(context.near?.linkedAccounts ?? []).map((account) => account.accountId),
+        context.userId,
+      ].filter((id): id is string => Boolean(id) && id !== ownerId);
+      return [...new Set(ids)];
+    };
 
     return {
       listLumaCalendars: builder.listLumaCalendars.effect(function* () {
@@ -122,7 +134,7 @@ export default createPlugin({
           event.listEvents(
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
           ),
         );
@@ -134,7 +146,7 @@ export default createPlugin({
           event.getEvent(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
           ),
         );
@@ -155,7 +167,7 @@ export default createPlugin({
           event.getEventBySlug(
             input.slug,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
           ),
         );
@@ -180,7 +192,7 @@ export default createPlugin({
           event.listEventParticipants(
             input.eventId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
           ),
         ).pipe(
@@ -204,7 +216,7 @@ export default createPlugin({
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.near?.primaryAccountId ?? undefined,
             context.user.name ?? context.user.email,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         ).pipe(
           Effect.mapError((error) =>
@@ -229,7 +241,7 @@ export default createPlugin({
           event.leaveEvent(
             input.eventId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         ).pipe(
           Effect.mapError((error) =>
@@ -260,7 +272,7 @@ export default createPlugin({
             { ...input, visibility },
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         );
       }),
@@ -277,7 +289,7 @@ export default createPlugin({
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.allowPublicVisibility === true,
           ),
         ).pipe(
@@ -311,7 +323,7 @@ export default createPlugin({
           event.deleteEvent(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           ),
         ).pipe(
           Effect.mapError((error) =>
