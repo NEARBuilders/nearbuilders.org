@@ -1,6 +1,7 @@
 export type ProjectKindFilter = "all" | "project" | "idea" | "scope" | "result";
 
 export type ProjectSort = "votes" | "newest" | "oldest";
+export const DEFAULT_PROJECT_SORT: ProjectSort = "newest";
 export type ProjectStatusFilter = "all" | "active" | "paused" | "archived";
 
 export type ProjectListSearch = {
@@ -51,7 +52,8 @@ export function parseProjectListSearch(search: Record<string, unknown>): Project
     personal: personal || undefined,
     private: privateOnly || undefined,
     verified: verified || undefined,
-    sort: isProjectSort(search.sort) ? search.sort : undefined,
+    sort:
+      isProjectSort(search.sort) && search.sort !== DEFAULT_PROJECT_SORT ? search.sort : undefined,
     query:
       typeof search.query === "string" && search.query.trim().length > 0
         ? search.query.trim()
