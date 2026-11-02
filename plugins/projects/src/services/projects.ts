@@ -272,6 +272,11 @@ const isAcceptedCollaborator = (
 export class ProjectService extends Context.Service<
   ProjectService,
   {
+    /**
+     * Re-keys rows the caller owns under their auth user id onto their primary NEAR account
+     * (#366), so they survive the shared auth DB reissuing user ids. Idempotent.
+     */
+    claimUserIdRows: (userId: string, ownerId: string) => Effect.Effect<void>;
     listProjects: (
       input: {
         organizationId?: string;
@@ -690,6 +695,21 @@ export const ProjectServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
+      claimUserIdRows: (userId, ownerId) =>
+        Effect.promise(() =>
+          db.transaction(async (tx: any) => {
+            await tx.update(projects).set({ ownerId }).where(eq(projects.ownerId, userId));
+            await tx
+              .update(projectApps)
+              .set({ createdByUserId: ownerId })
+              .where(eq(projectApps.createdByUserId, userId));
+            await tx
+              .update(projectCollaborators)
+              .set({ invitedByUserId: ownerId })
+              .where(eq(projectCollaborators.invitedByUserId, userId));
+          }),
+        ),
+
       listProjects: (input, userId?: string, alternateUserId?: string, userRole?: string) =>
         Effect.gen(function* () {
           const slugFilter = yield* parseSlugFilter(input.slugs);

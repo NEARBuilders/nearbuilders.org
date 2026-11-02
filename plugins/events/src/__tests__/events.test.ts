@@ -152,3 +152,50 @@ describe("event moderation permissions", () => {
     expect(ownerRetry.id).toBe(eventId);
   });
 });
+
+describe("re-keying user-id rows once NEAR is linked (#366)", () => {
+  const runtime = createPluginRuntime({ registry: { events: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"events">>>;
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-events-rekey-"));
+    loaded = await runtime.usePlugin("events", {
+      variables: {},
+      secrets: { EVENTS_DATABASE_URL: `pglite:${dataDir}`, LUMA_CALENDAR_API_KEYS: "" },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("moves a participation joined without NEAR onto the account", async () => {
+    const owner = loaded.createClient({
+      userId: "rekey-owner",
+      near: testNear("rekey-owner.near"),
+      user: testUser("rekey-owner", "member"),
+    });
+    const event = await owner.createEvent({
+      title: "Rekey event",
+      slug: "rekey-event",
+      visibility: "unlisted",
+      startAt: "2026-08-04T12:00:00.000Z",
+    });
+    await loaded
+      .createClient({ userId: "gil-user", user: testUser("gil-user", "member") })
+      .joinEvent({ eventId: event.id });
+    await loaded
+      .createClient({
+        userId: "gil-user",
+        near: testNear("gil.near"),
+        user: testUser("gil-user", "member"),
+      })
+      .joinEvent({ eventId: event.id });
+
+    const participants = await owner.listEventParticipants({ eventId: event.id });
+    // One participation, now keyed on the account rather than the user id.
+    expect(participants.data.map((p) => p.userId)).toEqual(["gil.near"]);
+  });
+});

@@ -1031,6 +1031,36 @@ describe.sequential("Proposals plugin", () => {
     expect(withdrawn.data.reviewStatus).toBe("removed");
   });
 
+  it("re-keys user-id proposals onto the account once NEAR is linked (#366)", async () => {
+    const as = (userId: string, account?: string) =>
+      loaded.createClient({
+        userId,
+        ...(account ? { near: testNear(account) } : {}),
+        user: testUser(userId, "member"),
+        allowPrivateSubmission: true,
+        resubmissionPolicy: "rejected-only",
+      });
+    // Proposed before linking NEAR, so created_by is the user id.
+    const proposed = await as("user-fern").propose({
+      pluginId: "builders",
+      entityId: "rekey-subject.near",
+      payload: { name: "Rekey" },
+      idempotencyKey: "rekey-before-link",
+    });
+    // The first authenticated call with NEAR linked moves it onto the account...
+    await as("user-fern", "fern.near").getMySubmission({
+      pluginId: "builders",
+      entityId: "rekey-subject.near",
+    });
+    // ...so it survives the shared auth DB reissuing the user id.
+    const withdrawn = await as("user-fern-new", "fern.near").withdraw({
+      pluginId: "builders",
+      entityId: "rekey-subject.near",
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    expect(withdrawn.data.reviewStatus).toBe("removed");
+  });
+
   it("rejects withdrawing a proposal that is no longer pending", async () => {
     const input = {
       pluginId: "builders",

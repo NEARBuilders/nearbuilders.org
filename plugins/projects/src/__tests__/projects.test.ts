@@ -833,3 +833,51 @@ describe("project collaborators", () => {
     expect((await owner.getProject({ id: unrelated.id })).data.organizationId).toBe("other-org");
   });
 });
+
+describe("re-keying user-id projects once NEAR is linked (#366)", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-rekey-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("moves a project owned by the user id onto the account it later links", async () => {
+    // An admin without NEAR may create content, so it is owned by their user id.
+    const created = await loaded
+      .createClient({ userId: "hal-user", user: testUser("hal-user", "admin") })
+      .createProject({ kind: "idea", title: "Rekey idea", slug: "rekey-idea", content: "c" });
+    expect(created.ownerId).toBe("hal-user");
+
+    // Their first authenticated call with NEAR linked moves it onto the account...
+    await loaded
+      .createClient({
+        userId: "hal-user",
+        near: testNear("hal.near"),
+        user: testUser("hal-user", "admin"),
+      })
+      .updateProject({ id: created.id, title: "Rekey idea v2" });
+
+    // ...so a reissued user id with the same account still owns it.
+    const reissued = loaded.createClient({
+      userId: "hal-user-new",
+      near: testNear("hal.near"),
+      user: testUser("hal-user-new", "member"),
+    });
+    const project = (await reissued.getProject({ id: created.id })).data;
+    expect(project.ownerId).toBe("hal.near");
+    expect((await reissued.updateProject({ id: created.id, title: "Still hal's" })).title).toBe(
+      "Still hal's",
+    );
+  });
+});

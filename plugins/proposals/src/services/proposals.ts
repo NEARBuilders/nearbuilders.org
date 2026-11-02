@@ -142,6 +142,11 @@ async function appendAudit(
 export class ProposalService extends Context.Service<
   ProposalService,
   {
+    /**
+     * Re-keys rows the caller owns under their auth user id onto their primary NEAR account
+     * (#366), so they survive the shared auth DB reissuing user ids. Idempotent.
+     */
+    claimUserIdRows: (userId: string, ownerId: string) => Effect.Effect<void>;
     propose: (input: {
       pluginId: string;
       entityId: string;
@@ -348,6 +353,20 @@ export const ProposalServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
+      claimUserIdRows: (userId, ownerId) =>
+        Effect.promise(() =>
+          db.transaction(async (tx: any) => {
+            await tx
+              .update(proposals)
+              .set({ createdBy: ownerId })
+              .where(eq(proposals.createdBy, userId));
+            await tx
+              .update(proposalSubmissions)
+              .set({ submittedBy: ownerId })
+              .where(eq(proposalSubmissions.submittedBy, userId));
+          }),
+        ),
+
       propose: (input) =>
         Effect.gen(function* () {
           const idempotencyKey = input.idempotencyKey;
