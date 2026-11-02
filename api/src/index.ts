@@ -27,6 +27,7 @@ import {
   createCatalogListings,
   isSystemActor,
 } from "./services/catalog-listings";
+import { createEmailSender, type EmailSender } from "./services/email";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -169,6 +170,7 @@ class ApiServices extends EffectContext.Service<
     reviewEvaluation: ReturnType<typeof createReviewEvaluationSweep>;
     chiefBotUsername: string;
     requireAdminApproval: boolean;
+    email: EmailSender;
   }
 >()("api/ApiServices") {}
 
@@ -208,6 +210,8 @@ export default createPlugin.withPlugins<PluginEntries>()({
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
     BETTER_AUTH_SECRET: z.string().default(""),
+    RESEND_API_KEY: z.string().default(""),
+    EMAIL_FROM: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -245,6 +249,14 @@ export default createPlugin.withPlugins<PluginEntries>()({
               config.secrets.REQUIRE_ADMIN_APPROVAL,
             );
             console.log("[API] Admin approval:", requireAdminApproval ? "required" : "off");
+            const email = createEmailSender({
+              apiKey: config.secrets.RESEND_API_KEY,
+              from: config.secrets.EMAIL_FROM,
+            });
+            console.log(
+              "[API] Email (Resend):",
+              email.configured ? `enabled (from ${email.from})` : "disabled (no RESEND_API_KEY)",
+            );
             console.log("[API] Services Initialized");
             console.log("[API] Auth client available:", Boolean(auth));
             console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
@@ -252,6 +264,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
               reviewEvaluation,
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
+              email,
             };
           }),
           (services) =>
