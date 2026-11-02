@@ -645,6 +645,36 @@ describe("Credit claims", () => {
     expect(nearAi.state.created).toBe(1);
   });
 
+  it("finds a claim under a linked account and refuses a second one after a user id change (#365)", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "carol.near": { withdrawnAt: null }, "carol-new.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    await client(userContext("carol-user", "carol.near")).claimCredits({});
+
+    // The shared auth DB reissues the user id; carol.near is now a linked, non-primary account.
+    const reissued = client({
+      ...userContext("carol-user-new", "carol-new.near"),
+      near: {
+        primaryAccountId: "carol-new.near",
+        linkedAccounts: [
+          { accountId: "carol-new.near", network: "mainnet", publicKey: "", isPrimary: true },
+          { accountId: "carol.near", network: "mainnet", publicKey: "", isPrimary: false },
+        ],
+        hasNearAccount: true,
+      },
+    } as ReturnType<typeof userContext>);
+    expect((await reissued.getCreditStatus({})).claim).toMatchObject({
+      status: "issued",
+      nearAccountId: "carol.near",
+    });
+    await expect(reissued.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Credits were already claimed with carol.near",
+    });
+    expect(nearAi.state.created).toBe(1);
+  });
+
   it("shows a key as expired after its expiry and never issues another", async () => {
     const { client, admin, nearAi } = await loadCredits();
     await enable(admin);
