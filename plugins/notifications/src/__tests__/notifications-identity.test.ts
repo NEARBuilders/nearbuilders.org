@@ -88,7 +88,7 @@ describe("notifications reach every linked account (#364)", () => {
     await expect(mo.markAsRead({ id: oldPrimary.id })).resolves.toMatchObject({
       data: { read: true },
     });
-    await expect(mo.markAllAsRead({})).resolves.toEqual({ updated: 1 });
+    await expect(mo.markAllAsRead()).resolves.toEqual({ updated: 1 });
     expect((await mo.getMyNotifications({ read: false })).data).toEqual([]);
 
     const stranger = as("stranger-user", ["stranger.near"]);
