@@ -1,4 +1,5 @@
 import type { ApiClient } from "@/app";
+import { isSafeImageUrl } from "./image-url";
 
 export type ProjectCatalog = NonNullable<
   Awaited<ReturnType<ApiClient["getProjectBySlug"]>>["data"]["catalog"]
@@ -18,6 +19,7 @@ export const CATALOG_LINKS = [
   { key: "twitter", label: "X", placeholder: "https://x.com/project" },
   { key: "telegram", label: "Telegram", placeholder: "https://t.me/project" },
   { key: "discord", label: "Discord", placeholder: "https://discord.gg/invite" },
+  { key: "github", label: "GitHub", placeholder: "https://github.com/project" },
   { key: "medium", label: "Medium", placeholder: "https://medium.com/@project" },
   { key: "whitepaper", label: "Whitepaper", placeholder: "https://docs.example.com" },
   { key: "nearsocial", label: "NEAR Social", placeholder: "https://near.social/project.near" },
@@ -160,7 +162,7 @@ export function getCatalogReadiness(project: CatalogReadinessInput) {
       label: "Short description",
       complete: Boolean(project.description?.trim()),
     },
-    { key: "logo", label: "Logo", complete: Boolean(project.logoUrl?.trim()) },
+    { key: "logo", label: "Logo", complete: isSafeImageUrl(project.logoUrl) },
     {
       key: "categories",
       label: "At least one category",

@@ -104,11 +104,21 @@ describe.sequential("Telegram builder nominations", () => {
 
   function botClient(apiKeyId = "telegram-bot-key") {
     return loaded.createClient({
+      userId: "nomination-bot-owner",
+      user: { ...testUser("nomination-bot-owner"), role: "admin" },
       apiKey: {
         id: apiKeyId,
         name: "Telegram bot",
         permissions: {},
       },
+    });
+  }
+
+  function memberKeyClient(permissions: Record<string, string[]> = {}) {
+    return loaded.createClient({
+      userId: "member-with-key",
+      user: testUser("member-with-key"),
+      apiKey: { id: "member-key", name: "Member key", permissions },
     });
   }
 
@@ -184,6 +194,42 @@ describe.sequential("Telegram builder nominations", () => {
     }
     return new URL(response.body.joinUrl).searchParams.get("nomination")!;
   }
+
+  it("only accepts admin-owned keys or keys granted nominations:write", async () => {
+    const input = createInput({
+      ...baseNomination,
+      sourceNominationId: "4401",
+      nomineeTelegramId: 4401,
+    });
+    const claim = {
+      nominationId: "missing-nomination",
+      nomineeTelegramId: 4401,
+      nomineeUsername: "key_scope_check",
+    };
+
+    await expect(memberKeyClient().createTelegramNomination(input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(memberKeyClient().createXNomination(createXInput())).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(memberKeyClient().claimTelegramNomination(claim)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(
+      memberKeyClient({ nominations: ["read"] }).createTelegramNomination(input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      loaded
+        .createClient({ userId: "member-with-key", user: testUser("member-with-key") })
+        .createTelegramNomination(input),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+    const granted = await memberKeyClient({ nominations: ["write"] }).createTelegramNomination(
+      input,
+    );
+    expect(granted.status).toBe(201);
+  });
 
   it("creates a stable verified nomination and replays the source idempotently", async () => {
     const first = await botClient().createTelegramNomination(createInput());
@@ -436,7 +482,11 @@ describe.sequential("Telegram builder nominations", () => {
       },
     });
     const client = isolated.createClient({
-      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+      apiKey: {
+        id: "telegram-bot-key",
+        name: "Telegram bot",
+        permissions: { nominations: ["write"] },
+      },
     });
     const response = await client.createTelegramNomination(
       createInput({
@@ -572,7 +622,11 @@ describe.sequential("Telegram builder nominations", () => {
       },
     });
     const client = migrated.createClient({
-      apiKey: { id: "telegram-bot-key", name: "Telegram bot", permissions: {} },
+      apiKey: {
+        id: "telegram-bot-key",
+        name: "Telegram bot",
+        permissions: { nominations: ["write"] },
+      },
     });
 
     await expect(client.resolveTelegramNomination({ token: duplicateToken })).resolves.toEqual({

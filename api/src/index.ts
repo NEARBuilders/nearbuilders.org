@@ -21,6 +21,12 @@ import {
 } from "./services/approval-settings";
 import { resolveBuilderStats } from "./services/builder-stats";
 import { createCatalogClaims } from "./services/catalog-claims";
+import {
+  CATALOG_LISTING_PLUGIN_ID,
+  type CatalogListingKind,
+  createCatalogListings,
+  isSystemActor,
+} from "./services/catalog-listings";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -179,6 +185,7 @@ function createRouterServices(entries: PluginEntries) {
     notifications: createProposalNotifications(restPlugins),
     orchestration: createProposalOrchestration(restPlugins),
     catalogClaims: createCatalogClaims(restPlugins),
+    catalogListings: createCatalogListings(restPlugins),
   };
 }
 
@@ -263,6 +270,66 @@ export default createPlugin.withPlugins<PluginEntries>()({
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
+    const catalogListings = services.catalogListings;
+    const syncCatalogListing = async (
+      kind: CatalogListingKind,
+      entityId: string,
+      context: Context,
+    ) => {
+      await catalogListings
+        .sync(kind, entityId, context)
+        .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
+    };
+    const getOrganizationMember = async (context: Context, organizationId: string) => {
+      const organization = context.organization;
+      if (
+        !organization ||
+        organization.activeOrganizationId !== organizationId ||
+        !organization.member
+      ) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization access denied" });
+      }
+      return organization.member;
+    };
+    const canEditProposalEntity = async (
+      pluginId: string,
+      entityId: string,
+      context: Context,
+    ): Promise<boolean> => {
+      const callerIds = [
+        context.userId,
+        (context.user as { walletAddress?: string | null } | undefined)?.walletAddress,
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+      ].filter((id): id is string => Boolean(id));
+      try {
+        if (pluginId === "projects") {
+          const { data: project } = await services.plugins
+            .projects(context)
+            .getProject({ id: entityId });
+          const organizationIds = (
+            (context as { organizations?: Array<{ id: string }> }).organizations ?? []
+          ).map(({ id }) => id);
+          return (
+            callerIds.includes(project.ownerId) ||
+            (!!project.organizationId && organizationIds.includes(project.organizationId)) ||
+            (project.collaborators ?? []).some(
+              (collaborator) =>
+                collaborator.status === "accepted" &&
+                callerIds.includes(collaborator.collaboratorOwnerId),
+            )
+          );
+        }
+        if (pluginId === "events") {
+          const { data: event } = await services.plugins.events(context).getEvent({ id: entityId });
+          return callerIds.includes(event.ownerId);
+        }
+      } catch (error) {
+        if (error instanceof ORPCError && error.code === "NOT_FOUND") return false;
+        throw error;
+      }
+      return false;
+    };
     const assertKnownCatalogCategories = async (categories?: string[]) => {
       if (!categories || categories.length === 0) return;
       const known = await services.plugins.nearcatalog().listCatalogCategories({});
@@ -278,6 +345,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
     ) => {
+      if (input.pluginId === CATALOG_LISTING_PLUGIN_ID && isSystemActor(context)) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "NEAR Catalog listings need a human admin to approve them",
+        });
+      }
       const proposalsClient = services.plugins.proposals(context);
       const approval = await proposalsClient.approve(input);
       const proposal = {
@@ -347,6 +419,9 @@ export default createPlugin.withPlugins<PluginEntries>()({
         createdBy: rejected.data.createdBy,
         rejectionReason: rejected.data.rejectionReason,
       };
+      if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+        await catalogListings.reject(proposal);
+      }
       await notifyRejection(proposal, context);
       return rejected;
     };
@@ -694,6 +769,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
             message: "Use the Catalog claim proposal endpoint",
           });
         }
+        if (input.pluginId === CATALOG_LISTING_PLUGIN_ID) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Use the NEAR Catalog listing endpoint",
+          });
+        }
         assertValidBuilderProposalAccount(input);
         if (input.pluginId === "builders") {
           const result = await nominateBuilder(
@@ -711,6 +791,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
           .proposals({
             ...context,
             allowPrivateSubmission: input.pluginId === "projects" || input.pluginId === "events",
+            canResubmitForOthers: await canEditProposalEntity(
+              input.pluginId,
+              input.entityId,
+              context,
+            ),
           })
           .propose(input);
       }),
@@ -956,6 +1041,45 @@ export default createPlugin.withPlugins<PluginEntries>()({
           return await catalogClaims.getMine(context);
         }),
 
+      exportCatalogProjects: builder.exportCatalogProjects.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogProjects(input);
+      }),
+
+      exportCatalogPeople: builder.exportCatalogPeople.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().exportCatalogPeople(input);
+      }),
+
+      listCatalogListings: builder.listCatalogListings.handler(async ({ input }) => {
+        return await services.plugins.nearcatalog().listCatalogListings(input);
+      }),
+
+      markCatalogListingPublished: builder.markCatalogListingPublished
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await services.plugins
+            .nearcatalog(context)
+            .markCatalogListingPublished(input);
+          return { data: { status: result.data.status, slug: result.data.slug } };
+        }),
+
+      getMyCatalogListing: builder.getMyCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.getStatus(input, context);
+        }),
+
+      submitCatalogListing: builder.submitCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.submit(input, context);
+        }),
+
+      withdrawMyCatalogListing: builder.withdrawMyCatalogListing
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          return await catalogListings.withdraw(input, context);
+        }),
+
       listCatalogClaims: builder.listCatalogClaims.handler(async ({ input }) => {
         return await services.plugins.nearcatalog().listCatalogClaims(input);
       }),
@@ -1009,7 +1133,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             ? project.ownerId
             : undefined;
           return await services.plugins
-            .activity(context)
+            .activity({ ...context, activityRegistration: true })
             .startActivityRegistration({ ...input, nearAccountId });
         }),
 
@@ -1132,7 +1256,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
           !apiServices(context).requireAdminApproval,
         );
         const created = await services.plugins
-          .projects(context)
+          .projects({ ...context, allowPublicVisibility: visibility === "public" })
           .createProject({ ...input, visibility });
         const invited =
           (created as { collaborators?: Array<{ collaboratorOwnerId: string }> })?.collaborators ??
@@ -1169,14 +1293,33 @@ export default createPlugin.withPlugins<PluginEntries>()({
             .getProposals({ pluginId: "projects", entityId: input.id, limit: 1 });
           allowPublicVisibility = !wasModeratedByAdmin(latest.data[0]);
         }
-        return await services.plugins
+        const updated = await services.plugins
           .projects({ ...context, allowPublicVisibility })
           .updateProject(input);
+        await syncCatalogListing("project", input.id, context);
+        return updated;
       }),
 
       deleteProject: builder.deleteProject.use(requireAuth).handler(async ({ input, context }) => {
-        return await services.plugins.projects(context).deleteProject(input);
+        const deleted = await services.plugins.projects(context).deleteProject(input);
+        await syncCatalogListing("project", input.id, context);
+        return deleted;
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const member = await getOrganizationMember(context, input.organizationId);
+          if (!member.role.split(",").includes("owner")) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only an organization owner can delete it",
+            });
+          }
+
+          return await services.plugins
+            .projects({ ...context, internalOrganizationCleanup: true })
+            .clearOrganizationAttribution({ organizationId: input.organizationId });
+        }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjectsForApp(input);
@@ -1346,7 +1489,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
       withdrawMyBuilderProfile: builder.withdrawMyBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(context).withdrawMyBuilderProfile(input);
+          const withdrawn = await services.plugins
+            .builders(context)
+            .withdrawMyBuilderProfile(input);
+          await syncCatalogListing("person", withdrawn.data.nearAccount, context);
+          return withdrawn;
         }),
 
       restoreMyBuilderProfile: builder.restoreMyBuilderProfile
@@ -1358,7 +1505,9 @@ export default createPlugin.withPlugins<PluginEntries>()({
       updateBuilderProfile: builder.updateBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(context).updateBuilderProfile(input);
+          const updated = await services.plugins.builders(context).updateBuilderProfile(input);
+          await syncCatalogListing("person", updated.data.nearAccount, context);
+          return updated;
         }),
 
       listRegistryApps: builder.listRegistryApps.handler(async ({ input }) => {

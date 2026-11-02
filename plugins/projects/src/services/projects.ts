@@ -369,6 +369,10 @@ export class ProjectService extends Context.Service<
       alternateUserId?: string,
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
+    clearOrganizationAttribution: (
+      organizationId: string,
+    ) => Effect.Effect<{ cleared: number }, ORPCError<string, unknown>>;
+
     listProjectApps: (projectId: string) => Effect.Effect<ProjectApp[], ORPCError<string, unknown>>;
 
     linkAppToProject: (
@@ -916,7 +920,7 @@ export const ProjectServiceLive = Layer.effect(
           return yield* mapProjectDetail(db, project, { userId, alternateUserId, userRole });
         }),
 
-      createProject: (input, userId, userRole, _alternateUserId, organizationMemberships) =>
+      createProject: (input, userId, userRole, alternateUserId, organizationMemberships) =>
         Effect.gen(function* () {
           yield* assertOrganizationAttribution(
             input.organizationId,
@@ -932,6 +936,16 @@ export const ProjectServiceLive = Layer.effect(
             );
 
             if (existingById) {
+              if (
+                userRole !== "admin" &&
+                !isProjectOwner(existingById.ownerId, userId, alternateUserId)
+              ) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", {
+                    message: "A project with this id already exists",
+                  }),
+                );
+              }
               return mapProject(existingById);
             }
           }
@@ -1185,6 +1199,19 @@ export const ProjectServiceLive = Layer.effect(
           yield* Effect.promise(() => db.delete(projects).where(eq(projects.id, id)));
 
           return { deleted: true };
+        }),
+
+      clearOrganizationAttribution: (organizationId) =>
+        Effect.gen(function* () {
+          const updated = (yield* Effect.promise(() =>
+            db
+              .update(projects)
+              .set({ organizationId: null, updatedAt: new Date() })
+              .where(eq(projects.organizationId, organizationId))
+              .returning({ id: projects.id }),
+          )) as Array<{ id: string }>;
+
+          return { cleared: updated.length };
         }),
 
       listProjectApps: (projectId) =>

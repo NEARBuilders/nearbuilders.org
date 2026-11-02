@@ -37,12 +37,14 @@ export function ProjectCatalogFields({
   description,
   logoUrl,
   showErrors,
+  eyebrow,
 }: {
   value: ProjectCatalogFormValues;
   onChange: (next: ProjectCatalogFormValues) => void;
   description?: string;
   logoUrl?: string;
   showErrors: boolean;
+  eyebrow?: string;
 }) {
   const bodyId = useId();
   const errors = getProjectCatalogErrors(value);
@@ -65,6 +67,9 @@ export function ProjectCatalogFields({
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:rounded-2xl sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
+          {eyebrow && (
+            <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">{eyebrow}</p>
+          )}
           <h2 className="text-base font-semibold text-foreground">NEAR Catalog</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Optional. Details for listing this project on NEAR Catalog.

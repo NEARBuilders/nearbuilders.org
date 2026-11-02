@@ -118,7 +118,13 @@ describe("buildReviewDigest", () => {
       needsAttention: 1,
       oldestPendingDays: 9,
     });
-    expect(digest.byPlugin).toEqual({ builders: 1, projects: 0, events: 0, nearcatalog: 1 });
+    expect(digest.byPlugin).toEqual({
+      builders: 1,
+      projects: 0,
+      events: 0,
+      nearcatalog: 1,
+      "nearcatalog-listing": 0,
+    });
     expect(digest.items.map((item) => item.id)).toEqual(["stale", "failed", "new"]);
     expect(digest.items[0]).toMatchObject({
       title: "Ref",
@@ -315,5 +321,26 @@ describe("loadEvaluations", () => {
       500, 500, 200,
     ]);
     expect(evaluations).toHaveLength(1_200);
+  });
+});
+
+describe("NEAR Catalog listing digest items", () => {
+  it("shows the listing title and the record's tagline in the digest", () => {
+    const listing = proposal({
+      pluginId: "nearcatalog-listing",
+      entityId: "project:project-1",
+      payload: {
+        kind: "project",
+        title: "Example Project",
+        record: { title: "Example Project", oneliner: "Payments for builders" },
+      },
+    });
+    expect(reviewDigestTitle(listing)).toBe("Example Project");
+    expect(reviewDigestDetail(listing)).toBe("NEAR Catalog: Payments for builders");
+    const digest = buildReviewDigest([listing], { now: NOW, staleAfterDays: 7 });
+    expect(digest.byPlugin["nearcatalog-listing"]).toBe(1);
+    expect(digest.items[0]?.dashboardPath).toBe(
+      "/admin/dashboard/catalog?item=project%3Aproject-1&status=pending",
+    );
   });
 });

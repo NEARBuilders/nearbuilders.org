@@ -12,7 +12,7 @@ export const publicPages = {
   home: {
     title: "NEAR Builders — Build what's next, together",
     description:
-      "Find collaborators, discover open projects, and ship community-owned products with builders on NEAR.",
+      "Find collaborators, discover open projects, and ship products with builders on NEAR.",
     pathname: "/",
   },
   projects: {

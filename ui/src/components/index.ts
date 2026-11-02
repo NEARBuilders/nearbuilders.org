@@ -3,6 +3,7 @@ export {
   type ApiKeyFormValues,
   ApiKeyReveal,
   type ApiKeyRevealProps,
+  type CreatedApiKey,
 } from "./api-key-manager";
 export { BuildBanner } from "./build-banner";
 export { CatalogClaimActivity } from "./catalog-claim-activity";
@@ -15,6 +16,7 @@ export { InvitationCard, MemberCard } from "./member-card";
 export { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "./near-logos";
 export { OrgSwitcher } from "./org-switcher";
 export {
+  CatalogListedBadge,
   KindBadge,
   PrivateIndicator,
   ProjectTags,

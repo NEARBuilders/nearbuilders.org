@@ -63,6 +63,7 @@ function LoginPage() {
     message: string,
     signedInNearState: ReturnType<typeof auth.near.getState>,
   ) => {
+    queryClient.clear();
     const redirectTo = redirect?.startsWith("/") ? redirect : "/dashboard";
     const { data: freshSession } = await auth.getSession();
     if (freshSession) {

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatUsd } from "@/lib/admin/credit-claims";
 import {
   type CreditSettingsDraft,
   creditSettingsQueryKey,
@@ -112,6 +113,7 @@ function CreditsTab() {
                   <p className="text-sm text-muted-foreground">
                     ${claim.spendLimitUsd} · {claim.keyPrefix ? `${claim.keyPrefix} · ` : ""}
                     claimed {new Date(claim.createdAt).toLocaleString()}
+                    {claim.usedUsd !== null && ` · ${formatUsd(claim.usedUsd)} used`}
                     {claim.ip ? ` · ${claim.ip}` : ""}
                   </p>
                   {claim.error && <p className="text-xs text-destructive">{claim.error}</p>}
@@ -209,6 +211,9 @@ function NearAiSessionCard() {
           {session.data?.refreshExpiresAt &&
             status === "valid" &&
             ` Expires ${new Date(session.data.refreshExpiresAt).toLocaleString()}.`}
+          {status === "valid" &&
+            session.data?.usageReporting === false &&
+            " Usage reporting is inactive — refreshing the credentials sets it up."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -328,6 +333,19 @@ function CreditSettingsCard() {
               placeholder="nearbuilding.near"
             />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="credits-org-id">NEAR AI organization ID (optional)</Label>
+          <Input
+            id="credits-org-id"
+            value={current.nearAiOrgId}
+            onChange={(event) => field("nearAiOrgId", event.target.value)}
+            placeholder="auto-detected when credentials refresh — set only if usage stays unavailable"
+          />
+          <p className="text-xs text-muted-foreground">
+            Used by usage reporting. Refreshing the NEAR AI credentials auto-detects it and creates
+            a read-only reporting token.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button

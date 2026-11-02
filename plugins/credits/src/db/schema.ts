@@ -38,6 +38,8 @@ export const nearAiSessions = pgTable("nearai_sessions", {
   id: text("id").primaryKey(),
   refreshToken: text("refresh_token").notNull(),
   refreshExpiresAt: timestamp("refresh_expires_at", { mode: "date", withTimezone: true }),
+  orgId: text("org_id"),
+  reportingToken: text("reporting_token"),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -49,6 +51,7 @@ export const creditSettings = pgTable("credits_settings", {
   keyExpiresAt: timestamp("key_expires_at", { mode: "date", withTimezone: true }),
   nearAiWorkspaceId: text("near_ai_workspace_id").default("").notNull(),
   nearAiLoginAccountId: text("near_ai_login_account_id").default("").notNull(),
+  nearAiOrgId: text("near_ai_org_id").default("").notNull(),
   updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });

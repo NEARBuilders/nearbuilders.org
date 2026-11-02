@@ -7,7 +7,7 @@ export default App({
   extends: "bos://dev.everything.near/everything.dev",
   platform: "2.0.0-rc.27",
   account: "nearbuilding.near",
-  domain: "preview.nearbuilders.org",
+  domain: "nearbuilders.org",
   title: "NEAR Builders",
   description: "The open platform for builders on NEAR.",
   testnet: "dev.allthethings.testnet",
@@ -59,7 +59,7 @@ export default App({
     proposals: {
       path: "plugins/proposals",
       variables: {
-        privatePluginIds: ["nearcatalog", "projects", "events"],
+        privatePluginIds: ["nearcatalog", "nearcatalog-listing", "projects", "events"],
       },
       secrets: ["PROPOSALS_DATABASE_URL"],
     },
@@ -102,6 +102,23 @@ export default App({
       variables: {
         clientName: "nearbuilders.org",
       },
+    },
+    storage: {
+      extends: "bos://nearbuilding.near/feedback.nearbuilders.org#plugins.storage",
+      ui: false,
+      variables: {
+        allowedContentTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+        maxUploadBytes: 5242880,
+      },
+      secrets: [
+        "STORAGE_DATABASE_URL",
+        "STORAGE_ENDPOINT",
+        "STORAGE_BUCKET",
+        "STORAGE_REGION",
+        "STORAGE_PUBLIC_URL",
+        "STORAGE_ACCESS_KEY_ID",
+        "STORAGE_SECRET_ACCESS_KEY",
+      ],
     },
   },
 });
