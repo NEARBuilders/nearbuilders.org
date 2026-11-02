@@ -608,7 +608,7 @@ describe.sequential("Proposals plugin", () => {
       expect.arrayContaining([
         expect.objectContaining({
           action: "approval_revocation_started",
-          actor: "admin",
+          actor: "admin.near",
           actorLabel: "admin",
         }),
       ]),
@@ -671,7 +671,7 @@ describe.sequential("Proposals plugin", () => {
     });
     expect(audit.data[0]).toMatchObject({
       action: "reopened",
-      actor: "admin",
+      actor: "admin.near",
       actorLabel: "admin",
     });
 
@@ -973,7 +973,7 @@ describe.sequential("Proposals plugin", () => {
       pluginId: "builders",
       entityId: input.entityId,
       action: "approved",
-      actor: "admin",
+      actor: "admin.near",
       actorLabel: "admin",
       proposal: {
         createdBy: "alice.near",

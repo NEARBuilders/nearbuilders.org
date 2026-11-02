@@ -4,6 +4,10 @@ export const notifications = pgTable(
   "notifications",
   {
     id: text("id").primaryKey(),
+    /**
+     * The recipient's owner id (primary NEAR account, or auth user id without NEAR), despite
+     * the name (#367). Reads match it against all of the caller's ids.
+     */
     userId: text("user_id").notNull(),
     type: text("type").notNull(),
     source: text("source").notNull(),

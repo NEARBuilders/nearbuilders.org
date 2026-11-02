@@ -125,7 +125,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
         input,
       }) {
         const credits = yield* CreditService;
-        return yield* attempt(() => credits.updateSettings(input, context.userId));
+        return yield* attempt(() =>
+          credits.updateSettings(input, context.near?.primaryAccountId ?? context.userId),
+        );
       }),
 
       nearAiSessionStatus: builder.nearAiSessionStatus.use(requireAdmin).effect(function* () {
