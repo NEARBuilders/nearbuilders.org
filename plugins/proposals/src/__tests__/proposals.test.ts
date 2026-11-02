@@ -25,7 +25,11 @@ function testUser(id: string, role: string) {
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
-  const files = ["0000_concerned_blade.sql", "0001_review_evaluations_and_telegram.sql"];
+  const files = [
+    "0000_concerned_blade.sql",
+    "0001_review_evaluations_and_telegram.sql",
+    "0002_telegram_reviewer_near_account.sql",
+  ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
@@ -357,7 +361,13 @@ describe.sequential("Proposals plugin", () => {
   it("links a Telegram account through a one-time code issued to an admin", async () => {
     const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
     const code = (codeHash: string, userId: string, ttlMs = 600_000) =>
-      evaluator.createTelegramLinkCode({ codeHash, userId, userLabel: `${userId}.near`, ttlMs });
+      evaluator.createTelegramLinkCode({
+        codeHash,
+        userId,
+        nearAccount: `${userId}.near`,
+        userLabel: `${userId}.near`,
+        ttlMs,
+      });
     const claim = (codeHash: string, telegramId: number) =>
       evaluator.linkTelegramReviewer({
         codeHash,
@@ -375,6 +385,7 @@ describe.sequential("Proposals plugin", () => {
       telegramId: 111,
       telegramUsername: "tg111",
       userId: "admin-a",
+      nearAccount: "admin-a.near",
       userLabel: "admin-a.near",
     });
     await expect(claim("hash-second-000000", 111)).rejects.toThrow("expired or was already used");
@@ -412,6 +423,24 @@ describe.sequential("Proposals plugin", () => {
     await expect(adminClient().listTelegramReviewers({})).rejects.toThrow(
       "Review evaluator access required",
     );
+  });
+
+  it("links an admin with no NEAR account by user id only", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    await evaluator.createTelegramLinkCode({
+      codeHash: "hash-no-near-00000",
+      userId: "admin-no-near",
+      userLabel: "Admin",
+      ttlMs: 600_000,
+    });
+    const linked = await evaluator.linkTelegramReviewer({
+      codeHash: "hash-no-near-00000",
+      telegramId: 666,
+      telegramUsername: null,
+      telegramName: null,
+    });
+    expect(linked.data).toMatchObject({ userId: "admin-no-near", nearAccount: null });
+    await evaluator.removeTelegramReviewer({ telegramId: 666 });
   });
 
   it("answers concurrent links for the same admin with a clear error", async () => {
