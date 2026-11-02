@@ -5,6 +5,7 @@ import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
+import { ownerFromContext } from "./lib/owner";
 import { BookmarkService, BookmarkServiceLive } from "./services/bookmarks";
 
 export default createPlugin({
@@ -34,11 +35,15 @@ export default createPlugin({
     return {
       bookmark: builder.bookmark.use(requireAuth).effect(function* ({ input, context }) {
         const bookmarks = yield* BookmarkService;
-        return yield* Effect.promise(() => bookmarks.bookmark(input.entityId, context.userId!));
+        return yield* Effect.promise(() =>
+          bookmarks.bookmark(input.entityId, ownerFromContext(context)),
+        );
       }),
       unbookmark: builder.unbookmark.use(requireAuth).effect(function* ({ input, context }) {
         const bookmarks = yield* BookmarkService;
-        return yield* Effect.promise(() => bookmarks.unbookmark(input.entityId, context.userId!));
+        return yield* Effect.promise(() =>
+          bookmarks.unbookmark(input.entityId, ownerFromContext(context)),
+        );
       }),
       getUserBookmark: builder.getUserBookmark.use(requireAuth).effect(function* ({
         input,
@@ -46,7 +51,7 @@ export default createPlugin({
       }) {
         const bookmarks = yield* BookmarkService;
         return yield* Effect.promise(() =>
-          bookmarks.getUserBookmark(input.entityId, context.userId!),
+          bookmarks.getUserBookmark(input.entityId, ownerFromContext(context)),
         );
       }),
     };

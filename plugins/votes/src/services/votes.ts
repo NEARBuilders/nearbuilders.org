@@ -1,10 +1,11 @@
 import { MemoryPublisher } from "@orpc/publisher/memory";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import type { z } from "zod";
 import type { VoteEventSchema } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import { upvotes } from "../db/schema";
+import { type Owner, ownedBy } from "../lib/owner";
 
 type VoteEventDetail = z.infer<typeof VoteEventSchema>;
 
@@ -17,22 +18,52 @@ function generateId(): string {
 }
 
 function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
+  const voted = (owner: Owner) => ownedBy(upvotes, owner);
+
+  /**
+   * Moves the caller's legacy votes (user id only) onto their primary account, dropping any
+   * that duplicate a vote one of their accounts already holds. This is the backfill for
+   * #329: it runs as each voter comes back, since the auth DB is never read directly.
+   */
+  const claimLegacyVotes = async (owner: Owner) => {
+    const primary = owner.accounts[0];
+    if (!primary || !owner.userId) return;
+    const legacy = and(eq(upvotes.userId, owner.userId), isNull(upvotes.nearAccount));
+    const alreadyVoted = db
+      .select({ entityId: upvotes.entityId })
+      .from(upvotes)
+      .where(inArray(upvotes.nearAccount, owner.accounts));
+    await db.delete(upvotes).where(and(legacy, inArray(upvotes.entityId, alreadyVoted)));
+    await db.update(upvotes).set({ nearAccount: primary }).where(legacy);
+  };
+
   return {
-    async upvote(entityId: string, userId: string) {
-      try {
-        await db.insert(upvotes).values({
-          id: generateId(),
-          entityId,
-          userId,
-        });
-      } catch (error) {
-        const [existing] = await db
-          .select({ id: upvotes.id })
-          .from(upvotes)
-          .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)))
-          .limit(1);
-        if (!existing) throw error;
+    async upvote(entityId: string, owner: Owner) {
+      await claimLegacyVotes(owner);
+      const [existing] = await db
+        .select({ id: upvotes.id })
+        .from(upvotes)
+        .where(and(eq(upvotes.entityId, entityId), voted(owner)))
+        .limit(1);
+      if (!existing) {
+        try {
+          await db.insert(upvotes).values({
+            id: generateId(),
+            entityId,
+            nearAccount: owner.accounts[0] ?? null,
+            userId: owner.userId,
+          });
+        } catch (error) {
+          // A concurrent upvote from the same voter won the unique index.
+          const [raced] = await db
+            .select({ id: upvotes.id })
+            .from(upvotes)
+            .where(and(eq(upvotes.entityId, entityId), voted(owner)))
+            .limit(1);
+          if (!raced) throw error;
+        }
       }
+      const userId = owner.userId;
 
       const [result] = await db
         .select({ count: count() })
@@ -52,10 +83,10 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
       return { entityId, userId, totalCount };
     },
 
-    async downvote(entityId: string, userId: string) {
-      await db
-        .delete(upvotes)
-        .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)));
+    async downvote(entityId: string, owner: Owner) {
+      await claimLegacyVotes(owner);
+      await db.delete(upvotes).where(and(eq(upvotes.entityId, entityId), voted(owner)));
+      const userId = owner.userId;
 
       const [result] = await db
         .select({ count: count() })
@@ -84,11 +115,12 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
       return { entityId, totalCount: result?.count ?? 0 };
     },
 
-    async getUserVote(entityId: string, userId: string) {
+    async getUserVote(entityId: string, owner: Owner) {
+      await claimLegacyVotes(owner);
       const [result] = await db
         .select({ count: count() })
         .from(upvotes)
-        .where(and(eq(upvotes.entityId, entityId), eq(upvotes.userId, userId)));
+        .where(and(eq(upvotes.entityId, entityId), voted(owner)));
       return { entityId, hasUpvote: (result?.count ?? 0) > 0 };
     },
 
@@ -113,15 +145,16 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
       return map;
     },
 
-    async getUserVotes(entityIds: string[], userId: string) {
+    async getUserVotes(entityIds: string[], owner: Owner) {
       if (entityIds.length === 0) return {};
+      await claimLegacyVotes(owner);
       const results = await db
         .select({
           entityId: upvotes.entityId,
           count: count(),
         })
         .from(upvotes)
-        .where(and(inArray(upvotes.entityId, entityIds), eq(upvotes.userId, userId)))
+        .where(and(inArray(upvotes.entityId, entityIds), voted(owner)))
         .groupBy(upvotes.entityId);
 
       const map: Record<string, { entityId: string; hasUpvote: boolean }> = {};
@@ -146,7 +179,7 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
       const data = records.slice(0, pageLimit).map((r: any) => ({
         id: r.id,
         entityId: r.entityId,
-        userId: r.userId,
+        userId: r.userId ?? "",
         createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
       }));
 
