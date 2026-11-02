@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { eventParticipants, events } from "../db/schema";
@@ -117,6 +117,11 @@ function eventWriteError(error: unknown) {
 export class EventService extends Context.Service<
   EventService,
   {
+    /**
+     * Re-keys rows the caller owns under their auth user id onto their primary NEAR account
+     * (#366), so they survive the shared auth DB reissuing user ids. Idempotent.
+     */
+    claimUserIdRows: (userId: string, ownerId: string) => Effect.Effect<void>;
     listEvents: (
       input: {
         ownerId?: string;
@@ -306,6 +311,30 @@ export const EventServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
+      claimUserIdRows: (userId, ownerId) =>
+        Effect.promise(() =>
+          db.transaction(async (tx: any) => {
+            await tx.update(events).set({ ownerId }).where(eq(events.ownerId, userId));
+            // A participation already held under the account wins over the user-id one.
+            const heldByAccount = tx
+              .select({ eventId: eventParticipants.eventId })
+              .from(eventParticipants)
+              .where(eq(eventParticipants.userId, ownerId));
+            await tx
+              .delete(eventParticipants)
+              .where(
+                and(
+                  eq(eventParticipants.userId, userId),
+                  inArray(eventParticipants.eventId, heldByAccount),
+                ),
+              );
+            await tx
+              .update(eventParticipants)
+              .set({ userId: ownerId })
+              .where(eq(eventParticipants.userId, userId));
+          }),
+        ),
+
       listEvents: (input, userId, alternateUserId, userRole) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);

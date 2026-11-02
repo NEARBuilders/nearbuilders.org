@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { Cause, Effect, Layer } from "effect";
+import { Cause, Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
@@ -54,6 +54,24 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
+    // Rows a caller owns under their auth user id move to their primary NEAR account the first
+    // time they act with one linked (#366); remembered per process so it runs once per user.
+    const claimedUserIds = new Set<string>();
+    const claimUserIdRows = async (context: {
+      userId?: string | null;
+      near?: { primaryAccountId?: string | null } | null;
+      "effect/context"?: unknown;
+    }) => {
+      const userId = context.userId;
+      const ownerId = context.near?.primaryAccountId;
+      if (!userId || !ownerId || ownerId === userId) return;
+      const key = `${userId}\u0000${ownerId}`;
+      if (claimedUserIds.has(key)) return;
+      const service = Context.get(context["effect/context"] as never, ProjectService);
+      await Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      claimedUserIds.add(key);
+    };
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -64,6 +82,7 @@ export default createPlugin({
           },
         });
       }
+      await claimUserIdRows(context);
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
