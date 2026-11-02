@@ -1031,6 +1031,63 @@ describe.sequential("Proposals plugin", () => {
     expect(withdrawn.data.reviewStatus).toBe("removed");
   });
 
+  it("keeps proposals visible and withdrawable after a primary switch (#363)", async () => {
+    const switched = () =>
+      loaded.createClient({
+        userId: "user-alice",
+        near: {
+          primaryAccountId: "alice-new.near",
+          linkedAccounts: [
+            { accountId: "alice-new.near", network: "mainnet", publicKey: "", isPrimary: true },
+            { accountId: "alice.near", network: "mainnet", publicKey: "", isPrimary: false },
+          ],
+          hasNearAccount: true,
+        },
+        user: testUser("user-alice", "member"),
+        allowPrivateSubmission: true,
+        resubmissionPolicy: "rejected-only",
+      });
+
+    // A private-plugin proposal created under the old primary stays visible.
+    await aliceClient().propose({
+      pluginId: "projects",
+      entityId: "switch-visible-project",
+      payload: { title: "Visible after switch" },
+      idempotencyKey: "switch-visible",
+    });
+    const visible = await switched().getProposals({ pluginId: "projects", limit: 100 });
+    expect(visible.data.map((p) => p.entityId)).toContain("switch-visible-project");
+
+    // And the creator can still withdraw it.
+    const proposed = await aliceClient().propose({
+      pluginId: "builders",
+      entityId: "switch-withdraw.near",
+      payload: { name: "Switch Withdraw" },
+      idempotencyKey: "switch-withdraw",
+    });
+    const withdrawn = await switched().withdraw({
+      pluginId: "builders",
+      entityId: "switch-withdraw.near",
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    expect(withdrawn.data.reviewStatus).toBe("removed");
+
+    // A nomination for one of the caller's linked accounts is theirs to withdraw too.
+    const forOldAccount = await bobClient().propose({
+      pluginId: "builders",
+      entityId: "alice.near",
+      payload: { name: "Alice" },
+      idempotencyKey: "switch-subject",
+    });
+    await expect(
+      switched().withdraw({
+        pluginId: "builders",
+        entityId: "alice.near",
+        expectedUpdatedAt: forOldAccount.data.updatedAt,
+      }),
+    ).resolves.toMatchObject({ data: { reviewStatus: "removed" } });
+  });
+
   it("rejects withdrawing a proposal that is no longer pending", async () => {
     const input = {
       pluginId: "builders",
