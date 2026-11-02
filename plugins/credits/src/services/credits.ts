@@ -137,24 +137,29 @@ export function createCreditMethods(
     };
   };
 
-  const findClaim = async (input: { nearAccountId: string | null; userId: string }) => {
+  /**
+   * The caller's claim: one made under any of their NEAR accounts (primary first, then linked,
+   * #365) or with their user id. Preferring the account order keeps the result stable when a
+   * reissued user id and an old linked account point at different rows.
+   */
+  const findClaim = async (input: { nearAccountIds: readonly string[]; userId: string }) => {
+    const accounts = input.nearAccountIds.filter(Boolean);
     const conditions = [eq(creditClaims.userId, input.userId)];
-    if (input.nearAccountId) {
-      conditions.push(eq(creditClaims.nearAccountId, input.nearAccountId));
-    }
+    if (accounts.length > 0) conditions.push(inArray(creditClaims.nearAccountId, [...accounts]));
     const rows = await db
       .select()
       .from(creditClaims)
       .where(or(...conditions));
-    return (
-      (input.nearAccountId && rows.find((row) => row.nearAccountId === input.nearAccountId)) ||
-      rows[0] ||
-      null
-    );
+    for (const account of accounts) {
+      const match = rows.find((row) => row.nearAccountId === account);
+      if (match) return match;
+    }
+    return rows[0] ?? null;
   };
 
   const acquireClaim = async (input: {
     nearAccountId: string;
+    linkedAccountIds?: readonly string[];
     userId: string;
     ip: string | null;
     amountCents: number;
@@ -200,7 +205,10 @@ export function createCreditMethods(
       throw error;
     }
 
-    const existing = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+    const existing = await findClaim({
+      nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+      userId: input.userId,
+    });
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
     if (existing && existing.nearAccountId !== input.nearAccountId) {
       throw conflict(`Credits were already claimed with ${existing.nearAccountId}`);
@@ -267,9 +275,13 @@ export function createCreditMethods(
       return { settings: settingsToDto(row) };
     },
 
-    async getStatus(nearAccountId: string | null, userId: string, eligibility: CreditEligibility) {
+    async getStatus(
+      nearAccountIds: readonly string[],
+      userId: string,
+      eligibility: CreditEligibility,
+    ) {
       const { row, window } = await currentWindow();
-      const claim = await findClaim({ nearAccountId, userId });
+      const claim = await findClaim({ nearAccountIds, userId });
       return {
         available: window.open,
         statusReason: window.open ? null : window.statusReason,
@@ -358,11 +370,20 @@ export function createCreditMethods(
 
     async claim(input: {
       nearAccountId: string;
+      linkedAccountIds?: readonly string[];
       userId: string;
       ip: string | null;
       eligibility: CreditEligibility;
     }) {
       const { window } = await currentWindow();
+      // One claim per person: a claim under another of their linked accounts counts (#365).
+      const prior = await findClaim({
+        nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+        userId: input.userId,
+      });
+      if (prior && prior.nearAccountId !== input.nearAccountId) {
+        throw conflict(`Credits were already claimed with ${prior.nearAccountId}`);
+      }
       if (!window.open) throw new ORPCError("FORBIDDEN", { message: window.reason });
       if (input.eligibility !== "eligible") {
         throw new ORPCError("FORBIDDEN", {
@@ -411,8 +432,8 @@ export function createCreditMethods(
       return { key: created.key, claim: toClaim(issued, now()) };
     },
 
-    async getUsage(input: { nearAccountId: string | null; userId: string }) {
-      const claim = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+    async getUsage(input: { nearAccountIds: readonly string[]; userId: string }) {
+      const claim = await findClaim({ nearAccountIds: input.nearAccountIds, userId: input.userId });
       if (!claim?.keyId) return { usage: null };
       const status = claimStatus(claim, now());
       if (status !== "issued" && status !== "expired") return { usage: null };

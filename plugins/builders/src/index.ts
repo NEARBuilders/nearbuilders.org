@@ -22,6 +22,15 @@ const toORPCError = (defect: unknown) =>
 const runService = <A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) =>
   effect.pipe(Effect.catchDefect((defect) => Effect.fail(toORPCError(defect))));
 
+/** The caller's linked NEAR accounts, for finding their own records across all of them (#365). */
+function linkedAccountIds(context: {
+  near?: { linkedAccounts?: Array<{ accountId?: string | null }> | null } | null;
+}): string[] {
+  return (context.near?.linkedAccounts ?? [])
+    .map((account) => account.accountId)
+    .filter((id): id is string => Boolean(id));
+}
+
 export default createPlugin({
   variables: z.object({
     nominationJoinBaseUrl: z.string().url().default("https://nearbuilders.org"),
@@ -289,7 +298,11 @@ export default createPlugin({
       }) {
         const builders = yield* BuilderService;
         const result = yield* runService(
-          builders.getBuilderByUserId(context.userId, context.near?.primaryAccountId ?? undefined),
+          builders.getBuilderByUserId(
+            context.userId,
+            context.near?.primaryAccountId ?? undefined,
+            linkedAccountIds(context),
+          ),
         );
         return { data: result };
       }),
@@ -303,6 +316,7 @@ export default createPlugin({
               {
                 userId: context.userId,
                 walletAddress: context.near?.primaryAccountId ?? undefined,
+                linkedAccounts: linkedAccountIds(context),
               },
               true,
             ),
@@ -319,6 +333,7 @@ export default createPlugin({
             {
               userId: context.userId,
               walletAddress: context.near?.primaryAccountId ?? undefined,
+              linkedAccounts: linkedAccountIds(context),
             },
             false,
           ),

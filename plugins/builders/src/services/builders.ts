@@ -139,6 +139,30 @@ function isBuilderOwner(
   );
 }
 
+type OwnBuilderViewer = { userId: string; walletAddress?: string; linkedAccounts?: string[] };
+
+/**
+ * The caller's own builder row (#365): the one for their primary account, else one for
+ * another linked account (in link order), else one carrying their user id. Deterministic, so
+ * a user with profiles under two of their accounts always gets the primary one.
+ */
+async function findOwnBuilderRow(db: any, viewer: OwnBuilderViewer) {
+  const accounts = [viewer.walletAddress, ...(viewer.linkedAccounts ?? [])].filter(
+    (id): id is string => Boolean(id),
+  );
+  const conditions: any[] = [eq(builders.userId, viewer.userId)];
+  if (accounts.length > 0) conditions.push(inArray(builders.nearAccount, accounts));
+  const rows: any[] = await db
+    .select()
+    .from(builders)
+    .where(or(...conditions));
+  const rank = (row: any) => {
+    const index = accounts.indexOf(row.nearAccount);
+    return index === -1 ? accounts.length : index;
+  };
+  return rows.sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
 function rowToBuilder(row: any): Builder {
   return {
     id: row.id,
@@ -346,6 +370,7 @@ export class BuilderService extends Context.Service<
     getBuilderByUserId: (
       userId: string,
       walletAddress?: string,
+      linkedAccounts?: string[],
     ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
 
     getBuildersByUserIds: (
@@ -353,7 +378,7 @@ export class BuilderService extends Context.Service<
     ) => Effect.Effect<Builder[], ORPCError<string, unknown>>;
 
     setBuilderWithdrawn: (
-      viewer: { userId: string; walletAddress?: string },
+      viewer: OwnBuilderViewer,
       withdrawn: boolean,
     ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
@@ -524,18 +549,10 @@ export const BuilderServiceLive = Layer.effect(
           return rowToBuilder(row);
         }),
 
-      getBuilderByUserId: (userId, walletAddress) =>
+      getBuilderByUserId: (userId, walletAddress, linkedAccounts) =>
         Effect.gen(function* () {
-          const conditions: any[] = [];
-          if (walletAddress) conditions.push(eq(builders.nearAccount, walletAddress));
-          conditions.push(eq(builders.userId, userId));
-
-          const [row] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(and(or(...conditions)))
-              .limit(1),
+          const row = yield* Effect.promise(() =>
+            findOwnBuilderRow(db, { userId, walletAddress, linkedAccounts }),
           );
           return row ? rowToBuilder(row) : null;
         }),
@@ -751,16 +768,7 @@ export const BuilderServiceLive = Layer.effect(
 
       setBuilderWithdrawn: (viewer, withdrawn) =>
         Effect.gen(function* () {
-          const conditions: any[] = [eq(builders.userId, viewer.userId)];
-          if (viewer.walletAddress) conditions.push(eq(builders.nearAccount, viewer.walletAddress));
-
-          const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(or(...conditions))
-              .limit(1),
-          );
+          const existing = yield* Effect.promise(() => findOwnBuilderRow(db, viewer));
 
           if (!existing) {
             return yield* Effect.fail(
