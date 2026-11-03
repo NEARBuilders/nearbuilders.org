@@ -19,8 +19,24 @@ class NotificationPublisher extends Context.Service<
   MemoryPublisher<NotificationEvents>
 >()("notifications/Publisher") {}
 
+class NotificationStreamConfig extends Context.Service<
+  NotificationStreamConfig,
+  { maxAgeMs: number }
+>()("notifications/StreamConfig") {}
+
 export default createPlugin({
-  variables: z.object({}),
+  variables: z.object({
+    /**
+     * How long one notification stream stays open. The caller's ids are fixed when the
+     * stream opens, so it is closed after this long and the client reopens it with a fresh
+     * context; an account unlinked mid-stream stops receiving within this window.
+     */
+    streamMaxAgeMs: z
+      .number()
+      .int()
+      .positive()
+      .default(10 * 60_000),
+  }),
 
   secrets: z.object({
     NOTIFICATIONS_DATABASE_URL: z.string().default("pglite:.bos/notifications/:memory:"),
@@ -43,6 +59,7 @@ export default createPlugin({
       return Layer.mergeAll(
         NotificationServiceLive.pipe(Layer.provide(Database)),
         Layer.succeed(NotificationPublisher, publisher),
+        Layer.succeed(NotificationStreamConfig, { maxAgeMs: config.variables.streamMaxAgeMs }),
       );
     }),
 
@@ -85,7 +102,11 @@ export default createPlugin({
         const serverCall =
           (context as typeof context & { serverNotification?: boolean }).serverNotification ===
           true;
-        if (!serverCall && input.userId !== context.userId && context.user?.role !== "admin") {
+        if (
+          !serverCall &&
+          !recipientIds(context).includes(input.userId) &&
+          context.user?.role !== "admin"
+        ) {
           return yield* Effect.fail(
             new ORPCError("FORBIDDEN", { message: "Cannot notify another user" }),
           );
@@ -120,11 +141,26 @@ export default createPlugin({
         .use(requireAuth)
         .handler(async function* ({ context, signal, lastEventId }) {
           const publisher = Context.get(context["effect/context"], NotificationPublisher);
+          const { maxAgeMs } = Context.get(context["effect/context"], NotificationStreamConfig);
           const mine = recipientIds(context);
-          const iterator = publisher.subscribe("notification", { signal, lastEventId });
-          for await (const event of iterator) {
-            if (!mine.includes(event.userId)) continue;
-            yield event;
+          // `mine` is a snapshot of the caller's accounts, so end the stream after maxAgeMs
+          // and let the client reconnect with its current accounts.
+          const expiry = new AbortController();
+          // Spread expiries out so clients that connected together don't all reconnect at once.
+          const timer = setTimeout(() => expiry.abort(), maxAgeMs * (0.8 + Math.random() * 0.2));
+          const iterator = publisher.subscribe("notification", {
+            signal: signal ? AbortSignal.any([signal, expiry.signal]) : expiry.signal,
+            lastEventId,
+          });
+          try {
+            for await (const event of iterator) {
+              if (!mine.includes(event.userId)) continue;
+              yield event;
+            }
+          } catch (error) {
+            if (error !== expiry.signal.reason || signal?.aborted) throw error;
+          } finally {
+            clearTimeout(timer);
           }
         }),
     };
