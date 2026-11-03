@@ -142,7 +142,7 @@ export function createCreditMethods(
    * #365) or with their user id. Preferring the account order keeps the result stable when a
    * reissued user id and an old linked account point at different rows.
    */
-  const findClaim = async (input: { nearAccountIds: readonly string[]; userId: string }) => {
+  const findClaims = async (input: { nearAccountIds: readonly string[]; userId: string }) => {
     const accounts = input.nearAccountIds.filter(Boolean);
     const conditions = [eq(creditClaims.userId, input.userId)];
     if (accounts.length > 0) conditions.push(inArray(creditClaims.nearAccountId, [...accounts]));
@@ -150,12 +150,24 @@ export function createCreditMethods(
       .select()
       .from(creditClaims)
       .where(or(...conditions));
-    for (const account of accounts) {
-      const match = rows.find((row) => row.nearAccountId === account);
-      if (match) return match;
-    }
-    return rows[0] ?? null;
+    const rank = (row: CreditClaimRow) => {
+      const index = accounts.indexOf(row.nearAccountId);
+      return index === -1 ? accounts.length : index;
+    };
+    return rows.sort((a, b) => rank(a) - rank(b));
   };
+
+  const findClaim = async (input: { nearAccountIds: readonly string[]; userId: string }) =>
+    (await findClaims(input))[0] ?? null;
+
+  const staleBefore = () => new Date(now().getTime() - STALE_PENDING_MS);
+  const isRetryable = (row: CreditClaimRow) =>
+    row.status === "failed" || (row.status === "pending" && row.updatedAt < staleBefore());
+  const retryableStatus = () =>
+    or(
+      eq(creditClaims.status, "failed"),
+      and(eq(creditClaims.status, "pending"), lt(creditClaims.updatedAt, staleBefore())),
+    );
 
   const acquireClaim = async (input: {
     nearAccountId: string;
@@ -164,6 +176,8 @@ export function createCreditMethods(
     ip: string | null;
     amountCents: number;
     keyExpiresAt: Date | null;
+    /** A failed or stale claim under another of the caller's accounts, to retry instead. */
+    takeover?: CreditClaimRow | null;
   }) => {
     const values = {
       userId: input.userId,
@@ -176,30 +190,29 @@ export function createCreditMethods(
     };
     const alreadyClaimed = conflict("API credits were already claimed for this account");
     try {
-      const [inserted] = await db
-        .insert(creditClaims)
-        .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
-        .onConflictDoNothing()
-        .returning();
-      if (inserted) return { row: inserted, retry: false };
+      if (input.takeover) {
+        // Retry it in place: the key name and unique slots stay with the account it was made under.
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.id, input.takeover.id), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      } else {
+        const [inserted] = await db
+          .insert(creditClaims)
+          .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
+          .onConflictDoNothing()
+          .returning();
+        if (inserted) return { row: inserted, retry: false };
 
-      const [retried] = await db
-        .update(creditClaims)
-        .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
-        .where(
-          and(
-            eq(creditClaims.nearAccountId, input.nearAccountId),
-            or(
-              eq(creditClaims.status, "failed"),
-              and(
-                eq(creditClaims.status, "pending"),
-                lt(creditClaims.updatedAt, new Date(now().getTime() - STALE_PENDING_MS)),
-              ),
-            ),
-          ),
-        )
-        .returning();
-      if (retried) return { row: retried, retry: true };
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.nearAccountId, input.nearAccountId), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      }
     } catch (error) {
       if (isUniqueViolation(error)) throw alreadyClaimed;
       throw error;
@@ -377,13 +390,21 @@ export function createCreditMethods(
     }) {
       const { window } = await currentWindow();
       // One claim per person: a claim under another of their linked accounts counts (#365).
-      const prior = await findClaim({
+      // Only one that got (or had) a key blocks; a failed or stale one is retried in place.
+      const prior = await findClaims({
         nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
         userId: input.userId,
       });
-      if (prior && prior.nearAccountId !== input.nearAccountId) {
-        throw conflict(`Credits were already claimed with ${prior.nearAccountId}`);
+      const elsewhere = prior.filter((row) => row.nearAccountId !== input.nearAccountId);
+      const claimed = elsewhere.find((row) => row.status === "issued" || row.status === "revoked");
+      if (claimed) throw conflict(`Credits were already claimed with ${claimed.nearAccountId}`);
+      if (elsewhere.some((row) => !isRetryable(row))) {
+        throw conflict("Your claim is already being processed");
       }
+      const hasOwnRow = prior.length > elsewhere.length;
+      const takeover = hasOwnRow
+        ? null
+        : (elsewhere.find((row) => row.userId === input.userId) ?? elsewhere[0] ?? null);
       if (!window.open) throw new ORPCError("FORBIDDEN", { message: window.reason });
       if (input.eligibility !== "eligible") {
         throw new ORPCError("FORBIDDEN", {
@@ -395,8 +416,9 @@ export function createCreditMethods(
         ...input,
         amountCents: window.amountCents,
         keyExpiresAt: window.keyExpiresAt,
+        takeover,
       });
-      const name = keyName(input.nearAccountId, row.id);
+      const name = keyName(row.nearAccountId, row.id);
       let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
