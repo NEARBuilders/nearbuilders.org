@@ -273,7 +273,10 @@ export function toCatalogListingSend(listing: Listing) {
     sendError: listing.sendError,
     sendAttemptedAt: listing.sendAttemptedAt,
     sentAt: listing.sentAt,
-    teamContact: listing.kind === "project" ? Boolean(readString(record.contact)) : null,
+    teamContact:
+      listing.kind === "project"
+        ? Boolean(readString(record.contact) || readString(record.telegram))
+        : null,
   };
 }
 

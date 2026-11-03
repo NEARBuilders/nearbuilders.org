@@ -859,6 +859,16 @@ describe("NEAR Catalog listing approval", { timeout: 20_000 }, () => {
         sendAction: "remove",
       });
       expect(removed?.sendError).toMatch(/no partner remove route/);
+
+      const sends = await api.client(admin()).listCatalogListingSends();
+      expect(sends.data.map((send) => send.entityId)).toEqual(["project-1"]);
+      await expect(
+        api.client(admin()).retryCatalogListingSend({ kind: "person", entityId: "maker.testnet" }),
+      ).rejects.toThrow(/Nothing to send/);
+      await expect(
+        api.client(admin()).retryCatalogListingSend({ kind: "project", entityId: "project-1" }),
+      ).rejects.toThrow(/Nothing to send/);
+      expect(requests).toHaveLength(1);
     });
 
     it("never sends a removal for a listing that was never sent", async () => {

@@ -421,7 +421,8 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
           );
         }
         const notSent = isListedRow(existing) && !existing.sendStatus;
-        if (existing.sendStatus !== "failed" && !notSent) {
+        const canSend = existing.kind === "project" && existing.sendAction !== "remove";
+        if (!canSend || (existing.sendStatus !== "failed" && !notSent)) {
           return yield* Effect.fail(
             new ORPCError("BAD_REQUEST", { message: "Nothing to send for this listing" }),
           );
@@ -442,12 +443,15 @@ export function createListingMethods(db: Database, submitter: CatalogSubmitClien
             .select()
             .from(nearcatalogListings)
             .where(
-              or(
-                isNotNull(nearcatalogListings.sendStatus),
-                and(
-                  isNotNull(nearcatalogListings.record),
-                  inArray(nearcatalogListings.status, ["approved", "published"]),
-                  isNull(nearcatalogListings.sendStatus),
+              and(
+                eq(nearcatalogListings.kind, "project"),
+                or(
+                  isNotNull(nearcatalogListings.sendStatus),
+                  and(
+                    isNotNull(nearcatalogListings.record),
+                    inArray(nearcatalogListings.status, ["approved", "published"]),
+                    isNull(nearcatalogListings.sendStatus),
+                  ),
                 ),
               ),
             )

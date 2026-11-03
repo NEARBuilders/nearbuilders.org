@@ -27,6 +27,7 @@ function sendLabel(send: CatalogSend) {
 }
 
 function canRetry(send: CatalogSend) {
+  if (send.kind !== "project" || send.sendAction === "remove") return false;
   return send.sendStatus === "failed" || send.sendStatus === null;
 }
 
