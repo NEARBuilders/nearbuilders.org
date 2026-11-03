@@ -5,6 +5,7 @@ import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { EventService, EventServiceLive } from "./services/events";
 import { LumaService, parseLumaApiKeys } from "./services/luma";
 
@@ -52,23 +53,13 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
-    // Rows a caller owns under their auth user id move to their primary NEAR account the first
-    // time they act with one linked (#366); remembered per process so it runs once per user.
-    const claimedUserIds = new Set<string>();
-    const claimUserIdRows = async (context: {
-      userId?: string | null;
-      near?: { primaryAccountId?: string | null } | null;
-      "effect/context"?: unknown;
-    }) => {
-      const userId = context.userId;
-      const ownerId = context.near?.primaryAccountId;
-      if (!userId || !ownerId || ownerId === userId) return;
-      const key = `${userId}\u0000${ownerId}`;
-      if (claimedUserIds.has(key)) return;
-      const service = Context.get(context["effect/context"] as never, EventService);
-      await Effect.runPromise(service.claimUserIdRows(userId, ownerId));
-      claimedUserIds.add(key);
-    };
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Events",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, EventService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {

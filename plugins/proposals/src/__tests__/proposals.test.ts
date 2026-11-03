@@ -1061,6 +1061,51 @@ describe.sequential("Proposals plugin", () => {
     expect(withdrawn.data.reviewStatus).toBe("removed");
   });
 
+  it("lets the original submitter resubmit after linking NEAR (#366)", async () => {
+    const as = (userId: string, account?: string) =>
+      loaded.createClient({
+        userId,
+        ...(account ? { near: testNear(account) } : {}),
+        user: testUser(userId, "member"),
+      });
+    const input = {
+      pluginId: "builders",
+      entityId: "resubmit-after-link.near",
+      payload: { name: "Before" },
+    };
+    // Proposed before linking NEAR, so created_by is the user id.
+    await as("user-gale").propose({ ...input, idempotencyKey: "resubmit-before-link" });
+    // The first call after linking is the resubmission itself.
+    const resubmitted = await as("user-gale", "gale.near").propose({
+      ...input,
+      payload: { name: "After" },
+      idempotencyKey: "resubmit-after-link",
+    });
+    expect(resubmitted.data.createdBy).toBe("gale.near");
+    expect(resubmitted.data.submissionCount).toBe(2);
+  });
+
+  it("matches the original submitter by user id when the rows were not re-keyed (#366)", async () => {
+    const input = {
+      pluginId: "builders",
+      entityId: "resubmit-unclaimed.near",
+      payload: { name: "Before" },
+    };
+    await loaded
+      .createClient({ userId: "user-hale", user: testUser("user-hale", "member") })
+      .propose({ ...input, idempotencyKey: "resubmit-unclaimed-before" });
+    // A request that also carries an API key skips the re-key, so created_by is still the user id.
+    const resubmitted = await loaded
+      .createClient({
+        userId: "user-hale",
+        near: testNear("hale.near"),
+        user: testUser("user-hale", "member"),
+        apiKey: { id: "key-hale", permissions: {} },
+      } as never)
+      .propose({ ...input, payload: { name: "After" }, idempotencyKey: "resubmit-unclaimed" });
+    expect(resubmitted.data.submissionCount).toBe(2);
+  });
+
   it("rejects withdrawing a proposal that is no longer pending", async () => {
     const input = {
       pluginId: "builders",

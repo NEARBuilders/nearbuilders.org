@@ -6,6 +6,7 @@ import { z } from "zod";
 import { contract, type ProposalEventSchema, REVIEW_EVALUATOR } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { ProposalService, ProposalServiceLive } from "./services/proposals";
 
 type ProposalEvent = z.infer<typeof ProposalEventSchema>;
@@ -77,23 +78,13 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
-    // Rows a caller owns under their auth user id move to their primary NEAR account the first
-    // time they act with one linked (#366); remembered per process so it runs once per user.
-    const claimedUserIds = new Set<string>();
-    const claimUserIdRows = async (context: {
-      userId?: string | null;
-      near?: { primaryAccountId?: string | null } | null;
-      "effect/context"?: unknown;
-    }) => {
-      const userId = context.userId;
-      const ownerId = context.near?.primaryAccountId;
-      if (!userId || !ownerId || ownerId === userId) return;
-      const key = `${userId}\u0000${ownerId}`;
-      if (claimedUserIds.has(key)) return;
-      const service = Context.get(context["effect/context"] as never, ProposalService);
-      await Effect.runPromise(service.claimUserIdRows(userId, ownerId));
-      claimedUserIds.add(key);
-    };
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Proposals",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, ProposalService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
@@ -138,6 +129,9 @@ export default createPlugin({
           data: { hint: "Sign in or provide an API key" },
         });
       }
+      // A signed-in caller's rows move too, so resubmitting after linking NEAR still matches
+      // the original submitter. API keys keep their own ids.
+      if (context.user && context.userId && !context.apiKey) await claimUserIdRows(context);
       return next({ context });
     });
 
@@ -200,6 +194,7 @@ export default createPlugin({
         const result = yield* proposal.propose({
           ...input,
           actorId,
+          alternateActorId: context.user ? (context.userId ?? undefined) : undefined,
           actor: context.user ?? undefined,
           resubmissionPolicy: context.resubmissionPolicy,
           canResubmitForOthers:

@@ -155,6 +155,8 @@ export class ProposalService extends Context.Service<
       metadata?: unknown;
       idempotencyKey?: string;
       actorId: string;
+      /** The caller's auth user id, if a row made before they linked NEAR still holds it. */
+      alternateActorId?: string;
       actor?: { name?: string; email?: string };
       resubmissionPolicy?: ResubmissionPolicy;
       canResubmitForOthers?: boolean;
@@ -434,6 +436,7 @@ export const ProposalServiceLive = Layer.effect(
           if (
             existing &&
             existing.createdBy !== input.actorId &&
+            existing.createdBy !== input.alternateActorId &&
             !input.resubmissionPolicy &&
             !input.canResubmitForOthers
           ) {
