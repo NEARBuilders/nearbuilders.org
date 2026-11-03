@@ -9,7 +9,9 @@ import { EventDetail, formatEventDate } from "@/components/events/event-detail";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useViewerOwnerIds } from "@/hooks";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import { isViewerOwner } from "@/lib/ownership";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { getAssetUrl, getSiteUrl } from "@/lib/site-url";
 
@@ -92,6 +94,7 @@ function EventDetailPage() {
   const nearAccountId = auth.near.getAccountId();
   const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
     ?.walletAddress;
+  const { ids: viewerIds } = useViewerOwnerIds();
   const viewerKey = session?.user?.id ?? "anonymous";
 
   const eventQuery = useQuery({
@@ -117,11 +120,7 @@ function EventDetailPage() {
         ? participant.userId === nearAccountId || participant.walletAddress === nearAccountId
         : false),
   );
-  const canManage =
-    event &&
-    [nearAccountId, sessionWalletAddress, session?.user?.id].some(
-      (candidate) => candidate === event.ownerId,
-    );
+  const canManage = isViewerOwner(event?.ownerId, viewerIds);
   const canParticipate = Boolean(
     session?.user && !session.user.isAnonymous && event?.status !== "cancelled",
   );
