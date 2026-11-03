@@ -1011,13 +1011,20 @@ export const ProjectServiceLive = Layer.effect(
 
           yield* syncMentions(db, id, content);
 
+          // When the caller owns the new project, their linked accounts are the owner too.
+          const ownerIds = [
+            effectiveOwnerId,
+            ...(isProjectOwner(effectiveOwnerId, userId, alternateOwnerIds)
+              ? [userId, ...(alternateOwnerIds ?? [])]
+              : []),
+          ].map((ownerId) => ownerId.toLowerCase());
           const collaboratorIds = Array.from(
             new Set(
               (input.collaborators ?? [])
                 .map((c) => c.trim())
                 .filter((c) => c.length > 0)
                 .map((c) => assertValidCollaboratorId(c))
-                .filter((c) => c !== effectiveOwnerId.toLowerCase()),
+                .filter((c) => !ownerIds.includes(c)),
             ),
           ).slice(0, 20);
 
@@ -1491,7 +1498,12 @@ export const ProjectServiceLive = Layer.effect(
               }),
             );
           }
-          if (collaboratorOwnerId === project.ownerId.toLowerCase()) {
+          // Only the owner can invite, so the inviter's ids are the owner's ids: inviting one of
+          // their own linked accounts would credit the same person twice.
+          const ownIds = [project.ownerId, inviterUserId, ...(alternateOwnerIds ?? [])]
+            .filter((id): id is string => Boolean(id))
+            .map((id) => id.toLowerCase());
+          if (ownIds.includes(collaboratorOwnerId)) {
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
                 message: "Owner is already credited on this project",

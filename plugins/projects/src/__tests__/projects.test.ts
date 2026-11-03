@@ -904,4 +904,53 @@ describe("project ownership across linked NEAR accounts (#362)", () => {
       "Edited by kim",
     );
   });
+
+  it("rejects inviting one of the owner's own linked accounts", async () => {
+    const owner = loaded.createClient(linked("lee-user", ["lee.near", "lee-alt.near"]));
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Self invite idea",
+      slug: "self-invite-idea",
+      content: "c",
+      visibility: "private",
+      collaborators: ["lee-alt.near", "max.near"],
+    });
+    expect(created.collaborators?.map((c) => c.collaboratorOwnerId)).toEqual(["max.near"]);
+
+    await expect(
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "lee-alt.near" }),
+    ).rejects.toThrow("Owner is already credited");
+    await expect(
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "LEE.near" }),
+    ).rejects.toThrow("Owner is already credited");
+
+    // After a primary switch the original owner id is still the owner.
+    const switched = loaded.createClient(linked("lee-user", ["lee-alt.near", "lee.near"]));
+    await expect(
+      switched.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "lee.near" }),
+    ).rejects.toThrow("Owner is already credited");
+    expect(
+      (
+        await switched.inviteCollaborator({
+          projectId: created.id,
+          collaboratorOwnerId: "ned.near",
+        })
+      ).status,
+    ).toBe("pending");
+
+    const admin = loaded.createClient({
+      ...linked("ada-user", ["ada.near", "ada-alt.near"]),
+      user: testUser("ada-user", "admin"),
+    });
+    const forAlt = await admin.createProject({
+      kind: "idea",
+      title: "Admin alt idea",
+      slug: "admin-alt-idea",
+      content: "c",
+      visibility: "private",
+      ownerId: "ada-alt.near",
+      collaborators: ["ada.near", "max.near"],
+    });
+    expect(forAlt.collaborators?.map((c) => c.collaboratorOwnerId)).toEqual(["max.near"]);
+  });
 });
