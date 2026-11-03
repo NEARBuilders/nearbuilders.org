@@ -35,3 +35,29 @@ export function ownedBy(columns: { nearAccount: PgColumn; userId: PgColumn }, ow
     ? (or(inArray(columns.nearAccount, owner.accounts), legacy) as SQL)
     : (legacy as SQL);
 }
+
+/** True when a DB error (or anything in its cause chain) is a Postgres unique violation. */
+export function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error;
+  while (current && typeof current === "object") {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/**
+ * Remembers which (user id, primary account) pairs have had their legacy rows claimed in this
+ * process, so read endpoints claim at most once instead of writing on every request.
+ */
+export function createClaimTracker(max = 10_000) {
+  const claimed = new Set<string>();
+  const key = (owner: Owner) => `${owner.userId}\u0000${owner.accounts[0] ?? ""}`;
+  return {
+    has: (owner: Owner) => claimed.has(key(owner)),
+    add: (owner: Owner) => {
+      if (claimed.size >= max) claimed.clear();
+      claimed.add(key(owner));
+    },
+  };
+}

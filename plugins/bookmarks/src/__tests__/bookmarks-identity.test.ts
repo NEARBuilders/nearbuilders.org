@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import Plugin from "../index";
+import { isUniqueViolation } from "../lib/owner";
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const files = ["0000_create_bookmarks.sql", "0001_account_keyed_bookmarks.sql"];
@@ -96,5 +97,22 @@ describe("bookmarks keyed on NEAR accounts (#329)", () => {
     await as("u-4").bookmark({ entityId: "p-4" });
     expect(await isBookmarked(as("u-4"), "p-4")).toBe(true);
     expect(await isBookmarked(as("u-5"), "p-4")).toBe(false);
+  });
+
+  it("bookmarks again after moving to an account that isn't linked to the old one", async () => {
+    await as("u-6", ["ivy.near"]).bookmark({ entityId: "p-6" });
+    const moved = as("u-6", ["ivy-new.near"]);
+    await moved.bookmark({ entityId: "p-6" });
+    expect(await isBookmarked(moved, "p-6")).toBe(true);
+  });
+});
+
+describe("isUniqueViolation", () => {
+  it("only matches a Postgres unique violation, including one wrapped as a cause", () => {
+    expect(isUniqueViolation({ code: "23505" })).toBe(true);
+    expect(isUniqueViolation(new Error("query failed", { cause: { code: "23505" } }))).toBe(true);
+    expect(isUniqueViolation({ code: "23503" })).toBe(false);
+    expect(isUniqueViolation(new Error("connection terminated"))).toBe(false);
+    expect(isUniqueViolation(undefined)).toBe(false);
   });
 });

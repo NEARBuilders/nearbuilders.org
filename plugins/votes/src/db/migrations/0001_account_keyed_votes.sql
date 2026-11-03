@@ -4,6 +4,10 @@ ALTER TABLE "upvotes" ADD COLUMN IF NOT EXISTS "near_account" text;
 --> statement-breakpoint
 ALTER TABLE "upvotes" ALTER COLUMN "user_id" DROP NOT NULL;
 --> statement-breakpoint
+DROP INDEX IF EXISTS "upvotes_thing_user_unique";
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "upvotes_thing_user_unique" ON "upvotes" USING btree ("thing_id","user_id") WHERE "upvotes"."near_account" is null;
+--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "upvotes_thing_near_account_unique" ON "upvotes" ("thing_id", "near_account");
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "upvotes_near_account_idx" ON "upvotes" ("near_account");

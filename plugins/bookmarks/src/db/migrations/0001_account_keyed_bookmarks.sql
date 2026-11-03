@@ -4,6 +4,10 @@ ALTER TABLE "bookmarks" ADD COLUMN IF NOT EXISTS "near_account" text;
 --> statement-breakpoint
 ALTER TABLE "bookmarks" ALTER COLUMN "user_id" DROP NOT NULL;
 --> statement-breakpoint
+DROP INDEX IF EXISTS "bookmarks_entity_user_unique";
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "bookmarks_entity_user_unique" ON "bookmarks" USING btree ("entity_id","user_id") WHERE "bookmarks"."near_account" is null;
+--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "bookmarks_entity_near_account_unique" ON "bookmarks" ("entity_id", "near_account");
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "bookmarks_near_account_idx" ON "bookmarks" ("near_account");

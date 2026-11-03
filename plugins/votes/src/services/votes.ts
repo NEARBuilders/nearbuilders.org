@@ -5,7 +5,7 @@ import type { z } from "zod";
 import type { VoteEventSchema } from "../contract";
 import { DatabaseTag } from "../db/layer";
 import { upvotes } from "../db/schema";
-import { type Owner, ownedBy } from "../lib/owner";
+import { createClaimTracker, isUniqueViolation, type Owner, ownedBy } from "../lib/owner";
 
 type VoteEventDetail = z.infer<typeof VoteEventSchema>;
 
@@ -19,6 +19,7 @@ function generateId(): string {
 
 function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
   const voted = (owner: Owner) => ownedBy(upvotes, owner);
+  const claims = createClaimTracker();
 
   /**
    * Moves the caller's legacy votes (user id only) onto their primary account, dropping any
@@ -35,6 +36,12 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
       .where(inArray(upvotes.nearAccount, owner.accounts));
     await db.delete(upvotes).where(and(legacy, inArray(upvotes.entityId, alreadyVoted)));
     await db.update(upvotes).set({ nearAccount: primary }).where(legacy);
+    claims.add(owner);
+  };
+
+  /** Read endpoints claim once per voter per process; until then they match legacy rows by user id. */
+  const claimLegacyVotesOnce = async (owner: Owner) => {
+    if (!claims.has(owner)) await claimLegacyVotes(owner);
   };
 
   return {
@@ -54,7 +61,8 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
             userId: owner.userId,
           });
         } catch (error) {
-          // A concurrent upvote from the same voter won the unique index.
+          // A concurrent upvote from the same voter won the unique index; anything else is real.
+          if (!isUniqueViolation(error)) throw error;
           const [raced] = await db
             .select({ id: upvotes.id })
             .from(upvotes)
@@ -116,7 +124,7 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
     },
 
     async getUserVote(entityId: string, owner: Owner) {
-      await claimLegacyVotes(owner);
+      await claimLegacyVotesOnce(owner);
       const [result] = await db
         .select({ count: count() })
         .from(upvotes)
@@ -147,7 +155,7 @@ function createVoteMethods(db: any, publisher: MemoryPublisher<VoteEvents>) {
 
     async getUserVotes(entityIds: string[], owner: Owner) {
       if (entityIds.length === 0) return {};
-      await claimLegacyVotes(owner);
+      await claimLegacyVotesOnce(owner);
       const results = await db
         .select({
           entityId: upvotes.entityId,

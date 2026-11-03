@@ -119,4 +119,24 @@ describe("votes keyed on NEAR accounts (#329)", () => {
     });
     expect((await plain.downvote({ entityId: "e-plain" })).totalCount).toBe(0);
   });
+
+  it("lets the same user vote again after moving to an account that isn't linked to the old one", async () => {
+    await as("u-move", ["ivy.near"]).upvote({ entityId: "e-move" });
+    // ivy.near is unlinked and a new primary takes over under the same user id.
+    const moved = as("u-move", ["ivy-new.near"]);
+    expect((await moved.upvote({ entityId: "e-move" })).totalCount).toBe(2);
+    expect(await moved.getUserVote({ entityId: "e-move" })).toMatchObject({ hasUpvote: true });
+  });
+
+  it("claims legacy votes on a read once, without breaking later reads", async () => {
+    await as("u-read").upvote({ entityId: "e-read-1" });
+    const linked = as("u-read", ["jay.near"]);
+    expect(await linked.getUserVote({ entityId: "e-read-1" })).toMatchObject({ hasUpvote: true });
+    // A legacy vote written after the read-side claim still matches by user id.
+    await as("u-read").upvote({ entityId: "e-read-2" });
+    expect(await linked.getUserVote({ entityId: "e-read-2" })).toMatchObject({ hasUpvote: true });
+    expect(
+      await as("u-read-new", ["jay.near"]).getUserVote({ entityId: "e-read-1" }),
+    ).toMatchObject({ hasUpvote: true });
+  });
 });

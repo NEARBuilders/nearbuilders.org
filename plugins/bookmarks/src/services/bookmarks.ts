@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { bookmarks } from "../db/schema";
-import { type Owner, ownedBy } from "../lib/owner";
+import { createClaimTracker, isUniqueViolation, type Owner, ownedBy } from "../lib/owner";
 
 function generateId(): string {
   return `bm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -10,6 +10,7 @@ function generateId(): string {
 
 function createBookmarkMethods(db: any) {
   const bookmarked = (owner: Owner) => ownedBy(bookmarks, owner);
+  const claims = createClaimTracker();
 
   /**
    * Moves the caller's legacy bookmarks (user id only) onto their primary account, dropping
@@ -26,6 +27,12 @@ function createBookmarkMethods(db: any) {
       .where(inArray(bookmarks.nearAccount, owner.accounts));
     await db.delete(bookmarks).where(and(legacy, inArray(bookmarks.entityId, alreadyBookmarked)));
     await db.update(bookmarks).set({ nearAccount: primary }).where(legacy);
+    claims.add(owner);
+  };
+
+  /** Read endpoints claim once per user per process; until then they match legacy rows by user id. */
+  const claimLegacyBookmarksOnce = async (owner: Owner) => {
+    if (!claims.has(owner)) await claimLegacyBookmarks(owner);
   };
 
   const findBookmark = async (entityId: string, owner: Owner) => {
@@ -48,7 +55,10 @@ function createBookmarkMethods(db: any) {
             nearAccount: owner.accounts[0] ?? null,
             userId: owner.userId,
           });
-        } catch {}
+        } catch (error) {
+          // A concurrent bookmark from the same user won the unique index; anything else is real.
+          if (!isUniqueViolation(error)) throw error;
+        }
       }
 
       return { entityId, userId: owner.userId };
@@ -62,7 +72,7 @@ function createBookmarkMethods(db: any) {
     },
 
     async getUserBookmark(entityId: string, owner: Owner) {
-      await claimLegacyBookmarks(owner);
+      await claimLegacyBookmarksOnce(owner);
       return { entityId, isBookmarked: Boolean(await findBookmark(entityId, owner)) };
     },
   };
