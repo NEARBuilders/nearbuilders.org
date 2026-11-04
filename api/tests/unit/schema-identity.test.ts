@@ -46,10 +46,10 @@ const USER_ID_WITHOUT_ACCOUNT: Record<string, string> = {
   // Holds the creator's owner id; misnamed (audit L2, #329). account_id is the app's own
   // account, not the creator's, so it is not a sibling.
   "project_apps.created_by_user_id": "#329 L2",
-  // Keyed on the bare user id until #370 lands.
+  // Keyed on the bare user id until #370 lands; remove both entries when it merges.
   "upvotes.user_id": "#359",
   "bookmarks.user_id": "#360",
-  // Keyed on the admin's user id until #371 lands.
+  // Keyed on the admin's user id until #371 lands; remove both entries when it merges.
   "telegram_link_codes.user_id": "#361",
   "telegram_reviewers.user_id": "#361",
 };
