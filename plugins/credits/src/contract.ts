@@ -25,7 +25,7 @@ export const CreditClaimSchema = z.object({
 });
 
 export const AdminCreditClaimSchema = CreditClaimSchema.extend({
-  userId: z.string(),
+  userId: z.string().nullable(),
   ip: z.string().nullable(),
   ipClaimCount: z.number().int().nonnegative(),
   error: z.string().nullable(),

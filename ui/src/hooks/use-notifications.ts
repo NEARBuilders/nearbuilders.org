@@ -1,6 +1,7 @@
+import { getEventMeta } from "@orpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useRef } from "react";
 import { useApiClient, useOrpc } from "@/app";
 import {
   addNotificationToCache,
@@ -15,13 +16,42 @@ import {
 /** Keeps the notification caches (lists + unread badge) in sync with the live SSE stream. */
 export function useNotificationStream() {
   const orpc = useOrpc();
+  const apiClient = useApiClient();
   const queryClient = useQueryClient();
-  const { data: latest } = useQuery(orpc.subscribeNotifications.liveOptions({ retry: true }));
-
-  useEffect(() => {
-    if (!latest) return;
-    addNotificationToCache(queryClient, latest);
-  }, [latest, queryClient]);
+  // Kept across query retries so a reconnect after an error also resumes.
+  const lastEventId = useRef<string | undefined>(undefined);
+  useQuery({
+    queryKey: orpc.subscribeNotifications.liveKey(),
+    // The server ends each stream after a few minutes so it can re-check which accounts are
+    // the caller's. Reopen it straight away, resuming after the last event so none are missed.
+    queryFn: async ({ signal }): Promise<never> => {
+      while (true) {
+        const openedAt = Date.now();
+        const stream = await apiClient.subscribeNotifications(undefined, {
+          signal,
+          lastEventId: lastEventId.current,
+        });
+        for await (const event of stream) {
+          lastEventId.current = getEventMeta(event)?.id ?? lastEventId.current;
+          addNotificationToCache(queryClient, event);
+        }
+        signal.throwIfAborted();
+        // Don't spin if a stream keeps ending right away.
+        if (Date.now() - openedAt < 5_000) {
+          await new Promise((resolve) => {
+            const timer = setTimeout(resolve, 5_000);
+            const stop = () => {
+              clearTimeout(timer);
+              resolve(undefined);
+            };
+            signal.addEventListener("abort", stop, { once: true });
+          });
+          signal.throwIfAborted();
+        }
+      }
+    },
+    retry: true,
+  });
 }
 
 export function useMarkNotificationRead() {

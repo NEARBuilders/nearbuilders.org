@@ -13,3 +13,4 @@ export {
   useNotificationStream,
   useOpenNotification,
 } from "./use-notifications";
+export { useViewerOwnerIds } from "./use-viewer-owner-ids";

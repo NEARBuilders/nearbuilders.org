@@ -152,3 +152,57 @@ describe("event moderation permissions", () => {
     expect(ownerRetry.id).toBe(eventId);
   });
 });
+
+describe("event ownership across linked NEAR accounts (#362)", () => {
+  const runtime = createPluginRuntime({ registry: { events: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"events">>>;
+
+  const linked = (userId: string, accounts: string[]) => ({
+    userId,
+    near: {
+      primaryAccountId: accounts[0]!,
+      linkedAccounts: accounts.map((accountId, index) => ({
+        accountId,
+        network: "mainnet",
+        publicKey: "",
+        isPrimary: index === 0,
+      })),
+      hasNearAccount: true,
+    },
+    user: testUser(userId, "member"),
+  });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-events-linked-"));
+    loaded = await runtime.usePlugin("events", {
+      variables: {},
+      secrets: { EVENTS_DATABASE_URL: `pglite:${dataDir}`, LUMA_CALENDAR_API_KEYS: "" },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("keeps an event editable and joined after the owner switches primary", async () => {
+    const before = loaded.createClient(linked("lee-user", ["lee.near", "lee-alt.near"]));
+    const created = await before.createEvent({
+      title: "Switching event",
+      slug: "switching-event",
+      visibility: "private",
+      startAt: "2026-08-03T12:00:00.000Z",
+    });
+    await before.joinEvent({ eventId: created.id });
+
+    const after = loaded.createClient(linked("lee-user", ["lee-alt.near", "lee.near"]));
+    expect((await after.updateEvent({ id: created.id, title: "Still mine" })).title).toBe(
+      "Still mine",
+    );
+    // Joining again from the new primary finds the existing participation.
+    await after.joinEvent({ eventId: created.id });
+    const participants = await after.listEventParticipants({ eventId: created.id });
+    expect(participants.data).toHaveLength(1);
+  });
+});
