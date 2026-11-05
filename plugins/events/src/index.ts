@@ -5,6 +5,7 @@ import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { EventService, EventServiceLive } from "./services/events";
 import { LumaService, parseLumaApiKeys } from "./services/luma";
 
@@ -52,12 +53,21 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Events",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, EventService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "Authentication required",
         });
       }
+      await claimUserIdRows(context);
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 

@@ -1,10 +1,11 @@
 import { ORPCError } from "@orpc/server";
-import { Cause, Effect, Layer } from "effect";
+import { Cause, Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
@@ -54,6 +55,14 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Projects",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, ProjectService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -64,6 +73,7 @@ export default createPlugin({
           },
         });
       }
+      await claimUserIdRows(context);
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
