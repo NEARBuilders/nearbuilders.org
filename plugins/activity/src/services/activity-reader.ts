@@ -255,21 +255,35 @@ export function createSharedActivityStream(
     },
 
     async *subscribe({ signal }: { signal?: AbortSignal } = {}): AsyncGenerator<ActivityApiEvent> {
+      if (signal?.aborted) return;
       const queue: ActivityApiEvent[] = [];
       let wake: (() => void) | null = null;
+      let detached = false;
       const listener = (event: ActivityApiEvent) => {
+        if (detached) return;
         queue.push(event);
         wake?.();
       };
-      const stop = () => wake?.();
+      const detach = () => {
+        if (detached) return;
+        detached = true;
+        queue.length = 0;
+        listeners.delete(listener);
+        signal?.removeEventListener("abort", detach);
+        if (listeners.size === 0) {
+          upstream?.abort();
+          upstream = null;
+        }
+        wake?.();
+      };
       listeners.add(listener);
-      signal?.addEventListener("abort", stop);
+      signal?.addEventListener("abort", detach);
       if (!upstream) {
         upstream = new AbortController();
         void run(upstream);
       }
       try {
-        while (!signal?.aborted) {
+        while (!detached) {
           const next = queue.shift();
           if (next) {
             yield next;
@@ -281,12 +295,7 @@ export function createSharedActivityStream(
           wake = null;
         }
       } finally {
-        listeners.delete(listener);
-        signal?.removeEventListener("abort", stop);
-        if (listeners.size === 0) {
-          upstream?.abort();
-          upstream = null;
-        }
+        detach();
       }
     },
   };

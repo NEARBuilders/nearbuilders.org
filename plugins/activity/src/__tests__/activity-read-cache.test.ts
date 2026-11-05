@@ -175,4 +175,61 @@ describe("shared live stream", () => {
     stop.abort();
     await subscription.return(undefined);
   });
+
+  it("drains a subscriber aborted while suspended at a yield, without waiting for return()", async () => {
+    const { reader, opened, emit } = controllableReader();
+    const shared = createSharedActivityStream(reader, { retryMs: [1] });
+    const stop = new AbortController();
+    const subscription = shared.subscribe({ signal: stop.signal });
+
+    const first = subscription.next();
+    await emit(event("e1"));
+    expect((await first).value?.id).toBe("e1");
+    expect(shared.subscribers).toBe(1);
+
+    stop.abort();
+    expect(shared.subscribers).toBe(0);
+    expect(opened[0]?.signal?.aborted).toBe(true);
+    expect(await subscription.next()).toEqual({ done: true, value: undefined });
+  });
+
+  it("stops queueing for an aborted subscriber while others keep receiving", async () => {
+    const { reader, emit } = controllableReader();
+    const shared = createSharedActivityStream(reader, { retryMs: [1] });
+    const gone = new AbortController();
+    const stays = new AbortController();
+    const abandoned = shared.subscribe({ signal: gone.signal });
+    const live = shared.subscribe({ signal: stays.signal });
+
+    const abandonedFirst = abandoned.next();
+    const liveFirst = live.next();
+    await emit(event("e1"));
+    await abandonedFirst;
+    await liveFirst;
+
+    gone.abort();
+    expect(shared.subscribers).toBe(1);
+    const liveSecond = live.next();
+    await emit(event("e2"));
+    expect((await liveSecond).value?.id).toBe("e2");
+    expect(await abandoned.next()).toEqual({ done: true, value: undefined });
+
+    stays.abort();
+    expect(shared.subscribers).toBe(0);
+  });
+
+  it("drains a subscriber with no abort signal once its consumer returns", async () => {
+    const { reader, opened, emit } = controllableReader();
+    const shared = createSharedActivityStream(reader, { retryMs: [1] });
+    const subscription = shared.subscribe();
+
+    const first = subscription.next();
+    await emit(event("e1"));
+    await first;
+    expect(shared.subscribers).toBe(1);
+
+    await subscription.return(undefined);
+    expect(shared.subscribers).toBe(0);
+    expect(opened[0]?.signal?.aborted).toBe(true);
+  });
 });
