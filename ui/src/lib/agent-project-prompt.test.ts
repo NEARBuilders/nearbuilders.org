@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { PREFERRED_CONTACTS } from "./builder-catalog";
 import {
   AGENT_API_KEY_CONFIG_ID,
   AGENT_API_KEY_PURPOSE,
@@ -11,6 +10,7 @@ import {
   buildAgentProjectPrompt,
   mcpUrlFromOrigin,
 } from "./agent-project-prompt";
+import { PREFERRED_CONTACTS } from "./builder-catalog";
 import { CATALOG_LINKS, CATALOG_PHASES } from "./project-catalog";
 import { SOCIAL_LINKS } from "./social-links";
 
