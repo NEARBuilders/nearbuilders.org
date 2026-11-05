@@ -62,7 +62,7 @@ export default createPlugin({
     Effect.sync(() => {
       const Database = DatabaseLive(config.secrets.PROPOSALS_DATABASE_URL);
       const publisher = new MemoryPublisher<ProposalEvents>({
-        resume: { enabled: true, seconds: 120 },
+        resume: { enabled: true, ttl: 120_000 },
       });
 
       console.log("[Proposals] Services Initialized");
