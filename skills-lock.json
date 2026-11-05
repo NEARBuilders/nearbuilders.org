@@ -163,6 +163,12 @@
       "skillPath": "skills/mobile-native/SKILL.md",
       "computedHash": "f221cea36642168df6d3d6d7f236237cbf1ae669138ff7df07775674223d49ad"
     },
+    "near-intents-agent-api": {
+      "source": "NEAR-Intents-Agent-API/skills",
+      "sourceType": "github",
+      "skillPath": "near-intents-agent-api/SKILL.md",
+      "computedHash": "86d548e72ff84470b3875b17cc36887c0e24ce542ca1bf958689b105b84db750"
+    },
     "pick-ui-library": {
       "source": "emilkowalski/skills",
       "sourceType": "github",

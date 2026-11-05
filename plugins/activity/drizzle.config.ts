@@ -13,9 +13,7 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./src/db/migrations",
   dialect: "postgresql",
-  dbCredentials: {
-    url: resolveDatabaseUrl(identity),
-  },
+  dbCredentials: { url: resolveDatabaseUrl(identity) },
   migrations: {
     schema: identity.journal.schema,
     table: identity.journal.table,
