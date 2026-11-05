@@ -57,6 +57,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
       return next({ context: { ...context, userId: context.userId, user: context.user } });
     });
 
+    /** The caller's NEAR accounts, primary first, lowercased (#365). */
+    const nearAccountIds = (context: Context): string[] => {
+      const ids = [
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map((account) => account.accountId),
+      ]
+        .map((id) => id?.trim().toLowerCase())
+        .filter((id): id is string => Boolean(id));
+      return [...new Set(ids)];
+    };
+
     const resolveEligibility = async (context: Context) => {
       const nearAccountId = context.near?.primaryAccountId?.toLowerCase() ?? null;
       const profile = nearAccountId
@@ -71,8 +82,10 @@ export default createPlugin.withPlugins<PluginsClient>()({
     return {
       getCreditStatus: builder.getCreditStatus.use(requireAuth).effect(function* ({ context }) {
         const credits = yield* CreditService;
-        const { nearAccountId, eligibility } = yield* attempt(() => resolveEligibility(context));
-        return yield* attempt(() => credits.getStatus(nearAccountId, context.userId, eligibility));
+        const { eligibility } = yield* attempt(() => resolveEligibility(context));
+        return yield* attempt(() =>
+          credits.getStatus(nearAccountIds(context), context.userId, eligibility),
+        );
       }),
 
       claimCredits: builder.claimCredits.use(requireAuth).effect(function* ({ context }) {
@@ -86,6 +99,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return yield* attempt(() =>
           credits.claim({
             nearAccountId,
+            linkedAccountIds: nearAccountIds(context),
             userId: context.userId,
             ip: clientIp(context.reqHeaders),
             eligibility,
@@ -96,10 +110,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       getCreditUsage: builder.getCreditUsage.use(requireAuth).effect(function* ({ context }) {
         const credits = yield* CreditService;
         return yield* attempt(() =>
-          credits.getUsage({
-            nearAccountId: context.near?.primaryAccountId?.toLowerCase() ?? null,
-            userId: context.userId,
-          }),
+          credits.getUsage({ nearAccountIds: nearAccountIds(context), userId: context.userId }),
         );
       }),
 

@@ -137,28 +137,47 @@ export function createCreditMethods(
     };
   };
 
-  const findClaim = async (input: { nearAccountId: string | null; userId: string }) => {
+  /**
+   * The caller's claim: one made under any of their NEAR accounts (primary first, then linked,
+   * #365) or with their user id. Preferring the account order keeps the result stable when a
+   * reissued user id and an old linked account point at different rows.
+   */
+  const findClaims = async (input: { nearAccountIds: readonly string[]; userId: string }) => {
+    const accounts = input.nearAccountIds.filter(Boolean);
     const conditions = [eq(creditClaims.userId, input.userId)];
-    if (input.nearAccountId) {
-      conditions.push(eq(creditClaims.nearAccountId, input.nearAccountId));
-    }
+    if (accounts.length > 0) conditions.push(inArray(creditClaims.nearAccountId, [...accounts]));
     const rows = await db
       .select()
       .from(creditClaims)
       .where(or(...conditions));
-    return (
-      (input.nearAccountId && rows.find((row) => row.nearAccountId === input.nearAccountId)) ||
-      rows[0] ||
-      null
-    );
+    const rank = (row: CreditClaimRow) => {
+      const index = accounts.indexOf(row.nearAccountId);
+      return index === -1 ? accounts.length : index;
+    };
+    return rows.sort((a, b) => rank(a) - rank(b));
   };
+
+  const findClaim = async (input: { nearAccountIds: readonly string[]; userId: string }) =>
+    (await findClaims(input))[0] ?? null;
+
+  const staleBefore = () => new Date(now().getTime() - STALE_PENDING_MS);
+  const isRetryable = (row: CreditClaimRow) =>
+    row.status === "failed" || (row.status === "pending" && row.updatedAt < staleBefore());
+  const retryableStatus = () =>
+    or(
+      eq(creditClaims.status, "failed"),
+      and(eq(creditClaims.status, "pending"), lt(creditClaims.updatedAt, staleBefore())),
+    );
 
   const acquireClaim = async (input: {
     nearAccountId: string;
+    linkedAccountIds?: readonly string[];
     userId: string;
     ip: string | null;
     amountCents: number;
     keyExpiresAt: Date | null;
+    /** A failed or stale claim under another of the caller's accounts, to retry instead. */
+    takeover?: CreditClaimRow | null;
   }) => {
     const values = {
       userId: input.userId,
@@ -171,36 +190,38 @@ export function createCreditMethods(
     };
     const alreadyClaimed = conflict("API credits were already claimed for this account");
     try {
-      const [inserted] = await db
-        .insert(creditClaims)
-        .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
-        .onConflictDoNothing()
-        .returning();
-      if (inserted) return { row: inserted, retry: false };
+      if (input.takeover) {
+        // Retry it in place: the key name and unique slots stay with the account it was made under.
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.id, input.takeover.id), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      } else {
+        const [inserted] = await db
+          .insert(creditClaims)
+          .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
+          .onConflictDoNothing()
+          .returning();
+        if (inserted) return { row: inserted, retry: false };
 
-      const [retried] = await db
-        .update(creditClaims)
-        .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
-        .where(
-          and(
-            eq(creditClaims.nearAccountId, input.nearAccountId),
-            or(
-              eq(creditClaims.status, "failed"),
-              and(
-                eq(creditClaims.status, "pending"),
-                lt(creditClaims.updatedAt, new Date(now().getTime() - STALE_PENDING_MS)),
-              ),
-            ),
-          ),
-        )
-        .returning();
-      if (retried) return { row: retried, retry: true };
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.nearAccountId, input.nearAccountId), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      }
     } catch (error) {
       if (isUniqueViolation(error)) throw alreadyClaimed;
       throw error;
     }
 
-    const existing = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+    const existing = await findClaim({
+      nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+      userId: input.userId,
+    });
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
     if (existing && existing.nearAccountId !== input.nearAccountId) {
       throw conflict(`Credits were already claimed with ${existing.nearAccountId}`);
@@ -267,9 +288,13 @@ export function createCreditMethods(
       return { settings: settingsToDto(row) };
     },
 
-    async getStatus(nearAccountId: string | null, userId: string, eligibility: CreditEligibility) {
+    async getStatus(
+      nearAccountIds: readonly string[],
+      userId: string,
+      eligibility: CreditEligibility,
+    ) {
       const { row, window } = await currentWindow();
-      const claim = await findClaim({ nearAccountId, userId });
+      const claim = await findClaim({ nearAccountIds, userId });
       return {
         available: window.open,
         statusReason: window.open ? null : window.statusReason,
@@ -358,11 +383,28 @@ export function createCreditMethods(
 
     async claim(input: {
       nearAccountId: string;
+      linkedAccountIds?: readonly string[];
       userId: string;
       ip: string | null;
       eligibility: CreditEligibility;
     }) {
       const { window } = await currentWindow();
+      // One claim per person: a claim under another of their linked accounts counts (#365).
+      // Only one that got (or had) a key blocks; a failed or stale one is retried in place.
+      const prior = await findClaims({
+        nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+        userId: input.userId,
+      });
+      const elsewhere = prior.filter((row) => row.nearAccountId !== input.nearAccountId);
+      const claimed = elsewhere.find((row) => row.status === "issued" || row.status === "revoked");
+      if (claimed) throw conflict(`Credits were already claimed with ${claimed.nearAccountId}`);
+      if (elsewhere.some((row) => !isRetryable(row))) {
+        throw conflict("Your claim is already being processed");
+      }
+      const hasOwnRow = prior.length > elsewhere.length;
+      const takeover = hasOwnRow
+        ? null
+        : (elsewhere.find((row) => row.userId === input.userId) ?? elsewhere[0] ?? null);
       if (!window.open) throw new ORPCError("FORBIDDEN", { message: window.reason });
       if (input.eligibility !== "eligible") {
         throw new ORPCError("FORBIDDEN", {
@@ -374,8 +416,9 @@ export function createCreditMethods(
         ...input,
         amountCents: window.amountCents,
         keyExpiresAt: window.keyExpiresAt,
+        takeover,
       });
-      const name = keyName(input.nearAccountId, row.id);
+      const name = keyName(row.nearAccountId, row.id);
       let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
@@ -411,8 +454,8 @@ export function createCreditMethods(
       return { key: created.key, claim: toClaim(issued, now()) };
     },
 
-    async getUsage(input: { nearAccountId: string | null; userId: string }) {
-      const claim = await findClaim({ nearAccountId: input.nearAccountId, userId: input.userId });
+    async getUsage(input: { nearAccountIds: readonly string[]; userId: string }) {
+      const claim = await findClaim({ nearAccountIds: input.nearAccountIds, userId: input.userId });
       if (!claim?.keyId) return { usage: null };
       const status = claimStatus(claim, now());
       if (status !== "issued" && status !== "expired") return { usage: null };
