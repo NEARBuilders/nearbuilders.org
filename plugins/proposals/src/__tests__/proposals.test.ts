@@ -25,7 +25,11 @@ function testUser(id: string, role: string) {
 
 vi.mock("virtual:drizzle-migrations.sql", async () => {
   const { readFile } = await import("node:fs/promises");
-  const files = ["0000_concerned_blade.sql", "0001_review_evaluations_and_telegram.sql"];
+  const files = [
+    "0000_concerned_blade.sql",
+    "0001_review_evaluations_and_telegram.sql",
+    "0002_telegram_reviewer_near_account.sql",
+  ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
   );
@@ -357,7 +361,13 @@ describe.sequential("Proposals plugin", () => {
   it("links a Telegram account through a one-time code issued to an admin", async () => {
     const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
     const code = (codeHash: string, userId: string, ttlMs = 600_000) =>
-      evaluator.createTelegramLinkCode({ codeHash, userId, userLabel: `${userId}.near`, ttlMs });
+      evaluator.createTelegramLinkCode({
+        codeHash,
+        userId,
+        nearAccount: `${userId}.near`,
+        userLabel: `${userId}.near`,
+        ttlMs,
+      });
     const claim = (codeHash: string, telegramId: number) =>
       evaluator.linkTelegramReviewer({
         codeHash,
@@ -375,6 +385,7 @@ describe.sequential("Proposals plugin", () => {
       telegramId: 111,
       telegramUsername: "tg111",
       userId: "admin-a",
+      nearAccount: "admin-a.near",
       userLabel: "admin-a.near",
     });
     await expect(claim("hash-second-000000", 111)).rejects.toThrow("expired or was already used");
@@ -412,6 +423,24 @@ describe.sequential("Proposals plugin", () => {
     await expect(adminClient().listTelegramReviewers({})).rejects.toThrow(
       "Review evaluator access required",
     );
+  });
+
+  it("links an admin with no NEAR account by user id only", async () => {
+    const evaluator = loaded.createClient({ [REVIEW_EVALUATOR]: true } as never);
+    await evaluator.createTelegramLinkCode({
+      codeHash: "hash-no-near-00000",
+      userId: "admin-no-near",
+      userLabel: "Admin",
+      ttlMs: 600_000,
+    });
+    const linked = await evaluator.linkTelegramReviewer({
+      codeHash: "hash-no-near-00000",
+      telegramId: 666,
+      telegramUsername: null,
+      telegramName: null,
+    });
+    expect(linked.data).toMatchObject({ userId: "admin-no-near", nearAccount: null });
+    await evaluator.removeTelegramReviewer({ telegramId: 666 });
   });
 
   it("answers concurrent links for the same admin with a clear error", async () => {
@@ -608,7 +637,7 @@ describe.sequential("Proposals plugin", () => {
       expect.arrayContaining([
         expect.objectContaining({
           action: "approval_revocation_started",
-          actor: "admin",
+          actor: "admin.near",
           actorLabel: "admin",
         }),
       ]),
@@ -671,7 +700,7 @@ describe.sequential("Proposals plugin", () => {
     });
     expect(audit.data[0]).toMatchObject({
       action: "reopened",
-      actor: "admin",
+      actor: "admin.near",
       actorLabel: "admin",
     });
 
@@ -973,7 +1002,7 @@ describe.sequential("Proposals plugin", () => {
       pluginId: "builders",
       entityId: input.entityId,
       action: "approved",
-      actor: "admin",
+      actor: "admin.near",
       actorLabel: "admin",
       proposal: {
         createdBy: "alice.near",
@@ -1029,6 +1058,63 @@ describe.sequential("Proposals plugin", () => {
       expectedUpdatedAt: proposed.data.updatedAt,
     });
     expect(withdrawn.data.reviewStatus).toBe("removed");
+  });
+
+  it("keeps proposals visible and withdrawable after a primary switch (#363)", async () => {
+    const switched = () =>
+      loaded.createClient({
+        userId: "user-alice",
+        near: {
+          primaryAccountId: "alice-new.near",
+          linkedAccounts: [
+            { accountId: "alice-new.near", network: "mainnet", publicKey: "", isPrimary: true },
+            { accountId: "alice.near", network: "mainnet", publicKey: "", isPrimary: false },
+          ],
+          hasNearAccount: true,
+        },
+        user: testUser("user-alice", "member"),
+        allowPrivateSubmission: true,
+        resubmissionPolicy: "rejected-only",
+      });
+
+    // A private-plugin proposal created under the old primary stays visible.
+    await aliceClient().propose({
+      pluginId: "projects",
+      entityId: "switch-visible-project",
+      payload: { title: "Visible after switch" },
+      idempotencyKey: "switch-visible",
+    });
+    const visible = await switched().getProposals({ pluginId: "projects", limit: 100 });
+    expect(visible.data.map((p) => p.entityId)).toContain("switch-visible-project");
+
+    // And the creator can still withdraw it.
+    const proposed = await aliceClient().propose({
+      pluginId: "builders",
+      entityId: "switch-withdraw.near",
+      payload: { name: "Switch Withdraw" },
+      idempotencyKey: "switch-withdraw",
+    });
+    const withdrawn = await switched().withdraw({
+      pluginId: "builders",
+      entityId: "switch-withdraw.near",
+      expectedUpdatedAt: proposed.data.updatedAt,
+    });
+    expect(withdrawn.data.reviewStatus).toBe("removed");
+
+    // A nomination for one of the caller's linked accounts is theirs to withdraw too.
+    const forOldAccount = await bobClient().propose({
+      pluginId: "builders",
+      entityId: "alice.near",
+      payload: { name: "Alice" },
+      idempotencyKey: "switch-subject",
+    });
+    await expect(
+      switched().withdraw({
+        pluginId: "builders",
+        entityId: "alice.near",
+        expectedUpdatedAt: forOldAccount.data.updatedAt,
+      }),
+    ).resolves.toMatchObject({ data: { reviewStatus: "removed" } });
   });
 
   it("re-keys user-id proposals onto the account once NEAR is linked (#366)", async () => {

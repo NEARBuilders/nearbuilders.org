@@ -22,6 +22,7 @@ function setup() {
         telegramUsername: "saad",
         telegramName: "Saad",
         userId: "user-admin",
+        nearAccount: "admin.near",
         userLabel: "admin.near",
         linkedAt: "2026-09-30T08:00:00.000Z",
       },
@@ -44,6 +45,7 @@ describe("createTelegramLinkCode", () => {
     expect(client.createTelegramLinkCode).toHaveBeenCalledWith({
       codeHash: hashLinkCode(result.code),
       userId: "user-admin",
+      nearAccount: "admin.near",
       userLabel: "admin.near",
       ttlMs: 600_000,
     });

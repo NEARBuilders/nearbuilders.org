@@ -56,12 +56,14 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { useViewerOwnerIds } from "@/hooks";
 import {
   normalizeCatalogDirectoryProjectData,
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
 import { projectKindLabel } from "@/lib/draft-store";
+import { isViewerOwner } from "@/lib/ownership";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   type ProjectKindFilter,
@@ -161,18 +163,6 @@ function isProjectKindFilter(value: unknown): value is ProjectKindFilter {
     value === "scope" ||
     value === "result"
   );
-}
-
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
 function formatOwner(ownerId: string | null | undefined) {
@@ -759,6 +749,7 @@ function ProjectsList() {
   const user = session?.user;
   const userId = user?.id;
   const nearAccountId = auth.near.getAccountId();
+  const { ids: viewerIds } = useViewerOwnerIds();
   const ownerFilterId = user?.isAnonymous
     ? undefined
     : (nearAccountId ??
@@ -1062,8 +1053,7 @@ function ProjectsList() {
     ((selectedProjectQuery.isError && !selectedPreviewId?.startsWith("nearcatalog:")) ||
       (selectedCatalogQuery.isError && Boolean(selectedCatalogSlug)));
   const canManageSelected =
-    selectedProject?.source === "local" &&
-    isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId);
+    selectedProject?.source === "local" && isViewerOwner(selectedProject.ownerId, viewerIds);
   const selectedReadmeQuery = useQuery({
     queryKey: ["projectPreviewReadme", selectedProject?.id, selectedProject?.repository],
     queryFn: async () =>

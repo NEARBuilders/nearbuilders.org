@@ -55,8 +55,8 @@ function generateParticipantId(): string {
   return `evt_part_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-function isOwner(eventOwnerId: string, userId?: string, alternateUserId?: string) {
-  return eventOwnerId === userId || eventOwnerId === alternateUserId;
+function isOwner(eventOwnerId: string, userId?: string, alternateOwnerIds?: readonly string[]) {
+  return eventOwnerId === userId || !!alternateOwnerIds?.includes(eventOwnerId);
 }
 
 function rowToEvent(row: any, participantCount = 0): EventRecord {
@@ -131,7 +131,7 @@ export class EventService extends Context.Service<
         cursor?: string;
       },
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
     ) => Effect.Effect<
       {
@@ -143,19 +143,19 @@ export class EventService extends Context.Service<
     getEvent: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
     ) => Effect.Effect<EventRecord | null, ORPCError<string, unknown>>;
     getEventBySlug: (
       slug: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
     ) => Effect.Effect<EventRecord | null, ORPCError<string, unknown>>;
     listEventParticipants: (
       eventId: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
     ) => Effect.Effect<EventParticipantRecord[], ORPCError<string, unknown>>;
     joinEvent: (
@@ -163,12 +163,12 @@ export class EventService extends Context.Service<
       userId: string,
       walletAddress?: string,
       displayName?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<EventParticipantRecord, ORPCError<string, unknown>>;
     leaveEvent: (
       eventId: string,
       userId: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
     createEvent: (
       input: {
@@ -187,7 +187,7 @@ export class EventService extends Context.Service<
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<EventRecord, ORPCError<string, unknown>>;
     updateEvent: (
       id: string,
@@ -205,13 +205,13 @@ export class EventService extends Context.Service<
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       allowPublicVisibility?: boolean,
     ) => Effect.Effect<EventRecord, ORPCError<string, unknown>>;
     deleteEvent: (
       id: string,
       userId: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
   }
 >()("events/EventService") {}
@@ -220,7 +220,7 @@ const viewableEvent = (
   db: any,
   id: string,
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
   userRole?: string,
 ) =>
   Effect.gen(function* () {
@@ -232,7 +232,7 @@ const viewableEvent = (
     if (!event) return null;
     if (event.visibility === "public" || event.visibility === "unlisted") return event;
     if (userRole === "admin") return event;
-    if ((userId || alternateUserId) && isOwner(event.ownerId, userId, alternateUserId))
+    if ((userId || alternateOwnerIds?.length) && isOwner(event.ownerId, userId, alternateOwnerIds))
       return event;
     return null;
   });
@@ -241,7 +241,7 @@ const viewableEventBySlug = (
   db: any,
   slug: string,
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
   userRole?: string,
 ) =>
   Effect.gen(function* () {
@@ -253,19 +253,19 @@ const viewableEventBySlug = (
     if (!event) return null;
     if (event.visibility === "public" || event.visibility === "unlisted") return event;
     if (userRole === "admin") return event;
-    if ((userId || alternateUserId) && isOwner(event.ownerId, userId, alternateUserId))
+    if ((userId || alternateOwnerIds?.length) && isOwner(event.ownerId, userId, alternateOwnerIds))
       return event;
     return null;
   });
 
-const canEditEvent = (db: any, id: string, userId: string, alternateUserId?: string) =>
+const canEditEvent = (db: any, id: string, userId: string, alternateOwnerIds?: readonly string[]) =>
   Effect.gen(function* () {
     const results = (yield* Effect.promise(() =>
       db.select().from(events).where(eq(events.id, id)).limit(1),
     )) as any[];
     const event = results[0];
 
-    return event ? isOwner(event.ownerId, userId, alternateUserId) : false;
+    return event ? isOwner(event.ownerId, userId, alternateOwnerIds) : false;
   });
 
 const countParticipants = (db: any, eventId: string) =>
@@ -280,20 +280,20 @@ const countParticipants = (db: any, eventId: string) =>
     return result?.count ?? 0;
   });
 
-const participantOwnerConditions = (userId: string, alternateUserId?: string) =>
+const participantOwnerConditions = (userId: string, alternateOwnerIds?: readonly string[]) =>
   [
     eq(eventParticipants.userId, userId),
-    alternateUserId ? eq(eventParticipants.userId, alternateUserId) : undefined,
+    ...(alternateOwnerIds ?? []).map((id) => eq(eventParticipants.userId, id)),
   ].filter(Boolean);
 
 const viewableEventConditions = (
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
   includeOwnedUnlisted = false,
 ) => {
   const ownerConditions = [
     userId ? eq(events.ownerId, userId) : undefined,
-    alternateUserId ? eq(events.ownerId, alternateUserId) : undefined,
+    ...(alternateOwnerIds ?? []).map((id) => eq(events.ownerId, id)),
   ].filter(Boolean);
   const visibleConditions: any[] = [eq(events.visibility, "public")];
   if (ownerConditions.length > 0) {
@@ -335,7 +335,7 @@ export const EventServiceLive = Layer.effect(
           }),
         ),
 
-      listEvents: (input, userId, alternateUserId, userRole) =>
+      listEvents: (input, userId, alternateOwnerIds, userRole) =>
         Effect.gen(function* () {
           const limit = Math.min(input.limit ?? 24, 100);
           const offset = input.cursor ? parseInt(input.cursor, 10) : 0;
@@ -347,7 +347,7 @@ export const EventServiceLive = Layer.effect(
           if (input.visibility) conditions.push(eq(events.visibility, input.visibility));
           if (userRole !== "admin") {
             conditions.push(
-              viewableEventConditions(userId, alternateUserId, Boolean(input.ownerId)),
+              viewableEventConditions(userId, alternateOwnerIds, Boolean(input.ownerId)),
             );
           }
 
@@ -383,25 +383,25 @@ export const EventServiceLive = Layer.effect(
           };
         }),
 
-      getEvent: (id, userId, alternateUserId, userRole) =>
+      getEvent: (id, userId, alternateOwnerIds, userRole) =>
         Effect.gen(function* () {
-          const event = yield* viewableEvent(db, id, userId, alternateUserId, userRole);
+          const event = yield* viewableEvent(db, id, userId, alternateOwnerIds, userRole);
           if (!event) return null;
           const participantCount = yield* countParticipants(db, event.id);
           return rowToEvent(event, participantCount);
         }),
 
-      getEventBySlug: (slug, userId, alternateUserId, userRole) =>
+      getEventBySlug: (slug, userId, alternateOwnerIds, userRole) =>
         Effect.gen(function* () {
-          const event = yield* viewableEventBySlug(db, slug, userId, alternateUserId, userRole);
+          const event = yield* viewableEventBySlug(db, slug, userId, alternateOwnerIds, userRole);
           if (!event) return null;
           const participantCount = yield* countParticipants(db, event.id);
           return rowToEvent(event, participantCount);
         }),
 
-      listEventParticipants: (eventId, userId, alternateUserId, userRole) =>
+      listEventParticipants: (eventId, userId, alternateOwnerIds, userRole) =>
         Effect.gen(function* () {
-          const event = yield* viewableEvent(db, eventId, userId, alternateUserId, userRole);
+          const event = yield* viewableEvent(db, eventId, userId, alternateOwnerIds, userRole);
           if (!event) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
           }
@@ -417,9 +417,9 @@ export const EventServiceLive = Layer.effect(
           return participants.map(rowToParticipant);
         }),
 
-      joinEvent: (eventId, userId, walletAddress, displayName, alternateUserId) =>
+      joinEvent: (eventId, userId, walletAddress, displayName, alternateOwnerIds) =>
         Effect.gen(function* () {
-          const event = yield* viewableEvent(db, eventId, userId, alternateUserId);
+          const event = yield* viewableEvent(db, eventId, userId, alternateOwnerIds);
           if (!event) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
           }
@@ -431,7 +431,7 @@ export const EventServiceLive = Layer.effect(
             );
           }
 
-          const ownerConditions = participantOwnerConditions(userId, alternateUserId);
+          const ownerConditions = participantOwnerConditions(userId, alternateOwnerIds);
           const [existing] = yield* Effect.promise(() =>
             db
               .select()
@@ -459,7 +459,7 @@ export const EventServiceLive = Layer.effect(
                 normalizeOptionalText(displayName) ??
                 normalizeOptionalText(walletAddress) ??
                 userId,
-              role: isOwner(event.ownerId, userId, alternateUserId) ? "organizer" : "participant",
+              role: isOwner(event.ownerId, userId, alternateOwnerIds) ? "organizer" : "participant",
               createdAt: now,
               updatedAt: now,
             }),
@@ -472,14 +472,14 @@ export const EventServiceLive = Layer.effect(
           return rowToParticipant(participant);
         }),
 
-      leaveEvent: (eventId, userId, alternateUserId) =>
+      leaveEvent: (eventId, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
-          const event = yield* viewableEvent(db, eventId, userId, alternateUserId);
+          const event = yield* viewableEvent(db, eventId, userId, alternateOwnerIds);
           if (!event) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
           }
 
-          const ownerConditions = participantOwnerConditions(userId, alternateUserId);
+          const ownerConditions = participantOwnerConditions(userId, alternateOwnerIds);
           yield* Effect.promise(() =>
             db
               .delete(eventParticipants)
@@ -494,10 +494,10 @@ export const EventServiceLive = Layer.effect(
           return { deleted: true };
         }),
 
-      createEvent: (input, userId, userRole, alternateUserId) =>
+      createEvent: (input, userId, userRole, alternateOwnerIds) =>
         Effect.gen(function* () {
           const ownerId = input.ownerId?.trim() || userId;
-          if (userRole !== "admin" && !isOwner(ownerId, userId, alternateUserId)) {
+          if (userRole !== "admin" && !isOwner(ownerId, userId, alternateOwnerIds)) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", { message: "You can only create your own events" }),
             );
@@ -508,7 +508,10 @@ export const EventServiceLive = Layer.effect(
               db.select().from(events).where(eq(events.id, input.id!)).limit(1),
             );
             if (existingById) {
-              if (userRole !== "admin" && !isOwner(existingById.ownerId, userId, alternateUserId)) {
+              if (
+                userRole !== "admin" &&
+                !isOwner(existingById.ownerId, userId, alternateOwnerIds)
+              ) {
                 return yield* Effect.fail(
                   new ORPCError("BAD_REQUEST", { message: "An event with this id already exists" }),
                 );
@@ -556,9 +559,9 @@ export const EventServiceLive = Layer.effect(
           return rowToEvent(event, participantCount);
         }),
 
-      updateEvent: (id, input, userId, userRole, alternateUserId, allowPublicVisibility) =>
+      updateEvent: (id, input, userId, userRole, alternateOwnerIds, allowPublicVisibility) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditEvent(db, id, userId, alternateUserId);
+          const canEdit = yield* canEditEvent(db, id, userId, alternateOwnerIds);
           if (!canEdit) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
           }
@@ -619,9 +622,9 @@ export const EventServiceLive = Layer.effect(
           return rowToEvent(event, participantCount);
         }),
 
-      deleteEvent: (id, userId, alternateUserId) =>
+      deleteEvent: (id, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditEvent(db, id, userId, alternateUserId);
+          const canEdit = yield* canEditEvent(db, id, userId, alternateOwnerIds);
           if (!canEdit) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Event not found" }));
           }

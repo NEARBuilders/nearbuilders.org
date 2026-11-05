@@ -15,7 +15,8 @@ export const creditClaims = pgTable(
   {
     id: text("id").primaryKey(),
     nearAccountId: text("near_account_id").notNull(),
-    userId: text("user_id").notNull(),
+    // Nullable sibling of near_account_id (#367); every claim made so far carries one.
+    userId: text("user_id"),
     status: text("status", { enum: creditClaimStatuses }).notNull(),
     attempt: integer("attempt").default(1).notNull(),
     spendLimitCents: integer("spend_limit_cents").notNull(),
