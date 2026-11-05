@@ -144,7 +144,7 @@ export default createPlugin({
   initialize: (config) =>
     Effect.sync(() => {
       const publisher = new MemoryPublisher<ActivityEvents>({
-        resume: { enabled: true, seconds: 120 },
+        resume: { enabled: true, ttl: 120_000 },
       });
       const Integrations = Layer.effect(
         ActivityIntegrations,

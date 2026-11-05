@@ -306,7 +306,7 @@ The parent runtime provides the shared framework; your project provides custom o
 ### Starting Development
 1. `pnpm install`
 2. `pnpm run dev`
-3. `bos dev` creates `.env` on first run and starts local Postgres via docker compose when it is down
+3. `bos dev` creates `.env` on first run; local data is a persistent PGlite data dir (`.bos/db`), no docker involved
 
 ### Debugging Issues
 
