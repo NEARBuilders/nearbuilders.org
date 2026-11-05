@@ -284,6 +284,7 @@ export class ProposalService extends Context.Service<
     createTelegramLinkCode: (input: {
       codeHash: string;
       userId: string;
+      nearAccount?: string | null;
       userLabel: string;
       ttlMs: number;
     }) => Effect.Effect<{ expiresAt: string }, ORPCError<string, unknown>>;
@@ -318,6 +319,7 @@ function telegramReviewerRecord(row: any) {
     telegramUsername: row.telegramUsername ?? null,
     telegramName: row.telegramName ?? null,
     userId: row.userId,
+    nearAccount: row.nearAccount ?? null,
     userLabel: row.userLabel,
     linkedAt: toIsoString(row.linkedAt)!,
   };
@@ -1507,6 +1509,7 @@ export const ProposalServiceLive = Layer.effect(
               await tx.insert(telegramLinkCodes).values({
                 codeHash: input.codeHash,
                 userId: input.userId,
+                nearAccount: input.nearAccount ?? null,
                 userLabel: input.userLabel,
                 expiresAt,
               });
@@ -1540,6 +1543,7 @@ export const ProposalServiceLive = Layer.effect(
                     telegramUsername: input.telegramUsername,
                     telegramName: input.telegramName,
                     userId: code.userId,
+                    nearAccount: code.nearAccount ?? null,
                     userLabel: code.userLabel,
                     linkedAt: new Date(),
                   })
