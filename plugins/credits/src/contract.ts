@@ -16,7 +16,7 @@ const CONFLICT = {
 
 export const CreditClaimSchema = z.object({
   id: z.string(),
-  status: z.enum(["pending", "issued", "expired", "failed", "revoked"]),
+  status: z.enum(["pending", "issued", "expired", "failed", "revoked", "replaceable"]),
   nearAccountId: z.string(),
   keyPrefix: z.string().nullable(),
   spendLimitUsd: z.number().positive(),
@@ -143,6 +143,18 @@ export const contract = oc.router({
     .input(z.object({ id: z.string().min(1).max(64) }))
     .output(z.object({ data: AdminCreditClaimSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE }),
+
+  refreshCreditClaim: oc
+    .route({ method: "POST", path: "/v1/credits/claims/{id}/refresh" })
+    .input(z.object({ id: z.string().min(1).max(64) }))
+    .output(z.object({ data: AdminCreditClaimSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE, CONFLICT }),
+
+  claimCreditReplacement: oc
+    .route({ method: "POST", path: "/v1/credits/claim/replacement" })
+    .input(z.object({}))
+    .output(z.object({ key: z.string(), claim: CreditClaimSchema }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, CONFLICT, SERVICE_UNAVAILABLE }),
 
   getCreditSettings: oc
     .route({ method: "GET", path: "/v1/credits/settings" })

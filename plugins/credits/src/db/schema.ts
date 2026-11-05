@@ -8,7 +8,13 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const creditClaimStatuses = ["pending", "issued", "failed", "revoked"] as const;
+export const creditClaimStatuses = [
+  "pending",
+  "issued",
+  "failed",
+  "revoked",
+  "replaceable",
+] as const;
 
 export const creditClaims = pgTable(
   "credit_claims",
