@@ -124,13 +124,16 @@ describe("shared live stream", () => {
         }
       },
     };
-    const emit = async (value: ActivityApiEvent | null) => {
+    const settle = async () => {
       for (let attempt = 0; attempt < 50 && pending.length === 0; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 1));
       }
+    };
+    const emit = async (value: ActivityApiEvent | null) => {
+      await settle();
       pending.shift()?.(value);
     };
-    return { reader, opened, emit };
+    return { reader, opened, emit, settle };
   }
 
   it("fans one upstream connection out to every subscriber and closes it with the last", async () => {
@@ -216,6 +219,44 @@ describe("shared live stream", () => {
 
     stays.abort();
     expect(shared.subscribers).toBe(0);
+  });
+
+  it("buffers at most the cap for a consumer that stops pulling, dropping the oldest first", async () => {
+    const { reader, emit, settle } = controllableReader();
+    const shared = createSharedActivityStream(reader, { retryMs: [1], maxQueuedEvents: 3 });
+    const stop = new AbortController();
+    const subscription = shared.subscribe({ signal: stop.signal });
+
+    const first = subscription.next();
+    await emit(event("e0"));
+    expect((await first).value?.id).toBe("e0");
+    for (const id of ["e1", "e2", "e3", "e4", "e5"]) await emit(event(id));
+    await settle();
+
+    const received: string[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      received.push((await subscription.next()).value?.id ?? "");
+    }
+    expect(received).toEqual(["e3", "e4", "e5"]);
+
+    stop.abort();
+  });
+
+  it("delivers every event in order to a consumer that keeps up, regardless of the cap", async () => {
+    const { reader, emit } = controllableReader();
+    const shared = createSharedActivityStream(reader, { retryMs: [1], maxQueuedEvents: 1 });
+    const stop = new AbortController();
+    const subscription = shared.subscribe({ signal: stop.signal });
+
+    const received: string[] = [];
+    for (const id of ["e1", "e2", "e3", "e4"]) {
+      const next = subscription.next();
+      await emit(event(id));
+      received.push((await next).value?.id ?? "");
+    }
+    expect(received).toEqual(["e1", "e2", "e3", "e4"]);
+
+    stop.abort();
   });
 
   it("drains a subscriber with no abort signal once its consumer returns", async () => {
