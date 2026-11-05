@@ -32,6 +32,8 @@ export default App({
       "GITHUB_TOKEN",
       "REQUIRE_ADMIN_APPROVAL",
       "BETTER_AUTH_SECRET",
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
     ],
   },
   plugins: {
