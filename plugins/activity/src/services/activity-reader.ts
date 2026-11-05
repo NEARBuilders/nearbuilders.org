@@ -309,3 +309,27 @@ export function createSharedActivityStream(
     },
   };
 }
+
+const LIVE_STREAM_DIAGNOSTICS_MS = 5 * 60_000;
+
+/**
+ * Logs the live stream's subscriber count beside process RSS every few minutes, so Railway logs
+ * show whether subscribers ratchet along with memory or stay with live traffic.
+ */
+export function startLiveStreamDiagnostics(
+  stream: { readonly subscribers: number },
+  options: {
+    intervalMs?: number;
+    log?: (line: string) => void;
+    rssBytes?: () => number;
+  } = {},
+): () => void {
+  const log = options.log ?? ((line: string) => console.log(line));
+  const rssBytes = options.rssBytes ?? (() => process.memoryUsage.rss());
+  const timer = setInterval(() => {
+    const rssMb = Math.round(rssBytes() / (1024 * 1024));
+    log(`[Activity] Live stream subscribers=${stream.subscribers} rssMB=${rssMb}`);
+  }, options.intervalMs ?? LIVE_STREAM_DIAGNOSTICS_MS);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}

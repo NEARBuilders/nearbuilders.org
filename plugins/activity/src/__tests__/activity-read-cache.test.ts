@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ActivityApiEvent } from "../services/activity-api";
 import {
   type ActivityReaderClient,
   createSharedActivityStream,
+  startLiveStreamDiagnostics,
   withReadCache,
 } from "../services/activity-reader";
 import { createActivityRegistrationClient } from "../services/activity-registration";
@@ -272,5 +273,36 @@ describe("shared live stream", () => {
     await subscription.return(undefined);
     expect(shared.subscribers).toBe(0);
     expect(opened[0]?.signal?.aborted).toBe(true);
+  });
+});
+
+describe("live stream diagnostics", () => {
+  it("logs subscriber count and RSS on each interval until stopped", () => {
+    vi.useFakeTimers();
+    try {
+      const stream = { subscribers: 2 };
+      const lines: string[] = [];
+      const stop = startLiveStreamDiagnostics(stream, {
+        intervalMs: 1_000,
+        log: (line) => lines.push(line),
+        rssBytes: () => 300 * 1024 * 1024,
+      });
+
+      vi.advanceTimersByTime(999);
+      expect(lines).toEqual([]);
+      vi.advanceTimersByTime(1);
+      stream.subscribers = 0;
+      vi.advanceTimersByTime(1_000);
+      expect(lines).toEqual([
+        "[Activity] Live stream subscribers=2 rssMB=300",
+        "[Activity] Live stream subscribers=0 rssMB=300",
+      ]);
+
+      stop();
+      vi.advanceTimersByTime(5_000);
+      expect(lines).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
