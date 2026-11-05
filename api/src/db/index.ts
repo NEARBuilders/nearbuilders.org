@@ -4,7 +4,7 @@ import * as schema from "./schema";
 
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-export { DatabaseError, unwrapDatabaseError } from "everything-dev/db";
+export { DatabaseError } from "everything-dev/db";
 
 export interface DatabaseDriver {
   readonly db: Database;

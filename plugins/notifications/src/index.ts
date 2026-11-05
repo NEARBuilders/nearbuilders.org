@@ -34,7 +34,7 @@ export default createPlugin({
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.NOTIFICATIONS_DATABASE_URL);
       const publisher = new MemoryPublisher<NotificationEvents>({
-        resume: { enabled: true, seconds: 120 },
+        resume: { enabled: true, ttl: 120_000 },
       });
 
       yield* Effect.addFinalizer(() => Effect.log("[Notifications] Shutdown"));
