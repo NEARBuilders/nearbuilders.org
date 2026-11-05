@@ -144,6 +144,10 @@ export default createPlugin({
         ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
       ].filter((id): id is string => Boolean(id));
 
+    /** The canonical owner id recorded as the actor of review actions (#367). */
+    const actorOwnerId = (context: ProposalContext) =>
+      context.near?.primaryAccountId ?? context.userId!;
+
     const canReadAllProposals = (context: ProposalContext) =>
       context[REVIEW_EVALUATOR] === true || context.user?.role === "admin";
 
@@ -215,7 +219,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.approve({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("approved", result);
@@ -226,7 +230,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.reject({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("rejected", result);
@@ -240,7 +244,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.dismissFailure({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("failure_dismissed", result);
@@ -271,7 +275,7 @@ export default createPlugin({
         }
         const result = yield* proposals.withdraw({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("withdrawn", result);
@@ -282,7 +286,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.reopen({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("reopened", result);
@@ -293,7 +297,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.remove({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("removed", result);
