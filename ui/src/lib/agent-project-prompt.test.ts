@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { PREFERRED_CONTACTS } from "./builder-catalog";
 import {
   AGENT_API_KEY_CONFIG_ID,
   AGENT_API_KEY_PURPOSE,
+  AGENT_BUILDER_API_KEY_PURPOSE,
   AGENT_CATALOG_LINK_KEYS,
   agentApiKeyName,
+  agentBuilderApiKeyName,
+  buildAgentBuilderPrompt,
   buildAgentProjectPrompt,
   mcpUrlFromOrigin,
 } from "./agent-project-prompt";
 import { CATALOG_LINKS, CATALOG_PHASES } from "./project-catalog";
+import { SOCIAL_LINKS } from "./social-links";
 
 const KEY = "api_testKey123";
 const MCP = "https://nearbuilders.org/api/mcp";
@@ -98,5 +103,57 @@ describe("buildAgentProjectPrompt", () => {
       ownerId: "alice.near",
     });
     expect(prompt).toContain("`alice.near`");
+  });
+});
+
+describe("agentBuilderApiKeyName", () => {
+  it("labels the key for the builder-join flow", () => {
+    expect(agentBuilderApiKeyName(new Date("2026-11-06T12:00:00Z"))).toBe(
+      "Agent: builder profile (2026-11-06)",
+    );
+    expect(AGENT_BUILDER_API_KEY_PURPOSE).toBe("agent-builder-profile");
+  });
+});
+
+describe("buildAgentBuilderPrompt", () => {
+  it("includes MCP connect details and submitBuilderProfile", () => {
+    const prompt = buildAgentBuilderPrompt({ mcpUrl: MCP, apiKey: KEY });
+    expect(prompt).toContain(MCP);
+    expect(prompt).toContain(`x-api-key: ${KEY}`);
+    expect(prompt).toContain("`submitBuilderProfile`");
+  });
+
+  it("lists required profile fields and catalog keys", () => {
+    const prompt = buildAgentBuilderPrompt({
+      mcpUrl: MCP,
+      apiKey: KEY,
+      nearAccount: "alice.near",
+    });
+    expect(prompt).toContain("`alice.near`");
+    for (const field of ["`name`", "`bio`", "`skills`", "`location`", "`links`"]) {
+      expect(prompt).toContain(field);
+    }
+    for (const field of [
+      "`preferredContact`",
+      "`organization`",
+      "`team`",
+      "`jobTitle`",
+      "`publicEmail`",
+      "`avatarUrl`",
+    ]) {
+      expect(prompt).toContain(field);
+    }
+    for (const { value } of PREFERRED_CONTACTS) expect(prompt).toContain(`"${value}"`);
+    for (const { key } of SOCIAL_LINKS) expect(prompt).toContain(`\`${key}\``);
+  });
+
+  it("passes through a nomination token when present", () => {
+    const prompt = buildAgentBuilderPrompt({
+      mcpUrl: MCP,
+      apiKey: KEY,
+      nominationToken: "nom-token-123",
+    });
+    expect(prompt).toContain("`nominationToken`");
+    expect(prompt).toContain("`nom-token-123`");
   });
 });

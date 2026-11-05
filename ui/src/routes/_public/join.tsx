@@ -6,6 +6,7 @@ import { AlertTriangle, Check, CircleCheck, Clock3, Loader2 } from "lucide-react
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
+import { AgentBuilderCard } from "@/components/agent-builder-card";
 import {
   BuilderFormFields,
   type BuilderFormValues,
@@ -399,6 +400,12 @@ function BuilderProfileForm({
         </p>
         <LegacySocialImportPrompt profile={socialProfile} className="mt-5" />
       </div>
+
+      <AgentBuilderCard
+        nearAccount={accountId}
+        nominationToken={nominationToken}
+        className="mb-6 max-w-none px-0 pt-0 sm:px-0 lg:px-0"
+      />
 
       <form
         onSubmit={(event) => {
