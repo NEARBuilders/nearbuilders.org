@@ -6,6 +6,7 @@ import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
 import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
+import { ProgramService, ProgramServiceLive } from "./services/programs";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
@@ -39,13 +40,14 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.sync(() => {
-      const ProjectServices = ProjectServiceLive.pipe(
+      const ProjectServices = Layer.mergeAll(ProjectServiceLive, ProgramServiceLive).pipe(
         Layer.provide(DatabaseLive(config.secrets.PROJECTS_DATABASE_URL)),
       );
 
       const Lifecycle = Layer.effectDiscard(
         Effect.gen(function* () {
           yield* ProjectService;
+          yield* ProgramService;
           console.log("[Projects] Services Initialized");
           yield* Effect.addFinalizer(() => Effect.log("[Projects] Shutdown"));
         }),
@@ -463,6 +465,56 @@ export default createPlugin({
           )
           .pipe(Effect.catchCause(toRouteError()));
         return { data };
+      }),
+
+      listPrograms: builder.listPrograms.effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .listPrograms(input.topicId)
+          .pipe(Effect.catchCause(toRouteError("listPrograms")));
+        return { data };
+      }),
+
+      getProjectPrograms: builder.getProjectPrograms.effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .getProjectPrograms(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("getProjectPrograms")));
+        return { data };
+      }),
+
+      adminListPrograms: builder.adminListPrograms.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .adminListPrograms(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("adminListPrograms")));
+        return { data };
+      }),
+
+      createProgram: builder.createProgram.use(requireAdmin).effect(function* ({
+        input,
+        context,
+      }) {
+        const programs = yield* ProgramService;
+        return yield* programs
+          .createProgram(input, context.near?.primaryAccountId ?? context.userId)
+          .pipe(Effect.catchCause(toRouteError("createProgram")));
+      }),
+
+      updateProgram: builder.updateProgram.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const { id, ...patch } = input;
+        return yield* programs
+          .updateProgram(id, patch)
+          .pipe(Effect.catchCause(toRouteError("updateProgram")));
+      }),
+
+      reorderPrograms: builder.reorderPrograms.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const updated = yield* programs
+          .reorderPrograms(input.ids)
+          .pipe(Effect.catchCause(toRouteError("reorderPrograms")));
+        return { updated };
       }),
     };
   },
