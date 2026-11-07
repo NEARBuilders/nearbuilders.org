@@ -142,6 +142,8 @@ function EditForm({
         name: values.name.trim() || undefined,
         bio: values.bio,
         location: normalizeLocation(values.location) ?? undefined,
+        cityNode:
+          values.cityNode !== (builder.cityNode ?? "") ? values.cityNode || null : undefined,
         skills: parseBuilderSkills(values.skills),
         links: composeLinks(values.links, builder.links),
         catalog: builderCatalogFromFormValues(values.catalog),
@@ -160,6 +162,7 @@ function EditForm({
       bio: builder.bio ?? "",
       skills: builder.skills.join(", "),
       location: builder.location ?? "",
+      cityNode: builder.cityNode ?? "",
       links: initialFormLinks(builder.links, socialLinktree),
       catalog: builderCatalogToFormValues(builder.catalog),
     } satisfies BuilderFormValues,

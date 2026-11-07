@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ProjectCatalogMetadata } from "../services/catalog-metadata";
 
 export const projects = pgTable(
@@ -18,13 +18,17 @@ export const projects = pgTable(
     domain: text("domain"),
     logoUrl: text("logo_url"),
     catalog: jsonb("catalog").$type<ProjectCatalogMetadata>(),
+    cityNode: text("city_node"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("projects_slug_unique").on(table.slug)],
+  (table) => [
+    uniqueIndex("projects_slug_unique").on(table.slug),
+    index("projects_city_node_idx").on(table.cityNode),
+  ],
 );
 
 export const projectApps = pgTable(

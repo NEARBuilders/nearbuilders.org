@@ -12,6 +12,7 @@ export type ProjectFormValues = {
   organizationId?: string;
   domain?: string;
   logoUrl?: string;
+  cityNode?: string;
   catalog?: ProjectCatalogFormValues;
   collaborators?: string[];
 };
@@ -107,6 +108,7 @@ export const FIELD_LABELS: Record<keyof ProjectFormValues, string> = {
   organizationId: "Organization",
   domain: "Domain",
   logoUrl: "Logo",
+  cityNode: "City node",
   catalog: "NEAR Catalog",
   collaborators: "Collaborators",
 };

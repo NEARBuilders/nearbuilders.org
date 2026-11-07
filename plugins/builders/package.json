@@ -15,6 +15,10 @@
     "./builder-tags": {
       "types": "./src/lib/builder-tags.ts",
       "default": "./src/lib/builder-tags.ts"
+    },
+    "./city-node": {
+      "types": "./src/lib/city-node.ts",
+      "default": "./src/lib/city-node.ts"
     }
   },
   "peerDependencies": {

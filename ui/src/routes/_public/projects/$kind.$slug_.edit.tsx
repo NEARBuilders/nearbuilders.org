@@ -106,6 +106,8 @@ function EditProjectPage() {
         status: values.kind !== "result" ? values.status : undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || "",
+        cityNode:
+          values.cityNode !== (project?.cityNode ?? "") ? values.cityNode || null : undefined,
         catalog:
           values.kind === "project" ? projectCatalogFromFormValues(values.catalog) : undefined,
         ownerId:
@@ -175,6 +177,7 @@ function EditProjectPage() {
             ownerId: updated.ownerId,
             domain: updated.domain ?? undefined,
             logoUrl: updated.logoUrl ?? undefined,
+            cityNode: updated.cityNode ?? undefined,
             catalog: updated.catalog ?? undefined,
           },
         });
@@ -323,6 +326,7 @@ function EditFormInner({
       organizationId: project.organizationId ?? "",
       domain: project.domain ?? "",
       logoUrl: project.logoUrl ?? "",
+      cityNode: project.cityNode ?? "",
       catalog: projectCatalogToFormValues(project.catalog),
       collaborators: (
         (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
