@@ -255,12 +255,23 @@ describe("project programs", () => {
     });
     const order = async () =>
       (await anonymous.listPrograms({ topicId: "agentic-commerce" })).data.map((p) => p.id);
+    const allIds = async () => (await admin.adminListPrograms({})).data.map((p) => p.id);
+    const withPair = (ids: string[], pair: [string, string]) => [
+      ...pair,
+      ...ids.filter((id) => !pair.includes(id)),
+    ];
 
-    await admin.reorderPrograms({ ids: [first.id, second.id] });
     expect(await order()).toEqual([first.id, second.id]);
+    expect((await allIds()).slice(-2)).toEqual([first.id, second.id]);
 
-    expect(await admin.reorderPrograms({ ids: [second.id, first.id] })).toEqual({ updated: 2 });
+    const ids = withPair(await allIds(), [second.id, first.id]);
+    expect(await admin.reorderPrograms({ ids })).toEqual({ updated: ids.length });
     expect(await order()).toEqual([second.id, first.id]);
+    expect((await allIds()).slice(0, 2)).toEqual([second.id, first.id]);
+
+    await expect(admin.reorderPrograms({ ids: [first.id, second.id] })).rejects.toThrow(
+      "Reorder must include every program",
+    );
 
     await admin.updateProgram({ id: first.id, sortOrder: -1 });
     expect(await order()).toEqual([first.id, second.id]);
@@ -333,6 +344,9 @@ describe("project programs", () => {
       "javascript:alert(1)",
       "http://example.com",
       "//evil.example",
+      "/\t/evil.example",
+      "/\n/evil.example",
+      "/\\evil.example",
       "dashboard",
     ]) {
       await expect(
