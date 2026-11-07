@@ -25,7 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { useAuthClient } from "@/app";
+import { sessionQueryOptions, useAuthClient } from "@/app";
 import { Input } from "@/components";
 import { CityNodePicker } from "@/components/city-node-picker";
 import { CollaboratorPicker } from "@/components/collaborator-picker";
@@ -1538,8 +1538,12 @@ function kindToLabel(kind: unknown): string {
 
 function OrganizationField({ form, kindLabel }: { form: any; kindLabel: string }) {
   const auth = useAuthClient();
+  const { data: session, isPending: sessionPending } = useQuery(sessionQueryOptions(auth));
   const { data: organizations } = useOrganizationsQuery(auth);
-  const orgs = memberOrganizations(organizations);
+
+  if (sessionPending || !session?.user) return null;
+
+  const orgs = memberOrganizations(organizations, session?.user?.id);
 
   if (orgs.length === 0) return null;
 

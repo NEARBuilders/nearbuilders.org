@@ -19,7 +19,7 @@ import { CalendarFilters } from "@/components/events/calendar-filters";
 import { EventDayGroup } from "@/components/events/event-day-group";
 import { LumaEventCard } from "@/components/events/luma-event-card";
 import { Button } from "@/components/ui/button";
-import { useClientValue, useEventTimeRange } from "@/hooks";
+import { useClientValue, useEventTimeRange, useViewerOwnerIds } from "@/hooks";
 import { useBookmark } from "@/lib/bookmarks";
 import {
   buildTimelineEvents,
@@ -30,6 +30,7 @@ import {
   viewerEventTimeFormat,
 } from "@/lib/events/event-sources";
 import { downloadIcsFile } from "@/lib/ics";
+import { isViewerOwner } from "@/lib/ownership";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import { cn } from "@/lib/utils";
 
@@ -87,18 +88,6 @@ export const Route = createFileRoute("/_public/events/")({
   component: EventsPage,
 });
 
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
-}
-
 function EventsPage() {
   const { timeBoundary: initialTimeBoundary } = Route.useLoaderData();
   const [timeBoundary, setTimeBoundary] = useState(initialTimeBoundary);
@@ -109,7 +98,7 @@ function EventsPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const nearAccountId = auth.near.getAccountId();
+  const { ids: viewerIds } = useViewerOwnerIds();
   const viewerKey = session?.user?.id ?? "anonymous";
   const canCreate = Boolean(session?.user && !session.user.isAnonymous);
   const isAdmin = session?.user?.role === "admin";
@@ -300,9 +289,7 @@ function EventsPage() {
                       key={event.key}
                       event={event}
                       proposalStatus={eventProposalStatuses.get(event.id)}
-                      showStatus={
-                        isAdmin || isCurrentUserOwner(event.ownerId, session?.user, nearAccountId)
-                      }
+                      showStatus={isAdmin || isViewerOwner(event.ownerId, viewerIds)}
                       copied={copied === event.id}
                       onShare={copyEventLink}
                     />

@@ -103,6 +103,17 @@ describe("workspace", () => {
         "org_slugmatch",
       ]);
     });
+
+    it("excludes a personal organization identified only by the user's slug", () => {
+      const organizations = [
+        { id: "org_person", name: "Personal", slug: "user_1" },
+        { id: "org_team", name: "Builders Guild", slug: "builders-guild" },
+      ];
+
+      expect(memberOrganizations(organizations, "user_1").map((org) => org.id)).toEqual([
+        "org_team",
+      ]);
+    });
   });
 
   describe("editableTeamAreas", () => {

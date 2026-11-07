@@ -37,6 +37,7 @@ export async function createTelegramLinkCode(
   const { expiresAt } = await plugins.proposals(evaluatorContext).createTelegramLinkCode({
     codeHash: hashLinkCode(code),
     userId: context.userId,
+    nearAccount: context.near?.primaryAccountId ?? null,
     userLabel: reviewerLabel(context),
     ttlMs: TELEGRAM_LINK_TTL_MS,
   });

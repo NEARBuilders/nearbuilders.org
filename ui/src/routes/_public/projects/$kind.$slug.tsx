@@ -40,8 +40,14 @@ import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { useViewerOwnerIds } from "@/hooks";
 import { isSafeImageUrl } from "@/lib/image-url";
 import { getNearSocialAvatarUrl } from "@/lib/near-social";
+import {
+  isViewerAcceptedCollaborator,
+  isViewerCollaboratorId,
+  isViewerOwner,
+} from "@/lib/ownership";
 import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
@@ -121,28 +127,6 @@ function GithubIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
-}
-
-function isCurrentUserCollaborator(
-  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
-  user: { id?: string | null; walletAddress?: string | null } | null | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!collaborators) return false;
-  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
-  return collaborators.some((c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId));
-}
-
 function ProjectDetailPage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
@@ -156,7 +140,7 @@ function ProjectDetailPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const nearAccountId = auth.near.getAccountId();
+  const { ids: viewerIds } = useViewerOwnerIds();
 
   const projectQuery = useQuery(projectBySlugOptions(apiClient, slug));
 
@@ -274,13 +258,13 @@ function ProjectDetailPage() {
 
   const effectiveUpdatedAt =
     mostRecentIsoDate(project.updatedAt, lastCommitQuery.data) ?? project.updatedAt;
-  const isOwner = isCurrentUserOwner(project.ownerId, session?.user, nearAccountId);
+  const isOwner = isViewerOwner(project.ownerId, viewerIds);
   const isAdmin = session?.user?.role === "admin";
   const collaborators =
     (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
       .collaborators ?? [];
   const acceptedCollaborators = collaborators.filter((c) => c.status === "accepted");
-  const isCollaborator = isCurrentUserCollaborator(collaborators, session?.user, nearAccountId);
+  const isCollaborator = isViewerAcceptedCollaborator(collaborators, viewerIds);
   const canManage = isOwner || isCollaborator;
   const voteCount = upvoteCountQuery.data?.totalCount ?? 0;
   const voteCountAvailable = !upvoteCountQuery.isLoading && !upvoteCountQuery.isError;
@@ -701,22 +685,15 @@ function CollaboratorsSection({
   canManage: boolean;
 }) {
   const apiClient = useApiClient();
-  const auth = useAuthClient();
   const queryClient = useQueryClient();
-  const nearAccountId = auth.near.getAccountId();
-  const { data: session } = useQuery(sessionQueryOptions(auth));
+  const { ids: myIds } = useViewerOwnerIds();
   const [inviteHandle, setInviteHandle] = useState("");
 
   const collaboratorsQuery = useQuery(projectCollaboratorsOptions(apiClient, projectId));
 
   const collaborations = collaboratorsQuery.data?.data ?? [];
-  const myIds = [
-    nearAccountId,
-    (session?.user as { walletAddress?: string } | undefined)?.walletAddress,
-    session?.user?.id,
-  ].filter(Boolean) as string[];
   const myPending = collaborations.find(
-    (c) => c.status === "pending" && myIds.includes(c.collaboratorOwnerId),
+    (c) => c.status === "pending" && isViewerCollaboratorId(c.collaboratorOwnerId, myIds),
   );
 
   const invalidate = () => {
@@ -806,7 +783,7 @@ function CollaboratorsSection({
           </span>
         </div>
         {collaborations.map((c) => {
-          const canRemove = isOwner || myIds.includes(c.collaboratorOwnerId);
+          const canRemove = isOwner || isViewerCollaboratorId(c.collaboratorOwnerId, myIds);
           return (
             <div
               key={c.id}

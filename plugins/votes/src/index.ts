@@ -5,6 +5,7 @@ import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
+import { ownerFromContext } from "./lib/owner";
 import { VoteService, VoteServiceLive } from "./services/votes";
 
 export default createPlugin({
@@ -34,11 +35,13 @@ export default createPlugin({
     return {
       upvote: builder.upvote.use(requireAuth).effect(function* ({ input, context }) {
         const votes = yield* VoteService;
-        return yield* Effect.promise(() => votes.upvote(input.entityId, context.userId!));
+        return yield* Effect.promise(() => votes.upvote(input.entityId, ownerFromContext(context)));
       }),
       downvote: builder.downvote.use(requireAuth).effect(function* ({ input, context }) {
         const votes = yield* VoteService;
-        return yield* Effect.promise(() => votes.downvote(input.entityId, context.userId!));
+        return yield* Effect.promise(() =>
+          votes.downvote(input.entityId, ownerFromContext(context)),
+        );
       }),
       getUpvoteCount: builder.getUpvoteCount.effect(function* ({ input }) {
         const votes = yield* VoteService;
@@ -46,11 +49,15 @@ export default createPlugin({
       }),
       getUserVote: builder.getUserVote.use(requireAuth).effect(function* ({ input, context }) {
         const votes = yield* VoteService;
-        return yield* Effect.promise(() => votes.getUserVote(input.entityId, context.userId!));
+        return yield* Effect.promise(() =>
+          votes.getUserVote(input.entityId, ownerFromContext(context)),
+        );
       }),
       getUserVotes: builder.getUserVotes.use(requireAuth).effect(function* ({ input, context }) {
         const votes = yield* VoteService;
-        return yield* Effect.promise(() => votes.getUserVotes(input.entityIds, context.userId!));
+        return yield* Effect.promise(() =>
+          votes.getUserVotes(input.entityIds, ownerFromContext(context)),
+        );
       }),
       getUpvoteCounts: builder.getUpvoteCounts.effect(function* ({ input }) {
         const votes = yield* VoteService;

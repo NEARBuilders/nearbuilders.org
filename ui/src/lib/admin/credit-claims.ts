@@ -83,6 +83,13 @@ export function claimCardCopy({
         description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
       }
       break;
+    case "replaceable":
+      title = "Your replacement key is ready";
+      description =
+        nearAccountId && existing.nearAccountId !== nearAccountId
+          ? `Credits are one per builder — they were already claimed with ${existing.nearAccountId}.`
+          : "Your previous key was retired. Save the replacement now with the same limit — the full secret is shown once.";
+      break;
     case "expired":
       title = "Your NEAR AI Cloud key has expired";
       description = `Key ${existing.keyPrefix ?? ""} expired ${existing.keyExpiresAt ? new Date(existing.keyExpiresAt).toLocaleDateString() : ""}. Each builder can claim credits once.`;

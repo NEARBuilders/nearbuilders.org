@@ -21,7 +21,7 @@
     "@orpc/contract": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "@scure/base": "2.4.0",
+    "@scure/base": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "pg": "catalog:",
