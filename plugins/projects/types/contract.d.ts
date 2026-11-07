@@ -774,6 +774,19 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    clearOrganizationAttribution: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        organizationId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        cleared: z.ZodNumber;
+    }, z.core.$strip>, {
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
     listProjectApps: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         projectId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{

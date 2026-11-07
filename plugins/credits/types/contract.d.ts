@@ -7,11 +7,13 @@ export declare const CreditClaimSchema: z.ZodObject<{
         failed: "failed";
         issued: "issued";
         pending: "pending";
+        replaceable: "replaceable";
         revoked: "revoked";
     }>;
+    nearAccountId: z.ZodString;
     keyPrefix: z.ZodNullable<z.ZodString>;
     spendLimitUsd: z.ZodNumber;
-    keyExpiresAt: z.ZodISODateTime;
+    keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
     createdAt: z.ZodISODateTime;
 }, z.core.$strip>;
 export declare const AdminCreditClaimSchema: z.ZodObject<{
@@ -21,18 +23,25 @@ export declare const AdminCreditClaimSchema: z.ZodObject<{
         failed: "failed";
         issued: "issued";
         pending: "pending";
+        replaceable: "replaceable";
         revoked: "revoked";
     }>;
+    nearAccountId: z.ZodString;
     keyPrefix: z.ZodNullable<z.ZodString>;
     spendLimitUsd: z.ZodNumber;
-    keyExpiresAt: z.ZodISODateTime;
+    keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
     createdAt: z.ZodISODateTime;
-    nearAccountId: z.ZodString;
     userId: z.ZodString;
     ip: z.ZodNullable<z.ZodString>;
     ipClaimCount: z.ZodNumber;
     error: z.ZodNullable<z.ZodString>;
     revokedAt: z.ZodNullable<z.ZodISODateTime>;
+    usedUsd: z.ZodNullable<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const CreditUsageSchema: z.ZodObject<{
+    usedUsd: z.ZodNumber;
+    spendLimitUsd: z.ZodNumber;
+    keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
 }, z.core.$strip>;
 export declare const CreditSettingsSchema: z.ZodObject<{
     enabled: z.ZodBoolean;
@@ -41,6 +50,7 @@ export declare const CreditSettingsSchema: z.ZodObject<{
     keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
     nearAiWorkspaceId: z.ZodString;
     nearAiLoginAccountId: z.ZodString;
+    nearAiOrgId: z.ZodString;
     updatedBy: z.ZodNullable<z.ZodString>;
     updatedAt: z.ZodISODateTime;
 }, z.core.$strip>;
@@ -51,6 +61,7 @@ export declare const CreditSettingsInputSchema: z.ZodObject<{
     keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
     nearAiWorkspaceId: z.ZodString;
     nearAiLoginAccountId: z.ZodString;
+    nearAiOrgId: z.ZodDefault<z.ZodString>;
 }, z.core.$strip>;
 export declare const NearAiSignedMessageSchema: z.ZodObject<{
     accountId: z.ZodString;
@@ -71,21 +82,34 @@ export declare const NearAiSessionSchema: z.ZodObject<{
         valid: "valid";
     }>;
     refreshExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+    usageReporting: z.ZodBoolean;
 }, z.core.$strip>;
 export declare const CreditEligibilitySchema: z.ZodEnum<{
     eligible: "eligible";
     needs_approved_profile: "needs_approved_profile";
     needs_near_account: "needs_near_account";
+    needs_profile_restore: "needs_profile_restore";
+}>;
+export declare const CreditWindowReasonSchema: z.ZodEnum<{
+    closed: "closed";
+    not_configured: "not_configured";
+    not_enabled: "not_enabled";
 }>;
 export declare const contract: {
     getCreditStatus: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         available: z.ZodBoolean;
+        statusReason: z.ZodNullable<z.ZodEnum<{
+            closed: "closed";
+            not_configured: "not_configured";
+            not_enabled: "not_enabled";
+        }>>;
         amountUsd: z.ZodNumber;
         claimsCloseAt: z.ZodNullable<z.ZodISODateTime>;
         eligibility: z.ZodEnum<{
             eligible: "eligible";
             needs_approved_profile: "needs_approved_profile";
             needs_near_account: "needs_near_account";
+            needs_profile_restore: "needs_profile_restore";
         }>;
         claim: z.ZodNullable<z.ZodObject<{
             id: z.ZodString;
@@ -94,11 +118,13 @@ export declare const contract: {
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
+                replaceable: "replaceable";
                 revoked: "revoked";
             }>;
+            nearAccountId: z.ZodString;
             keyPrefix: z.ZodNullable<z.ZodString>;
             spendLimitUsd: z.ZodNumber;
-            keyExpiresAt: z.ZodISODateTime;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>>;
     }, z.core.$strip>, {
@@ -124,11 +150,13 @@ export declare const contract: {
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
+                replaceable: "replaceable";
                 revoked: "revoked";
             }>;
+            nearAccountId: z.ZodString;
             keyPrefix: z.ZodNullable<z.ZodString>;
             spendLimitUsd: z.ZodNumber;
-            keyExpiresAt: z.ZodISODateTime;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>;
     }, z.core.$strip>, {
@@ -164,6 +192,26 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    getCreditUsage: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+        usage: z.ZodNullable<z.ZodObject<{
+            usedUsd: z.ZodNumber;
+            spendLimitUsd: z.ZodNumber;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+    }>;
     listCreditClaims: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         limit: z.ZodDefault<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
@@ -175,18 +223,20 @@ export declare const contract: {
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
+                replaceable: "replaceable";
                 revoked: "revoked";
             }>;
+            nearAccountId: z.ZodString;
             keyPrefix: z.ZodNullable<z.ZodString>;
             spendLimitUsd: z.ZodNumber;
-            keyExpiresAt: z.ZodISODateTime;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
-            nearAccountId: z.ZodString;
             userId: z.ZodString;
             ip: z.ZodNullable<z.ZodString>;
             ipClaimCount: z.ZodNumber;
             error: z.ZodNullable<z.ZodString>;
             revokedAt: z.ZodNullable<z.ZodISODateTime>;
+            usedUsd: z.ZodNullable<z.ZodNumber>;
         }, z.core.$strip>>;
         meta: z.ZodObject<{
             total: z.ZodNumber;
@@ -224,18 +274,20 @@ export declare const contract: {
                 failed: "failed";
                 issued: "issued";
                 pending: "pending";
+                replaceable: "replaceable";
                 revoked: "revoked";
             }>;
+            nearAccountId: z.ZodString;
             keyPrefix: z.ZodNullable<z.ZodString>;
             spendLimitUsd: z.ZodNumber;
-            keyExpiresAt: z.ZodISODateTime;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             createdAt: z.ZodISODateTime;
-            nearAccountId: z.ZodString;
             userId: z.ZodString;
             ip: z.ZodNullable<z.ZodString>;
             ipClaimCount: z.ZodNumber;
             error: z.ZodNullable<z.ZodString>;
             revokedAt: z.ZodNullable<z.ZodISODateTime>;
+            usedUsd: z.ZodNullable<z.ZodNumber>;
         }, z.core.$strip>;
     }, z.core.$strip>, {
         UNAUTHORIZED: {
@@ -273,6 +325,122 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    refreshCreditClaim: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodObject<{
+            id: z.ZodString;
+            status: z.ZodEnum<{
+                expired: "expired";
+                failed: "failed";
+                issued: "issued";
+                pending: "pending";
+                replaceable: "replaceable";
+                revoked: "revoked";
+            }>;
+            nearAccountId: z.ZodString;
+            keyPrefix: z.ZodNullable<z.ZodString>;
+            spendLimitUsd: z.ZodNumber;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+            createdAt: z.ZodISODateTime;
+            userId: z.ZodString;
+            ip: z.ZodNullable<z.ZodString>;
+            ipClaimCount: z.ZodNumber;
+            error: z.ZodNullable<z.ZodString>;
+            revokedAt: z.ZodNullable<z.ZodISODateTime>;
+            usedUsd: z.ZodNullable<z.ZodNumber>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        SERVICE_UNAVAILABLE: {
+            readonly status: 503;
+            readonly data: z.ZodObject<{
+                retryAfter: z.ZodOptional<z.ZodNumber>;
+                maintenanceWindow: z.ZodDefault<z.ZodBoolean>;
+                estimatedUptime: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        CONFLICT: {
+            readonly status: 409;
+            readonly message: "The request conflicts with the current state";
+        };
+    }>;
+    claimCreditReplacement: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+        key: z.ZodString;
+        claim: z.ZodObject<{
+            id: z.ZodString;
+            status: z.ZodEnum<{
+                expired: "expired";
+                failed: "failed";
+                issued: "issued";
+                pending: "pending";
+                replaceable: "replaceable";
+                revoked: "revoked";
+            }>;
+            nearAccountId: z.ZodString;
+            keyPrefix: z.ZodNullable<z.ZodString>;
+            spendLimitUsd: z.ZodNumber;
+            keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+            createdAt: z.ZodISODateTime;
+        }, z.core.$strip>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        CONFLICT: {
+            readonly status: 409;
+            readonly message: "The request conflicts with the current state";
+        };
+        SERVICE_UNAVAILABLE: {
+            readonly status: 503;
+            readonly data: z.ZodObject<{
+                retryAfter: z.ZodOptional<z.ZodNumber>;
+                maintenanceWindow: z.ZodDefault<z.ZodBoolean>;
+                estimatedUptime: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
     getCreditSettings: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
         settings: z.ZodNullable<z.ZodObject<{
             enabled: z.ZodBoolean;
@@ -281,6 +449,7 @@ export declare const contract: {
             keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             nearAiWorkspaceId: z.ZodString;
             nearAiLoginAccountId: z.ZodString;
+            nearAiOrgId: z.ZodString;
             updatedBy: z.ZodNullable<z.ZodString>;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -312,6 +481,7 @@ export declare const contract: {
         keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
         nearAiWorkspaceId: z.ZodString;
         nearAiLoginAccountId: z.ZodString;
+        nearAiOrgId: z.ZodDefault<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
         settings: z.ZodObject<{
             enabled: z.ZodBoolean;
@@ -320,6 +490,7 @@ export declare const contract: {
             keyExpiresAt: z.ZodNullable<z.ZodISODateTime>;
             nearAiWorkspaceId: z.ZodString;
             nearAiLoginAccountId: z.ZodString;
+            nearAiOrgId: z.ZodString;
             updatedBy: z.ZodNullable<z.ZodString>;
             updatedAt: z.ZodISODateTime;
         }, z.core.$strip>;
@@ -362,6 +533,7 @@ export declare const contract: {
             valid: "valid";
         }>;
         refreshExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+        usageReporting: z.ZodBoolean;
     }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
@@ -411,6 +583,7 @@ export declare const contract: {
             valid: "valid";
         }>;
         refreshExpiresAt: z.ZodNullable<z.ZodISODateTime>;
+        usageReporting: z.ZodBoolean;
     }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;

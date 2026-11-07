@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { type ApiClient, useApiClient } from "@/app";
 import { useConfirmDialog } from "@/components";
+import { NearAiSessionCard } from "@/components/admin/near-ai-session-card";
 import { RecordsState } from "@/components/admin/records-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,8 @@ import {
   creditSettingsQueryKey,
   creditSettingsQueryOptions,
   draftToInput,
-  nearAiSessionQueryKey,
-  nearAiSessionQueryOptions,
   settingsDraft,
 } from "@/lib/admin/credits-settings";
-import { signNearAiLogin } from "@/lib/admin/near-ai-session";
 import { pageHead } from "@/lib/page-meta";
 
 type CreditClaim = Awaited<ReturnType<ApiClient["credits"]["listCreditClaims"]>>["data"][number];
@@ -36,6 +34,7 @@ const STATUS_VARIANTS: Record<CreditClaim["status"], "default" | "secondary" | "
   pending: "secondary",
   failed: "destructive",
   revoked: "secondary",
+  replaceable: "default",
 };
 
 export const Route = createFileRoute("/_admin/admin/dashboard/credits")({
@@ -60,6 +59,17 @@ function CreditsTab() {
     mutationFn: (id: string) => apiClient.credits.revokeCreditClaim({ id }),
     onSuccess: () => {
       toast.success("API key revoked");
+      void queryClient.invalidateQueries({ queryKey: CLAIMS_KEY });
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const refresh = useMutation({
+    mutationFn: (id: string) => apiClient.credits.refreshCreditClaim({ id }),
+    onSuccess: (result) => {
+      toast.success(
+        `Replacement approved — ${result.data.nearAccountId} can save a new key on their dashboard`,
+      );
       void queryClient.invalidateQueries({ queryKey: CLAIMS_KEY });
     },
     onError: (error) => toast.error(error.message),
@@ -118,6 +128,23 @@ function CreditsTab() {
                   </p>
                   {claim.error && <p className="text-xs text-destructive">{claim.error}</p>}
                 </div>
+                {(claim.status === "issued" || claim.status === "expired") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={refresh.isPending || revoke.isPending}
+                    onClick={() =>
+                      confirm({
+                        title: "Allow a replacement key?",
+                        description: `The current key for ${claim.nearAccountId} stops working within a minute. The builder can then save a fresh key with the full ${formatUsd(claim.spendLimitUsd)} limit on their own dashboard — the secret is never shown here.`,
+                        confirmLabel: "Allow replacement",
+                        onConfirm: () => refresh.mutate(claim.id),
+                      })
+                    }
+                  >
+                    Allow replacement
+                  </Button>
+                )}
                 {claim.status !== "revoked" && (
                   <Button
                     size="sm"
@@ -153,75 +180,6 @@ function CreditsTab() {
       </section>
       {dialog}
     </section>
-  );
-}
-
-const SESSION_BADGES: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive" }
-> = {
-  valid: { label: "Session valid", variant: "default" },
-  expired: { label: "Session expired", variant: "destructive" },
-  absent: { label: "Not signed in", variant: "destructive" },
-};
-
-function NearAiSessionCard() {
-  const apiClient = useApiClient();
-  const queryClient = useQueryClient();
-
-  const session = useQuery(nearAiSessionQueryOptions(apiClient));
-
-  const refresh = useMutation({
-    mutationFn: async () => {
-      const settings = await queryClient.fetchQuery(creditSettingsQueryOptions(apiClient));
-      if (!settings.settings) {
-        throw new Error("Save the credits settings first");
-      }
-      const loginInput = await signNearAiLogin(settings.settings.nearAiLoginAccountId);
-      return apiClient.credits.loginNearAi(loginInput);
-    },
-    onSuccess: (result) => {
-      toast.success("NEAR AI credentials refreshed", {
-        description: result.refreshExpiresAt
-          ? `Valid until ${new Date(result.refreshExpiresAt).toLocaleString()}`
-          : undefined,
-      });
-      void queryClient.invalidateQueries({ queryKey: nearAiSessionQueryKey });
-    },
-    onError: (error) => toast.error(error.message),
-  });
-
-  const status = session.data?.status;
-  const badge = status ? SESSION_BADGES[status] : null;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-base">
-          NEAR AI Cloud session
-          {session.isLoading ? (
-            <Skeleton className="h-5 w-24" />
-          ) : badge ? (
-            <Badge variant={badge.variant}>{badge.label}</Badge>
-          ) : null}
-        </CardTitle>
-        <CardDescription>
-          The server account that mints builder API keys. Refresh tokens expire after a week of
-          inactivity — sign in again with the configured account when this shows expired.
-          {session.data?.refreshExpiresAt &&
-            status === "valid" &&
-            ` Expires ${new Date(session.data.refreshExpiresAt).toLocaleString()}.`}
-          {status === "valid" &&
-            session.data?.usageReporting === false &&
-            " Usage reporting is inactive — refreshing the credentials sets it up."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-          {refresh.isPending ? "Waiting for wallet…" : "Refresh credentials"}
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -56,20 +56,28 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { useViewerOwnerIds } from "@/hooks";
 import {
   normalizeCatalogDirectoryProjectData,
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
 import { projectKindLabel } from "@/lib/draft-store";
+import { isViewerOwner } from "@/lib/ownership";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import {
+  DEFAULT_PROJECT_SORT,
   type ProjectKindFilter,
   type ProjectSort,
   type ProjectStatusFilter,
   parseProjectListSearch,
 } from "@/lib/project-search";
 import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  claimedCatalogProjectsInfiniteOptions,
+  flattenUniquePages,
+  projectsInfiniteOptions,
+} from "@/lib/queries/projects";
 import {
   fetchRepositoryLastCommitDate,
   fetchRepositoryReadme,
@@ -86,8 +94,6 @@ type ProjectDetailData = {
     createdAt: string;
   }>;
 };
-
-const PAGE_SIZE = 24;
 
 export const Route = createFileRoute("/_public/projects/")({
   validateSearch: parseProjectListSearch,
@@ -108,27 +114,15 @@ export const Route = createFileRoute("/_public/projects/")({
     const serverSort = deps.sort === "oldest" ? "oldest" : "newest";
 
     if (!deps.personal && !deps.verified) {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: [
-          "projects",
-          activeKind,
-          null,
-          Boolean(privateOnly),
-          deps.query ?? null,
-          deps.status ?? null,
-          serverSort,
-        ],
-        queryFn: ({ pageParam }) =>
-          apiClient.listProjects({
-            limit: PAGE_SIZE,
-            cursor: pageParam as string | undefined,
-            kind: activeKind === "all" ? undefined : activeKind,
-            query: deps.query,
-            status: deps.status === "all" ? undefined : deps.status,
-            sort: serverSort,
-          }),
-        initialPageParam: undefined,
-      });
+      void queryClient.prefetchInfiniteQuery(
+        projectsInfiniteOptions(apiClient, {
+          kind: activeKind === "all" ? undefined : activeKind,
+          privateOnly: Boolean(privateOnly),
+          query: deps.query,
+          status: deps.status === "all" ? undefined : deps.status,
+          sort: serverSort,
+        }),
+      );
     }
 
     if (
@@ -138,16 +132,9 @@ export const Route = createFileRoute("/_public/projects/")({
         privateOnly: Boolean(privateOnly),
       })
     ) {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: ["catalog-projects", null, deps.query ?? null],
-        queryFn: ({ pageParam }) =>
-          apiClient.listClaimedCatalogProjects({
-            query: deps.query,
-            limit: PAGE_SIZE,
-            cursor: pageParam as string | undefined,
-          }),
-        initialPageParam: undefined,
-      });
+      void queryClient.prefetchInfiniteQuery(
+        claimedCatalogProjectsInfiniteOptions(apiClient, { query: deps.query }),
+      );
     }
   },
   component: ProjectsList,
@@ -161,18 +148,6 @@ function isProjectKindFilter(value: unknown): value is ProjectKindFilter {
     value === "scope" ||
     value === "result"
   );
-}
-
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
 function formatOwner(ownerId: string | null | undefined) {
@@ -749,7 +724,7 @@ function ProjectsList() {
   const activeKind = isProjectKindFilter(search.kind) ? search.kind : "all";
   const requestedPersonalOnly = search.personal === true;
   const isVerifiedOnly = search.verified === true;
-  const activeSort: ProjectSort = search.sort ?? "votes";
+  const activeSort: ProjectSort = search.sort ?? DEFAULT_PROJECT_SORT;
   const activeStatus: ProjectStatusFilter = search.status ?? "all";
   const [queryInput, setQueryInput] = useState(search.query ?? "");
   const [copied, setCopied] = useState(false);
@@ -759,6 +734,7 @@ function ProjectsList() {
   const user = session?.user;
   const userId = user?.id;
   const nearAccountId = auth.near.getAccountId();
+  const { ids: viewerIds } = useViewerOwnerIds();
   const ownerFilterId = user?.isAnonymous
     ? undefined
     : (nearAccountId ??
@@ -768,27 +744,6 @@ function ProjectsList() {
   const isPersonalOnly = requestedPersonalOnly && Boolean(ownerFilterId);
   const isPrivateOnly = isPersonalOnly && !isVerifiedOnly && search.private === true;
   const serverSort = activeSort === "oldest" ? "oldest" : "newest";
-  const listQueryKey = useMemo(
-    () =>
-      [
-        "projects",
-        activeKind,
-        isPersonalOnly ? (ownerFilterId ?? null) : null,
-        isPrivateOnly,
-        search.query ?? null,
-        search.status ?? null,
-        serverSort,
-      ] as const,
-    [
-      activeKind,
-      isPersonalOnly,
-      isPrivateOnly,
-      ownerFilterId,
-      search.query,
-      search.status,
-      serverSort,
-    ],
-  );
 
   const {
     data: pages,
@@ -801,20 +756,14 @@ function ProjectsList() {
     isFetchNextPageError,
     refetch: refetchProjects,
   } = useInfiniteQuery({
-    queryKey: listQueryKey,
-    queryFn: ({ pageParam }) =>
-      apiClient.listProjects({
-        limit: PAGE_SIZE,
-        cursor: pageParam,
-        kind: activeKind === "all" ? undefined : activeKind,
-        ownerId: isPersonalOnly ? ownerFilterId : undefined,
-        visibility: isPrivateOnly ? "private" : undefined,
-        query: search.query,
-        status: search.status === "all" ? undefined : search.status,
-        sort: serverSort,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+    ...projectsInfiniteOptions(apiClient, {
+      kind: activeKind === "all" ? undefined : activeKind,
+      ownerId: isPersonalOnly ? ownerFilterId : undefined,
+      privateOnly: isPrivateOnly,
+      query: search.query,
+      status: search.status === "all" ? undefined : search.status,
+      sort: serverSort,
+    }),
     enabled: !isVerifiedOnly && (!isPersonalOnly || Boolean(ownerFilterId)),
   });
 
@@ -825,20 +774,10 @@ function ProjectsList() {
     ownerId: ownerFilterId,
   });
   const catalogQuery = useInfiniteQuery({
-    queryKey: [
-      "catalog-projects",
-      isPersonalOnly ? (ownerFilterId ?? null) : null,
-      search.query ?? null,
-    ],
-    queryFn: ({ pageParam }) =>
-      apiClient.listClaimedCatalogProjects({
-        nearAccount: isPersonalOnly ? ownerFilterId : undefined,
-        query: search.query,
-        limit: PAGE_SIZE,
-        cursor: pageParam,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+    ...claimedCatalogProjectsInfiniteOptions(apiClient, {
+      nearAccount: isPersonalOnly ? ownerFilterId : undefined,
+      query: search.query,
+    }),
     enabled: catalogEnabled,
   });
   const {
@@ -855,7 +794,7 @@ function ProjectsList() {
 
   const localProjects = useMemo(() => {
     if (isVerifiedOnly) return [];
-    const normalized = (pages?.pages.flatMap((page) => page.data) ?? []).map((project) => ({
+    const normalized = flattenUniquePages(pages?.pages, (project) => project.id).map((project) => ({
       ...project,
       source: "local" as const,
       catalogUrl: null,
@@ -869,7 +808,7 @@ function ProjectsList() {
   }, [isVerifiedOnly, pages, search.query]);
   const catalogProjects = useMemo(() => {
     const normalized = selectCatalogDirectoryProjects(
-      catalogPages?.pages.flatMap((page) => page.data) ?? [],
+      flattenUniquePages(catalogPages?.pages, (entry) => entry.project.projectRef),
       catalogEnabled,
     );
     if (activeStatus !== "all" && activeStatus !== "active") return [];
@@ -886,7 +825,9 @@ function ProjectsList() {
       : 0;
   const totalProjectCount = localProjectTotal + catalogProjectTotal;
   const isProjectsLoading = (!isVerifiedOnly && isLoading) || (catalogEnabled && isCatalogLoading);
-  const isProjectsError = (!isVerifiedOnly && isError) || (catalogEnabled && isCatalogError);
+  const isProjectsError =
+    (!isVerifiedOnly && isError && !isFetchNextPageError) ||
+    (catalogEnabled && isCatalogError && !isFetchNextCatalogPageError);
   const isProjectsPaginationError =
     (!isVerifiedOnly && isFetchNextPageError) || (catalogEnabled && isFetchNextCatalogPageError);
   const hasMoreProjects =
@@ -1062,8 +1003,7 @@ function ProjectsList() {
     ((selectedProjectQuery.isError && !selectedPreviewId?.startsWith("nearcatalog:")) ||
       (selectedCatalogQuery.isError && Boolean(selectedCatalogSlug)));
   const canManageSelected =
-    selectedProject?.source === "local" &&
-    isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId);
+    selectedProject?.source === "local" && isViewerOwner(selectedProject.ownerId, viewerIds);
   const selectedReadmeQuery = useQuery({
     queryKey: ["projectPreviewReadme", selectedProject?.id, selectedProject?.repository],
     queryFn: async () =>
@@ -1222,7 +1162,7 @@ function ProjectsList() {
       to: "/projects",
       search: (previous) => ({
         ...previous,
-        sort: sort === "votes" ? undefined : sort,
+        sort: sort === DEFAULT_PROJECT_SORT ? undefined : sort,
         preview: undefined,
       }),
     });
@@ -1462,8 +1402,8 @@ function ProjectsList() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="votes">Most endorsed</SelectItem>
                         <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="votes">Most endorsed</SelectItem>
                         <SelectItem value="oldest">Oldest</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1517,8 +1457,8 @@ function ProjectsList() {
                     rankedProjects.length > 0 && (
                       <ProjectPaginationError
                         ranking={activeSort === "votes"}
-                        onRetry={() => void retryProjects()}
-                        isRetrying={isFetching || isCatalogFetching}
+                        onRetry={() => void fetchMoreProjects()}
+                        isRetrying={isFetchingMoreProjects}
                       />
                     )}
 

@@ -22,6 +22,7 @@ import {
   DEFAULT_ACTIVITY_API_URL,
   isPubliclyVisible,
   NEARBUILDERS_SOURCE,
+  startLiveStreamDiagnostics,
   toActivityEvent,
   toActivityQuery,
   withReadCache,
@@ -144,16 +145,18 @@ export default createPlugin({
   initialize: (config) =>
     Effect.sync(() => {
       const publisher = new MemoryPublisher<ActivityEvents>({
-        resume: { enabled: true, seconds: 120 },
+        resume: { enabled: true, ttl: 120_000 },
       });
       const Integrations = Layer.effect(
         ActivityIntegrations,
         Effect.gen(function* () {
           const database = yield* DatabaseTag;
           const integrations = createActivityIntegrations(database, config.secrets);
+          const stopDiagnostics = startLiveStreamDiagnostics(integrations.liveStream);
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => {
               integrations.gatewayWorker.stop();
+              stopDiagnostics();
             }),
           );
           if (integrations.gatewayEnabled) integrations.gatewayWorker.start();

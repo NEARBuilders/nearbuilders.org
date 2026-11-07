@@ -74,13 +74,14 @@ boundary above; until it lands, this document is the contract.
   the stack is fine; five separate one-test spec files are five stack boots.
   Batch journeys by theme.
 - **The cache is real**: `global-setup` seeds users/orgs once and writes
-  cookies to `.bos/regression/*.json`. Specs `useCookieHeader` — reuse the
-  cached session; mint your own only for a state the fixtures don't cover, and
-  route it through the shared auth instance, never a bespoke one
-  (`createAuthTestInstance` against the frozen upstream schema snapshot is the
-  supported path).
+  cookies to `.bos/regression/*.json`. Specs `injectCookies` — reuse the
+  cached session; mint a new state only when the fixtures don't cover it, and
+  route the seeding through the shared HTTP helpers
+  (`tests/regression/lib/http-seed.mjs` and the bootstrap-admin API key is
+  the supported path — the stack database is in-process pglite, so direct DB
+  writes are impossible).
 - **Serial by design**: `workers: 1`, `fullyParallel: false`, `retries: 1` —
-  specs share ports, databases, and the compose. Don't write a spec that
+  specs share ports and the seeded cookie cache. Don't write a spec that
   assumes a clean global state another spec might have breathed on; seed
   fixtures for per-spec state.
 - **The stall watchdog** fails after ~120 s of zero test progress: a spec that
