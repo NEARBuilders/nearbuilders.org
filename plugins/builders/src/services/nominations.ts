@@ -649,7 +649,7 @@ export async function finalizeNomination(
           engagementStatus: "completed",
           completedAt: now,
           engagementUpdatedAt: now,
-          updatedBy: userId,
+          updatedBy: nearAccount,
         })
         .where(
           and(

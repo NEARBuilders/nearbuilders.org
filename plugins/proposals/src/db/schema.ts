@@ -117,6 +117,8 @@ export const reviewLeases = pgTable("review_leases", {
 export const telegramLinkCodes = pgTable("telegram_link_codes", {
   codeHash: text("code_hash").primaryKey(),
   userId: text("user_id").notNull(),
+  /** The admin's primary NEAR account when they made the code (#329); null if they had none. */
+  nearAccount: text("near_account"),
   userLabel: text("user_label").notNull(),
   expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
@@ -129,6 +131,8 @@ export const telegramReviewers = pgTable(
     telegramUsername: text("telegram_username"),
     telegramName: text("telegram_name"),
     userId: text("user_id").notNull(),
+    /** The admin's primary NEAR account, so Telegram reviews act as that account (#329). */
+    nearAccount: text("near_account"),
     userLabel: text("user_label").notNull(),
     linkedAt: timestamp("linked_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },

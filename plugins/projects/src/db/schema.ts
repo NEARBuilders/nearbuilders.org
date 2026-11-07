@@ -36,6 +36,7 @@ export const projectApps = pgTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     accountId: text("account_id").notNull(),
     domain: text("domain").notNull(),
+    /** The creator's owner id (primary account, or user id without NEAR), despite the name (#367). */
     createdByUserId: text("created_by_user_id").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   },
@@ -52,6 +53,7 @@ export const projectCollaborators = pgTable(
     collaboratorOwnerId: text("collaborator_owner_id").notNull(),
     role: text("role").notNull().default("collaborator"),
     status: text("status").notNull().default("pending"),
+    /** The inviter's owner id (primary account, or user id without NEAR), despite the name (#367). */
     invitedByUserId: text("invited_by_user_id").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })

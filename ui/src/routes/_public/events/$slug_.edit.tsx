@@ -16,7 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useViewerOwnerIds } from "@/hooks";
 import { getEventFormErrorMessage, normalizeEventFormValues } from "@/lib/events/event-form-utils";
+import { isViewerOwner } from "@/lib/ownership";
 import { pageHead } from "@/lib/page-meta";
 
 type Visibility = "private" | "unlisted" | "public";
@@ -68,9 +70,7 @@ function EditEventPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth));
-  const nearAccountId = auth.near.getAccountId();
-  const sessionWalletAddress = (session?.user as { walletAddress?: string | null } | undefined)
-    ?.walletAddress;
+  const { ids: viewerIds, isLoading: viewerIdsLoading } = useViewerOwnerIds();
   const viewerKey = session?.user?.id ?? "anonymous";
 
   const eventQuery = useQuery({
@@ -80,13 +80,9 @@ function EditEventPage() {
   });
 
   const event = eventQuery.data?.data;
-  const canManage =
-    event &&
-    [nearAccountId, sessionWalletAddress, session?.user?.id].some(
-      (candidate) => candidate === event.ownerId,
-    );
+  const canManage = isViewerOwner(event?.ownerId, viewerIds);
 
-  if (eventQuery.isLoading) {
+  if (eventQuery.isLoading || (viewerIdsLoading && !canManage)) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-4 py-3">

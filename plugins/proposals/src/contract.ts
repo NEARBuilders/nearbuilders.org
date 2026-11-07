@@ -94,6 +94,7 @@ export const TelegramReviewerSchema = z.object({
   telegramUsername: z.string().nullable(),
   telegramName: z.string().nullable(),
   userId: z.string(),
+  nearAccount: z.string().nullable(),
   userLabel: z.string(),
   linkedAt: z.iso.datetime(),
 });
@@ -381,6 +382,7 @@ export const contract = oc.router({
       z.object({
         codeHash: z.string().min(16).max(128),
         userId: z.string().min(1),
+        nearAccount: z.string().min(1).max(128).nullable().optional(),
         userLabel: z.string().min(1).max(200),
         ttlMs: z.number().int().min(60_000).max(3_600_000),
       }),

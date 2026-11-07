@@ -6,6 +6,7 @@ import { z } from "zod";
 import { contract, type ProposalEventSchema, REVIEW_EVALUATOR } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { ProposalService, ProposalServiceLive } from "./services/proposals";
 
 type ProposalEvent = z.infer<typeof ProposalEventSchema>;
@@ -62,7 +63,7 @@ export default createPlugin({
     Effect.sync(() => {
       const Database = DatabaseLive(config.secrets.PROPOSALS_DATABASE_URL);
       const publisher = new MemoryPublisher<ProposalEvents>({
-        resume: { enabled: true, seconds: 120 },
+        resume: { enabled: true, ttl: 120_000 },
       });
 
       console.log("[Proposals] Services Initialized");
@@ -77,10 +78,19 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Proposals",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, ProposalService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
       }
+      await claimUserIdRows(context);
       return next({ context });
     });
 
@@ -119,18 +129,44 @@ export default createPlugin({
           data: { hint: "Sign in or provide an API key" },
         });
       }
+      // A signed-in caller's rows move too, so resubmitting after linking NEAR still matches
+      // the original submitter. API keys keep their own ids.
+      if (context.user && context.userId && !context.apiKey) await claimUserIdRows(context);
       return next({ context });
     });
 
-    const viewerId = (context: ProposalContext) =>
-      context.near?.primaryAccountId ?? context.userId ?? context.apiKey?.id;
+    /**
+     * Every id the caller may have created proposals under (#363): the primary account, each
+     * linked account, the user id and the API key, so a primary switch keeps their own
+     * proposals visible and withdrawable.
+     */
+    const viewerIds = (context: ProposalContext): string[] => {
+      const ids = [
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+        context.userId,
+        context.apiKey?.id,
+      ].filter((id): id is string => Boolean(id));
+      return [...new Set(ids)];
+    };
+
+    /** The caller's NEAR accounts, primary first. */
+    const nearAccountIds = (context: ProposalContext): string[] =>
+      [
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map(({ accountId }) => accountId),
+      ].filter((id): id is string => Boolean(id));
+
+    /** The canonical owner id recorded as the actor of review actions (#367). */
+    const actorOwnerId = (context: ProposalContext) =>
+      context.near?.primaryAccountId ?? context.userId!;
 
     const canReadAllProposals = (context: ProposalContext) =>
       context[REVIEW_EVALUATOR] === true || context.user?.role === "admin";
 
     const proposalScope = (privatePluginIds: Set<string>, context: ProposalContext) => ({
       privatePluginIds: Array.from(privatePluginIds),
-      viewerId: viewerId(context),
+      viewerIds: viewerIds(context),
       isAdmin: canReadAllProposals(context),
     });
 
@@ -181,6 +217,7 @@ export default createPlugin({
         const result = yield* proposal.propose({
           ...input,
           actorId,
+          alternateActorId: context.user ? (context.userId ?? undefined) : undefined,
           actor: context.user ?? undefined,
           resubmissionPolicy: context.resubmissionPolicy,
           canResubmitForOthers:
@@ -196,7 +233,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.approve({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("approved", result);
@@ -207,7 +244,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.reject({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("rejected", result);
@@ -221,7 +258,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.dismissFailure({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("failure_dismissed", result);
@@ -229,7 +266,7 @@ export default createPlugin({
       }),
 
       withdraw: builder.withdraw.use(requireAuth).effect(function* ({ input, context }) {
-        const viewer = viewerId(context);
+        const viewer = viewerIds(context);
         const { privatePluginIds } = yield* ProposalPluginConfig;
         const proposals = yield* ProposalService;
         const existing = yield* proposals.getProposals({
@@ -242,9 +279,8 @@ export default createPlugin({
         if (!proposal) {
           return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Proposal not found" }));
         }
-        const isSubject =
-          !!context.near?.primaryAccountId && input.entityId === context.near.primaryAccountId;
-        if (proposal.createdBy !== viewer && !isSubject) {
+        const isSubject = nearAccountIds(context).includes(input.entityId);
+        if (!viewer.includes(proposal.createdBy) && !isSubject) {
           return yield* Effect.fail(
             new ORPCError("FORBIDDEN", {
               message: "You can only withdraw a nomination you created or that is for your account",
@@ -253,7 +289,7 @@ export default createPlugin({
         }
         const result = yield* proposals.withdraw({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("withdrawn", result);
@@ -264,7 +300,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.reopen({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("reopened", result);
@@ -275,7 +311,7 @@ export default createPlugin({
         const proposal = yield* ProposalService;
         const result = yield* proposal.remove({
           ...input,
-          actorId: context.userId!,
+          actorId: actorOwnerId(context),
           actor: context.user ?? undefined,
         });
         yield* publishProposalEvent("removed", result);

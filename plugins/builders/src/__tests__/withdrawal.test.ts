@@ -132,4 +132,46 @@ describe.sequential("Builder profile withdrawal", () => {
       { code: "NOT_FOUND" },
     );
   });
+
+  it("finds the caller's own profile across linked accounts, primary first (#365)", async () => {
+    await createBuilder("dana.near");
+    await createBuilder("dana-alt.near");
+    const linked = (userId: string, accounts: string[]) =>
+      loaded.createClient({
+        userId,
+        user: testUser(userId),
+        near: {
+          primaryAccountId: accounts[0]!,
+          linkedAccounts: accounts.map((accountId, index) => ({
+            accountId,
+            network: "mainnet",
+            publicKey: "",
+            isPrimary: index === 0,
+          })),
+          hasNearAccount: true,
+        },
+      });
+
+    const altFirst = await linked("dana-user", ["dana-alt.near", "dana.near"]).getMyBuilderProfile(
+      {},
+    );
+    expect(altFirst.data?.nearAccount).toBe("dana-alt.near");
+    const mainFirst = await linked("dana-user", ["dana.near", "dana-alt.near"]).getMyBuilderProfile(
+      {},
+    );
+    expect(mainFirst.data?.nearAccount).toBe("dana.near");
+
+    // A profile held only by a linked account is still found after the user id changes.
+    await createBuilder("eli-old.near");
+    const reissued = await linked("eli-user-new", [
+      "eli-new.near",
+      "eli-old.near",
+    ]).getMyBuilderProfile({});
+    expect(reissued.data?.nearAccount).toBe("eli-old.near");
+    const withdrawn = await linked("eli-user-new", [
+      "eli-new.near",
+      "eli-old.near",
+    ]).withdrawMyBuilderProfile({});
+    expect(withdrawn.data).toMatchObject({ nearAccount: "eli-old.near" });
+  });
 });

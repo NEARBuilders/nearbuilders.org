@@ -7,7 +7,9 @@ import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { ProjectFormLayout, type ProjectFormValues } from "@/components/project-form";
 import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { useViewerOwnerIds } from "@/hooks";
 import { type ProjectKind, projectKindLabel } from "@/lib/draft-store";
+import { isViewerAcceptedCollaborator, isViewerOwner } from "@/lib/ownership";
 import { pageHead } from "@/lib/page-meta";
 import { projectCatalogFromFormValues, projectCatalogToFormValues } from "@/lib/project-catalog";
 import { normalizeDomain } from "@/lib/project-form-validation";
@@ -17,28 +19,6 @@ import {
   requiresAdminApproval,
 } from "@/lib/queries/approval-settings";
 import { requireTeamArea } from "@/lib/team-workspace";
-
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
-}
-
-function isCurrentUserCollaborator(
-  collaborators: Array<{ collaboratorOwnerId: string; status: string }> | undefined,
-  user: { id?: string | null; walletAddress?: string | null } | null | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!collaborators) return false;
-  const ids = [nearAccountId, user?.walletAddress, user?.id].filter(Boolean) as string[];
-  return collaborators.some((c) => c.status === "accepted" && ids.includes(c.collaboratorOwnerId));
-}
 
 type SearchParams = ReturnType<typeof parseProjectListSearch> & {
   tab: "write" | "preview";
@@ -93,15 +73,15 @@ function EditProjectPage() {
     (session?.user as { walletAddress?: string | null } | null)?.walletAddress ??
     "";
 
-  const isOwner = isCurrentUserOwner(project?.ownerId, session?.user, nearAccountId);
+  const { ids: viewerIds, isLoading: viewerIdsLoading } = useViewerOwnerIds();
+  const isOwner = isViewerOwner(project?.ownerId, viewerIds);
 
   const canManage =
     isOwner ||
-    isCurrentUserCollaborator(
+    isViewerAcceptedCollaborator(
       (project as { collaborators?: Array<{ collaboratorOwnerId: string; status: string }> })
         ?.collaborators,
-      session?.user,
-      nearAccountId,
+      viewerIds,
     );
 
   const updateMutation = useMutation({
@@ -240,7 +220,7 @@ function EditProjectPage() {
     onError: (err: Error) => toast.error(err.message || "Failed to delete"),
   });
 
-  if (projectQuery.isLoading) {
+  if (projectQuery.isLoading || (viewerIdsLoading && !canManage)) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-6 py-3">
