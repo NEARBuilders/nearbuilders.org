@@ -28,6 +28,7 @@ import { CreditClaimCard } from "@/components/credit-claim-card";
 import { LegacySocialImportPrompt } from "@/components/legacy-social-import-prompt";
 import { NearProfile } from "@/components/near-profile";
 import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
+import { ProjectFeedbackBadge } from "@/components/project-feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1131,6 +1132,7 @@ function ProjectRow({ project, voteCount }: { project: Project; voteCount?: numb
       </Link>
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         <ProjectActivityBadge projectId={project.id} />
+        <ProjectFeedbackBadge projectId={project.id} />
         {typeof voteCount === "number" && (
           <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
             <ThumbsUp className="h-3 w-3" />

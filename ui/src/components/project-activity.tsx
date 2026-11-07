@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, ExternalLink, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Activity, Bot, Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { type ApiClient, useApiClient } from "@/app";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,30 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { activityIntegrationGuideUrl, buildActivityAgentPrompt } from "@/lib/activity-agent-prompt";
+
+function projectPageUrl(slug: string) {
+  return new URL(
+    `/projects/project/${encodeURIComponent(slug)}`,
+    window.location.origin,
+  ).toString();
+}
+
+async function copyPrompt(prompt: string) {
+  try {
+    await navigator.clipboard.writeText(prompt);
+    toast.success("Prompt copied");
+  } catch {
+    toast.error("Failed to copy prompt");
+  }
+}
 
 const EVENT_TYPE_NAME_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const MAX_EVENT_POINTS = 100;
 
-type ActivityProject = Pick<
+export type ActivityProject = Pick<
   Awaited<ReturnType<ApiClient["getProject"]>>["data"],
   "id" | "kind" | "status" | "visibility"
 >;
@@ -38,15 +57,28 @@ export function useProjectActivity(projectId: string) {
   });
 }
 
-function useProjectApproved(projectId: string, enabled: boolean) {
+export function activityIneligibleReason(project: ActivityProject): string | null {
+  if (project.kind !== "project") return "Activity is only for projects";
+  if (project.status !== "active") return "Available once your project is active";
+  if (project.visibility === "unlisted") return "Available once your project is public or private";
+  return null;
+}
+
+export function useActivityEligibility(project: ActivityProject, enabled: boolean) {
   const apiClient = useApiClient();
+  const structuralReason = activityIneligibleReason(project);
   const query = useQuery({
-    queryKey: ["project-proposal", projectId],
-    queryFn: () => apiClient.getProposals({ pluginId: "projects", entityId: projectId, limit: 1 }),
-    enabled,
+    queryKey: ["project-proposal", project.id],
+    queryFn: () => apiClient.getProposals({ pluginId: "projects", entityId: project.id, limit: 1 }),
+    enabled: enabled && !structuralReason,
   });
-  const latest = query.data?.data[0]?.reviewStatus;
-  return query.isSuccess && (!latest || latest === "approved");
+  if (structuralReason) return { ready: true, eligible: false, reason: structuralReason };
+  if (!query.isSuccess) return { ready: false, eligible: false, reason: null };
+  const latest = query.data.data[0]?.reviewStatus;
+  if (latest && latest !== "approved") {
+    return { ready: true, eligible: false, reason: "Available once your project is approved" };
+  }
+  return { ready: true, eligible: true, reason: null };
 }
 
 export function ProjectActivityBadge({ projectId }: { projectId: string }) {
@@ -60,38 +92,14 @@ export function ProjectActivityBadge({ projectId }: { projectId: string }) {
   );
 }
 
-export function ProjectActivityRejected({
-  projectId,
-  visible,
-}: {
-  projectId: string;
-  visible: boolean;
-}) {
-  const { data } = useProjectActivity(projectId);
-  if (!visible || data?.status !== "rejected") return null;
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
-      <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
-      <div>
-        <p className="font-semibold text-foreground">Activity connection rejected</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {data.reviewReason ?? "An Activity administrator rejected this project's connection."}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function ProjectActivityAction({
   project,
   isOwner,
 }: {
-  project: ActivityProject;
+  project: ActivityProject & { slug: string };
   isOwner: boolean;
 }) {
-  const eligible =
-    project.kind === "project" && project.status === "active" && project.visibility !== "unlisted";
-  const approved = useProjectApproved(project.id, isOwner && eligible);
+  const eligibility = useActivityEligibility(project, isOwner);
   const { data } = useProjectActivity(project.id);
   const [open, setOpen] = useState(false);
 
@@ -110,7 +118,28 @@ export function ProjectActivityAction({
     );
   }
 
-  if (data.status !== "none" || !eligible || !approved) return null;
+  if (data.status !== "none" || !eligibility.ready) return null;
+
+  if (!eligibility.eligible) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-disabled="true"
+            aria-label={`Register Activity. ${eligibility.reason}`}
+            className="cursor-not-allowed opacity-50"
+          >
+            <Activity size={13} />
+            <span className="hidden sm:inline">Register Activity</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{eligibility.reason}</TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <>
@@ -124,7 +153,13 @@ export function ProjectActivityAction({
         <Activity size={13} />
         <span className="hidden sm:inline">Register Activity</span>
       </Button>
-      <RegisterActivityDialog projectId={project.id} open={open} onOpenChange={setOpen} />
+      <RegisterActivityDialog
+        projectId={project.id}
+        projectSlug={project.slug}
+        activityUrl={data.activityUrl}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
@@ -152,14 +187,28 @@ function pointsError(points: string): string | null {
 
 export function RegisterActivityDialog({
   projectId,
+  projectSlug,
+  activityUrl,
   open,
   onOpenChange,
 }: {
   projectId: string;
+  projectSlug: string;
+  activityUrl: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const apiClient = useApiClient();
+  const agentPrompt = useMemo(
+    () =>
+      buildActivityAgentPrompt({
+        activityUrl,
+        projectId,
+        projectSlug,
+        projectUrl: projectPageUrl(projectSlug),
+      }),
+    [activityUrl, projectId, projectSlug],
+  );
   const [rows, setRows] = useState<EventRow[]>([{ key: 0, name: "", points: "10" }]);
   const [nextKey, setNextKey] = useState(1);
 
@@ -196,97 +245,138 @@ export function RegisterActivityDialog({
         <DialogHeader>
           <DialogTitle>Register Activity</DialogTitle>
           <DialogDescription>
-            Add the events your app will report. Each one credits the user who did it on their NEAR
-            account. You confirm everything on activity.nearbuilders.org next.
+            Pick the events your app will report. Each one credits the user who did it on their NEAR
+            account. You confirm everything on activity.nearbuilders.org.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="flex gap-2 text-xs font-medium text-muted-foreground">
-            <span className="flex-1">Event name</span>
-            <span className="w-24">Points</span>
-            <span className="w-8" />
-          </div>
-          {rows.map((row, index) => {
-            const nameError = eventRowError(row, rows);
-            const rowPointsError = row.points.trim() === "" ? null : pointsError(row.points);
-            return (
-              <div key={row.key} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor={`activity-event-name-${row.key}`} className="sr-only">
-                    Event name {index + 1}
-                  </Label>
-                  <Input
-                    id={`activity-event-name-${row.key}`}
-                    value={row.name}
-                    onChange={(event) => updateRow(row.key, { name: event.target.value })}
-                    placeholder="listing.published"
-                    aria-invalid={Boolean(nameError)}
-                    autoComplete="off"
-                    className="flex-1"
-                  />
-                  <Label htmlFor={`activity-event-points-${row.key}`} className="sr-only">
-                    Points for event {index + 1}
-                  </Label>
-                  <Input
-                    id={`activity-event-points-${row.key}`}
-                    type="number"
-                    min={0}
-                    max={MAX_EVENT_POINTS}
-                    step={1}
-                    value={row.points}
-                    onChange={(event) => updateRow(row.key, { points: event.target.value })}
-                    aria-invalid={Boolean(rowPointsError)}
-                    className="w-24"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove event ${index + 1}`}
-                    disabled={rows.length === 1}
-                    onClick={() =>
-                      setRows((current) => current.filter(({ key }) => key !== row.key))
-                    }
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-                {(nameError || rowPointsError) && (
-                  <p className="text-xs text-destructive" role="alert">
-                    {nameError ?? rowPointsError}
-                  </p>
-                )}
+        <Tabs defaultValue="manual" className="min-w-0">
+          <TabsList>
+            <TabsTrigger value="manual" className="px-3 sm:px-5">
+              Set it up here
+            </TabsTrigger>
+            <TabsTrigger value="agent" className="px-3 sm:px-5">
+              <Bot />
+              Use your agent
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="manual" className="space-y-4 pt-2">
+            <div className="space-y-3">
+              <div className="flex gap-2 text-xs font-medium text-muted-foreground">
+                <span className="flex-1">Event name</span>
+                <span className="w-24">Points</span>
+                <span className="w-8" />
               </div>
-            );
-          })}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setRows((current) => [...current, { key: nextKey, name: "", points: "10" }]);
-              setNextKey((key) => key + 1);
-            }}
-          >
-            <Plus size={14} />
-            Add another
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Points range from 0 to {MAX_EVENT_POINTS}. 0 shows the event in the feed without scoring
-            it. You can change points later on Activity.
-          </p>
-        </div>
+              {rows.map((row, index) => {
+                const nameError = eventRowError(row, rows);
+                const rowPointsError = row.points.trim() === "" ? null : pointsError(row.points);
+                return (
+                  <div key={row.key} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`activity-event-name-${row.key}`} className="sr-only">
+                        Event name {index + 1}
+                      </Label>
+                      <Input
+                        id={`activity-event-name-${row.key}`}
+                        value={row.name}
+                        onChange={(event) => updateRow(row.key, { name: event.target.value })}
+                        placeholder="listing.published"
+                        aria-invalid={Boolean(nameError)}
+                        autoComplete="off"
+                        className="flex-1"
+                      />
+                      <Label htmlFor={`activity-event-points-${row.key}`} className="sr-only">
+                        Points for event {index + 1}
+                      </Label>
+                      <Input
+                        id={`activity-event-points-${row.key}`}
+                        type="number"
+                        min={0}
+                        max={MAX_EVENT_POINTS}
+                        step={1}
+                        value={row.points}
+                        onChange={(event) => updateRow(row.key, { points: event.target.value })}
+                        aria-invalid={Boolean(rowPointsError)}
+                        className="w-24"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove event ${index + 1}`}
+                        disabled={rows.length === 1}
+                        onClick={() =>
+                          setRows((current) => current.filter(({ key }) => key !== row.key))
+                        }
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                    {(nameError || rowPointsError) && (
+                      <p className="text-xs text-destructive" role="alert">
+                        {nameError ?? rowPointsError}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRows((current) => [...current, { key: nextKey, name: "", points: "10" }]);
+                  setNextKey((key) => key + 1);
+                }}
+              >
+                <Plus size={14} />
+                Add another
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Points range from 0 to {MAX_EVENT_POINTS}. 0 shows the event in the feed without
+                scoring it. You can change points later on Activity.
+              </p>
+            </div>
 
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={submit} disabled={!complete || register.isPending}>
-            {register.isPending ? "Opening…" : "Next"}
-            <ExternalLink size={14} />
-          </Button>
-        </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={submit} disabled={!complete || register.isPending}>
+                {register.isPending ? "Opening…" : "Next"}
+                <ExternalLink size={14} />
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+          <TabsContent value="agent" className="min-w-0 space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Copy this prompt into your coding agent inside the project repo. It connects to
+              Activity's MCP server, proposes event types from your code and gives you a link to
+              approve with your NEAR wallet.
+            </p>
+            <pre
+              data-testid="activity-agent-prompt"
+              className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words text-foreground"
+            >
+              {agentPrompt}
+            </pre>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <a
+                href={activityIntegrationGuideUrl(activityUrl)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
+              >
+                Integration guide
+                <ExternalLink size={12} className="text-muted-foreground" />
+              </a>
+              <Button type="button" onClick={() => void copyPrompt(agentPrompt)}>
+                <Copy size={14} />
+                Copy prompt
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
