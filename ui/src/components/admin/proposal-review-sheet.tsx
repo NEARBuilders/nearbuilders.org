@@ -828,6 +828,7 @@ export function ProposalReviewSheet({
       queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
       queryClient.invalidateQueries({ queryKey: ["catalog-claim-proposals"] }),
       queryClient.invalidateQueries({ queryKey: ["catalog-claims"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-catalog-sends"] }),
       queryClient.invalidateQueries({ queryKey: ["activity"] }),
     ]);
 

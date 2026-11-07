@@ -507,6 +507,7 @@ const CatalogExportProjectSchema = z.strictObject({
   "nearsocial-address": CatalogExportUrl,
   dapp: CatalogExportUrl,
   phase: z.string().max(40),
+  contact: z.string().max(300).optional(),
   source: z.strictObject({
     site: z.string().min(1),
     url: z.url(),
@@ -564,6 +565,21 @@ const CatalogListingStatusSchema = z.object({
   missing: z.array(z.string()),
   record: z.record(z.string(), z.unknown()),
   approvedRecord: z.record(z.string(), z.unknown()).nullable(),
+});
+
+const CatalogListingSendSchema = z.object({
+  kind: CatalogListingKind,
+  entityId: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  status: z.enum(["none", "pending", "approved", "rejected", "published"]),
+  catalogUrl: z.string().nullable(),
+  sendStatus: z.enum(["sent", "failed"]).nullable(),
+  sendAction: z.enum(["upsert", "remove"]).nullable(),
+  sendError: z.string().nullable(),
+  sendAttemptedAt: z.iso.datetime().nullable(),
+  sentAt: z.iso.datetime().nullable(),
+  teamContact: z.boolean().nullable(),
 });
 
 const CatalogClaimProposalSchema = z.object({
@@ -1463,6 +1479,22 @@ export const contract = oc.router({
       }),
     )
     .output(z.object({ data: z.object({ status: z.string(), slug: z.string() }) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
+
+  listCatalogListingSends: oc
+    .route({ method: "GET", path: "/v1/nearcatalog/listings/sends" })
+    .output(z.object({ enabled: z.boolean(), data: z.array(CatalogListingSendSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  retryCatalogListingSend: oc
+    .route({ method: "POST", path: "/v1/nearcatalog/listings/sends/retry" })
+    .input(
+      z.object({
+        kind: CatalogListingKind,
+        entityId: z.string().trim().min(1).max(255),
+      }),
+    )
+    .output(z.object({ data: CatalogListingSendSchema }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND }),
 
   getMyCatalogListing: oc
