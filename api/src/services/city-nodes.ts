@@ -93,20 +93,24 @@ export function buildCityNodeTree(raw: RawNode[]): CityNode[] {
   return ordered;
 }
 
-export function createCityNodeAppClient(baseUrl: string) {
-  return createRpcClient<CityNodeAppContract>({
-    hostUrl: baseUrl.replace(/\/+$/, ""),
-    path: "/api/rpc",
-  });
+export function createCityNodeAppClient(baseUrl: string, apiKey?: string) {
+  return createRpcClient<CityNodeAppContract>(
+    {
+      hostUrl: baseUrl.replace(/\/+$/, ""),
+      path: "/api/rpc",
+    },
+    apiKey ? new Headers({ "x-api-key": apiKey }) : undefined,
+  );
 }
 
 export function createCityNodeDirectory(options: {
   baseUrl: string;
+  apiKey?: string;
   client?: CityNodeAppClient;
   now?: () => number;
 }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const client = options.client ?? createCityNodeAppClient(baseUrl);
+  const client = options.client ?? createCityNodeAppClient(baseUrl, options.apiKey);
   const now = options.now ?? Date.now;
   let cached: { nodes: CityNode[]; fetchedAt: number } | null = null;
   let lastFailureAt = Number.NEGATIVE_INFINITY;

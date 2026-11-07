@@ -109,6 +109,30 @@ describe("createCityNodeAppClient", () => {
       expect(request.url).toBe("https://citynode.test/api/rpc/listNodeSummaries");
       expect(request.headers.get("content-type")).toContain("application/json");
       expect(await request.json()).toEqual({ json: { scope: "all" } });
+      expect(request.headers.get("x-api-key")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("sends the API key without dropping the JSON content type", async () => {
+    const fetch = vi.fn(
+      async (_input: Request | string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ json: summaries }), {
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await createCityNodeAppClient("https://citynode.test", "test-key").listNodeSummaries({
+        scope: "all",
+      });
+
+      const [input, init] = fetch.mock.calls[0] ?? [""];
+      const request = typeof input === "string" ? new Request(input, init) : input;
+      expect(request.headers.get("x-api-key")).toBe("test-key");
+      expect(request.headers.get("content-type")).toContain("application/json");
+      expect(await request.json()).toEqual({ json: { scope: "all" } });
     } finally {
       vi.unstubAllGlobals();
     }

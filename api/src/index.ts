@@ -211,6 +211,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
     BETTER_AUTH_SECRET: z.string().default(""),
+    CITYNODE_API_KEY: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -253,7 +254,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
             console.log("[API] Plugins available:", Object.keys(restPlugins).join(", ") || "none");
             return {
               reviewEvaluation,
-              cityNodes: createCityNodeDirectory({ baseUrl: config.variables.cityNodeUrl }),
+              cityNodes: createCityNodeDirectory({
+                baseUrl: config.variables.cityNodeUrl,
+                apiKey: config.secrets.CITYNODE_API_KEY || undefined,
+              }),
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
             };
