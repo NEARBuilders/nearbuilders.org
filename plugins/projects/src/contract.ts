@@ -118,7 +118,11 @@ export const programTopicEnum = z.enum(["smart-contracts", "private-cloud", "age
 export const programStateEnum = z.enum(["upcoming", "open", "closed"]);
 
 export function isProgramCtaUrl(value: string) {
-  if (value.startsWith("/")) return !value.startsWith("//") && !value.includes("\\");
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 0x20 || code === 0x7f || char === "\\") return false;
+  }
+  if (value.startsWith("/")) return !value.startsWith("//");
   try {
     return new URL(value).protocol === "https:";
   } catch {

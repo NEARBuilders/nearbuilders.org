@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { and, asc, eq, gt, inArray, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNull, lte, max, ne, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { projectPrograms, projects } from "../db/schema";
@@ -245,6 +245,14 @@ export const ProgramServiceLive = Layer.effect(
           const opensAt = toDate(input.opensAt) ?? null;
           const closesAt = toDate(input.closesAt) ?? null;
           if (!hasValidWindow(opensAt, closesAt)) return yield* Effect.fail(invalidWindow());
+          const sortOrder =
+            input.sortOrder ??
+            (yield* Effect.promise(async () => {
+              const [row] = await db
+                .select({ value: max(projectPrograms.sortOrder) })
+                .from(projectPrograms);
+              return row?.value === null || row?.value === undefined ? 0 : row.value + 1;
+            }));
           const id = generateProgramId();
           yield* Effect.promise(() =>
             db.insert(projectPrograms).values({
@@ -261,7 +269,7 @@ export const ProgramServiceLive = Layer.effect(
               opensAt,
               closesAt,
               status: input.status ?? "draft",
-              sortOrder: input.sortOrder ?? 0,
+              sortOrder,
               createdBy,
             }),
           );
@@ -329,6 +337,14 @@ export const ProgramServiceLive = Layer.effect(
           );
           if (found.length !== unique.length) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Program not found" }));
+          }
+          const [total] = yield* Effect.promise(() =>
+            db.select({ value: count() }).from(projectPrograms),
+          );
+          if ((total?.value ?? 0) !== unique.length) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "Reorder must include every program" }),
+            );
           }
           yield* Effect.promise(() =>
             db.transaction(async (tx) => {
