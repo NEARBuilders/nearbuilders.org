@@ -35,7 +35,7 @@ export type CreditSettingsDraft = {
   nearAiOrgId: string;
 };
 
-function toDatetimeLocal(iso: string | null): string {
+export function toDatetimeLocal(iso: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -43,7 +43,7 @@ function toDatetimeLocal(iso: string | null): string {
   return local.toISOString().slice(0, 16);
 }
 
-function fromDatetimeLocal(value: string): string | null {
+export function fromDatetimeLocal(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const date = new Date(trimmed);

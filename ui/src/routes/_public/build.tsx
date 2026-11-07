@@ -1,10 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowDown, ArrowRight, ExternalLink, FolderPlus, KeyRound, Send } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ExternalLink,
+  FolderPlus,
+  Gift,
+  KeyRound,
+  Send,
+} from "lucide-react";
 import type { ComponentType } from "react";
 import { useApiClient } from "@/app";
 import { GetInvolvedCard, GetInvolvedCardSkeleton } from "@/components/get-involved-card";
 import { NearAiLogo, NearIntentsLogo, NearProtocolLogo } from "@/components/near-logos";
+import { ProgramCard } from "@/components/program-card";
 import { SiteLink } from "@/components/site-link";
 import { Button } from "@/components/ui/button";
 import { CommandCopy } from "@/components/ui/command-copy";
@@ -20,13 +29,22 @@ import {
 } from "@/lib/build-content";
 import { pageHead } from "@/lib/page-meta";
 import { featuredProjectsQueryOptions } from "@/lib/queries/featured-projects";
+import {
+  openPrograms,
+  type Program,
+  programsForTopic,
+  programsQueryOptions,
+} from "@/lib/queries/programs";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_public/build")({
   loader: async ({ context }) => {
-    await context.queryClient.prefetchQuery(
-      featuredProjectsQueryOptions(context.apiClient, buildGetInvolved.featuredProjectSlugs),
-    );
+    await Promise.all([
+      context.queryClient.prefetchQuery(
+        featuredProjectsQueryOptions(context.apiClient, buildGetInvolved.featuredProjectSlugs),
+      ),
+      context.queryClient.prefetchQuery(programsQueryOptions(context.apiClient)),
+    ]);
   },
   head: () => ({
     meta: pageHead({ title: buildPage.metaTitle, description: buildPage.metaDescription }),
@@ -35,6 +53,10 @@ export const Route = createFileRoute("/_public/build")({
 });
 
 function BuildPage() {
+  const apiClient = useApiClient();
+  const { data } = useQuery(programsQueryOptions(apiClient));
+  const programs = openPrograms(data ?? []);
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <header className="max-w-2xl">
@@ -71,11 +93,38 @@ function BuildPage() {
       </section>
 
       {buildTopics.flatMap((topic) =>
-        topic.tools.map((tool) => <ToolSection key={tool.id} topic={topic} tool={tool} />),
+        topic.tools.map((tool, index) => (
+          <ToolSection
+            key={tool.id}
+            topic={topic}
+            tool={tool}
+            programs={index === 0 ? programsForTopic(programs, topic.id) : []}
+          />
+        )),
       )}
+
+      <PartnerProgramsSection programs={programs} />
 
       <GetInvolvedSection />
     </div>
+  );
+}
+
+function PartnerProgramsSection({ programs }: { programs: Program[] }) {
+  if (programs.length === 0) return null;
+
+  return (
+    <section id="partner-programs" className="mt-14 scroll-mt-24">
+      <SectionHeading title={buildPage.programs.title} />
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+        {buildPage.programs.description}
+      </p>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {programs.map((program) => (
+          <ProgramCard key={program.id} id={`program-${program.id}`} program={program} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -204,7 +253,15 @@ function TopicCard({ topic }: { topic: BuildTopic }) {
   );
 }
 
-function ToolSection({ topic, tool }: { topic: BuildTopic; tool: BuildTool }) {
+function ToolSection({
+  topic,
+  tool,
+  programs,
+}: {
+  topic: BuildTopic;
+  tool: BuildTool;
+  programs: Program[];
+}) {
   return (
     <section id={tool.id} className="mt-14 scroll-mt-24">
       <SectionHeading title={topic.title} />
@@ -212,6 +269,19 @@ function ToolSection({ topic, tool }: { topic: BuildTopic; tool: BuildTool }) {
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
         {tool.summary}
       </p>
+      {programs.map((program) => (
+        <a
+          key={program.id}
+          href={`#program-${program.id}`}
+          className="mt-3 flex w-fit max-w-full items-center gap-1.5 text-sm font-bold text-foreground transition-colors hover:text-brand-accent"
+        >
+          <Gift className="size-4 shrink-0 text-brand-accent" />
+          <span className="truncate">
+            {program.project.title}: {program.title}
+          </span>
+          <ArrowDown className="size-3.5 shrink-0" />
+        </a>
+      ))}
 
       <div className={cn("mt-5 grid gap-4", tool.access && "lg:grid-cols-2")}>
         <div

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isRecentlyClosed,
-  programState,
-  RECENTLY_CLOSED_DAYS,
-} from "../services/program-state";
+import { isRecentlyClosed, programState, RECENTLY_CLOSED_DAYS } from "../services/program-state";
 
 const now = new Date("2026-11-07T12:00:00.000Z");
 const day = 24 * 60 * 60 * 1000;

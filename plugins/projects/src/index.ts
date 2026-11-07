@@ -491,10 +491,7 @@ export default createPlugin({
         return { data };
       }),
 
-      createProgram: builder.createProgram.use(requireAdmin).effect(function* ({
-        input,
-        context,
-      }) {
+      createProgram: builder.createProgram.use(requireAdmin).effect(function* ({ input, context }) {
         const programs = yield* ProgramService;
         return yield* programs
           .createProgram(input, context.near?.primaryAccountId ?? context.userId)

@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CircleAlert,
   FolderKanban,
+  Gift,
   Hammer,
   KeyRound,
   Send,
@@ -34,6 +35,7 @@ const TAB_ICONS: Record<(typeof ADMIN_TABS)[number]["icon"], typeof Hammer> = {
   AtSign,
   Send,
   KeyRound,
+  Gift,
 };
 
 function AdminDashboardLayout() {

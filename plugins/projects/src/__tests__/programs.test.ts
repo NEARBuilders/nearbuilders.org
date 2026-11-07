@@ -197,7 +197,11 @@ describe("project programs", () => {
   });
 
   it("lists only open programs of active, non-private projects", async () => {
-    const make = async (title: string, extra: Record<string, unknown>, projectId = publicProjectId) =>
+    const make = async (
+      title: string,
+      extra: Record<string, unknown>,
+      projectId = publicProjectId,
+    ) =>
       (await admin.createProgram({ ...baseProgram, title, projectId, status: "listed", ...extra }))
         .id;
 
@@ -311,12 +315,12 @@ describe("project programs", () => {
   });
 
   it("validates program input", async () => {
-    await expect(
-      admin.createProgram({ ...baseProgram, projectId: ideaId }),
-    ).rejects.toThrow("Programs can only belong to projects");
-    await expect(
-      admin.createProgram({ ...baseProgram, projectId: "missing" }),
-    ).rejects.toThrow("Project not found");
+    await expect(admin.createProgram({ ...baseProgram, projectId: ideaId })).rejects.toThrow(
+      "Programs can only belong to projects",
+    );
+    await expect(admin.createProgram({ ...baseProgram, projectId: "missing" })).rejects.toThrow(
+      "Project not found",
+    );
     await expect(
       admin.createProgram({
         ...baseProgram,
@@ -325,7 +329,12 @@ describe("project programs", () => {
         closesAt: daysFromNow(1),
       }),
     ).rejects.toThrow("closesAt must be after opensAt");
-    for (const ctaUrl of ["javascript:alert(1)", "http://example.com", "//evil.example", "dashboard"]) {
+    for (const ctaUrl of [
+      "javascript:alert(1)",
+      "http://example.com",
+      "//evil.example",
+      "dashboard",
+    ]) {
       await expect(
         admin.createProgram({ ...baseProgram, projectId: publicProjectId, ctaUrl }),
       ).rejects.toThrow();
