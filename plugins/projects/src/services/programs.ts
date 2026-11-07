@@ -5,7 +5,13 @@ import { DatabaseTag } from "../db/layer";
 import { projectPrograms, projects } from "../db/schema";
 import { isRecentlyClosed, type ProgramState, programState } from "./program-state";
 
-export type ProgramType = "credits" | "grant" | "bounty" | "api-access" | "accelerator" | "hackathon";
+export type ProgramType =
+  | "credits"
+  | "grant"
+  | "bounty"
+  | "api-access"
+  | "accelerator"
+  | "hackathon";
 export type ProgramStatus = "draft" | "listed" | "paused" | "archived";
 export type ProgramTopicId = "smart-contracts" | "private-cloud" | "agentic-commerce";
 

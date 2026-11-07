@@ -30,6 +30,7 @@ import {
 } from "@/components/project-activity";
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
 import { ProjectCatalogCard } from "@/components/project-catalog-details";
+import { ProjectProgramsSection } from "@/components/project-programs-section";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { CatalogListedBadge } from "@/components/project-tags";
 import { Button } from "@/components/ui/button";
@@ -535,6 +536,8 @@ function ProjectDetailPage() {
                   }
                 />
               )}
+
+              {project.kind === "project" && <ProjectProgramsSection projectId={project.id} />}
 
               <section className="border-t border-border pt-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
