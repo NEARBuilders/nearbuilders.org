@@ -69,6 +69,7 @@ export function createProjectFeedbackClient(options: {
   fetchImplementation?: typeof fetch;
   timeoutMs?: number;
   cacheMs?: number;
+  failureCacheMs?: number;
   maxEntries?: number;
   now?: () => number;
 }) {
@@ -76,6 +77,7 @@ export function createProjectFeedbackClient(options: {
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 5_000;
   const cacheMs = options.cacheMs ?? 60_000;
+  const failureCacheMs = options.failureCacheMs ?? 10_000;
   const maxEntries = options.maxEntries ?? 1_000;
   const now = options.now ?? Date.now;
   const cache = new Map<string, { expiresAt: number; value: Promise<ProjectFeedback> }>();
@@ -107,7 +109,11 @@ export function createProjectFeedbackClient(options: {
       if (hit && hit.expiresAt > now()) return hit.value;
       const value = load(slug);
       cache.delete(slug);
-      cache.set(slug, { expiresAt: now() + cacheMs, value });
+      const entry = { expiresAt: now() + cacheMs, value };
+      cache.set(slug, entry);
+      void value.then((result) => {
+        if (result.status === "unknown") entry.expiresAt = now() + failureCacheMs;
+      });
       while (cache.size > maxEntries) {
         const oldest = cache.keys().next().value;
         if (oldest === undefined) break;

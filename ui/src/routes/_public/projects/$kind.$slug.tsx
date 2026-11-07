@@ -17,7 +17,7 @@ import {
   ThumbsUp,
   Trash2,
 } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { CatalogListingPanel } from "@/components/catalog-listing-panel";
@@ -138,6 +138,16 @@ function ProjectDetailPage() {
   const auth = useAuthClient();
   const search = Route.useSearch();
   const listSearch = { ...search, preview: undefined, created: undefined };
+  const [justCreated] = useState(search.created === 1);
+
+  useEffect(() => {
+    if (search.created !== 1) return;
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, created: undefined }),
+      replace: true,
+    });
+  }, [navigate, search.created]);
 
   const [copied, setCopied] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -450,7 +460,7 @@ function ProjectDetailPage() {
                 project={project}
                 isOwner={isOwner}
                 visible={canManage}
-                justCreated={search.created === 1}
+                justCreated={justCreated}
               />
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">

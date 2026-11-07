@@ -73,6 +73,7 @@ export function useActivityEligibility(project: ActivityProject, enabled: boolea
     enabled: enabled && !structuralReason,
   });
   if (structuralReason) return { ready: true, eligible: false, reason: structuralReason };
+  if (query.isError) return { ready: true, eligible: true, reason: null };
   if (!query.isSuccess) return { ready: false, eligible: false, reason: null };
   const latest = query.data.data[0]?.reviewStatus;
   if (latest && latest !== "approved") {
@@ -201,13 +202,15 @@ export function RegisterActivityDialog({
   const apiClient = useApiClient();
   const agentPrompt = useMemo(
     () =>
-      buildActivityAgentPrompt({
-        activityUrl,
-        projectId,
-        projectSlug,
-        projectUrl: projectPageUrl(projectSlug),
-      }),
-    [activityUrl, projectId, projectSlug],
+      open
+        ? buildActivityAgentPrompt({
+            activityUrl,
+            projectId,
+            projectSlug,
+            projectUrl: projectPageUrl(projectSlug),
+          })
+        : "",
+    [open, activityUrl, projectId, projectSlug],
   );
   const [rows, setRows] = useState<EventRow[]>([{ key: 0, name: "", points: "10" }]);
   const [nextKey, setNextKey] = useState(1);

@@ -45,7 +45,7 @@ export function ProjectFeedbackAction({
   canManage: boolean;
   fallbackRequestUrl: string | null;
 }) {
-  const { data, isError } = useProjectFeedback(projectId);
+  const { data } = useProjectFeedback(projectId);
 
   if (!canManage) {
     if (data?.status !== "open" || !data.openRound) return null;
@@ -53,9 +53,7 @@ export function ProjectFeedbackAction({
   }
 
   if (!data) {
-    return isError && fallbackRequestUrl
-      ? feedbackLink(fallbackRequestUrl, "Request feedback")
-      : null;
+    return fallbackRequestUrl ? feedbackLink(fallbackRequestUrl, "Request feedback") : null;
   }
   if (data.status === "open" && data.openRound)
     return feedbackLink(data.openRound.url, "View round");

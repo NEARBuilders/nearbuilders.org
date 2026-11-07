@@ -123,6 +123,20 @@ describe("project feedback lookup", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it("retries a failed lookup sooner than a successful one", async () => {
+    let now = NOW;
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    const feedback = client(fetchImpl as unknown as typeof fetch, () => now);
+    await feedback.lookup("demo-app");
+    await feedback.lookup("demo-app");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    now += 11_000;
+    await feedback.lookup("demo-app");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("shares one in-flight request between concurrent lookups", async () => {
     const fetchImpl = vi.fn(async () => json(detail([])));
     const feedback = client(fetchImpl);

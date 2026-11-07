@@ -1132,7 +1132,7 @@ function ProjectRow({ project, voteCount }: { project: Project; voteCount?: numb
       </Link>
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         <ProjectActivityBadge projectId={project.id} />
-        <ProjectFeedbackBadge projectId={project.id} />
+        {project.kind === "project" && <ProjectFeedbackBadge projectId={project.id} />}
         {typeof voteCount === "number" && (
           <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-3xs font-semibold text-muted-foreground">
             <ThumbsUp className="h-3 w-3" />
