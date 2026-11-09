@@ -5,7 +5,7 @@ import { App } from "everything-dev/descriptor";
 export default App({
   name: "nearbuilders.org",
   extends: "bos://dev.everything.near/everything.dev",
-  release: "2.0.0-rc.39",
+  release: "2.0.0-rc.41",
   account: "nearbuilding.near",
   domain: "nearbuilders.org",
   title: "NEAR Builders",

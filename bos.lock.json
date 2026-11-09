@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "kind": "everything-dev/composition-lockfile",
+  "runtimeRef": "bos://nearbuilding.near/nearbuilders.org",
+  "release": "2.0.0-rc.41",
+  "remotes": {
+    "app.api": {
+      "kind": "descriptor"
+    },
+    "app.ui": {
+      "kind": "descriptor"
+    },
+    "app.auth": {
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth/",
+      "digest": {
+        "manifest": "versions/4371bf2161a9bb56.json",
+        "integrity": "sha384-6FJ/yI/S3OIbfqjac7H0YUaKJHgZZY0ijy/0YGKeN6/9LY/ZLnw7trSSD8BLGtiC"
+      }
+    },
+    "app.auth.ui": {
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth-ui/",
+      "digest": {
+        "manifest": "versions/5cb53ab898380c93.json",
+        "integrity": "sha384-XUptsK9l2ECtL4qesDyjfw4BpTt/oxNLJy+uCkN6UkcWJg4O7o/HK8JOOErI9vet"
+      }
+    },
+    "app.host": {
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/host/",
+      "digest": {
+        "manifest": "versions/9d3d636add0a4be4.json",
+        "integrity": "sha384-5dhQEoIDUEN/hjxOBM+/ASX3xavMP1XPX8xbSvI3xy5w1+/8OiKEoLflcgPfUqHU"
+      }
+    },
+    "plugins.apps": {
+      "kind": "descriptor"
+    },
+    "plugins.projects": {
+      "kind": "descriptor"
+    },
+    "plugins.builders": {
+      "kind": "descriptor"
+    },
+    "plugins.events": {
+      "kind": "descriptor"
+    },
+    "plugins.proposals": {
+      "kind": "descriptor"
+    },
+    "plugins.votes": {
+      "kind": "descriptor"
+    },
+    "plugins.bookmarks": {
+      "kind": "descriptor"
+    },
+    "plugins.notifications": {
+      "kind": "descriptor"
+    },
+    "plugins.activity": {
+      "kind": "descriptor"
+    },
+    "plugins.nearcatalog": {
+      "kind": "descriptor"
+    },
+    "plugins.credits": {
+      "kind": "descriptor"
+    },
+    "plugins.nostr": {
+      "kind": "descriptor"
+    },
+    "plugins.storage": {
+      "kind": "descriptor"
+    }
+  },
+  "fingerprint": "79c7f11e9c2867f3",
+  "resolvedAt": "2026-11-09T21:18:40.515Z"
+}
