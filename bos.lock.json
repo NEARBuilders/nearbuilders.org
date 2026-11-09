@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "everything-dev/composition-lockfile",
   "runtimeRef": "bos://nearbuilding.near/nearbuilders.org",
-  "release": "2.0.0-rc.41",
+  "release": "2.0.0-rc.42",
   "remotes": {
     "app.api": {
       "kind": "descriptor"
@@ -14,24 +14,24 @@
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth/",
       "digest": {
-        "manifest": "versions/4371bf2161a9bb56.json",
-        "integrity": "sha384-6FJ/yI/S3OIbfqjac7H0YUaKJHgZZY0ijy/0YGKeN6/9LY/ZLnw7trSSD8BLGtiC"
+        "manifest": "versions/fdbb9a48d36d8814.json",
+        "integrity": "sha384-2aKR03jmL9ao59fefWTYBKV+uHHvN2sqRwOz2FfcVN/7nhEBdkRjM8EdZ3/ancg8"
       }
     },
     "app.auth.ui": {
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth-ui/",
       "digest": {
-        "manifest": "versions/5cb53ab898380c93.json",
-        "integrity": "sha384-XUptsK9l2ECtL4qesDyjfw4BpTt/oxNLJy+uCkN6UkcWJg4O7o/HK8JOOErI9vet"
+        "manifest": "versions/6a5bb9994518954a.json",
+        "integrity": "sha384-TyqgUY7baf9LGQsArqF4d7Z2moJOjDJlR6nbNjZdUPk9awo1c42YIZ12qQQx9yQw"
       }
     },
     "app.host": {
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/host/",
       "digest": {
-        "manifest": "versions/9d3d636add0a4be4.json",
-        "integrity": "sha384-5dhQEoIDUEN/hjxOBM+/ASX3xavMP1XPX8xbSvI3xy5w1+/8OiKEoLflcgPfUqHU"
+        "manifest": "versions/cf64dbb526fe95b0.json",
+        "integrity": "sha384-brhgsNh59GZnuHM+x3jNRBi9c0tcy9flgnhPe4QnkCVFq3MTvUIHUCXoydDduV3T"
       }
     },
     "plugins.apps": {
@@ -74,6 +74,6 @@
       "kind": "descriptor"
     }
   },
-  "fingerprint": "79c7f11e9c2867f3",
-  "resolvedAt": "2026-11-09T21:18:40.515Z"
+  "fingerprint": "61d50a1eae586460",
+  "resolvedAt": "2026-11-09T22:14:09.143Z"
 }

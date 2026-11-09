@@ -42,7 +42,8 @@
     "@effect/tsgo": "^0.63.0",
     "@shadcn/lint": "^0.2.0",
     "oxlint": "1.90.0",
-    "oxlint-tsgolint": "7.0.2005"
+    "oxlint-tsgolint": "7.0.2005",
+    "lefthook": "^2.2.2"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",

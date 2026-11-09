@@ -7,6 +7,7 @@ allowBuilds:
   sharp: true
   protobufjs: true
   "@openapitools/openapi-generator-cli": true
+  lefthook: set this to true or false
 overrides:
   "@better-fetch/fetch": 1.3.3
   "@rspack/core": 2.2.8
@@ -83,7 +84,7 @@ catalog:
   drizzle-orm: ^0.45.4
   effect: 4.0.0-rc.118
   every-plugin: 3.0.0-rc.16
-  everything-dev: 2.0.0-rc.41
+  everything-dev: 2.0.0-rc.42
   near-kit: ^0.20.2
   pg: ^8.12.0
   react: 19.3.1
@@ -99,7 +100,7 @@ catalog:
 minimumReleaseAgeExclude:
   - better-near-auth@2.0.0-rc.8
   - every-plugin@3.0.0-rc.16
-  - everything-dev@2.0.0-rc.41
+  - everything-dev@2.0.0-rc.42
 minimumReleaseAgeExcludePrune: true
 permissions:
   "@hot-labs/near-connect@https://codeload.github.com/elliotBraem/near-connect/tar.gz/83355f19408cd98c03b9fa823f9e52cd03929418":
