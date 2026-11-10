@@ -21,6 +21,7 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { CatalogListingPanel } from "@/components/catalog-listing-panel";
+import { CityNodeChip } from "@/components/city-node-chip";
 import { NostrFeed } from "@/components/nostr-feed";
 import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
@@ -470,6 +471,7 @@ function ProjectDetailPage() {
                   <CatalogListedBadge kind="project" entityId={project.id} linked />
                 )}
                 <NewBadge createdAt={project.createdAt} />
+                <CityNodeChip cityNode={project.cityNode} />
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 {projectImageUrl && (
