@@ -21,12 +21,9 @@
     "db:studio": "bos db:studio",
     "db:generate": "pnpm --dir api exec drizzle-kit generate",
     "db:migrate": "pnpm --dir api exec drizzle-kit migrate",
-    "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && for d in plugins/*; do [ -f \"$d/package.json\" ] && pnpm --dir \"$d\" --if-present run test; done",
+    "test": "pnpm --dir api --if-present run test && pnpm --dir ui --if-present run test && if [ -d plugins ]; then for d in plugins/*; do if [ -f \"$d/package.json\" ]; then pnpm --dir \"$d\" --if-present run test; fi; done; fi",
     "test:api": "pnpm --dir api --if-present run test",
     "test:integration": "pnpm --dir api --if-present run test tests/integration/",
-    "dev:postgres": "docker compose up -d --wait && pnpm run dev",
-    "dev:postgres:down": "docker compose down",
-    "dev:postgres:reset": "docker compose down -v && docker compose up -d --wait",
     "db:doctor": "bos db:doctor",
     "db:repair": "bos db:repair",
     "db:consolidate": "bash scripts/db/consolidate-plugin-dbs.sh"
@@ -45,7 +42,8 @@
     "@effect/tsgo": "^0.63.0",
     "@shadcn/lint": "^0.2.0",
     "oxlint": "1.90.0",
-    "oxlint-tsgolint": "7.0.2005"
+    "oxlint-tsgolint": "7.0.2005",
+    "lefthook": "^2.2.2"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",

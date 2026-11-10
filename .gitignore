@@ -305,8 +305,8 @@ fabric.properties
 :memory:
 
 .turbo
+# .bos/sync-snapshot.json stays local-only — lock consolidation upstream (NEARBuilders/everything-dev#844)
 .bos
-!.bos/sync-snapshot.json
 !.bos/infra-state.json
 .bos/session.json
 
