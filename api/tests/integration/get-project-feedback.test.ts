@@ -7,14 +7,14 @@ describe("getProjectFeedback", () => {
   const runtimes: Array<ReturnType<typeof createPluginRuntime>> = [];
 
   afterEach(async () => {
-    vi.unstubAllGlobals();
     await Promise.all(runtimes.splice(0).map((runtime) => runtime.shutdown()));
   });
 
-  async function loadApi() {
+  async function loadApi(feedbackDetail: unknown) {
     const runtime = createPluginRuntime({ registry: { api: { module: ApiPlugin } } });
     runtimes.push(runtime);
-    return await runtime.usePlugin(
+    const getProjectBySlug = vi.fn(async () => feedbackDetail);
+    const loaded = await runtime.usePlugin(
       "api",
       {
         variables: { reviewEvaluationEnabled: false, feedbackBaseUrl: "https://feedback.example" },
@@ -24,6 +24,7 @@ describe("getProjectFeedback", () => {
         activity: () => ({}),
         builders: () => ({}),
         events: () => ({}),
+        feedback: () => ({ getProjectBySlug }),
         nearcatalog: () => ({}),
         notifications: () => ({}),
         projects: () => ({
@@ -33,33 +34,29 @@ describe("getProjectFeedback", () => {
         votes: () => ({}),
       } as never),
     );
+    return { loaded, getProjectBySlug };
   }
 
   it("looks the project up on feedback by its slug", async () => {
-    const fetchMock = vi.fn(
-      async (_url: Parameters<typeof fetch>[0], _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            json: {
-              slug: "demo-app",
-              rounds: [{ title: "Beta", status: "open", projectRoundNumber: 1, endsAt: null }],
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const loaded = await loadApi();
+    const { loaded, getProjectBySlug } = await loadApi({
+      slug: "demo-app",
+      rounds: [{ title: "Beta", status: "open", projectRoundNumber: 1, endsAt: null }],
+    });
     const result = await loaded.createClient({}).getProjectFeedback({ projectId: "proj_1" });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://feedback.example/api/rpc/getProjectBySlug",
-      expect.anything(),
-    );
-    const [, init] = fetchMock.mock.calls[0]!;
-    expect(JSON.parse(String(init!.body))).toEqual({ json: { slug: "demo-app" } });
+    expect(getProjectBySlug).toHaveBeenCalledWith({ slug: "demo-app" });
     expect(result).toMatchObject({
       status: "open",
       openRound: { number: 1, title: "Beta", url: "https://feedback.example/projects/demo-app/1" },
+    });
+  });
+
+  it("maps an unknown project to status none", async () => {
+    const { loaded } = await loadApi({ slug: "demo-app", rounds: [] });
+    const result = await loaded.createClient({}).getProjectFeedback({ projectId: "proj_1" });
+    expect(result).toMatchObject({
+      status: "registered",
+      openRound: null,
+      pastRounds: 0,
     });
   });
 });

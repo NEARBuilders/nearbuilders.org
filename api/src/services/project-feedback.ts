@@ -1,11 +1,12 @@
-import { createORPCClient, ORPCError } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import type { ContractRouterClient } from "@orpc/contract";
+import { ORPCError } from "@orpc/client";
 import { z } from "zod";
 import type { ProjectFeedbackSchema } from "../contract";
-import type { ContractType as FeedbackContract } from "../lib/feedback-contract.gen";
 
 export type ProjectFeedback = z.infer<typeof ProjectFeedbackSchema>;
+
+export interface ProjectFeedbackRpcClient {
+  getProjectBySlug(input: { slug: string }): Promise<unknown>;
+}
 
 const FeedbackProjectDetailSchema = z.object({
   slug: z.string(),
@@ -69,36 +70,19 @@ export function projectFeedbackFromDetail(
 }
 
 export function createProjectFeedbackClient(options: {
-  baseUrl: string;
-  apiKey?: string;
-  fetchImplementation?: typeof fetch;
-  timeoutMs?: number;
+  client?: ProjectFeedbackRpcClient;
+  feedbackBaseUrl: string;
   cacheMs?: number;
   failureCacheMs?: number;
   maxEntries?: number;
   now?: () => number;
 }) {
-  const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const apiKey = options.apiKey?.trim();
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
-  const timeoutMs = options.timeoutMs ?? 5_000;
+  const baseUrl = options.feedbackBaseUrl.replace(/\/+$/, "");
   const cacheMs = options.cacheMs ?? 60_000;
   const failureCacheMs = options.failureCacheMs ?? 10_000;
   const maxEntries = options.maxEntries ?? 1_000;
   const now = options.now ?? Date.now;
   const cache = new Map<string, { expiresAt: number; value: Promise<ProjectFeedback> }>();
-  const rpc = createORPCClient(
-    new RPCLink({
-      origin: baseUrl,
-      url: "/api/rpc",
-      fetch: (url, init) =>
-        fetchImplementation(url, {
-          ...init,
-          signal: AbortSignal.timeout(timeoutMs),
-          ...(apiKey ? { headers: { ...init?.headers, "x-api-key": apiKey } } : {}),
-        }),
-    }),
-  ) as ContractRouterClient<FeedbackContract>;
 
   function withoutRound(slug: string, status: "none" | "unknown"): ProjectFeedback {
     const { requestUrl } = feedbackUrls(baseUrl, slug);
@@ -106,8 +90,9 @@ export function createProjectFeedbackClient(options: {
   }
 
   async function load(slug: string): Promise<ProjectFeedback> {
+    if (!options.client) return withoutRound(slug, "unknown");
     try {
-      const detail = await rpc.getProjectBySlug({ slug });
+      const detail = await options.client.getProjectBySlug({ slug });
       const parsed = FeedbackProjectDetailSchema.safeParse(detail);
       if (!parsed.success) return withoutRound(slug, "unknown");
       return projectFeedbackFromDetail(parsed.data, baseUrl, now());

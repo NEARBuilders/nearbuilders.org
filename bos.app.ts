@@ -32,7 +32,6 @@ export default App({
       "GITHUB_TOKEN",
       "REQUIRE_ADMIN_APPROVAL",
       "BETTER_AUTH_SECRET",
-      "FEEDBACK_API_KEY",
     ],
   },
   plugins: {
@@ -120,6 +119,11 @@ export default App({
         "STORAGE_ACCESS_KEY_ID",
         "STORAGE_SECRET_ACCESS_KEY",
       ],
+    },
+    feedback: {
+      contract: "bos://nearbuilding.near/feedback.nearbuilders.org#app.api",
+      proxy: "https://feedback.nearbuilders.org",
+      secrets: ["FEEDBACK_API_KEY"],
     },
   },
 });
