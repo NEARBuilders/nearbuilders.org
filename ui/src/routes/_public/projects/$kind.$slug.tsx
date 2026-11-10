@@ -34,7 +34,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { NewBadge } from "@/components/ui/new-badge";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { useViewerOwnerIds } from "@/hooks";
 import { isSafeImageUrl } from "@/lib/image-url";
@@ -339,318 +339,316 @@ function ProjectDetailPage() {
   const requestFeedbackHref = feedbackRequestUrl(project.slug);
 
   return (
-    <TooltipProvider>
-      <div className="min-h-page bg-muted/30">
-        {/* top bar */}
-        <div className="border-b border-border bg-background">
-          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-            <PageBreadcrumb
-              parentLabel="Projects"
-              parentTo="/projects"
-              parentSearch={{ ...listSearch, preview: project.id }}
-              current={project.slug}
+    <div className="min-h-page bg-muted/30">
+      {/* top bar */}
+      <div className="border-b border-border bg-background">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <PageBreadcrumb
+            parentLabel="Projects"
+            parentTo="/projects"
+            parentSearch={{ ...listSearch, preview: project.id }}
+            current={project.slug}
+          />
+
+          {/* actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* vote widget */}
+            <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-card px-1 py-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <VoteButton
+                    size="compact"
+                    icon={<ThumbsUp size={18} strokeWidth={2.25} />}
+                    onClick={() => runVote("up")}
+                    label="Upvote"
+                    disabled={!canParticipate || upvoteMutation.isPending}
+                    active={voteDirection === "up"}
+                    activeColor="text-brand-accent"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Endorse this entry</TooltipContent>
+              </Tooltip>
+              <span className="min-w-5 text-center text-13 font-bold text-foreground">
+                {voteCountAvailable ? voteCount : "—"}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <VoteButton
+                    size="compact"
+                    icon={<ThumbsDown size={18} strokeWidth={2.25} />}
+                    onClick={() => runVote("down")}
+                    label="Downvote"
+                    disabled={!canParticipate || downvoteMutation.isPending}
+                    active={voteDirection === "down"}
+                    activeColor="text-destructive"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Remove your endorsement</TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* share */}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={handleShare}
+              aria-label={copied ? "Link copied" : "Copy link"}
+            >
+              {copied ? <Check size={14} /> : <Share2 size={14} />}
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon-sm"
+              className="sm:hidden"
+              onClick={() => setDetailsOpen(true)}
+              aria-label="Show details"
+            >
+              <Info size={15} />
+            </Button>
+
+            <ProjectFeedbackAction
+              projectId={project.id}
+              canManage={canManage}
+              fallbackRequestUrl={requestFeedbackHref}
             />
 
-            {/* actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* vote widget */}
-              <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-card px-1 py-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <VoteButton
-                      size="compact"
-                      icon={<ThumbsUp size={18} strokeWidth={2.25} />}
-                      onClick={() => runVote("up")}
-                      label="Upvote"
-                      disabled={!canParticipate || upvoteMutation.isPending}
-                      active={voteDirection === "up"}
-                      activeColor="text-brand-accent"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>Endorse this entry</TooltipContent>
-                </Tooltip>
-                <span className="min-w-5 text-center text-13 font-bold text-foreground">
-                  {voteCountAvailable ? voteCount : "—"}
-                </span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <VoteButton
-                      size="compact"
-                      icon={<ThumbsDown size={18} strokeWidth={2.25} />}
-                      onClick={() => runVote("down")}
-                      label="Downvote"
-                      disabled={!canParticipate || downvoteMutation.isPending}
-                      active={voteDirection === "down"}
-                      activeColor="text-destructive"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>Remove your endorsement</TooltipContent>
-                </Tooltip>
+            <ProjectActivityAction project={project} isOwner={isOwner} />
+
+            {canManage && (
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    to="/projects/$kind/$slug/edit"
+                    params={{ kind: project.kind, slug: project.slug }}
+                    search={{ ...listSearch, tab: "write" }}
+                  >
+                    <Pencil size={13} />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Link>
+                </Button>
+                {(isOwner || isAdmin) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm("Delete this project permanently?")) deleteMutation.mutate();
+                    }}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 size={13} />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* body */}
+      {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
+      <div className="mx-auto grid w-full max-w-7xl gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-9 lg:px-8">
+        {/* main content */}
+        <div className="min-w-0">
+          <div className="mx-auto max-w-4xl space-y-6">
+            <ProjectReviewStatus projectId={project.id} visible={isOwner} />
+            <ProjectNextSteps
+              project={project}
+              isOwner={isOwner}
+              visible={canManage}
+              justCreated={justCreated}
+            />
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <KindChip kind={project.kind} />
+                <StatusChip status={project.status} />
+                <ProjectActivityBadge projectId={project.id} />
+                {project.kind === "project" && (
+                  <CatalogListedBadge kind="project" entityId={project.id} linked />
+                )}
+                <NewBadge createdAt={project.createdAt} />
               </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {projectImageUrl && (
+                  <img
+                    src={projectImageUrl}
+                    alt=""
+                    className="size-12 shrink-0 rounded-md border border-border object-cover"
+                  />
+                )}
+                <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+                  {project.title}
+                </h1>
+                {project.visibility === "private" && <PrivateIndicator />}
+              </div>
+              {project.description && (
+                <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  {project.description}
+                </p>
+              )}
+              {!canParticipate && (
+                <p className="text-xs text-muted-foreground">
+                  Link an identity to endorse entries.
+                </p>
+              )}
+              {project.domain && (
+                <Button asChild size="sm" variant="outline" className="w-fit">
+                  <a href={`https://${project.domain}`} target="_blank" rel="noopener noreferrer">
+                    <Globe size={13} />
+                    <span className="max-w-55 truncate">{project.domain}</span>
+                    <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
+                  </a>
+                </Button>
+              )}
+              {project.repository && (
+                <Button asChild size="sm" variant="outline" className="w-fit">
+                  <a href={project.repository} target="_blank" rel="noopener noreferrer">
+                    {isGithubUrl(project.repository) ? (
+                      <GithubIcon size={13} />
+                    ) : (
+                      <Globe size={13} />
+                    )}
+                    <span className="max-w-55 truncate">
+                      {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                    </span>
+                    <ExternalLink size={11} className="text-muted-foreground shrink-0" />
+                  </a>
+                </Button>
+              )}
+            </div>
 
-              {/* share */}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                onClick={handleShare}
-                aria-label={copied ? "Link copied" : "Copy link"}
-              >
-                {copied ? <Check size={14} /> : <Share2 size={14} />}
-              </Button>
-
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon-sm"
-                className="sm:hidden"
-                onClick={() => setDetailsOpen(true)}
-                aria-label="Show details"
-              >
-                <Info size={15} />
-              </Button>
-
-              <ProjectFeedbackAction
-                projectId={project.id}
-                canManage={canManage}
-                fallbackRequestUrl={requestFeedbackHref}
+            {project.kind === "project" && project.visibility === "public" && isOwner && (
+              <CatalogListingPanel
+                target={{ kind: "project", projectId: project.id }}
+                visible={isOwner}
+                version={project.updatedAt}
               />
+            )}
 
-              <ProjectActivityAction project={project} isOwner={isOwner} />
-
-              {canManage && (
-                <>
-                  <Button asChild size="sm" variant="outline">
+            {project.kind === "project" && (
+              <ProjectCatalogCard
+                project={project}
+                canManage={canManage}
+                action={
+                  <Button asChild size="sm" variant="outline" className="w-fit">
                     <Link
                       to="/projects/$kind/$slug/edit"
                       params={{ kind: project.kind, slug: project.slug }}
                       search={{ ...listSearch, tab: "write" }}
                     >
-                      <Pencil size={13} />
-                      <span className="hidden sm:inline">Edit</span>
+                      Add details
                     </Link>
                   </Button>
-                  {(isOwner || isAdmin) && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        if (confirm("Delete this project permanently?")) deleteMutation.mutate();
-                      }}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 size={13} />
-                      <span className="hidden sm:inline">Delete</span>
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        {/* body */}
-        {/* oxlint-disable-next-line shadcn/no-arbitrary-values -- main-content/sidebar grid split with a fixed sidebar width; grid-template-columns has no scale equivalent */}
-        <div className="mx-auto grid w-full max-w-7xl gap-7 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-9 lg:px-8">
-          {/* main content */}
-          <div className="min-w-0">
-            <div className="mx-auto max-w-4xl space-y-6">
-              <ProjectReviewStatus projectId={project.id} visible={isOwner} />
-              <ProjectNextSteps
-                project={project}
-                isOwner={isOwner}
-                visible={canManage}
-                justCreated={justCreated}
+                }
               />
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <KindChip kind={project.kind} />
-                  <StatusChip status={project.status} />
-                  <ProjectActivityBadge projectId={project.id} />
-                  {project.kind === "project" && (
-                    <CatalogListedBadge kind="project" entityId={project.id} linked />
-                  )}
-                  <NewBadge createdAt={project.createdAt} />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {projectImageUrl && (
-                    <img
-                      src={projectImageUrl}
-                      alt=""
-                      className="size-12 shrink-0 rounded-md border border-border object-cover"
-                    />
-                  )}
-                  <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
-                    {project.title}
-                  </h1>
-                  {project.visibility === "private" && <PrivateIndicator />}
-                </div>
-                {project.description && (
-                  <p className="max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                    {project.description}
+            )}
+
+            <section className="border-t border-border pt-6">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
+                    {project.kind === "project" ? "README" : "Entry details"}
                   </p>
-                )}
-                {!canParticipate && (
-                  <p className="text-xs text-muted-foreground">
-                    Link an identity to endorse entries.
-                  </p>
-                )}
-                {project.domain && (
-                  <Button asChild size="sm" variant="outline" className="w-fit">
-                    <a href={`https://${project.domain}`} target="_blank" rel="noopener noreferrer">
-                      <Globe size={13} />
-                      <span className="max-w-55 truncate">{project.domain}</span>
-                      <ExternalLink size={11} className="shrink-0 text-muted-foreground" />
-                    </a>
-                  </Button>
-                )}
-                {project.repository && (
-                  <Button asChild size="sm" variant="outline" className="w-fit">
-                    <a href={project.repository} target="_blank" rel="noopener noreferrer">
-                      {isGithubUrl(project.repository) ? (
-                        <GithubIcon size={13} />
-                      ) : (
-                        <Globe size={13} />
-                      )}
-                      <span className="max-w-55 truncate">
-                        {project.repository.replace(/^https?:\/\/(www\.)?/, "")}
-                      </span>
-                      <ExternalLink size={11} className="text-muted-foreground shrink-0" />
-                    </a>
-                  </Button>
+                  <h2 className="mt-1 text-xl font-semibold text-foreground">
+                    {project.kind === "project" ? "About this project" : "What was shared"}
+                  </h2>
+                </div>
+                {project.kind === "project" && project.repository && (
+                  <span className="text-xs text-muted-foreground">
+                    Fetched from the default branch
+                  </span>
                 )}
               </div>
 
-              {project.kind === "project" && project.visibility === "public" && isOwner && (
-                <CatalogListingPanel
-                  target={{ kind: "project", projectId: project.id }}
-                  visible={isOwner}
-                  version={project.updatedAt}
-                />
-              )}
-
-              {project.kind === "project" && (
-                <ProjectCatalogCard
-                  project={project}
-                  canManage={canManage}
-                  action={
-                    <Button asChild size="sm" variant="outline" className="w-fit">
-                      <Link
-                        to="/projects/$kind/$slug/edit"
-                        params={{ kind: project.kind, slug: project.slug }}
-                        search={{ ...listSearch, tab: "write" }}
-                      >
-                        Add details
-                      </Link>
-                    </Button>
-                  }
-                />
-              )}
-
-              <section className="border-t border-border pt-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-12 text-brand-accent">
-                      {project.kind === "project" ? "README" : "Entry details"}
-                    </p>
-                    <h2 className="mt-1 text-xl font-semibold text-foreground">
-                      {project.kind === "project" ? "About this project" : "What was shared"}
-                    </h2>
+              <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+                {readmeUnavailable && (
+                  <p className="mb-5 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    README unavailable. Showing the project description instead.
+                  </p>
+                )}
+                {project.kind === "project" && readmeQuery.isLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-5 w-1/3 animate-pulse rounded bg-border" />
+                    <div className="h-3 w-full animate-pulse rounded bg-border" />
+                    <div className="h-3 w-5/6 animate-pulse rounded bg-border" />
                   </div>
-                  {project.kind === "project" && project.repository && (
-                    <span className="text-xs text-muted-foreground">
-                      Fetched from the default branch
-                    </span>
-                  )}
-                </div>
+                ) : renderedContent ? (
+                  <Markdown content={renderedContent} />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+                    {project.kind === "project"
+                      ? "No README available for this repository."
+                      : project.kind === "scope"
+                        ? "This scope has no content yet."
+                        : project.kind === "result"
+                          ? "This result has no content yet."
+                          : "This idea has no content yet."}
+                  </div>
+                )}
+              </div>
+            </section>
 
-                <div className="mt-4 rounded-2xl border border-border bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8">
-                  {readmeUnavailable && (
-                    <p className="mb-5 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-                      README unavailable. Showing the project description instead.
-                    </p>
-                  )}
-                  {project.kind === "project" && readmeQuery.isLoading ? (
-                    <div className="space-y-3">
-                      <div className="h-5 w-1/3 animate-pulse rounded bg-border" />
-                      <div className="h-3 w-full animate-pulse rounded bg-border" />
-                      <div className="h-3 w-5/6 animate-pulse rounded bg-border" />
-                    </div>
-                  ) : renderedContent ? (
-                    <Markdown content={renderedContent} />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-                      {project.kind === "project"
-                        ? "No README available for this repository."
-                        : project.kind === "scope"
-                          ? "This scope has no content yet."
-                          : project.kind === "result"
-                            ? "This result has no content yet."
-                            : "This idea has no content yet."}
-                    </div>
-                  )}
-                </div>
-              </section>
+            <ProjectActivityFeed projectId={project.id} />
 
-              <ProjectActivityFeed projectId={project.id} />
+            <NostrFeed target={project.slug} targetType={project.kind} requireBound />
 
-              <NostrFeed target={project.slug} targetType={project.kind} requireBound />
+            <CollaboratorsSection
+              projectId={project.id}
+              ownerId={project.ownerId}
+              isOwner={isOwner}
+              canManage={canManage}
+            />
 
-              <CollaboratorsSection
-                projectId={project.id}
-                ownerId={project.ownerId}
-                isOwner={isOwner}
-                canManage={canManage}
-              />
-
-              {(project.kind === "scope" || project.kind === "result") && (
-                <MentionsSection projectId={project.id} />
-              )}
-            </div>
-          </div>
-
-          {/* desktop sidebar */}
-          <div className="hidden rounded-2xl border border-border bg-card p-5 shadow-sm sm:block lg:sticky lg:top-24 lg:self-start">
-            {metaItems}
+            {(project.kind === "scope" || project.kind === "result") && (
+              <MentionsSection projectId={project.id} />
+            )}
           </div>
         </div>
-        {/* mobile details sheet */}
-        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <SheetContent side="bottom" hideCloseButton={false}>
-            <SheetHeader>
-              <SheetTitle>Details</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto px-5 pb-2 pt-1">
-              <div className="space-y-4">
-                <MetaItem label="Visibility" value={project.visibility} />
-                <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
-                <MetaLinkItem
-                  label="Builder"
-                  to="/builders/$account"
-                  params={{ account: project.ownerId }}
-                  value={shortenId(project.ownerId)}
-                  mono
-                />
-                <MetaItem label="Slug" value={project.slug} mono />
-                {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
-                <MetaItem label="Created" value={formatDate(project.createdAt)} />
-                <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
-              </div>
-            </div>
-            <div
-              className="shrink-0 px-5 pt-3"
-              style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
-            >
-              <SheetClose asChild>
-                <Button variant="outline" className="w-full">
-                  Close
-                </Button>
-              </SheetClose>
-            </div>
-          </SheetContent>
-        </Sheet>
+
+        {/* desktop sidebar */}
+        <div className="hidden rounded-2xl border border-border bg-card p-5 shadow-sm sm:block lg:sticky lg:top-24 lg:self-start">
+          {metaItems}
+        </div>
       </div>
-    </TooltipProvider>
+      {/* mobile details sheet */}
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent side="bottom" hideCloseButton={false}>
+          <SheetHeader>
+            <SheetTitle>Details</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto px-5 pb-2 pt-1">
+            <div className="space-y-4">
+              <MetaItem label="Visibility" value={project.visibility} />
+              <MetaItem label="Owner" value={shortenId(project.ownerId)} mono />
+              <MetaLinkItem
+                label="Builder"
+                to="/builders/$account"
+                params={{ account: project.ownerId }}
+                value={shortenId(project.ownerId)}
+                mono
+              />
+              <MetaItem label="Slug" value={project.slug} mono />
+              {project.domain && <MetaItem label="Domain" value={project.domain} mono />}
+              <MetaItem label="Created" value={formatDate(project.createdAt)} />
+              <MetaItem label="Updated" value={formatRelativeTime(effectiveUpdatedAt)} />
+            </div>
+          </div>
+          <div
+            className="shrink-0 px-5 pt-3"
+            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <SheetClose asChild>
+              <Button variant="outline" className="w-full">
+                Close
+              </Button>
+            </SheetClose>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
 
