@@ -214,6 +214,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
     BETTER_AUTH_SECRET: z.string().default(""),
+    FEEDBACK_API_KEY: z.string().default(""),
   }),
 
   context: ContextSchema,
@@ -260,6 +261,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
               requireAdminApproval,
               projectFeedback: createProjectFeedbackClient({
                 baseUrl: config.variables.feedbackBaseUrl,
+                apiKey: config.secrets.FEEDBACK_API_KEY,
               }),
             };
           }),

@@ -11,6 +11,26 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function rpcOk(body: unknown) {
+  return json({ json: body });
+}
+
+const FEEDBACK_RPC_URL = "https://feedback.example/api/rpc/getProjectBySlug";
+
+function rpcNotFound() {
+  return json(
+    {
+      json: {
+        defined: true,
+        code: "NOT_FOUND",
+        message: "Project not found",
+        data: { resource: "project" },
+      },
+    },
+    404,
+  );
+}
+
 function detail(rounds: Array<{ status: string; n: number; endsAt?: string | null }>) {
   return {
     slug: "demo-app",
@@ -32,14 +52,13 @@ function client(fetchImplementation: typeof fetch, now = () => NOW) {
 
 describe("project feedback lookup", () => {
   it("returns none when feedback doesn't know the project", async () => {
-    const fetchImpl = vi.fn(async () =>
-      json({ code: "NOT_FOUND", message: "Project not found" }, 404),
+    const fetchImpl = vi.fn(async (_url: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+      rpcNotFound(),
     );
     const result = await client(fetchImpl).lookup("demo-app");
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "https://feedback.example/api/projects/demo-app/detail",
-      expect.anything(),
-    );
+    expect(fetchImpl).toHaveBeenCalledWith(FEEDBACK_RPC_URL, expect.anything());
+    const [, init] = fetchImpl.mock.calls[0]!;
+    expect(JSON.parse(String(init!.body))).toEqual({ json: { slug: "demo-app" } });
     expect(result).toEqual({
       status: "none",
       openRound: null,
@@ -51,7 +70,7 @@ describe("project feedback lookup", () => {
 
   it("returns registered with the past round count when only closed rounds exist", async () => {
     const fetchImpl = vi.fn(async () =>
-      json(
+      rpcOk(
         detail([
           { status: "closed", n: 1 },
           { status: "closed", n: 2 },
@@ -71,7 +90,7 @@ describe("project feedback lookup", () => {
 
   it("returns the latest open round", async () => {
     const fetchImpl = vi.fn(async () =>
-      json(
+      rpcOk(
         detail([
           { status: "closed", n: 1 },
           { status: "open", n: 2, endsAt: "2026-11-30T00:00:00.000Z" },
@@ -97,7 +116,7 @@ describe("project feedback lookup", () => {
     const down = vi.fn(async () => {
       throw new TypeError("fetch failed");
     });
-    const broken = vi.fn(async () => json({ message: "boom" }, 503));
+    const broken = vi.fn(async () => json({ json: { message: "boom" } }, 503));
     const garbage = vi.fn(async () => json({ unexpected: true }));
     for (const fetchImpl of [down, broken, garbage]) {
       const result = await client(fetchImpl as unknown as typeof fetch).lookup("demo-app");
@@ -111,7 +130,7 @@ describe("project feedback lookup", () => {
 
   it("serves repeated lookups from the cache until it expires", async () => {
     let now = NOW;
-    const fetchImpl = vi.fn(async () => json(detail([{ status: "closed", n: 1 }])));
+    const fetchImpl = vi.fn(async () => rpcOk(detail([{ status: "closed", n: 1 }])));
     const feedback = client(fetchImpl, () => now);
     await feedback.lookup("demo-app");
     await feedback.lookup("demo-app");
@@ -138,7 +157,7 @@ describe("project feedback lookup", () => {
   });
 
   it("shares one in-flight request between concurrent lookups", async () => {
-    const fetchImpl = vi.fn(async () => json(detail([])));
+    const fetchImpl = vi.fn(async () => rpcOk(detail([])));
     const feedback = client(fetchImpl);
     const [a, b] = await Promise.all([feedback.lookup("demo-app"), feedback.lookup("demo-app")]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);

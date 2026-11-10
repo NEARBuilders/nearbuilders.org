@@ -37,11 +37,13 @@ describe("getProjectFeedback", () => {
 
   it("looks the project up on feedback by its slug", async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_url: Parameters<typeof fetch>[0], _init?: RequestInit) =>
         new Response(
           JSON.stringify({
-            slug: "demo-app",
-            rounds: [{ title: "Beta", status: "open", projectRoundNumber: 1, endsAt: null }],
+            json: {
+              slug: "demo-app",
+              rounds: [{ title: "Beta", status: "open", projectRoundNumber: 1, endsAt: null }],
+            },
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
@@ -50,9 +52,11 @@ describe("getProjectFeedback", () => {
     const loaded = await loadApi();
     const result = await loaded.createClient({}).getProjectFeedback({ projectId: "proj_1" });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://feedback.example/api/projects/demo-app/detail",
+      "https://feedback.example/api/rpc/getProjectBySlug",
       expect.anything(),
     );
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(JSON.parse(String(init!.body))).toEqual({ json: { slug: "demo-app" } });
     expect(result).toMatchObject({
       status: "open",
       openRound: { number: 1, title: "Beta", url: "https://feedback.example/projects/demo-app/1" },

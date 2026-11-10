@@ -441,6 +441,9 @@ importers:
       '@everything-dev/builders-plugin':
         specifier: workspace:*
         version: link:../plugins/builders
+      '@orpc/client':
+        specifier: 'catalog:'
+        version: 2.0.0-beta.45
       '@orpc/contract':
         specifier: 'catalog:'
         version: 2.0.0-beta.45

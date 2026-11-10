@@ -1,5 +1,9 @@
+import { createORPCClient, ORPCError } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { ContractRouterClient } from "@orpc/contract";
 import { z } from "zod";
 import type { ProjectFeedbackSchema } from "../contract";
+import type { ContractType as FeedbackContract } from "../lib/feedback-contract.gen";
 
 export type ProjectFeedback = z.infer<typeof ProjectFeedbackSchema>;
 
@@ -66,6 +70,7 @@ export function projectFeedbackFromDetail(
 
 export function createProjectFeedbackClient(options: {
   baseUrl: string;
+  apiKey?: string;
   fetchImplementation?: typeof fetch;
   timeoutMs?: number;
   cacheMs?: number;
@@ -74,6 +79,7 @@ export function createProjectFeedbackClient(options: {
   now?: () => number;
 }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
+  const apiKey = options.apiKey?.trim();
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 5_000;
   const cacheMs = options.cacheMs ?? 60_000;
@@ -81,6 +87,18 @@ export function createProjectFeedbackClient(options: {
   const maxEntries = options.maxEntries ?? 1_000;
   const now = options.now ?? Date.now;
   const cache = new Map<string, { expiresAt: number; value: Promise<ProjectFeedback> }>();
+  const rpc = createORPCClient(
+    new RPCLink({
+      origin: baseUrl,
+      url: "/api/rpc",
+      fetch: (url, init) =>
+        fetchImplementation(url, {
+          ...init,
+          signal: AbortSignal.timeout(timeoutMs),
+          ...(apiKey ? { headers: { ...init?.headers, "x-api-key": apiKey } } : {}),
+        }),
+    }),
+  ) as ContractRouterClient<FeedbackContract>;
 
   function withoutRound(slug: string, status: "none" | "unknown"): ProjectFeedback {
     const { requestUrl } = feedbackUrls(baseUrl, slug);
@@ -89,16 +107,14 @@ export function createProjectFeedbackClient(options: {
 
   async function load(slug: string): Promise<ProjectFeedback> {
     try {
-      const response = await fetchImplementation(
-        `${baseUrl}/api/projects/${encodeURIComponent(slug)}/detail`,
-        { headers: { accept: "application/json" }, signal: AbortSignal.timeout(timeoutMs) },
-      );
-      if (response.status === 404) return withoutRound(slug, "none");
-      if (!response.ok) return withoutRound(slug, "unknown");
-      const detail = FeedbackProjectDetailSchema.safeParse(await response.json());
-      if (!detail.success) return withoutRound(slug, "unknown");
-      return projectFeedbackFromDetail(detail.data, baseUrl, now());
-    } catch {
+      const detail = await rpc.getProjectBySlug({ slug });
+      const parsed = FeedbackProjectDetailSchema.safeParse(detail);
+      if (!parsed.success) return withoutRound(slug, "unknown");
+      return projectFeedbackFromDetail(parsed.data, baseUrl, now());
+    } catch (error) {
+      if (error instanceof ORPCError && error.code === "NOT_FOUND") {
+        return withoutRound(slug, "none");
+      }
       return withoutRound(slug, "unknown");
     }
   }
