@@ -209,8 +209,8 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
           personal: search.personal,
           private: search.private,
           verified: search.verified,
-          created: 1,
         },
+        state: { fresh: true },
       });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to create"),
