@@ -54,7 +54,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
 import { useViewerOwnerIds } from "@/hooks";
 import {
@@ -1243,313 +1243,311 @@ function ProjectsList() {
   const listSearch = { ...search, preview: undefined };
 
   return (
-    <TooltipProvider>
-      <div className="min-w-0">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-          <header>
-            <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="text-4xl font-black tracking-tight text-foreground">Projects</h1>
-                <p className="mt-2 text-base text-muted-foreground sm:text-lg">
-                  Browse live projects, early ideas, scopes, and results from the NEAR builder
-                  network.
-                </p>
-              </div>
-              {canParticipate && (
-                <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
-                  <Link
-                    to="/projects/new/$kind"
-                    params={{ kind: defaultNewKind }}
-                    search={{ ...listSearch, tab: "write" }}
-                  >
-                    <Plus className="size-4" />
-                    New project
-                  </Link>
-                </Button>
+    <div className="min-w-0">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <header>
+          <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-4xl font-black tracking-tight text-foreground">Projects</h1>
+              <p className="mt-2 text-base text-muted-foreground sm:text-lg">
+                Browse live projects, early ideas, scopes, and results from the NEAR builder
+                network.
+              </p>
+            </div>
+            {canParticipate && (
+              <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
+                <Link
+                  to="/projects/new/$kind"
+                  params={{ kind: defaultNewKind }}
+                  search={{ ...listSearch, tab: "write" }}
+                >
+                  <Plus className="size-4" />
+                  New project
+                </Link>
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-7 w-full">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={queryInput}
+                onChange={(event) => setQueryInput(event.target.value)}
+                placeholder="Search projects, builders, repositories, or tags"
+                aria-label="Search projects"
+                className="h-12 rounded-xl bg-card pl-10 pr-10 text-base"
+              />
+              {queryInput && (
+                <button
+                  type="button"
+                  onClick={() => setQueryInput("")}
+                  className="absolute right-3 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Clear search"
+                >
+                  <X className="size-3.5" />
+                </button>
               )}
             </div>
+            <div
+              className="mt-5 flex justify-between border-b border-border sm:justify-start"
+              role="tablist"
+              aria-label="Project type"
+            >
+              {(
+                [
+                  ["all", "All"],
+                  ["project", "Projects"],
+                  ["idea", "Ideas"],
+                  ["scope", "Scopes"],
+                  ["result", "Results"],
+                ] as const
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => handleKindChange(kind)}
+                  role="tab"
+                  aria-selected={activeKind === kind}
+                  className={cn(
+                    "relative inline-flex min-h-11 cursor-pointer items-center px-1.5 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-4 sm:pb-3 sm:pt-0 sm:text-sm",
+                    activeKind === kind
+                      ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-brand-accent"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            <div className="mt-7 w-full">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  value={queryInput}
-                  onChange={(event) => setQueryInput(event.target.value)}
-                  placeholder="Search projects, builders, repositories, or tags"
-                  aria-label="Search projects"
-                  className="h-12 rounded-xl bg-card pl-10 pr-10 text-base"
-                />
-                {queryInput && (
-                  <button
-                    type="button"
-                    onClick={() => setQueryInput("")}
-                    className="absolute right-3 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="Clear search"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-              <div
-                className="mt-5 flex justify-between border-b border-border sm:justify-start"
-                role="tablist"
-                aria-label="Project type"
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <Select
+                value={activeStatus}
+                onValueChange={(value) => handleStatusChange(value as ProjectStatusFilter)}
               >
-                {(
-                  [
-                    ["all", "All"],
-                    ["project", "Projects"],
-                    ["idea", "Ideas"],
-                    ["scope", "Scopes"],
-                    ["result", "Results"],
-                  ] as const
-                ).map(([kind, label]) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => handleKindChange(kind)}
-                    role="tab"
-                    aria-selected={activeKind === kind}
-                    className={cn(
-                      "relative inline-flex min-h-11 cursor-pointer items-center px-1.5 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-4 sm:pb-3 sm:pt-0 sm:text-sm",
-                      activeKind === kind
-                        ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-brand-accent"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                <Select
-                  value={activeStatus}
-                  onValueChange={(value) => handleStatusChange(value as ProjectStatusFilter)}
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Filter by status"
+                  className="col-span-2 h-10 min-h-10 w-full shrink-0 rounded-xl bg-card px-3 whitespace-nowrap sm:col-span-1 sm:h-10 sm:min-h-10 sm:w-auto sm:rounded-full"
                 >
-                  <SelectTrigger
-                    size="sm"
-                    aria-label="Filter by status"
-                    className="col-span-2 h-10 min-h-10 w-full shrink-0 rounded-xl bg-card px-3 whitespace-nowrap sm:col-span-1 sm:h-10 sm:min-h-10 sm:w-auto sm:rounded-full"
-                  >
-                    <Filter className="size-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FilterChip
-                  active={isPersonalOnly}
-                  disabled={!canParticipate || !ownerFilterId}
-                  onClick={handlePersonalToggle}
-                >
-                  <User className="size-3.5" />
-                  Personal
+                  <Filter className="size-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              <FilterChip
+                active={isPersonalOnly}
+                disabled={!canParticipate || !ownerFilterId}
+                onClick={handlePersonalToggle}
+              >
+                <User className="size-3.5" />
+                Personal
+              </FilterChip>
+              <FilterChip active={isVerifiedOnly} onClick={handleVerifiedToggle}>
+                <Sparkles className="size-3.5" />
+                Catalog verified
+              </FilterChip>
+              {isPersonalOnly && !isVerifiedOnly && (
+                <FilterChip active={isPrivateOnly} onClick={handlePrivateToggle}>
+                  <Lock className="size-3.5" />
+                  Private
                 </FilterChip>
-                <FilterChip active={isVerifiedOnly} onClick={handleVerifiedToggle}>
-                  <Sparkles className="size-3.5" />
-                  Catalog verified
-                </FilterChip>
-                {isPersonalOnly && !isVerifiedOnly && (
-                  <FilterChip active={isPrivateOnly} onClick={handlePrivateToggle}>
-                    <Lock className="size-3.5" />
-                    Private
-                  </FilterChip>
-                )}
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="col-span-2 inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1 sm:ml-auto"
-                  >
-                    Clear filters
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </header>
-
-          <main className="mt-9">
-            <div className="w-full">
-              <section className="w-full overflow-hidden rounded-xl border border-border bg-card">
-                <div>
-                  <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        <ProjectListLabel kind={activeKind} />
-                      </span>
-                      <ProjectCount
-                        total={totalProjectCount || rankedProjects.length}
-                        loaded={rankedProjects.length}
-                      />
-                    </div>
-                    <Select
-                      value={activeSort}
-                      onValueChange={(value) => handleSortChange(value as ProjectSort)}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        aria-label="Sort entries"
-                        className="h-8 w-auto gap-1.5 rounded-full border-border bg-secondary px-3 text-xs font-semibold [&>svg:last-child]:hidden"
-                      >
-                        <ArrowDownUp className="size-3.5 text-muted-foreground" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="newest">Newest</SelectItem>
-                        <SelectItem value="votes">Most endorsed</SelectItem>
-                        <SelectItem value="oldest">Oldest</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {!isProjectsLoading && !isProjectsError && upvoteCounts.isError && (
-                    <VoteDataNotice />
-                  )}
-                  {isProjectsLoading || isRankingLoading ? (
-                    <ProjectLoadingState sort={activeSort} />
-                  ) : isProjectsError ? (
-                    <ProjectErrorState
-                      onRetry={() => void retryProjects()}
-                      isRetrying={isFetching || isCatalogFetching}
-                    />
-                  ) : rankedProjects.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                      <Search className="mx-auto size-5 text-muted-foreground" />
-                      <h2 className="mt-3 text-sm font-bold text-foreground">
-                        {search.query
-                          ? "No matching entries"
-                          : isVerifiedOnly
-                            ? "No verified projects yet"
-                            : "No entries in this view"}
-                      </h2>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {search.query
-                          ? "Try a shorter search or clear the filters."
-                          : isVerifiedOnly
-                            ? getCatalogEmptyMessage(activeStatus)
-                            : "Published projects and ideas will appear here."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      {rankedProjects.map((project) => (
-                        <ProjectCard
-                          key={project.id}
-                          project={project}
-                          isSelected={project.id === selectedPreviewId}
-                          voteCountAvailable={voteCountAvailable}
-                          onOpen={() => handleProjectOpen(project)}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {!isProjectsLoading &&
-                    !isProjectsError &&
-                    isProjectsPaginationError &&
-                    rankedProjects.length > 0 && (
-                      <ProjectPaginationError
-                        ranking={activeSort === "votes"}
-                        onRetry={() => void fetchMoreProjects()}
-                        isRetrying={isFetchingMoreProjects}
-                      />
-                    )}
-
-                  {!isProjectsLoading &&
-                    !isRankingLoading &&
-                    !isProjectsError &&
-                    !isProjectsPaginationError &&
-                    rankedProjects.length > 0 && (
-                      <div ref={sentinelRef} className="flex justify-center py-5">
-                        {isFetchingMoreProjects ? (
-                          <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
-                        ) : hasMoreProjects ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void fetchMoreProjects()}
-                          >
-                            Load more
-                            <ArrowUpRight className="size-3.5" />
-                          </Button>
-                        ) : null}
-                      </div>
-                    )}
-                </div>
-              </section>
-            </div>
-          </main>
-
-          <Sheet
-            open={Boolean(selectedProject)}
-            onOpenChange={(open) => {
-              if (!open) closePreview();
-            }}
-          >
-            <SheetContent side="right" size="wide" hideCloseButton>
-              {selectedProject && (
-                <>
-                  <ProjectPreviewHeader title={selectedProject.title} />
-                  <div className="absolute right-5 top-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={closePreview}
-                      aria-label="Close project details"
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto">
-                    <ProjectDetailPanel
-                      project={selectedProject}
-                      detail={selectedProjectQuery.data?.data}
-                      readme={selectedReadmeQuery.data}
-                      isReadmeLoading={selectedReadmeQuery.isLoading}
-                      isReadmeError={selectedReadmeQuery.isError}
-                      lastCommitAt={selectedLastCommitQuery.data}
-                      voteCountAvailable={voteCountAvailable}
-                      voteDirection={userVoteMap[selectedProject.id] ?? null}
-                      canParticipate={canParticipate}
-                      canManage={canManageSelected}
-                      isUpvoting={
-                        upvoteMutation.isPending && upvoteMutation.variables === selectedProject.id
-                      }
-                      isDownvoting={
-                        downvoteMutation.isPending &&
-                        downvoteMutation.variables === selectedProject.id
-                      }
-                      copied={copied}
-                      search={search}
-                      onVote={(direction) => runVote(direction, selectedProject.id)}
-                      onShare={() => handleShare(selectedProject)}
-                    />
-                  </div>
-                </>
               )}
-            </SheetContent>
-          </Sheet>
-
-          {!canParticipate && (
-            <div className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground lg:hidden">
-              Anonymous sessions can browse.{" "}
-              <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
-                Link an identity
-              </Link>{" "}
-              to publish and endorse entries.
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="col-span-2 inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1 sm:ml-auto"
+                >
+                  Clear filters
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        </header>
+
+        <main className="mt-9">
+          <div className="w-full">
+            <section className="w-full overflow-hidden rounded-xl border border-border bg-card">
+              <div>
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <ProjectListLabel kind={activeKind} />
+                    </span>
+                    <ProjectCount
+                      total={totalProjectCount || rankedProjects.length}
+                      loaded={rankedProjects.length}
+                    />
+                  </div>
+                  <Select
+                    value={activeSort}
+                    onValueChange={(value) => handleSortChange(value as ProjectSort)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="Sort entries"
+                      className="h-8 w-auto gap-1.5 rounded-full border-border bg-secondary px-3 text-xs font-semibold [&>svg:last-child]:hidden"
+                    >
+                      <ArrowDownUp className="size-3.5 text-muted-foreground" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="votes">Most endorsed</SelectItem>
+                      <SelectItem value="oldest">Oldest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {!isProjectsLoading && !isProjectsError && upvoteCounts.isError && (
+                  <VoteDataNotice />
+                )}
+                {isProjectsLoading || isRankingLoading ? (
+                  <ProjectLoadingState sort={activeSort} />
+                ) : isProjectsError ? (
+                  <ProjectErrorState
+                    onRetry={() => void retryProjects()}
+                    isRetrying={isFetching || isCatalogFetching}
+                  />
+                ) : rankedProjects.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <Search className="mx-auto size-5 text-muted-foreground" />
+                    <h2 className="mt-3 text-sm font-bold text-foreground">
+                      {search.query
+                        ? "No matching entries"
+                        : isVerifiedOnly
+                          ? "No verified projects yet"
+                          : "No entries in this view"}
+                    </h2>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {search.query
+                        ? "Try a shorter search or clear the filters."
+                        : isVerifiedOnly
+                          ? getCatalogEmptyMessage(activeStatus)
+                          : "Published projects and ideas will appear here."}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    {rankedProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        isSelected={project.id === selectedPreviewId}
+                        voteCountAvailable={voteCountAvailable}
+                        onOpen={() => handleProjectOpen(project)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {!isProjectsLoading &&
+                  !isProjectsError &&
+                  isProjectsPaginationError &&
+                  rankedProjects.length > 0 && (
+                    <ProjectPaginationError
+                      ranking={activeSort === "votes"}
+                      onRetry={() => void fetchMoreProjects()}
+                      isRetrying={isFetchingMoreProjects}
+                    />
+                  )}
+
+                {!isProjectsLoading &&
+                  !isRankingLoading &&
+                  !isProjectsError &&
+                  !isProjectsPaginationError &&
+                  rankedProjects.length > 0 && (
+                    <div ref={sentinelRef} className="flex justify-center py-5">
+                      {isFetchingMoreProjects ? (
+                        <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
+                      ) : hasMoreProjects ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void fetchMoreProjects()}
+                        >
+                          Load more
+                          <ArrowUpRight className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <Sheet
+          open={Boolean(selectedProject)}
+          onOpenChange={(open) => {
+            if (!open) closePreview();
+          }}
+        >
+          <SheetContent side="right" size="wide" hideCloseButton>
+            {selectedProject && (
+              <>
+                <ProjectPreviewHeader title={selectedProject.title} />
+                <div className="absolute right-5 top-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={closePreview}
+                    aria-label="Close project details"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ProjectDetailPanel
+                    project={selectedProject}
+                    detail={selectedProjectQuery.data?.data}
+                    readme={selectedReadmeQuery.data}
+                    isReadmeLoading={selectedReadmeQuery.isLoading}
+                    isReadmeError={selectedReadmeQuery.isError}
+                    lastCommitAt={selectedLastCommitQuery.data}
+                    voteCountAvailable={voteCountAvailable}
+                    voteDirection={userVoteMap[selectedProject.id] ?? null}
+                    canParticipate={canParticipate}
+                    canManage={canManageSelected}
+                    isUpvoting={
+                      upvoteMutation.isPending && upvoteMutation.variables === selectedProject.id
+                    }
+                    isDownvoting={
+                      downvoteMutation.isPending &&
+                      downvoteMutation.variables === selectedProject.id
+                    }
+                    copied={copied}
+                    search={search}
+                    onVote={(direction) => runVote(direction, selectedProject.id)}
+                    onShare={() => handleShare(selectedProject)}
+                  />
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {!canParticipate && (
+          <div className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground lg:hidden">
+            Anonymous sessions can browse.{" "}
+            <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
+              Link an identity
+            </Link>{" "}
+            to publish and endorse entries.
+          </div>
+        )}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
