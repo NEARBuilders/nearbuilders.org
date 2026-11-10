@@ -212,6 +212,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
           personal: search.personal,
           private: search.private,
           verified: search.verified,
+          created: 1,
         },
       });
     },

@@ -11,26 +11,23 @@ import {
   Info,
   Layers,
   Lock,
-  MessageSquare,
   Pencil,
   Share2,
   ThumbsDown,
   ThumbsUp,
   Trash2,
 } from "lucide-react";
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sessionQueryOptions, useApiClient, useAuthClient } from "@/app";
 import { CatalogListingPanel } from "@/components/catalog-listing-panel";
 import { CityNodeChip } from "@/components/city-node-chip";
 import { NostrFeed } from "@/components/nostr-feed";
-import {
-  ProjectActivityAction,
-  ProjectActivityBadge,
-  ProjectActivityRejected,
-} from "@/components/project-activity";
+import { ProjectActivityAction, ProjectActivityBadge } from "@/components/project-activity";
 import { ProjectActivityFeed } from "@/components/project-activity-feed";
 import { ProjectCatalogCard } from "@/components/project-catalog-details";
+import { ProjectFeedbackAction } from "@/components/project-feedback";
+import { ProjectNextSteps } from "@/components/project-next-steps";
 import { ProjectReviewStatus } from "@/components/project-review-status";
 import { CatalogListedBadge } from "@/components/project-tags";
 import { Button } from "@/components/ui/button";
@@ -48,7 +45,11 @@ import {
   isViewerCollaboratorId,
   isViewerOwner,
 } from "@/lib/ownership";
-import { isProjectKind, parseProjectListSearch } from "@/lib/project-search";
+import {
+  isProjectKind,
+  type ProjectListSearch,
+  parseProjectListSearch,
+} from "@/lib/project-search";
 import { nearProfileOptions } from "@/lib/queries/builders";
 import { formatRelativeTime } from "@/lib/queries/notifications";
 import {
@@ -67,7 +68,10 @@ import { findActiveOrganization, useOrganizationsQuery } from "@/lib/workspace";
 import { feedbackRequestUrl } from "./-feedback-request";
 
 export const Route = createFileRoute("/_public/projects/$kind/$slug")({
-  validateSearch: parseProjectListSearch,
+  validateSearch: (search: Record<string, unknown>): ProjectListSearch & { created?: 1 } => {
+    const parsed = parseProjectListSearch(search);
+    return search.created === 1 || search.created === "1" ? { ...parsed, created: 1 } : parsed;
+  },
   beforeLoad: async ({ params }) => {
     if (!isProjectKind(params.kind)) throw redirect({ to: "/projects" });
   },
@@ -134,7 +138,17 @@ function ProjectDetailPage() {
   const apiClient = useApiClient();
   const auth = useAuthClient();
   const search = Route.useSearch();
-  const listSearch = { ...search, preview: undefined };
+  const listSearch = { ...search, preview: undefined, created: undefined };
+  const [justCreated] = useState(search.created === 1);
+
+  useEffect(() => {
+    if (search.created !== 1) return;
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, created: undefined }),
+      replace: true,
+    });
+  }, [navigate, search.created]);
 
   const [copied, setCopied] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -397,19 +411,11 @@ function ProjectDetailPage() {
                 <Info size={15} />
               </Button>
 
-              {requestFeedbackHref && (
-                <Button asChild size="sm" variant="outline">
-                  <a
-                    href={requestFeedbackHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Request feedback"
-                  >
-                    <MessageSquare size={13} />
-                    <span className="hidden sm:inline">Request feedback</span>
-                  </a>
-                </Button>
-              )}
+              <ProjectFeedbackAction
+                projectId={project.id}
+                canManage={canManage}
+                fallbackRequestUrl={requestFeedbackHref}
+              />
 
               <ProjectActivityAction project={project} isOwner={isOwner} />
 
@@ -451,7 +457,12 @@ function ProjectDetailPage() {
           <div className="min-w-0">
             <div className="mx-auto max-w-4xl space-y-6">
               <ProjectReviewStatus projectId={project.id} visible={isOwner} />
-              <ProjectActivityRejected projectId={project.id} visible={isOwner} />
+              <ProjectNextSteps
+                project={project}
+                isOwner={isOwner}
+                visible={canManage}
+                justCreated={justCreated}
+              />
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <KindChip kind={project.kind} />

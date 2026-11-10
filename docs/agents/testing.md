@@ -35,6 +35,22 @@ seed module is the fix, tracked at retro 2026-10-24.
 | **Integration** — the real oRPC router in-process, auth context injected via headers, DAO checks mocked | `api/tests/integration` | contract behavior: who may do what to which resource, error shapes, transactions |
 | **Regression** — the full composed `bos dev` stack, real browser, real remote auth UI | `tests/regression/browser/specs` | rendered journeys: sessions, SSR/CSR compose, navigation, admin flows |
 
+## When each tier runs
+
+The matrix runs exactly where a decision is made — never everywhere:
+
+| Tier | Where | What runs | Wall time |
+|---|---|---|---|
+| **T0 local** | lefthook hooks (`lefthook.yml`, installed by `pnpm run prepare`) | pre-commit: Biome on staged files · pre-push: `typecheck` + `lint:effect` | seconds |
+| **T1 PR** | `ci.yml` on pull requests | lint/typecheck, path-gated unit suites, ui-only app-load smoke; slow stack suites skip | ~4 min |
+| **T2 gate** | `release.yml` before every npm publish · nightly on the main tip (`backcompat-nightly.yml`) via `regression-full.yml` | the full matrix: unit + dev + start + backcompat + framework regression | ~30–45 min |
+
+The slow suites (HTTP stacks, sharded browser matrix, process-death framework
+regression) live in `ci.yml` as `workflow_dispatch`-only jobs for triage, and
+run for real only in T2. Consequence to accept: a journey broken by a UI PR
+surfaces at the nightly (~24h bound) or at the release gate — whichever comes
+first — not on the PR itself.
+
 Choose the lowest layer that pins the behavior. Escalate when the failure you
 are preventing only materializes one layer up (cookie handling, hydration,
 loading states, module loading are things jsdom cannot even reproduce).

@@ -84,7 +84,8 @@
     "@pingpay/onramp-types": "^0.0.3",
     "cn": "^0.4.0",
     "leaflet": "1.9.4",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "near-social-js": "^2.0.4"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",
