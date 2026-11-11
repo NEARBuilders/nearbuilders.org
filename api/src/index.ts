@@ -1337,6 +1337,17 @@ export default createPlugin.withPlugins<PluginEntries>()({
             .clearOrganizationAttribution({ organizationId: input.organizationId });
         }),
 
+      adminSetProjectOrganization: builder.adminSetProjectOrganization
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          return await services.plugins
+            .projects({ ...context, internalAdminAttribution: true })
+            .setProjectOrganization({
+              projectId: input.projectId,
+              organizationId: input.organizationId,
+            });
+        }),
+
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjectsForApp(input);
       }),

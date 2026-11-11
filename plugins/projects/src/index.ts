@@ -11,6 +11,7 @@ import { ProjectService, ProjectServiceLive } from "./services/projects";
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
   internalOrganizationCleanup?: boolean;
+  internalAdminAttribution?: boolean;
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
@@ -90,6 +91,13 @@ export default createPlugin({
     const requireInternalOrganizationCleanup = builder.middleware(async ({ context, next }) => {
       if (context.internalOrganizationCleanup !== true) {
         throw new ORPCError("FORBIDDEN", { message: "Internal organization cleanup required" });
+      }
+      return next({ context });
+    });
+
+    const requireInternalAdminAttribution = builder.middleware(async ({ context, next }) => {
+      if (context.internalAdminAttribution !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Internal admin attribution required" });
       }
       return next({ context });
     });
@@ -283,6 +291,23 @@ export default createPlugin({
           return yield* project
             .clearOrganizationAttribution(input.organizationId)
             .pipe(Effect.catchCause(toRouteError("clearOrganizationAttribution")));
+        }),
+
+      setProjectOrganization: builder.setProjectOrganization
+        .use(requireInternalAdminAttribution)
+        .effect(function* ({ input, errors }) {
+          const project = yield* ProjectService;
+          return yield* project.setProjectOrganization(input.projectId, input.organizationId).pipe(
+            Effect.catchCause(toRouteError("setProjectOrganization")),
+            Effect.mapError((error) =>
+              error.code === "NOT_FOUND"
+                ? errors.NOT_FOUND({
+                    message: "Project not found",
+                    data: { resource: "project", resourceId: input.projectId },
+                  })
+                : error,
+            ),
+          );
         }),
 
       listProjectApps: builder.listProjectApps.effect(function* ({ input }) {
