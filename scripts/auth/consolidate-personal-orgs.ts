@@ -15,7 +15,8 @@
  *
  * Env:
  *   AUTH_DATABASE_URL      required (unless --self-test) — postgres:// connection string,
- *                          or a pglite: data dir (local dev)
+ *                          or a pglite: data dir (local dev). The schema holding the auth tables
+ *                          is located automatically (public for auth, plugin_<slug> for plugins).
  *   PROJECTS_DATABASE_URL  optional — same formats; when present, projects attributed to a
  *                          duplicate are re-pointed to the surviving org. Without it, affected
  *                          projects are reported and left untouched.
@@ -164,6 +165,30 @@ async function openDatabase(label: string, url: string | undefined): Promise<DbC
     return openPostgres(url);
   }
   throw new Error(`${label} must be a postgres:// connection string or a pglite: data dir`);
+}
+
+async function locateTableSchema(
+  client: Queryable,
+  tableName: string,
+  label: string,
+): Promise<void> {
+  const result = await client.query<{ table_schema: string }>(
+    `SELECT table_schema FROM information_schema.tables
+     WHERE table_name = $1 AND table_type = 'BASE TABLE'`,
+    [tableName],
+  );
+  const schemas = [...new Set(result.rows.map((row) => row.table_schema))];
+  if (schemas.length === 0) {
+    throw new Error(
+      `${label}: no table "${tableName}" found in any schema — is this the right database?`,
+    );
+  }
+  if (schemas.length > 1) {
+    throw new Error(
+      `${label}: table "${tableName}" exists in multiple schemas (${schemas.join(", ")}) — disambiguate the database`,
+    );
+  }
+  await client.query(`SELECT set_config('search_path', $1, false)`, [schemas[0]]);
 }
 
 async function loadPersonalGroups(
@@ -510,6 +535,9 @@ async function runConsolidation(
     console.log("DRY RUN — no changes will be made. Re-run with --apply to execute.\n");
   }
 
+  await locateTableSchema(auth, "organization", "auth database");
+  if (projects) await locateTableSchema(projects, "projects", "projects database");
+
   const { groups, anomalies } = await loadPersonalGroups(auth);
 
   for (const anomaly of anomalies) {
@@ -685,11 +713,12 @@ INSERT INTO onboarding_code (id, code_hash, organization_id, event_id, event_nam
 `;
 
 const PROJECTS_TEST_SCHEMA = `
-CREATE TABLE projects (id text PRIMARY KEY, slug text NOT NULL, organization_id text, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE SCHEMA plugin_projects;
+CREATE TABLE plugin_projects.projects (id text PRIMARY KEY, slug text NOT NULL, organization_id text, updated_at timestamptz NOT NULL DEFAULT now());
 `;
 
 const PROJECTS_TEST_FIXTURE = `
-INSERT INTO projects (id, slug, organization_id) VALUES
+INSERT INTO plugin_projects.projects (id, slug, organization_id) VALUES
  ('p1','proj-one','orgB'),
  ('p2','proj-two','orgA'),
  ('p3','proj-three','orgD');
