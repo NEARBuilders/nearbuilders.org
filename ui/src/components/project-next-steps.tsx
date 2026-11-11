@@ -183,12 +183,12 @@ export function ProjectNextSteps({
   project,
   isOwner,
   visible,
-  justCreated,
+  fresh,
 }: {
   project: NextStepsProject;
   isOwner: boolean;
   visible: boolean;
-  justCreated: boolean;
+  fresh: boolean;
 }) {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
@@ -199,7 +199,7 @@ export function ProjectNextSteps({
   if (!visible || project.kind !== "project") return null;
 
   const allDone = Boolean(feedback?.done && activity?.done);
-  const expanded = expandedOverride ?? (justCreated || !allDone);
+  const expanded = expandedOverride ?? (fresh || !allDone);
   const feedbackIcon = <MessageSquare className="size-4" />;
   const activityIcon = <Activity className="size-4" />;
 
@@ -213,7 +213,7 @@ export function ProjectNextSteps({
         <div className="flex min-w-0 items-center gap-2">
           <Sparkles className="size-4 shrink-0 text-brand-accent" />
           <p className="font-semibold text-foreground">
-            {justCreated ? "Your project is live. Next:" : "Next steps"}
+            {fresh ? "Your project is live. Next:" : "Next steps"}
           </p>
         </div>
         {allDone && (

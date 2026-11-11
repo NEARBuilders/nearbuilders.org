@@ -259,7 +259,8 @@ export default createPlugin.withPlugins<PluginEntries>()({
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
               projectFeedback: createProjectFeedbackClient({
-                baseUrl: config.variables.feedbackBaseUrl,
+                client: restPlugins.feedback?.(),
+                feedbackBaseUrl: config.variables.feedbackBaseUrl,
               }),
             };
           }),
