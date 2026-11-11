@@ -1,6 +1,9 @@
 import { ORPCError } from "@orpc/client";
 import { describe, expect, it, vi } from "vitest";
-import { createProjectFeedbackClient } from "../../src/services/project-feedback";
+import {
+  createProjectFeedbackClient,
+  type ProjectFeedbackRpcClient,
+} from "../../src/services/project-feedback";
 
 const BASE_URL = "https://feedback.example";
 const NOW = Date.parse("2026-11-07T00:00:00.000Z");
@@ -25,7 +28,7 @@ function client(
   now = () => NOW,
 ) {
   return createProjectFeedbackClient({
-    client: { getProjectBySlug: vi.fn(getProjectBySlug) },
+    client: { getProjectBySlug: vi.fn(getProjectBySlug) } as unknown as ProjectFeedbackRpcClient,
     feedbackBaseUrl: BASE_URL,
     now,
   });

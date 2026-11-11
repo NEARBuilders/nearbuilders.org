@@ -1,12 +1,11 @@
 import { ORPCError } from "@orpc/client";
 import { z } from "zod";
 import type { ProjectFeedbackSchema } from "../contract";
+import type { PluginEntries } from "../lib/plugin-clients";
 
 export type ProjectFeedback = z.infer<typeof ProjectFeedbackSchema>;
 
-export interface ProjectFeedbackRpcClient {
-  getProjectBySlug(input: { slug: string }): Promise<unknown>;
-}
+export type ProjectFeedbackRpcClient = ReturnType<PluginEntries["feedback"]["client"]>;
 
 const FeedbackProjectDetailSchema = z.object({
   slug: z.string(),
