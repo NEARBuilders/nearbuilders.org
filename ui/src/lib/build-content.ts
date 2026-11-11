@@ -51,6 +51,10 @@ export const buildPage = {
     "Where to start building on NEAR: Smart Contracts, Private Cloud and Agentic Commerce, with the docs and tools for each.",
   joinAction: { label: "Join NEAR Builders", to: JOIN_PATH },
   browseAction: { label: "Browse projects", to: "/projects" },
+  programs: {
+    title: "Partner programs",
+    description: "Credits, grants and other support from projects in the NEAR ecosystem.",
+  },
   banner: {
     title: "Start building on NEAR",
     description: "Docs, API keys and starter tools in one place.",
