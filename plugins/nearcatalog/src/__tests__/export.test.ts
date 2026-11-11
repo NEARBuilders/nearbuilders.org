@@ -60,12 +60,11 @@ function personRecord(nearAccount: string, name: string) {
 async function createService() {
   const dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-nearcatalog-export-"));
   const driver = await createDatabaseDriver(`pglite:${dataDir}`);
-  const migration = await readFile(
-    join(import.meta.dirname, "../db/migrations/0002_catalog_listings.sql"),
-    "utf8",
-  );
-  for (const statement of migration.split("--> statement-breakpoint")) {
-    await driver.db.execute(sql.raw(statement));
+  for (const file of ["0002_catalog_listings.sql", "0003_catalog_listing_sends.sql"]) {
+    const migration = await readFile(join(import.meta.dirname, "../db/migrations", file), "utf8");
+    for (const statement of migration.split("--> statement-breakpoint")) {
+      await driver.db.execute(sql.raw(statement));
+    }
   }
   const listings = createListingMethods(driver.db);
   const exports = createExportMethods(driver.db);
