@@ -469,7 +469,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
             actor: entry.actor,
             eventCount: entry.eventCount,
             endorsementScore: entry.score,
-            topSources: [...new Set(entry.breakdown.map(({ source }) => source))],
+            topSources: [...new Set((entry.breakdown ?? []).map(({ source }) => source))],
           }));
         });
       }),

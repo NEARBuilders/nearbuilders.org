@@ -16,10 +16,6 @@ export type FakeActivityCall = {
   lastEventId: string | undefined;
 };
 
-/**
- * Stands in for activity.nearbuilders.org over real HTTP, serving the named procedures over Activity's
- * `/api/rpc` RPC protocol and recording every call.
- */
 export async function startFakeActivity(
   handlers: Partial<Record<keyof ActivityApiClient, FakeHandler>>,
 ) {
