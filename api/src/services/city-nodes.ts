@@ -1,6 +1,4 @@
-import type { ContractRouterClient } from "@orpc/contract";
-import { createRpcClient } from "every-plugin/client";
-import type { CityNodeAppContract } from "./citynode-contract";
+import type { PluginEntries } from "../lib/plugin-clients";
 
 export type CityNodeKind = "country" | "state" | "city" | string;
 
@@ -20,7 +18,7 @@ export type CityNodeList = {
 };
 
 export type CityNodeAppClient = Pick<
-  ContractRouterClient<CityNodeAppContract>,
+  ReturnType<PluginEntries["citynode"]["client"]>,
   "listNodeSummaries"
 >;
 
@@ -93,30 +91,23 @@ export function buildCityNodeTree(raw: RawNode[]): CityNode[] {
   return ordered;
 }
 
-export function createCityNodeAppClient(baseUrl: string, apiKey?: string) {
-  return createRpcClient<CityNodeAppContract>(
-    {
-      hostUrl: baseUrl.replace(/\/+$/, ""),
-      path: "/api/rpc",
-    },
-    apiKey ? new Headers({ "x-api-key": apiKey }) : undefined,
-  );
-}
-
 export function createCityNodeDirectory(options: {
   baseUrl: string;
-  apiKey?: string;
   client?: CityNodeAppClient;
   now?: () => number;
 }) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const client = options.client ?? createCityNodeAppClient(baseUrl, options.apiKey);
+  const client = options.client;
   const now = options.now ?? Date.now;
   let cached: { nodes: CityNode[]; fetchedAt: number } | null = null;
   let lastFailureAt = Number.NEGATIVE_INFINITY;
   let inflight: Promise<void> | null = null;
 
   const refresh = async () => {
+    if (!client) {
+      lastFailureAt = now();
+      return;
+    }
     try {
       const summaries = await client.listNodeSummaries(
         { scope: "all" },

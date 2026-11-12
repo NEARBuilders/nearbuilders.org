@@ -77,13 +77,7 @@ function projectRecord(input: Record<string, unknown>, cityNode: string | null =
 
 describe("city node tags", () => {
   const runtime = createPluginRuntime({ registry: { api: { module: ApiPlugin } } });
-  const fetchMock = vi.fn(
-    async () =>
-      new Response(JSON.stringify({ json: nodeSummaries }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-  );
+  const listNodeSummaries = vi.fn(async () => nodeSummaries);
   const proposals: Array<Record<string, unknown>> = [];
   const createProject = vi.fn(async (input: Record<string, unknown>) => ({
     ...projectRecord(input),
@@ -112,7 +106,6 @@ describe("city node tags", () => {
   let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"api">>>;
 
   beforeAll(async () => {
-    vi.stubGlobal("fetch", fetchMock);
     loaded = await runtime.usePlugin(
       "api",
       {
@@ -126,6 +119,7 @@ describe("city node tags", () => {
           getBuilder,
           updateBuilderProfile,
         }),
+        citynode: () => ({ listNodeSummaries }),
         events: () => ({}),
         nearcatalog: () => ({}),
         notifications: () => ({}),
@@ -173,7 +167,6 @@ describe("city node tags", () => {
 
   afterAll(async () => {
     await runtime.shutdown();
-    vi.unstubAllGlobals();
   });
 
   const member = () =>
@@ -202,10 +195,7 @@ describe("city node tags", () => {
       },
     ]);
     expect(result.meta).toMatchObject({ baseUrl: "https://citynode.test", available: true });
-    const [request] = fetchMock.mock.calls[0] as unknown as [Request | string];
-    expect(typeof request === "string" ? request : request.url).toBe(
-      "https://citynode.test/api/rpc/listNodeSummaries",
-    );
+    expect(listNodeSummaries).toHaveBeenCalledWith({ scope: "all" }, expect.anything());
   });
 
   it("carries a known city node into the builder proposal", async () => {

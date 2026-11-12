@@ -32,7 +32,6 @@ export default App({
       "GITHUB_TOKEN",
       "REQUIRE_ADMIN_APPROVAL",
       "BETTER_AUTH_SECRET",
-      "CITYNODE_API_KEY",
     ],
   },
   plugins: {
@@ -125,6 +124,11 @@ export default App({
       contract: "bos://nearbuilding.near/feedback.nearbuilders.org#app.api",
       proxy: "https://feedback.nearbuilders.org",
       secrets: ["FEEDBACK_API_KEY"],
+    },
+    citynode: {
+      contract: "bos://v1.citynode.near/citynode.app#app.api",
+      proxy: "https://citynode.app",
+      secrets: ["CITYNODE_API_KEY"],
     },
   },
 });

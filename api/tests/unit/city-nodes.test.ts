@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildCityNodeTree,
   type CityNodeAppClient,
-  createCityNodeAppClient,
   createCityNodeDirectory,
 } from "../../src/services/city-nodes";
 
@@ -85,57 +84,6 @@ describe("buildCityNodeTree", () => {
         depth: 0,
       },
     ]);
-  });
-});
-
-describe("createCityNodeAppClient", () => {
-  it("calls listNodeSummaries on citynode.app's oRPC endpoint as JSON", async () => {
-    const fetch = vi.fn(
-      async (_input: Request | string, _init?: RequestInit) =>
-        new Response(JSON.stringify({ json: summaries }), {
-          headers: { "content-type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", fetch);
-    try {
-      const result = await createCityNodeAppClient("https://citynode.test/").listNodeSummaries({
-        scope: "all",
-      });
-
-      expect(result).toHaveLength(4);
-      const [input, init] = fetch.mock.calls[0] ?? [""];
-      const request = typeof input === "string" ? new Request(input, init) : input;
-      expect(request.method).toBe("POST");
-      expect(request.url).toBe("https://citynode.test/api/rpc/listNodeSummaries");
-      expect(request.headers.get("content-type")).toContain("application/json");
-      expect(await request.json()).toEqual({ json: { scope: "all" } });
-      expect(request.headers.get("x-api-key")).toBeNull();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("sends the API key without dropping the JSON content type", async () => {
-    const fetch = vi.fn(
-      async (_input: Request | string, _init?: RequestInit) =>
-        new Response(JSON.stringify({ json: summaries }), {
-          headers: { "content-type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", fetch);
-    try {
-      await createCityNodeAppClient("https://citynode.test", "test-key").listNodeSummaries({
-        scope: "all",
-      });
-
-      const [input, init] = fetch.mock.calls[0] ?? [""];
-      const request = typeof input === "string" ? new Request(input, init) : input;
-      expect(request.headers.get("x-api-key")).toBe("test-key");
-      expect(request.headers.get("content-type")).toContain("application/json");
-      expect(await request.json()).toEqual({ json: { scope: "all" } });
-    } finally {
-      vi.unstubAllGlobals();
-    }
   });
 });
 
@@ -223,6 +171,16 @@ describe("createCityNodeDirectory", () => {
     });
     expect(fn).toHaveBeenCalledTimes(1);
     await expect(directory.assertKnown(undefined)).resolves.toBeNull();
+    await expect(directory.assertKnown("lakeside")).resolves.toMatch(/can't be checked/);
+  });
+
+  it("reports the list as unavailable when the citynode plugin is not attached", async () => {
+    const directory = createCityNodeDirectory({ baseUrl: "https://citynode.test", now: () => 0 });
+
+    expect(await directory.list()).toEqual({
+      data: [],
+      meta: { baseUrl: "https://citynode.test", available: false, fetchedAt: null },
+    });
     await expect(directory.assertKnown("lakeside")).resolves.toMatch(/can't be checked/);
   });
 
