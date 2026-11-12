@@ -7,13 +7,13 @@ import {
   CalendarDays,
   CircleAlert,
   FolderKanban,
+  Gift,
   Hammer,
   KeyRound,
   Send,
 } from "lucide-react";
 import { useEffect } from "react";
 import { useApiClient, useOrpc } from "@/app";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   ADMIN_TABS,
   type AdminTabConfig,
@@ -35,6 +35,7 @@ const TAB_ICONS: Record<(typeof ADMIN_TABS)[number]["icon"], typeof Hammer> = {
   AtSign,
   Send,
   KeyRound,
+  Gift,
 };
 
 function AdminDashboardLayout() {
@@ -120,9 +121,7 @@ function AdminDashboardLayout() {
       </nav>
 
       <div className="mt-6">
-        <TooltipProvider>
-          <Outlet />
-        </TooltipProvider>
+        <Outlet />
       </div>
     </div>
   );

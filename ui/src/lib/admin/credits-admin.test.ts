@@ -62,6 +62,7 @@ function settings(overrides: Partial<CreditSettings> = {}): CreditSettings {
     keyExpiresAt: "2999-02-01T00:00:00.000Z",
     nearAiWorkspaceId: "ws-hackathon",
     nearAiLoginAccountId: "nearbuilding.near",
+    nearAiOrgId: "",
     updatedBy: "admin-user",
     updatedAt: "2026-10-30T00:00:00.000Z",
     ...overrides,
@@ -87,6 +88,7 @@ describe("settings draft", () => {
       keyExpiresAt: expect.any(String),
       nearAiWorkspaceId: "ws-hackathon",
       nearAiLoginAccountId: "nearbuilding.near",
+      nearAiOrgId: "",
     });
     expect(new Date(input.claimsCloseAt ?? "").toISOString()).toBe("2999-01-01T00:00:00.000Z");
   });
@@ -102,6 +104,7 @@ describe("settings draft", () => {
       keyExpiresAt: null,
       nearAiWorkspaceId: "",
       nearAiLoginAccountId: "nearbuilding.near",
+      nearAiOrgId: "",
     });
   });
 });

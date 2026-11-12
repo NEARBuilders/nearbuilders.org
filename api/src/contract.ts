@@ -12,6 +12,23 @@ import {
 } from "every-plugin/errors";
 import { z } from "zod";
 
+export const ProjectFeedbackStatusSchema = z.enum(["none", "registered", "open", "unknown"]);
+
+export const ProjectFeedbackSchema = z.object({
+  status: ProjectFeedbackStatusSchema,
+  openRound: z
+    .object({
+      number: z.number().int().positive(),
+      title: z.string(),
+      endsAt: z.string().nullable(),
+      url: z.string(),
+    })
+    .nullable(),
+  pastRounds: z.number().int().nonnegative(),
+  feedbackUrl: z.string(),
+  requestUrl: z.string(),
+});
+
 const NOMINATION_CONFLICT = {
   status: 409,
   message: "Nomination was submitted by another builder",
@@ -1574,6 +1591,12 @@ export const contract = oc.router({
       }),
     ),
 
+  getProjectFeedback: oc
+    .route({ method: "GET", path: "/projects/{projectId}/feedback" })
+    .input(z.object({ projectId: z.string().min(1).max(200) }))
+    .output(ProjectFeedbackSchema)
+    .errors({ NOT_FOUND }),
+
   getProjectActivityEvents: oc
     .route({ method: "GET", path: "/projects/{projectId}/activity/events" })
     .input(
@@ -1850,6 +1873,12 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ deleted: z.boolean() }))
     .errors({ UNAUTHORIZED, NOT_FOUND, FORBIDDEN }),
+
+  clearOrganizationAttribution: oc
+    .route({ method: "POST", path: "/v1/organizations/{organizationId}/clear-attribution" })
+    .input(z.object({ organizationId: z.string().min(1) }))
+    .output(z.object({ cleared: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
   listProjectsForApp: oc
     .route({ method: "GET", path: "/v1/apps/{accountId}/{domain}/projects" })

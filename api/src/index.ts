@@ -28,6 +28,10 @@ import {
   isSystemActor,
 } from "./services/catalog-listings";
 import { createEmailSender, type EmailSender } from "./services/email";
+import {
+  createProjectFeedbackClient,
+  type ProjectFeedbackClient,
+} from "./services/project-feedback";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -171,6 +175,7 @@ class ApiServices extends EffectContext.Service<
     chiefBotUsername: string;
     requireAdminApproval: boolean;
     email: EmailSender;
+    projectFeedback: ProjectFeedbackClient;
   }
 >()("api/ApiServices") {}
 
@@ -201,6 +206,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       .string()
       .regex(/^[A-Za-z0-9_]*$/)
       .default(""),
+    feedbackBaseUrl: z.string().url().default("https://feedback.nearbuilders.org"),
   }),
 
   secrets: z.object({
@@ -265,6 +271,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
               email,
+              projectFeedback: createProjectFeedbackClient({
+                client: restPlugins.feedback?.(),
+                feedbackBaseUrl: config.variables.feedbackBaseUrl,
+              }),
             };
           }),
           (services) =>
@@ -292,6 +302,17 @@ export default createPlugin.withPlugins<PluginEntries>()({
       await catalogListings
         .sync(kind, entityId, context)
         .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
+    };
+    const getOrganizationMember = async (context: Context, organizationId: string) => {
+      const organization = context.organization;
+      if (
+        !organization ||
+        organization.activeOrganizationId !== organizationId ||
+        !organization.member
+      ) {
+        throw new ORPCError("FORBIDDEN", { message: "Organization access denied" });
+      }
+      return organization.member;
     };
     const canEditProposalEntity = async (
       pluginId: string,
@@ -1143,6 +1164,13 @@ export default createPlugin.withPlugins<PluginEntries>()({
         return await services.plugins.activity().getProjectActivity(input);
       }),
 
+      getProjectFeedback: builder.getProjectFeedback.handler(async ({ input, context }) => {
+        const { data: project } = await services.plugins
+          .projects(context)
+          .getProject({ id: input.projectId });
+        return await apiServices(context).projectFeedback.lookup(project.slug);
+      }),
+
       getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {
         return await services.plugins.activity().getProjectActivityEvents(input);
       }),
@@ -1307,6 +1335,21 @@ export default createPlugin.withPlugins<PluginEntries>()({
         await syncCatalogListing("project", input.id, context);
         return deleted;
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const member = await getOrganizationMember(context, input.organizationId);
+          if (!member.role.split(",").includes("owner")) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only an organization owner can delete it",
+            });
+          }
+
+          return await services.plugins
+            .projects({ ...context, internalOrganizationCleanup: true })
+            .clearOrganizationAttribution({ organizationId: input.organizationId });
+        }),
 
       listProjectsForApp: builder.listProjectsForApp.handler(async ({ input, context }) => {
         return await services.plugins.projects(context).listProjectsForApp(input);

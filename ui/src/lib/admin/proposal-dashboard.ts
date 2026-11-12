@@ -43,7 +43,8 @@ export type AdminTab =
   | "catalog"
   | "x-nominations"
   | "telegram"
-  | "credits";
+  | "credits"
+  | "programs";
 
 export const ADMIN_TABS = [
   {
@@ -101,6 +102,13 @@ export const ADMIN_TABS = [
     to: "/admin/dashboard/credits",
     pluginId: null,
     icon: "KeyRound" as const,
+  },
+  {
+    value: "programs",
+    label: "Programs",
+    to: "/admin/dashboard/programs",
+    pluginId: null,
+    icon: "Gift" as const,
   },
 ] as const satisfies ReadonlyArray<{
   value: AdminTab;

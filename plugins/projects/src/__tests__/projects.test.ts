@@ -580,6 +580,36 @@ describe("project identity fields", () => {
     await expect(anonymous.listProjects({ limit: 101 })).rejects.toThrow();
     await expect(anonymous.listProjects({ limit: "nope" as unknown as number })).rejects.toThrow();
   });
+
+  it("pages through filtered results by cursor without gaps or duplicates", async () => {
+    const anonymous = loaded.createClient();
+
+    for (const sort of ["newest", "oldest"] as const) {
+      const filters = { kind: "idea" as const, query: "Batch", sort };
+      const everything = await anonymous.listProjects({ ...filters, limit: 100 });
+      expect(everything.data.length).toBeGreaterThanOrEqual(30);
+
+      const paged: string[] = [];
+      let cursor: string | undefined;
+      let pages = 0;
+      do {
+        const page = await anonymous.listProjects({ ...filters, limit: 7, cursor });
+        expect(page.meta.total).toBe(everything.meta.total);
+        paged.push(...page.data.map((project) => project.id));
+        cursor = page.meta.nextCursor ?? undefined;
+        expect(page.meta.hasMore).toBe(Boolean(cursor));
+        pages += 1;
+      } while (cursor);
+
+      expect(pages).toBe(Math.ceil(everything.meta.total / 7));
+      expect(new Set(paged).size).toBe(paged.length);
+      expect(paged).toEqual(everything.data.map((project) => project.id));
+    }
+
+    const past = await anonymous.listProjects({ kind: "idea", limit: 7, cursor: "1000" });
+    expect(past.data).toEqual([]);
+    expect(past.meta).toMatchObject({ hasMore: false, nextCursor: null });
+  });
 });
 
 describe("project collaborators", () => {
@@ -797,5 +827,208 @@ describe("project collaborators", () => {
     });
     await expect(admin.deleteProject({ id: created.id })).resolves.toEqual({ deleted: true });
     await expect(owner.getProject({ id: created.id })).rejects.toThrow("Project not found");
+  });
+
+  it("clears attribution without deleting projects", async () => {
+    const owner = loaded.createClient({
+      ...ownerCtx(),
+      organizations: [
+        { id: "org-to-delete", role: "member" },
+        { id: "other-org", role: "member" },
+      ],
+    });
+    const attributed = await owner.createProject({
+      kind: "idea",
+      title: "Attributed idea",
+      slug: "attributed-idea",
+      content: "# Attributed idea",
+      organizationId: "org-to-delete",
+      visibility: "public",
+    });
+    const unrelated = await owner.createProject({
+      kind: "idea",
+      title: "Unrelated idea",
+      slug: "unrelated-idea",
+      content: "# Unrelated idea",
+      organizationId: "other-org",
+      visibility: "public",
+    });
+    const cleanup = loaded.createClient({ internalOrganizationCleanup: true });
+
+    await expect(
+      cleanup.clearOrganizationAttribution({ organizationId: "org-to-delete" }),
+    ).resolves.toEqual({ cleared: 1 });
+
+    expect((await owner.getProject({ id: attributed.id })).data.organizationId).toBeNull();
+    expect((await owner.getProject({ id: unrelated.id })).data.organizationId).toBe("other-org");
+  });
+});
+
+describe("project ownership across linked NEAR accounts (#362)", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+
+  const linked = (userId: string, accounts: string[]) => ({
+    userId,
+    near: {
+      primaryAccountId: accounts[0]!,
+      linkedAccounts: accounts.map((accountId, index) => ({
+        accountId,
+        network: "mainnet",
+        publicKey: "",
+        isPrimary: index === 0,
+      })),
+      hasNearAccount: true,
+    },
+    user: testUser(userId, "member"),
+  });
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-linked-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("keeps a project editable after the owner switches primary to a linked account", async () => {
+    const before = loaded.createClient(linked("ivy-user", ["ivy.near", "ivy-alt.near"]));
+    const created = await before.createProject({
+      kind: "idea",
+      title: "Switching idea",
+      slug: "switching-idea",
+      content: "c",
+      visibility: "private",
+    });
+    const after = loaded.createClient(linked("ivy-user", ["ivy-alt.near", "ivy.near"]));
+    expect((await after.getProject({ id: created.id })).data.id).toBe(created.id);
+    expect((await after.updateProject({ id: created.id, title: "Still mine" })).title).toBe(
+      "Still mine",
+    );
+
+    const stranger = loaded.createClient(linked("other-user", ["other.near"]));
+    await expect(stranger.getProject({ id: created.id })).rejects.toThrow("Project not found");
+  });
+
+  it("lets an invite sent to a linked account be accepted from another primary", async () => {
+    const owner = loaded.createClient(linked("jo-user", ["jo.near"]));
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Invite idea",
+      slug: "invite-idea",
+      content: "c",
+      visibility: "private",
+      collaborators: ["kim-alt.near"],
+    });
+    const kim = loaded.createClient(linked("kim-user", ["kim.near", "kim-alt.near"]));
+    expect(
+      (await kim.respondCollaborator({ projectId: created.id, action: "accept" })).status,
+    ).toBe("accepted");
+    expect((await kim.updateProject({ id: created.id, title: "Edited by kim" })).title).toBe(
+      "Edited by kim",
+    );
+  });
+
+  it("rejects inviting one of the owner's own linked accounts", async () => {
+    const owner = loaded.createClient(linked("lee-user", ["lee.near", "lee-alt.near"]));
+    const created = await owner.createProject({
+      kind: "idea",
+      title: "Self invite idea",
+      slug: "self-invite-idea",
+      content: "c",
+      visibility: "private",
+      collaborators: ["lee-alt.near", "max.near"],
+    });
+    expect(created.collaborators?.map((c) => c.collaboratorOwnerId)).toEqual(["max.near"]);
+
+    await expect(
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "lee-alt.near" }),
+    ).rejects.toThrow("Owner is already credited");
+    await expect(
+      owner.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "LEE.near" }),
+    ).rejects.toThrow("Owner is already credited");
+
+    // After a primary switch the original owner id is still the owner.
+    const switched = loaded.createClient(linked("lee-user", ["lee-alt.near", "lee.near"]));
+    await expect(
+      switched.inviteCollaborator({ projectId: created.id, collaboratorOwnerId: "lee.near" }),
+    ).rejects.toThrow("Owner is already credited");
+    expect(
+      (
+        await switched.inviteCollaborator({
+          projectId: created.id,
+          collaboratorOwnerId: "ned.near",
+        })
+      ).status,
+    ).toBe("pending");
+
+    const admin = loaded.createClient({
+      ...linked("ada-user", ["ada.near", "ada-alt.near"]),
+      user: testUser("ada-user", "admin"),
+    });
+    const forAlt = await admin.createProject({
+      kind: "idea",
+      title: "Admin alt idea",
+      slug: "admin-alt-idea",
+      content: "c",
+      visibility: "private",
+      ownerId: "ada-alt.near",
+      collaborators: ["ada.near", "max.near"],
+    });
+    expect(forAlt.collaborators?.map((c) => c.collaboratorOwnerId)).toEqual(["max.near"]);
+  });
+});
+
+describe("re-keying user-id projects once NEAR is linked (#366)", () => {
+  const runtime = createPluginRuntime({ registry: { projects: { module: Plugin } } });
+  let dataDir: string;
+  let loaded: Awaited<ReturnType<typeof runtime.usePlugin<"projects">>>;
+
+  beforeAll(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "nearbuilders-projects-rekey-"));
+    loaded = await runtime.usePlugin("projects", {
+      variables: {},
+      secrets: { PROJECTS_DATABASE_URL: `pglite:${dataDir}` },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await runtime.shutdown();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("moves a project owned by the user id onto the account it later links", async () => {
+    // An admin without NEAR may create content, so it is owned by their user id.
+    const created = await loaded
+      .createClient({ userId: "hal-user", user: testUser("hal-user", "admin") })
+      .createProject({ kind: "idea", title: "Rekey idea", slug: "rekey-idea", content: "c" });
+    expect(created.ownerId).toBe("hal-user");
+
+    // Their first authenticated call with NEAR linked moves it onto the account...
+    await loaded
+      .createClient({
+        userId: "hal-user",
+        near: testNear("hal.near"),
+        user: testUser("hal-user", "admin"),
+      })
+      .updateProject({ id: created.id, title: "Rekey idea v2" });
+
+    // ...so a reissued user id with the same account still owns it.
+    const reissued = loaded.createClient({
+      userId: "hal-user-new",
+      near: testNear("hal.near"),
+      user: testUser("hal-user-new", "member"),
+    });
+    const project = (await reissued.getProject({ id: created.id })).data;
+    expect(project.ownerId).toBe("hal.near");
+    expect((await reissued.updateProject({ id: created.id, title: "Still hal's" })).title).toBe(
+      "Still hal's",
+    );
   });
 });

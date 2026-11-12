@@ -17,7 +17,9 @@ import {
   type NearAiSignedMessage,
   signatureToBase64,
 } from "./nearai-keys";
+import { createNearAiReportingClient, type NearAiReportingClient } from "./nearai-usage";
 import {
+  readReporting,
   readSessionExpiry,
   readSessionToken,
   readSettings,
@@ -26,6 +28,7 @@ import {
   settingsToDto,
   validateAmountCents,
   validateSettings,
+  writeReporting,
   writeSession,
   writeSettings,
 } from "./settings";
@@ -37,7 +40,8 @@ export function creditEligibility(
   builderProfile: { withdrawnAt: string | null } | null,
 ): CreditEligibility {
   if (!nearAccountId) return "needs_near_account";
-  if (!builderProfile || builderProfile.withdrawnAt) return "needs_approved_profile";
+  if (!builderProfile) return "needs_approved_profile";
+  if (builderProfile.withdrawnAt) return "needs_profile_restore";
   return "eligible";
 }
 
@@ -90,6 +94,7 @@ export function createCreditMethods(
   keys: NearAiKeyClient,
   login: NearAiLoginClient,
   store: NearAiRefreshTokenStore,
+  reporting: NearAiReportingClient,
   now: () => Date = () => new Date(),
 ) {
   const currentWindow = async (): Promise<WindowState> => {
@@ -132,20 +137,55 @@ export function createCreditMethods(
     };
   };
 
-  const findClaim = async (nearAccountId: string) => {
-    const [row] = await db
+  /**
+   * The caller's claim: one made under any of their NEAR accounts (primary first, then linked,
+   * #365) or with their user id. Preferring the account order keeps the result stable when a
+   * reissued user id and an old linked account point at different rows.
+   */
+  const findClaims = async (input: { nearAccountIds: readonly string[]; userId: string }) => {
+    const accounts = input.nearAccountIds.filter(Boolean);
+    const conditions = [eq(creditClaims.userId, input.userId)];
+    if (accounts.length > 0) conditions.push(inArray(creditClaims.nearAccountId, [...accounts]));
+    const rows = await db
       .select()
       .from(creditClaims)
-      .where(eq(creditClaims.nearAccountId, nearAccountId));
-    return row ?? null;
+      .where(or(...conditions));
+    const rank = (row: CreditClaimRow) => {
+      const index = accounts.indexOf(row.nearAccountId);
+      return index === -1 ? accounts.length : index;
+    };
+    return rows.sort((a, b) => rank(a) - rank(b));
+  };
+
+  const findClaim = async (input: { nearAccountIds: readonly string[]; userId: string }) =>
+    (await findClaims(input))[0] ?? null;
+
+  const staleBefore = () => new Date(now().getTime() - STALE_PENDING_MS);
+  const isRetryable = (row: CreditClaimRow) =>
+    row.status === "failed" || (row.status === "pending" && row.updatedAt < staleBefore());
+  const retryableStatus = () =>
+    or(
+      eq(creditClaims.status, "failed"),
+      and(eq(creditClaims.status, "pending"), lt(creditClaims.updatedAt, staleBefore())),
+    );
+
+  const futureKeyExpiry = async (row: CreditClaimRow): Promise<Date | null> => {
+    const current = now();
+    if (row.keyExpiresAt && row.keyExpiresAt > current) return row.keyExpiresAt;
+    const settings = await readSettings(db);
+    const settingsExpiry = settings?.keyExpiresAt ?? null;
+    return settingsExpiry && settingsExpiry > current ? settingsExpiry : null;
   };
 
   const acquireClaim = async (input: {
     nearAccountId: string;
+    linkedAccountIds?: readonly string[];
     userId: string;
     ip: string | null;
     amountCents: number;
     keyExpiresAt: Date | null;
+    /** A failed or stale claim under another of the caller's accounts, to retry instead. */
+    takeover?: CreditClaimRow | null;
   }) => {
     const values = {
       userId: input.userId,
@@ -158,37 +198,42 @@ export function createCreditMethods(
     };
     const alreadyClaimed = conflict("API credits were already claimed for this account");
     try {
-      const [inserted] = await db
-        .insert(creditClaims)
-        .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
-        .onConflictDoNothing()
-        .returning();
-      if (inserted) return { row: inserted, retry: false };
+      if (input.takeover) {
+        // Retry it in place: the key name and unique slots stay with the account it was made under.
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.id, input.takeover.id), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      } else {
+        const [inserted] = await db
+          .insert(creditClaims)
+          .values({ id: randomUUID(), nearAccountId: input.nearAccountId, ...values })
+          .onConflictDoNothing()
+          .returning();
+        if (inserted) return { row: inserted, retry: false };
 
-      const [retried] = await db
-        .update(creditClaims)
-        .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
-        .where(
-          and(
-            eq(creditClaims.nearAccountId, input.nearAccountId),
-            or(
-              eq(creditClaims.status, "failed"),
-              and(
-                eq(creditClaims.status, "pending"),
-                lt(creditClaims.updatedAt, new Date(now().getTime() - STALE_PENDING_MS)),
-              ),
-            ),
-          ),
-        )
-        .returning();
-      if (retried) return { row: retried, retry: true };
+        const [retried] = await db
+          .update(creditClaims)
+          .set({ ...values, attempt: sql`${creditClaims.attempt} + 1` })
+          .where(and(eq(creditClaims.nearAccountId, input.nearAccountId), retryableStatus()))
+          .returning();
+        if (retried) return { row: retried, retry: true };
+      }
     } catch (error) {
       if (isUniqueViolation(error)) throw alreadyClaimed;
       throw error;
     }
 
-    const existing = await findClaim(input.nearAccountId);
+    const existing = await findClaim({
+      nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+      userId: input.userId,
+    });
     if (existing?.status === "pending") throw conflict("Your claim is already being processed");
+    if (existing && existing.nearAccountId !== input.nearAccountId) {
+      throw conflict(`Credits were already claimed with ${existing.nearAccountId}`);
+    }
     throw alreadyClaimed;
   };
 
@@ -251,9 +296,13 @@ export function createCreditMethods(
       return { settings: settingsToDto(row) };
     },
 
-    async getStatus(nearAccountId: string | null, eligibility: CreditEligibility) {
+    async getStatus(
+      nearAccountIds: readonly string[],
+      userId: string,
+      eligibility: CreditEligibility,
+    ) {
       const { row, window } = await currentWindow();
-      const claim = nearAccountId ? await findClaim(nearAccountId) : null;
+      const claim = await findClaim({ nearAccountIds, userId });
       return {
         available: window.open,
         statusReason: window.open ? null : window.statusReason,
@@ -266,9 +315,17 @@ export function createCreditMethods(
 
     async nearAiSessionStatus() {
       const refreshExpiresAt = await readSessionExpiry(db);
+      const reportingCredentials = await readReporting(db);
+      const usageReporting = Boolean(
+        reportingCredentials.orgId && reportingCredentials.reportingToken,
+      );
       try {
         await keys.verifySession();
-        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+        return {
+          status: "valid" as const,
+          refreshExpiresAt: toIso(refreshExpiresAt),
+          usageReporting,
+        };
       } catch (error) {
         if (error instanceof NearAiRequestError && error.status === 401) {
           return {
@@ -276,6 +333,7 @@ export function createCreditMethods(
               ? ("absent" as const)
               : ("expired" as const),
             refreshExpiresAt: toIso(refreshExpiresAt),
+            usageReporting,
           };
         }
         if (error instanceof NearAiRequestError) {
@@ -310,7 +368,17 @@ export function createCreditMethods(
         });
         await store.save(refreshToken, refreshExpiresAt);
         keys.resetSession();
-        return { status: "valid" as const, refreshExpiresAt: toIso(refreshExpiresAt) };
+        const provisioned = await reporting.provision();
+        if (provisioned) {
+          await writeReporting(db, provisioned).catch((error: unknown) => {
+            console.warn("[Credits] Reporting credentials could not be stored:", error);
+          });
+        }
+        return {
+          status: "valid" as const,
+          refreshExpiresAt: toIso(refreshExpiresAt),
+          usageReporting: Boolean(provisioned),
+        };
       } catch (error) {
         if (error instanceof NearAiRequestError) {
           throw new ORPCError(error.status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
@@ -323,11 +391,28 @@ export function createCreditMethods(
 
     async claim(input: {
       nearAccountId: string;
+      linkedAccountIds?: readonly string[];
       userId: string;
       ip: string | null;
       eligibility: CreditEligibility;
     }) {
       const { window } = await currentWindow();
+      // One claim per person: a claim under another of their linked accounts counts (#365).
+      // Only one that got (or had) a key blocks; a failed or stale one is retried in place.
+      const prior = await findClaims({
+        nearAccountIds: [input.nearAccountId, ...(input.linkedAccountIds ?? [])],
+        userId: input.userId,
+      });
+      const elsewhere = prior.filter((row) => row.nearAccountId !== input.nearAccountId);
+      const claimed = elsewhere.find((row) => row.status === "issued" || row.status === "revoked");
+      if (claimed) throw conflict(`Credits were already claimed with ${claimed.nearAccountId}`);
+      if (elsewhere.some((row) => !isRetryable(row))) {
+        throw conflict("Your claim is already being processed");
+      }
+      const hasOwnRow = prior.length > elsewhere.length;
+      const takeover = hasOwnRow
+        ? null
+        : (elsewhere.find((row) => row.userId === input.userId) ?? elsewhere[0] ?? null);
       if (!window.open) throw new ORPCError("FORBIDDEN", { message: window.reason });
       if (input.eligibility !== "eligible") {
         throw new ORPCError("FORBIDDEN", {
@@ -339,8 +424,9 @@ export function createCreditMethods(
         ...input,
         amountCents: window.amountCents,
         keyExpiresAt: window.keyExpiresAt,
+        takeover,
       });
-      const name = keyName(input.nearAccountId, row.id);
+      const name = keyName(row.nearAccountId, row.id);
       let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
       try {
         if (retry) {
@@ -376,6 +462,25 @@ export function createCreditMethods(
       return { key: created.key, claim: toClaim(issued, now()) };
     },
 
+    async getUsage(input: { nearAccountIds: readonly string[]; userId: string }) {
+      const claim = await findClaim({ nearAccountIds: input.nearAccountIds, userId: input.userId });
+      if (!claim?.keyId) return { usage: null };
+      const status = claimStatus(claim, now());
+      if (status !== "issued" && status !== "expired") return { usage: null };
+      const used = await reporting.getKeyUsage({
+        apiKeyId: claim.keyId,
+        startTime: claim.createdAt,
+      });
+      if (!used) return { usage: null };
+      return {
+        usage: {
+          usedUsd: nanoUsdToUsd(used.usedNanoUsd),
+          spendLimitUsd: claim.spendLimitCents / 100,
+          keyExpiresAt: claim.keyExpiresAt?.toISOString() ?? null,
+        },
+      };
+    },
+
     async listClaims(input: { limit: number; offset: number }) {
       const [rows, [totals]] = await Promise.all([
         db
@@ -396,11 +501,19 @@ export function createCreditMethods(
               .groupBy(creditClaims.ip)
           : [];
       const countByIp = new Map(ipCounts.map((entry) => [entry.ip, entry.total]));
+      const usedByKey = rows.some((row) => row.keyId)
+        ? ((await reporting.getOrganizationUsage())?.usedNanoUsdByKeyId ?? null)
+        : null;
       const total = totals?.total ?? 0;
       const nextOffset = input.offset + rows.length;
       return {
         data: rows.map((row) =>
-          toAdminClaim(row, row.ip ? (countByIp.get(row.ip) ?? 1) : 0, now()),
+          toAdminClaim(
+            row,
+            row.ip ? (countByIp.get(row.ip) ?? 1) : 0,
+            now(),
+            row.keyId ? (usedByKey?.get(row.keyId) ?? null) : null,
+          ),
         ),
         meta: {
           total,
@@ -429,7 +542,107 @@ export function createCreditMethods(
           if (orphan?.isActive) await client.revokeKey(orphan.id);
         });
       }
-      return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now()) };
+      return { data: toAdminClaim(revoked!, await countClaimsFromIp(row.ip), now(), null) };
+    },
+
+    async refreshClaim(id: string) {
+      const [row] = await db.select().from(creditClaims).where(eq(creditClaims.id, id));
+      if (!row) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
+      const status = claimStatus(row, now());
+      if (status !== "issued" && status !== "expired") {
+        throw conflict(
+          status === "pending"
+            ? "This claim is still being processed"
+            : "Only an issued or expired key can be replaced",
+        );
+      }
+
+      if (row.keyId) {
+        await keys.revokeKey(row.keyId).catch((error: unknown) => {
+          console.warn("[Credits] Old key could not be revoked during refresh:", row.id, error);
+          throw new ORPCError("SERVICE_UNAVAILABLE", {
+            message: "The current key could not be retired. Try again in a few minutes.",
+          });
+        });
+      } else {
+        const orphan = await keys
+          .findKeyByName(keyName(row.nearAccountId, row.id))
+          .catch(() => null);
+        if (orphan?.isActive) {
+          await keys.revokeKey(orphan.id).catch((error: unknown) => {
+            console.warn(
+              "[Credits] Orphan key could not be revoked during refresh:",
+              row.id,
+              error,
+            );
+            throw new ORPCError("SERVICE_UNAVAILABLE", {
+              message: "The current key could not be retired. Try again in a few minutes.",
+            });
+          });
+        }
+      }
+
+      const [updated] = await db
+        .update(creditClaims)
+        .set({
+          status: "replaceable",
+          keyId: null,
+          keyPrefix: null,
+          error: null,
+          attempt: sql`${creditClaims.attempt} + 1`,
+          updatedAt: now(),
+        })
+        .where(eq(creditClaims.id, row.id))
+        .returning();
+      if (!updated)
+        throw conflict("This claim changed while it was being updated. Check its status.");
+      return { data: toAdminClaim(updated, await countClaimsFromIp(row.ip), now(), null) };
+    },
+
+    async claimReplacement(input: { nearAccountId: string | null; userId: string }) {
+      const claim = await findClaim({
+        nearAccountIds: input.nearAccountId ? [input.nearAccountId] : [],
+        userId: input.userId,
+      });
+      if (!claim) throw new ORPCError("NOT_FOUND", { message: "Credit claim not found" });
+      if (claimStatus(claim, now()) !== "replaceable") {
+        throw conflict("A replacement has not been approved for this account");
+      }
+      const expiry = await futureKeyExpiry(claim);
+      let created: Awaited<ReturnType<NearAiKeyClient["createKey"]>>;
+      try {
+        created = await keys.createKey({
+          name: keyName(claim.nearAccountId, claim.id),
+          spendLimitCents: claim.spendLimitCents,
+          expiresAt: expiry,
+        });
+      } catch (error) {
+        if (error instanceof NearAiRequestError) {
+          throw unavailable();
+        }
+        throw error;
+      }
+
+      const [updated] = await db
+        .update(creditClaims)
+        .set({
+          status: "issued",
+          keyId: created.id,
+          keyPrefix: created.keyPrefix,
+          keyExpiresAt: expiry,
+          error: null,
+          attempt: sql`${creditClaims.attempt} + 1`,
+          updatedAt: now(),
+        })
+        .where(and(eq(creditClaims.id, claim.id), eq(creditClaims.status, "replaceable")))
+        .returning();
+      if (!updated) {
+        await keys.revokeKey(created.id).catch((error: unknown) => {
+          console.warn("[Credits] Replacement key could not be rolled back:", created.id, error);
+        });
+        throw conflict("This claim changed while the key was being created. Check its status.");
+      }
+      return { key: created.key, claim: toClaim(updated, now()) };
     },
   };
 }
@@ -455,6 +668,7 @@ function toClaim(row: CreditClaimRow, now: Date) {
   return {
     id: row.id,
     status: claimStatus(row, now),
+    nearAccountId: row.nearAccountId,
     keyPrefix: row.keyPrefix,
     spendLimitUsd: row.spendLimitCents / 100,
     keyExpiresAt: row.keyExpiresAt?.toISOString() ?? null,
@@ -462,7 +676,12 @@ function toClaim(row: CreditClaimRow, now: Date) {
   };
 }
 
-function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
+function toAdminClaim(
+  row: CreditClaimRow,
+  ipClaimCount: number,
+  now: Date,
+  usedNanoUsd: number | null,
+) {
   return {
     ...toClaim(row, now),
     nearAccountId: row.nearAccountId,
@@ -471,7 +690,12 @@ function toAdminClaim(row: CreditClaimRow, ipClaimCount: number, now: Date) {
     ipClaimCount,
     error: row.error,
     revokedAt: row.revokedAt?.toISOString() ?? null,
+    usedUsd: usedNanoUsd === null ? null : nanoUsdToUsd(usedNanoUsd),
   };
+}
+
+function nanoUsdToUsd(nanoUsd: number) {
+  return Math.round(nanoUsd / 1e5) / 1e4;
 }
 
 type CreditMethods = ReturnType<typeof createCreditMethods>;
@@ -491,6 +715,17 @@ export const CreditServiceLive = () =>
         workspaceId: async () => (await readSettings(db))?.nearAiWorkspaceId ?? "",
       });
       const login = createNearAiLoginClient({});
-      return createCreditMethods(db, keys, login, store);
+      const reporting = createNearAiReportingClient({
+        store,
+        loadExpiresAt: () => readSessionExpiry(db),
+        readReporting: async () => {
+          const [stored, settingsRow] = await Promise.all([readReporting(db), readSettings(db)]);
+          return {
+            orgId: settingsRow?.nearAiOrgId.trim() || stored.orgId,
+            reportingToken: stored.reportingToken,
+          };
+        },
+      });
+      return createCreditMethods(db, keys, login, store, reporting);
     }),
   );

@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { pageHead } from "@/lib/page-meta";
 
 const BASE_RUNTIME = "bos://dev.everything.near/everything.dev";
@@ -258,7 +257,7 @@ function AppDetailPage() {
   );
 
   return (
-    <TooltipProvider>
+    <>
       <div className="space-y-4 px-4 py-4 sm:px-6 sm:py-6">
         <div className="flex items-center gap-2 flex-wrap justify-between">
           <div className="flex items-center gap-2">
@@ -755,7 +754,7 @@ function AppDetailPage() {
           {metaPanel}
         </SheetContent>
       </Sheet>
-    </TooltipProvider>
+    </>
   );
 }
 

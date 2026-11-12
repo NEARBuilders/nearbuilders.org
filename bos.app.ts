@@ -5,7 +5,7 @@ import { App } from "everything-dev/descriptor";
 export default App({
   name: "nearbuilders.org",
   extends: "bos://dev.everything.near/everything.dev",
-  platform: "2.0.0-rc.27",
+  release: "2.0.0-rc.43",
   account: "nearbuilding.near",
   domain: "nearbuilders.org",
   title: "NEAR Builders",
@@ -121,6 +121,11 @@ export default App({
         "STORAGE_ACCESS_KEY_ID",
         "STORAGE_SECRET_ACCESS_KEY",
       ],
+    },
+    feedback: {
+      contract: "bos://nearbuilding.near/feedback.nearbuilders.org#app.api",
+      proxy: "https://feedback.nearbuilders.org",
+      secrets: ["FEEDBACK_API_KEY"],
     },
   },
 });

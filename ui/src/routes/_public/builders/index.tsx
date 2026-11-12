@@ -44,6 +44,10 @@ import {
 } from "@/components/ui/select";
 import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import { pageHead, publicPages } from "@/lib/page-meta";
+import {
+  approvalSettingsQueryOptions,
+  requiresAdminApproval,
+} from "@/lib/queries/approval-settings";
 import type { Proposal, ProposalPayload } from "@/lib/queries/builders";
 import {
   buildersInfiniteOptions,
@@ -226,6 +230,9 @@ function BuildersPage() {
     isAuthenticated &&
     !hasActiveBuilderProfile &&
     (ownBuilderProfileError || (Boolean(nearAccountId) && ownBuilderProposalError));
+
+  const { data: approvalSettings } = useQuery(approvalSettingsQueryOptions(apiClient));
+  const requiresReview = requiresAdminApproval(approvalSettings);
 
   const {
     data: proposalsData,
@@ -719,7 +726,9 @@ function BuildersPage() {
             description={
               isAuthenticated
                 ? "Claim your profile and help collaborators discover your work."
-                : "Connect your NEAR wallet and submit your builder profile for review."
+                : requiresReview
+                  ? "Connect your NEAR wallet and submit your builder profile for review."
+                  : "Connect your NEAR wallet and create your builder profile."
             }
             label={isAuthenticated ? "Open your dashboard" : "Join NEAR Builders"}
             to={isAuthenticated ? "/dashboard" : JOIN_PATH}

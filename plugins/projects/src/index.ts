@@ -1,14 +1,17 @@
 import { ORPCError } from "@orpc/server";
-import { Cause, Effect, Layer } from "effect";
+import { Cause, Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
+import { ProgramService, ProgramServiceLive } from "./services/programs";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
 
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
+  internalOrganizationCleanup?: boolean;
 };
 
 const ProjectsContextSchema = z.custom<ProjectsContext>();
@@ -37,13 +40,14 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.sync(() => {
-      const ProjectServices = ProjectServiceLive.pipe(
+      const ProjectServices = Layer.mergeAll(ProjectServiceLive, ProgramServiceLive).pipe(
         Layer.provide(DatabaseLive(config.secrets.PROJECTS_DATABASE_URL)),
       );
 
       const Lifecycle = Layer.effectDiscard(
         Effect.gen(function* () {
           yield* ProjectService;
+          yield* ProgramService;
           console.log("[Projects] Services Initialized");
           yield* Effect.addFinalizer(() => Effect.log("[Projects] Shutdown"));
         }),
@@ -53,6 +57,14 @@ export default createPlugin({
     }),
 
   createRouter: (builder) => {
+    const claimUserIdRows = createUserIdRowClaimer(
+      "Projects",
+      (context: { "effect/context"?: unknown } & ClaimContext, userId, ownerId) => {
+        const service = Context.get(context["effect/context"] as never, ProjectService);
+        return Effect.runPromise(service.claimUserIdRows(userId, ownerId));
+      },
+    );
+
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", {
@@ -63,6 +75,7 @@ export default createPlugin({
           },
         });
       }
+      await claimUserIdRows(context);
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
@@ -76,13 +89,32 @@ export default createPlugin({
       return next({ context: { ...context, userId: context.userId!, user: context.user! } });
     });
 
-    const getAlternateOwnerId = (context: {
+    const requireInternalOrganizationCleanup = builder.middleware(async ({ context, next }) => {
+      if (context.internalOrganizationCleanup !== true) {
+        throw new ORPCError("FORBIDDEN", { message: "Internal organization cleanup required" });
+      }
+      return next({ context });
+    });
+
+    /**
+     * Every id besides the canonical owner id that the caller's rows may be owned by: their
+     * other linked NEAR accounts and their user id (#362). A primary switch or a later NEAR
+     * link must not cost the caller their own records.
+     */
+    const getAlternateOwnerIds = (context: {
       userId?: string | null;
-      near?: { primaryAccountId?: string | null };
-    }) =>
-      context.near?.primaryAccountId && context.near.primaryAccountId !== context.userId
-        ? (context.userId ?? undefined)
-        : undefined;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId?: string | null }> | null;
+      };
+    }): string[] => {
+      const ownerId = context.near?.primaryAccountId ?? context.userId;
+      const ids = [
+        ...(context.near?.linkedAccounts ?? []).map((account) => account.accountId),
+        context.userId,
+      ].filter((id): id is string => Boolean(id) && id !== ownerId);
+      return [...new Set(ids)];
+    };
 
     const getOrganizationMemberships = (context: {
       organizations?: Array<{ id: string; role: string }>;
@@ -96,7 +128,7 @@ export default createPlugin({
           .listProjects(
             input,
             ownerId,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
           )
           .pipe(Effect.catchCause(toRouteError("listProjects")));
@@ -109,7 +141,7 @@ export default createPlugin({
           .getProject(
             input.id,
             ownerId,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
             getOrganizationMemberships(context),
           )
@@ -134,7 +166,7 @@ export default createPlugin({
           .getProjectBySlug(
             input.slug,
             ownerId,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
             getOrganizationMemberships(context),
           )
@@ -172,7 +204,7 @@ export default createPlugin({
             { ...input, visibility },
             ownerId,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             getOrganizationMemberships(context),
           )
           .pipe(Effect.catchCause(toRouteError("createProject")));
@@ -190,7 +222,7 @@ export default createPlugin({
             input,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.allowPublicVisibility === true,
             getOrganizationMemberships(context),
           )
@@ -231,7 +263,7 @@ export default createPlugin({
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(
             Effect.catchCause(toRouteError("deleteProject")),
@@ -245,6 +277,15 @@ export default createPlugin({
             ),
           );
       }),
+
+      clearOrganizationAttribution: builder.clearOrganizationAttribution
+        .use(requireInternalOrganizationCleanup)
+        .effect(function* ({ input }) {
+          const project = yield* ProjectService;
+          return yield* project
+            .clearOrganizationAttribution(input.organizationId)
+            .pipe(Effect.catchCause(toRouteError("clearOrganizationAttribution")));
+        }),
 
       listProjectApps: builder.listProjectApps.effect(function* ({ input }) {
         const project = yield* ProjectService;
@@ -267,7 +308,7 @@ export default createPlugin({
             input.domain,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             getOrganizationMemberships(context),
           )
           .pipe(
@@ -296,7 +337,7 @@ export default createPlugin({
             input.domain,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             getOrganizationMemberships(context),
           )
           .pipe(
@@ -319,7 +360,7 @@ export default createPlugin({
             input.accountId,
             input.domain,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError("listProjectsForApp")));
         return { data };
@@ -331,7 +372,7 @@ export default createPlugin({
           .listMentions(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError("listMentions")));
         return { data };
@@ -343,7 +384,7 @@ export default createPlugin({
           .listMentionedBy(
             input.id,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError("listMentionedBy")));
         return { data };
@@ -355,7 +396,7 @@ export default createPlugin({
           .listCollaborators(
             input.projectId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             context.user?.role ?? undefined,
             getOrganizationMemberships(context),
           )
@@ -374,7 +415,7 @@ export default createPlugin({
             input.collaboratorOwnerId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError()));
       }),
@@ -389,7 +430,7 @@ export default createPlugin({
             input.projectId,
             input.action,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError()));
       }),
@@ -405,7 +446,7 @@ export default createPlugin({
             input.collaboratorOwnerId,
             context.near?.primaryAccountId ?? context.userId ?? undefined,
             context.user.role ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
           )
           .pipe(Effect.catchCause(toRouteError()));
       }),
@@ -418,12 +459,59 @@ export default createPlugin({
         const data = yield* project
           .listMyCollaborations(
             context.near?.primaryAccountId ?? context.userId ?? undefined,
-            getAlternateOwnerId(context),
+            getAlternateOwnerIds(context),
             input.status ?? undefined,
             input.limit ?? undefined,
           )
           .pipe(Effect.catchCause(toRouteError()));
         return { data };
+      }),
+
+      listPrograms: builder.listPrograms.effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .listPrograms(input.topicId)
+          .pipe(Effect.catchCause(toRouteError("listPrograms")));
+        return { data };
+      }),
+
+      getProjectPrograms: builder.getProjectPrograms.effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .getProjectPrograms(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("getProjectPrograms")));
+        return { data };
+      }),
+
+      adminListPrograms: builder.adminListPrograms.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const data = yield* programs
+          .adminListPrograms(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("adminListPrograms")));
+        return { data };
+      }),
+
+      createProgram: builder.createProgram.use(requireAdmin).effect(function* ({ input, context }) {
+        const programs = yield* ProgramService;
+        return yield* programs
+          .createProgram(input, context.near?.primaryAccountId ?? context.userId)
+          .pipe(Effect.catchCause(toRouteError("createProgram")));
+      }),
+
+      updateProgram: builder.updateProgram.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const { id, ...patch } = input;
+        return yield* programs
+          .updateProgram(id, patch)
+          .pipe(Effect.catchCause(toRouteError("updateProgram")));
+      }),
+
+      reorderPrograms: builder.reorderPrograms.use(requireAdmin).effect(function* ({ input }) {
+        const programs = yield* ProgramService;
+        const updated = yield* programs
+          .reorderPrograms(input.ids)
+          .pipe(Effect.catchCause(toRouteError("reorderPrograms")));
+        return { updated };
       }),
     };
   },

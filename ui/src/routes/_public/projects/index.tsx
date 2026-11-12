@@ -54,22 +54,30 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VoteButton } from "@/components/ui/vote-button";
+import { useViewerOwnerIds } from "@/hooks";
 import {
   normalizeCatalogDirectoryProjectData,
   selectCatalogDirectoryProjects,
   shouldLoadCatalogProjects,
 } from "@/lib/catalog-projects";
 import { projectKindLabel } from "@/lib/draft-store";
+import { isViewerOwner } from "@/lib/ownership";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import {
+  DEFAULT_PROJECT_SORT,
   type ProjectKindFilter,
   type ProjectSort,
   type ProjectStatusFilter,
   parseProjectListSearch,
 } from "@/lib/project-search";
 import { formatRelativeTime } from "@/lib/queries/notifications";
+import {
+  claimedCatalogProjectsInfiniteOptions,
+  flattenUniquePages,
+  projectsInfiniteOptions,
+} from "@/lib/queries/projects";
 import {
   fetchRepositoryLastCommitDate,
   fetchRepositoryReadme,
@@ -86,8 +94,6 @@ type ProjectDetailData = {
     createdAt: string;
   }>;
 };
-
-const PAGE_SIZE = 24;
 
 export const Route = createFileRoute("/_public/projects/")({
   validateSearch: parseProjectListSearch,
@@ -108,27 +114,15 @@ export const Route = createFileRoute("/_public/projects/")({
     const serverSort = deps.sort === "oldest" ? "oldest" : "newest";
 
     if (!deps.personal && !deps.verified) {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: [
-          "projects",
-          activeKind,
-          null,
-          Boolean(privateOnly),
-          deps.query ?? null,
-          deps.status ?? null,
-          serverSort,
-        ],
-        queryFn: ({ pageParam }) =>
-          apiClient.listProjects({
-            limit: PAGE_SIZE,
-            cursor: pageParam as string | undefined,
-            kind: activeKind === "all" ? undefined : activeKind,
-            query: deps.query,
-            status: deps.status === "all" ? undefined : deps.status,
-            sort: serverSort,
-          }),
-        initialPageParam: undefined,
-      });
+      void queryClient.prefetchInfiniteQuery(
+        projectsInfiniteOptions(apiClient, {
+          kind: activeKind === "all" ? undefined : activeKind,
+          privateOnly: Boolean(privateOnly),
+          query: deps.query,
+          status: deps.status === "all" ? undefined : deps.status,
+          sort: serverSort,
+        }),
+      );
     }
 
     if (
@@ -138,16 +132,9 @@ export const Route = createFileRoute("/_public/projects/")({
         privateOnly: Boolean(privateOnly),
       })
     ) {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: ["catalog-projects", null, deps.query ?? null],
-        queryFn: ({ pageParam }) =>
-          apiClient.listClaimedCatalogProjects({
-            query: deps.query,
-            limit: PAGE_SIZE,
-            cursor: pageParam as string | undefined,
-          }),
-        initialPageParam: undefined,
-      });
+      void queryClient.prefetchInfiniteQuery(
+        claimedCatalogProjectsInfiniteOptions(apiClient, { query: deps.query }),
+      );
     }
   },
   component: ProjectsList,
@@ -161,18 +148,6 @@ function isProjectKindFilter(value: unknown): value is ProjectKindFilter {
     value === "scope" ||
     value === "result"
   );
-}
-
-function isCurrentUserOwner(
-  ownerId: string | null | undefined,
-  user:
-    | { id?: string | null; walletAddress?: string | null; role?: string | null }
-    | null
-    | undefined,
-  nearAccountId?: string | null,
-) {
-  if (!ownerId) return false;
-  return [nearAccountId, user?.walletAddress, user?.id].some((candidate) => candidate === ownerId);
 }
 
 function formatOwner(ownerId: string | null | undefined) {
@@ -749,7 +724,7 @@ function ProjectsList() {
   const activeKind = isProjectKindFilter(search.kind) ? search.kind : "all";
   const requestedPersonalOnly = search.personal === true;
   const isVerifiedOnly = search.verified === true;
-  const activeSort: ProjectSort = search.sort ?? "votes";
+  const activeSort: ProjectSort = search.sort ?? DEFAULT_PROJECT_SORT;
   const activeStatus: ProjectStatusFilter = search.status ?? "all";
   const [queryInput, setQueryInput] = useState(search.query ?? "");
   const [copied, setCopied] = useState(false);
@@ -759,6 +734,7 @@ function ProjectsList() {
   const user = session?.user;
   const userId = user?.id;
   const nearAccountId = auth.near.getAccountId();
+  const { ids: viewerIds } = useViewerOwnerIds();
   const ownerFilterId = user?.isAnonymous
     ? undefined
     : (nearAccountId ??
@@ -768,27 +744,6 @@ function ProjectsList() {
   const isPersonalOnly = requestedPersonalOnly && Boolean(ownerFilterId);
   const isPrivateOnly = isPersonalOnly && !isVerifiedOnly && search.private === true;
   const serverSort = activeSort === "oldest" ? "oldest" : "newest";
-  const listQueryKey = useMemo(
-    () =>
-      [
-        "projects",
-        activeKind,
-        isPersonalOnly ? (ownerFilterId ?? null) : null,
-        isPrivateOnly,
-        search.query ?? null,
-        search.status ?? null,
-        serverSort,
-      ] as const,
-    [
-      activeKind,
-      isPersonalOnly,
-      isPrivateOnly,
-      ownerFilterId,
-      search.query,
-      search.status,
-      serverSort,
-    ],
-  );
 
   const {
     data: pages,
@@ -801,20 +756,14 @@ function ProjectsList() {
     isFetchNextPageError,
     refetch: refetchProjects,
   } = useInfiniteQuery({
-    queryKey: listQueryKey,
-    queryFn: ({ pageParam }) =>
-      apiClient.listProjects({
-        limit: PAGE_SIZE,
-        cursor: pageParam,
-        kind: activeKind === "all" ? undefined : activeKind,
-        ownerId: isPersonalOnly ? ownerFilterId : undefined,
-        visibility: isPrivateOnly ? "private" : undefined,
-        query: search.query,
-        status: search.status === "all" ? undefined : search.status,
-        sort: serverSort,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+    ...projectsInfiniteOptions(apiClient, {
+      kind: activeKind === "all" ? undefined : activeKind,
+      ownerId: isPersonalOnly ? ownerFilterId : undefined,
+      privateOnly: isPrivateOnly,
+      query: search.query,
+      status: search.status === "all" ? undefined : search.status,
+      sort: serverSort,
+    }),
     enabled: !isVerifiedOnly && (!isPersonalOnly || Boolean(ownerFilterId)),
   });
 
@@ -825,20 +774,10 @@ function ProjectsList() {
     ownerId: ownerFilterId,
   });
   const catalogQuery = useInfiniteQuery({
-    queryKey: [
-      "catalog-projects",
-      isPersonalOnly ? (ownerFilterId ?? null) : null,
-      search.query ?? null,
-    ],
-    queryFn: ({ pageParam }) =>
-      apiClient.listClaimedCatalogProjects({
-        nearAccount: isPersonalOnly ? ownerFilterId : undefined,
-        query: search.query,
-        limit: PAGE_SIZE,
-        cursor: pageParam,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+    ...claimedCatalogProjectsInfiniteOptions(apiClient, {
+      nearAccount: isPersonalOnly ? ownerFilterId : undefined,
+      query: search.query,
+    }),
     enabled: catalogEnabled,
   });
   const {
@@ -855,7 +794,7 @@ function ProjectsList() {
 
   const localProjects = useMemo(() => {
     if (isVerifiedOnly) return [];
-    const normalized = (pages?.pages.flatMap((page) => page.data) ?? []).map((project) => ({
+    const normalized = flattenUniquePages(pages?.pages, (project) => project.id).map((project) => ({
       ...project,
       source: "local" as const,
       catalogUrl: null,
@@ -869,7 +808,7 @@ function ProjectsList() {
   }, [isVerifiedOnly, pages, search.query]);
   const catalogProjects = useMemo(() => {
     const normalized = selectCatalogDirectoryProjects(
-      catalogPages?.pages.flatMap((page) => page.data) ?? [],
+      flattenUniquePages(catalogPages?.pages, (entry) => entry.project.projectRef),
       catalogEnabled,
     );
     if (activeStatus !== "all" && activeStatus !== "active") return [];
@@ -886,7 +825,9 @@ function ProjectsList() {
       : 0;
   const totalProjectCount = localProjectTotal + catalogProjectTotal;
   const isProjectsLoading = (!isVerifiedOnly && isLoading) || (catalogEnabled && isCatalogLoading);
-  const isProjectsError = (!isVerifiedOnly && isError) || (catalogEnabled && isCatalogError);
+  const isProjectsError =
+    (!isVerifiedOnly && isError && !isFetchNextPageError) ||
+    (catalogEnabled && isCatalogError && !isFetchNextCatalogPageError);
   const isProjectsPaginationError =
     (!isVerifiedOnly && isFetchNextPageError) || (catalogEnabled && isFetchNextCatalogPageError);
   const hasMoreProjects =
@@ -1062,8 +1003,7 @@ function ProjectsList() {
     ((selectedProjectQuery.isError && !selectedPreviewId?.startsWith("nearcatalog:")) ||
       (selectedCatalogQuery.isError && Boolean(selectedCatalogSlug)));
   const canManageSelected =
-    selectedProject?.source === "local" &&
-    isCurrentUserOwner(selectedProject.ownerId, user, nearAccountId);
+    selectedProject?.source === "local" && isViewerOwner(selectedProject.ownerId, viewerIds);
   const selectedReadmeQuery = useQuery({
     queryKey: ["projectPreviewReadme", selectedProject?.id, selectedProject?.repository],
     queryFn: async () =>
@@ -1222,7 +1162,7 @@ function ProjectsList() {
       to: "/projects",
       search: (previous) => ({
         ...previous,
-        sort: sort === "votes" ? undefined : sort,
+        sort: sort === DEFAULT_PROJECT_SORT ? undefined : sort,
         preview: undefined,
       }),
     });
@@ -1303,313 +1243,311 @@ function ProjectsList() {
   const listSearch = { ...search, preview: undefined };
 
   return (
-    <TooltipProvider>
-      <div className="min-w-0">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-          <header>
-            <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="text-4xl font-black tracking-tight text-foreground">Projects</h1>
-                <p className="mt-2 text-base text-muted-foreground sm:text-lg">
-                  Browse live projects, early ideas, scopes, and results from the NEAR builder
-                  network.
-                </p>
-              </div>
-              {canParticipate && (
-                <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
-                  <Link
-                    to="/projects/new/$kind"
-                    params={{ kind: defaultNewKind }}
-                    search={{ ...listSearch, tab: "write" }}
-                  >
-                    <Plus className="size-4" />
-                    New project
-                  </Link>
-                </Button>
+    <div className="min-w-0">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <header>
+          <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-4xl font-black tracking-tight text-foreground">Projects</h1>
+              <p className="mt-2 text-base text-muted-foreground sm:text-lg">
+                Browse live projects, early ideas, scopes, and results from the NEAR builder
+                network.
+              </p>
+            </div>
+            {canParticipate && (
+              <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
+                <Link
+                  to="/projects/new/$kind"
+                  params={{ kind: defaultNewKind }}
+                  search={{ ...listSearch, tab: "write" }}
+                >
+                  <Plus className="size-4" />
+                  New project
+                </Link>
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-7 w-full">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={queryInput}
+                onChange={(event) => setQueryInput(event.target.value)}
+                placeholder="Search projects, builders, repositories, or tags"
+                aria-label="Search projects"
+                className="h-12 rounded-xl bg-card pl-10 pr-10 text-base"
+              />
+              {queryInput && (
+                <button
+                  type="button"
+                  onClick={() => setQueryInput("")}
+                  className="absolute right-3 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Clear search"
+                >
+                  <X className="size-3.5" />
+                </button>
               )}
             </div>
+            <div
+              className="mt-5 flex justify-between border-b border-border sm:justify-start"
+              role="tablist"
+              aria-label="Project type"
+            >
+              {(
+                [
+                  ["all", "All"],
+                  ["project", "Projects"],
+                  ["idea", "Ideas"],
+                  ["scope", "Scopes"],
+                  ["result", "Results"],
+                ] as const
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => handleKindChange(kind)}
+                  role="tab"
+                  aria-selected={activeKind === kind}
+                  className={cn(
+                    "relative inline-flex min-h-11 cursor-pointer items-center px-1.5 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-4 sm:pb-3 sm:pt-0 sm:text-sm",
+                    activeKind === kind
+                      ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-brand-accent"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            <div className="mt-7 w-full">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  value={queryInput}
-                  onChange={(event) => setQueryInput(event.target.value)}
-                  placeholder="Search projects, builders, repositories, or tags"
-                  aria-label="Search projects"
-                  className="h-12 rounded-xl bg-card pl-10 pr-10 text-base"
-                />
-                {queryInput && (
-                  <button
-                    type="button"
-                    onClick={() => setQueryInput("")}
-                    className="absolute right-3 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="Clear search"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-              <div
-                className="mt-5 flex justify-between border-b border-border sm:justify-start"
-                role="tablist"
-                aria-label="Project type"
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <Select
+                value={activeStatus}
+                onValueChange={(value) => handleStatusChange(value as ProjectStatusFilter)}
               >
-                {(
-                  [
-                    ["all", "All"],
-                    ["project", "Projects"],
-                    ["idea", "Ideas"],
-                    ["scope", "Scopes"],
-                    ["result", "Results"],
-                  ] as const
-                ).map(([kind, label]) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => handleKindChange(kind)}
-                    role="tab"
-                    aria-selected={activeKind === kind}
-                    className={cn(
-                      "relative inline-flex min-h-11 cursor-pointer items-center px-1.5 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-4 sm:pb-3 sm:pt-0 sm:text-sm",
-                      activeKind === kind
-                        ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-brand-accent"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                <Select
-                  value={activeStatus}
-                  onValueChange={(value) => handleStatusChange(value as ProjectStatusFilter)}
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Filter by status"
+                  className="col-span-2 h-10 min-h-10 w-full shrink-0 rounded-xl bg-card px-3 whitespace-nowrap sm:col-span-1 sm:h-10 sm:min-h-10 sm:w-auto sm:rounded-full"
                 >
-                  <SelectTrigger
-                    size="sm"
-                    aria-label="Filter by status"
-                    className="col-span-2 h-10 min-h-10 w-full shrink-0 rounded-xl bg-card px-3 whitespace-nowrap sm:col-span-1 sm:h-10 sm:min-h-10 sm:w-auto sm:rounded-full"
-                  >
-                    <Filter className="size-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FilterChip
-                  active={isPersonalOnly}
-                  disabled={!canParticipate || !ownerFilterId}
-                  onClick={handlePersonalToggle}
-                >
-                  <User className="size-3.5" />
-                  Personal
+                  <Filter className="size-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              <FilterChip
+                active={isPersonalOnly}
+                disabled={!canParticipate || !ownerFilterId}
+                onClick={handlePersonalToggle}
+              >
+                <User className="size-3.5" />
+                Personal
+              </FilterChip>
+              <FilterChip active={isVerifiedOnly} onClick={handleVerifiedToggle}>
+                <Sparkles className="size-3.5" />
+                Catalog verified
+              </FilterChip>
+              {isPersonalOnly && !isVerifiedOnly && (
+                <FilterChip active={isPrivateOnly} onClick={handlePrivateToggle}>
+                  <Lock className="size-3.5" />
+                  Private
                 </FilterChip>
-                <FilterChip active={isVerifiedOnly} onClick={handleVerifiedToggle}>
-                  <Sparkles className="size-3.5" />
-                  Catalog verified
-                </FilterChip>
-                {isPersonalOnly && !isVerifiedOnly && (
-                  <FilterChip active={isPrivateOnly} onClick={handlePrivateToggle}>
-                    <Lock className="size-3.5" />
-                    Private
-                  </FilterChip>
-                )}
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="col-span-2 inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1 sm:ml-auto"
-                  >
-                    Clear filters
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </header>
-
-          <main className="mt-9">
-            <div className="w-full">
-              <section className="w-full overflow-hidden rounded-xl border border-border bg-card">
-                <div>
-                  <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        <ProjectListLabel kind={activeKind} />
-                      </span>
-                      <ProjectCount
-                        total={totalProjectCount || rankedProjects.length}
-                        loaded={rankedProjects.length}
-                      />
-                    </div>
-                    <Select
-                      value={activeSort}
-                      onValueChange={(value) => handleSortChange(value as ProjectSort)}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        aria-label="Sort entries"
-                        className="h-8 w-auto gap-1.5 rounded-full border-border bg-secondary px-3 text-xs font-semibold [&>svg:last-child]:hidden"
-                      >
-                        <ArrowDownUp className="size-3.5 text-muted-foreground" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="votes">Most endorsed</SelectItem>
-                        <SelectItem value="newest">Newest</SelectItem>
-                        <SelectItem value="oldest">Oldest</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {!isProjectsLoading && !isProjectsError && upvoteCounts.isError && (
-                    <VoteDataNotice />
-                  )}
-                  {isProjectsLoading || isRankingLoading ? (
-                    <ProjectLoadingState sort={activeSort} />
-                  ) : isProjectsError ? (
-                    <ProjectErrorState
-                      onRetry={() => void retryProjects()}
-                      isRetrying={isFetching || isCatalogFetching}
-                    />
-                  ) : rankedProjects.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                      <Search className="mx-auto size-5 text-muted-foreground" />
-                      <h2 className="mt-3 text-sm font-bold text-foreground">
-                        {search.query
-                          ? "No matching entries"
-                          : isVerifiedOnly
-                            ? "No verified projects yet"
-                            : "No entries in this view"}
-                      </h2>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {search.query
-                          ? "Try a shorter search or clear the filters."
-                          : isVerifiedOnly
-                            ? getCatalogEmptyMessage(activeStatus)
-                            : "Published projects and ideas will appear here."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      {rankedProjects.map((project) => (
-                        <ProjectCard
-                          key={project.id}
-                          project={project}
-                          isSelected={project.id === selectedPreviewId}
-                          voteCountAvailable={voteCountAvailable}
-                          onOpen={() => handleProjectOpen(project)}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {!isProjectsLoading &&
-                    !isProjectsError &&
-                    isProjectsPaginationError &&
-                    rankedProjects.length > 0 && (
-                      <ProjectPaginationError
-                        ranking={activeSort === "votes"}
-                        onRetry={() => void retryProjects()}
-                        isRetrying={isFetching || isCatalogFetching}
-                      />
-                    )}
-
-                  {!isProjectsLoading &&
-                    !isRankingLoading &&
-                    !isProjectsError &&
-                    !isProjectsPaginationError &&
-                    rankedProjects.length > 0 && (
-                      <div ref={sentinelRef} className="flex justify-center py-5">
-                        {isFetchingMoreProjects ? (
-                          <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
-                        ) : hasMoreProjects ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void fetchMoreProjects()}
-                          >
-                            Load more
-                            <ArrowUpRight className="size-3.5" />
-                          </Button>
-                        ) : null}
-                      </div>
-                    )}
-                </div>
-              </section>
-            </div>
-          </main>
-
-          <Sheet
-            open={Boolean(selectedProject)}
-            onOpenChange={(open) => {
-              if (!open) closePreview();
-            }}
-          >
-            <SheetContent side="right" size="wide" hideCloseButton>
-              {selectedProject && (
-                <>
-                  <ProjectPreviewHeader title={selectedProject.title} />
-                  <div className="absolute right-5 top-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={closePreview}
-                      aria-label="Close project details"
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto">
-                    <ProjectDetailPanel
-                      project={selectedProject}
-                      detail={selectedProjectQuery.data?.data}
-                      readme={selectedReadmeQuery.data}
-                      isReadmeLoading={selectedReadmeQuery.isLoading}
-                      isReadmeError={selectedReadmeQuery.isError}
-                      lastCommitAt={selectedLastCommitQuery.data}
-                      voteCountAvailable={voteCountAvailable}
-                      voteDirection={userVoteMap[selectedProject.id] ?? null}
-                      canParticipate={canParticipate}
-                      canManage={canManageSelected}
-                      isUpvoting={
-                        upvoteMutation.isPending && upvoteMutation.variables === selectedProject.id
-                      }
-                      isDownvoting={
-                        downvoteMutation.isPending &&
-                        downvoteMutation.variables === selectedProject.id
-                      }
-                      copied={copied}
-                      search={search}
-                      onVote={(direction) => runVote(direction, selectedProject.id)}
-                      onShare={() => handleShare(selectedProject)}
-                    />
-                  </div>
-                </>
               )}
-            </SheetContent>
-          </Sheet>
-
-          {!canParticipate && (
-            <div className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground lg:hidden">
-              Anonymous sessions can browse.{" "}
-              <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
-                Link an identity
-              </Link>{" "}
-              to publish and endorse entries.
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="col-span-2 inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1 sm:ml-auto"
+                >
+                  Clear filters
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        </header>
+
+        <main className="mt-9">
+          <div className="w-full">
+            <section className="w-full overflow-hidden rounded-xl border border-border bg-card">
+              <div>
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <ProjectListLabel kind={activeKind} />
+                    </span>
+                    <ProjectCount
+                      total={totalProjectCount || rankedProjects.length}
+                      loaded={rankedProjects.length}
+                    />
+                  </div>
+                  <Select
+                    value={activeSort}
+                    onValueChange={(value) => handleSortChange(value as ProjectSort)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="Sort entries"
+                      className="h-8 w-auto gap-1.5 rounded-full border-border bg-secondary px-3 text-xs font-semibold [&>svg:last-child]:hidden"
+                    >
+                      <ArrowDownUp className="size-3.5 text-muted-foreground" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="votes">Most endorsed</SelectItem>
+                      <SelectItem value="oldest">Oldest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {!isProjectsLoading && !isProjectsError && upvoteCounts.isError && (
+                  <VoteDataNotice />
+                )}
+                {isProjectsLoading || isRankingLoading ? (
+                  <ProjectLoadingState sort={activeSort} />
+                ) : isProjectsError ? (
+                  <ProjectErrorState
+                    onRetry={() => void retryProjects()}
+                    isRetrying={isFetching || isCatalogFetching}
+                  />
+                ) : rankedProjects.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <Search className="mx-auto size-5 text-muted-foreground" />
+                    <h2 className="mt-3 text-sm font-bold text-foreground">
+                      {search.query
+                        ? "No matching entries"
+                        : isVerifiedOnly
+                          ? "No verified projects yet"
+                          : "No entries in this view"}
+                    </h2>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {search.query
+                        ? "Try a shorter search or clear the filters."
+                        : isVerifiedOnly
+                          ? getCatalogEmptyMessage(activeStatus)
+                          : "Published projects and ideas will appear here."}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    {rankedProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        isSelected={project.id === selectedPreviewId}
+                        voteCountAvailable={voteCountAvailable}
+                        onOpen={() => handleProjectOpen(project)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {!isProjectsLoading &&
+                  !isProjectsError &&
+                  isProjectsPaginationError &&
+                  rankedProjects.length > 0 && (
+                    <ProjectPaginationError
+                      ranking={activeSort === "votes"}
+                      onRetry={() => void fetchMoreProjects()}
+                      isRetrying={isFetchingMoreProjects}
+                    />
+                  )}
+
+                {!isProjectsLoading &&
+                  !isRankingLoading &&
+                  !isProjectsError &&
+                  !isProjectsPaginationError &&
+                  rankedProjects.length > 0 && (
+                    <div ref={sentinelRef} className="flex justify-center py-5">
+                      {isFetchingMoreProjects ? (
+                        <div className="size-5 animate-spin rounded-full border-2 border-border border-t-transparent" />
+                      ) : hasMoreProjects ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void fetchMoreProjects()}
+                        >
+                          Load more
+                          <ArrowUpRight className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <Sheet
+          open={Boolean(selectedProject)}
+          onOpenChange={(open) => {
+            if (!open) closePreview();
+          }}
+        >
+          <SheetContent side="right" size="wide" hideCloseButton>
+            {selectedProject && (
+              <>
+                <ProjectPreviewHeader title={selectedProject.title} />
+                <div className="absolute right-5 top-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={closePreview}
+                    aria-label="Close project details"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ProjectDetailPanel
+                    project={selectedProject}
+                    detail={selectedProjectQuery.data?.data}
+                    readme={selectedReadmeQuery.data}
+                    isReadmeLoading={selectedReadmeQuery.isLoading}
+                    isReadmeError={selectedReadmeQuery.isError}
+                    lastCommitAt={selectedLastCommitQuery.data}
+                    voteCountAvailable={voteCountAvailable}
+                    voteDirection={userVoteMap[selectedProject.id] ?? null}
+                    canParticipate={canParticipate}
+                    canManage={canManageSelected}
+                    isUpvoting={
+                      upvoteMutation.isPending && upvoteMutation.variables === selectedProject.id
+                    }
+                    isDownvoting={
+                      downvoteMutation.isPending &&
+                      downvoteMutation.variables === selectedProject.id
+                    }
+                    copied={copied}
+                    search={search}
+                    onVote={(direction) => runVote(direction, selectedProject.id)}
+                    onShare={() => handleShare(selectedProject)}
+                  />
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {!canParticipate && (
+          <div className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground lg:hidden">
+            Anonymous sessions can browse.{" "}
+            <Link to="/settings" className="font-semibold text-brand-accent hover:underline">
+              Link an identity
+            </Link>{" "}
+            to publish and endorse entries.
+          </div>
+        )}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }

@@ -16,6 +16,7 @@ function json(body: unknown, status = 200) {
 
 function fakeNearAi() {
   const keys = new Map<string, FakeKey>();
+  const usageByKey = new Map<string, number>();
   const requests: Array<{ method: string; url: string; body: unknown }> = [];
   const state = { failCreates: 0, createButLoseResponse: 0, created: 0 };
   const holds: Array<{ started: () => void; released: Promise<void> }> = [];
@@ -79,6 +80,36 @@ function fakeNearAi() {
       const all = [...keys.values()];
       return json({ api_keys: all, total: all.length, limit: 100, offset: 0 });
     }
+    if (url === `${NEAR_AI}/users/me` && method === "GET") {
+      return json({ organization_id: "org-1" });
+    }
+    if (url === `${NEAR_AI}/organizations/org-1/reporting-tokens` && method === "POST") {
+      return json({ token: "rpt-test-token", name: body?.name ?? null });
+    }
+    if (url.startsWith(`${NEAR_AI}/organizations/org-1/usage/summary`) && method === "GET") {
+      const apiKeyId = new URL(url).searchParams.get("api_key_id");
+      if (apiKeyId) {
+        return json({
+          totals: {
+            request_count: usageByKey.has(apiKeyId) ? 1 : 0,
+            total_cost_nano_usd: usageByKey.get(apiKeyId) ?? 0,
+          },
+          by_api_key: usageByKey.has(apiKeyId)
+            ? [{ api_key_id: apiKeyId, total_cost_nano_usd: usageByKey.get(apiKeyId) }]
+            : [],
+        });
+      }
+      return json({
+        totals: {
+          request_count: usageByKey.size,
+          total_cost_nano_usd: [...usageByKey.values()].reduce((sum, nano) => sum + nano, 0),
+        },
+        by_api_key: [...usageByKey.entries()].map(([api_key_id, total_cost_nano_usd]) => ({
+          api_key_id,
+          total_cost_nano_usd,
+        })),
+      });
+    }
     if (url.startsWith(`${keysUrl}/`) && method === "DELETE") {
       const id = decodeURIComponent(url.slice(keysUrl.length + 1));
       const key = keys.get(id);
@@ -89,7 +120,7 @@ function fakeNearAi() {
     throw new Error(`Unexpected NEAR AI request: ${method} ${url}`);
   });
   const activeKeys = () => [...keys.values()].filter((key) => key.is_active);
-  return { keys, requests, state, fetchMock, holdNextCreate, activeKeys };
+  return { keys, usageByKey, requests, state, fetchMock, holdNextCreate, activeKeys };
 }
 
 function userContext(
@@ -272,6 +303,9 @@ describe("Credit claims", () => {
     await expect(newcomer.claimCredits({})).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const withdrawn = client(userContext("w-user", "withdrawn.near"));
+    await expect(withdrawn.getCreditStatus({})).resolves.toMatchObject({
+      eligibility: "needs_profile_restore",
+    });
     await expect(withdrawn.claimCredits({})).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const noNear = client(userContext("google-user", null));
@@ -383,6 +417,7 @@ describe("Credit claims", () => {
     await expect(admin.nearAiSessionStatus({})).resolves.toEqual({
       status: "absent",
       refreshExpiresAt: null,
+      usageReporting: false,
     });
 
     await expect(alice.claimCredits({})).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
@@ -395,6 +430,7 @@ describe("Credit claims", () => {
     await expect(admin.nearAiSessionStatus({})).resolves.toEqual({
       status: "valid",
       refreshExpiresAt: "2027-01-01T00:00:00.000Z",
+      usageReporting: true,
     });
 
     const retried = await alice.claimCredits({});
@@ -529,12 +565,75 @@ describe("Credit claims", () => {
     });
   });
 
+  it("reports claimed-key usage to builders and admins", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
+    const alice = client(userContext("alice-user", "alice.near"));
+
+    await expect(alice.getCreditUsage({})).resolves.toEqual({ usage: null });
+    await alice.claimCredits({});
+    await expect(alice.getCreditUsage({})).resolves.toEqual({
+      usage: { usedUsd: 0, spendLimitUsd: 5, keyExpiresAt: "2999-02-01T00:00:00.000Z" },
+    });
+
+    const bob = client(userContext("bob-user", "bob.near"));
+    await bob.claimCredits({});
+    nearAi.usageByKey.set("key-1", 500_000_000);
+    nearAi.usageByKey.set("key-2", 1_250_000_000);
+
+    await expect(alice.getCreditUsage({})).resolves.toEqual({
+      usage: { usedUsd: 0.5, spendLimitUsd: 5, keyExpiresAt: "2999-02-01T00:00:00.000Z" },
+    });
+    await expect(bob.getCreditUsage({})).resolves.toEqual({
+      usage: { usedUsd: 1.25, spendLimitUsd: 5, keyExpiresAt: "2999-02-01T00:00:00.000Z" },
+    });
+
+    const listed = await admin.listCreditClaims({ limit: 10 });
+    expect(listed.data).toHaveLength(2);
+    expect(listed.data.map((claim) => claim.usedUsd).sort()).toEqual([0.5, 1.25]);
+  });
+
+  it("lets an admin approve a replacement the builder saves on their dashboard", async () => {
+    const { client, admin, nearAi } = await loadCredits();
+    await enable(admin);
+    const alice = client(userContext("alice-user", "alice.near"));
+    const claimed = await alice.claimCredits({});
+
+    await expect(admin.refreshCreditClaim({ id: "missing" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    const approved = await admin.refreshCreditClaim({ id: claimed.claim.id });
+    expect(approved.data).toMatchObject({ status: "replaceable", keyPrefix: null });
+    expect(approved.data).not.toHaveProperty("key");
+    expect(nearAi.keys.get("key-1")?.is_active).toBe(false);
+
+    await expect(alice.claimCreditReplacement({})).resolves.toMatchObject({
+      key: "sk-abc2-secret",
+      claim: { status: "issued", keyPrefix: "sk-abc2", spendLimitUsd: 5 },
+    });
+    expect(nearAi.keys.get("key-2")?.is_active).toBe(true);
+
+    const status = await alice.getCreditStatus({});
+    expect(status.claim).toMatchObject({ status: "issued", keyPrefix: "sk-abc2" });
+    expect(JSON.stringify(status)).not.toContain("sk-abc1-secret");
+
+    await expect(alice.claimCreditReplacement({})).rejects.toMatchObject({ code: "CONFLICT" });
+    await admin.revokeCreditClaim({ id: claimed.claim.id });
+    await expect(admin.refreshCreditClaim({ id: claimed.claim.id })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
   it("keeps admin routes away from members", async () => {
     const { client, admin } = await loadCredits();
     await enable(admin);
     const alice = client(userContext("alice-user", "alice.near"));
 
     await expect(alice.listCreditClaims({ limit: 10 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(alice.refreshCreditClaim({ id: "any" })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
     await expect(alice.revokeCreditClaim({ id: "any" })).rejects.toMatchObject({
@@ -569,10 +668,147 @@ describe("Credit claims", () => {
     const other = client(userContext("alice-user", "alice-alt.near"));
     await expect(other.claimCredits({})).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "API credits were already claimed for this account",
+      message: "Credits were already claimed with alice.near",
+    });
+
+    const status = await other.getCreditStatus({});
+    expect(status.claim).toMatchObject({
+      status: "issued",
+      nearAccountId: "alice.near",
     });
 
     expect(nearAi.state.created).toBe(1);
+  });
+
+  it("finds a claim under a linked account and refuses a second one after a user id change (#365)", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "carol.near": { withdrawnAt: null }, "carol-new.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    await client(userContext("carol-user", "carol.near")).claimCredits({});
+
+    // The shared auth DB reissues the user id; carol.near is now a linked, non-primary account.
+    const reissued = client({
+      ...userContext("carol-user-new", "carol-new.near"),
+      near: {
+        primaryAccountId: "carol-new.near",
+        linkedAccounts: [
+          { accountId: "carol-new.near", network: "mainnet", publicKey: "", isPrimary: true },
+          { accountId: "carol.near", network: "mainnet", publicKey: "", isPrimary: false },
+        ],
+        hasNearAccount: true,
+      },
+    } as ReturnType<typeof userContext>);
+    expect((await reissued.getCreditStatus({})).claim).toMatchObject({
+      status: "issued",
+      nearAccountId: "carol.near",
+    });
+    await expect(reissued.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Credits were already claimed with carol.near",
+    });
+    expect(nearAi.state.created).toBe(1);
+  });
+
+  function withLinked(userId: string, primary: string, linked: string) {
+    return {
+      ...userContext(userId, primary),
+      near: {
+        primaryAccountId: primary,
+        linkedAccounts: [
+          { accountId: primary, network: "mainnet", publicKey: "", isPrimary: true },
+          { accountId: linked, network: "mainnet", publicKey: "", isPrimary: false },
+        ],
+        hasNearAccount: true,
+      },
+    } as ReturnType<typeof userContext>;
+  }
+
+  it("retries a failed claim under a linked account instead of blocking the builder", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "alice.near": { withdrawnAt: null }, "alice-alt.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    nearAi.state.createButLoseResponse = 1;
+    await expect(
+      client(userContext("alice-user", "alice.near")).claimCredits({}),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(nearAi.keys.get("key-1")?.is_active).toBe(true);
+
+    const alt = client(withLinked("alice-user", "alice-alt.near", "alice.near"));
+    const claimed = await alt.claimCredits({});
+    expect(claimed.claim).toMatchObject({ status: "issued", nearAccountId: "alice.near" });
+    // The key created for the failed attempt is revoked.
+    expect(nearAi.activeKeys().map((key) => key.key_prefix)).toEqual([claimed.claim.keyPrefix]);
+    await expect(alt.getCreditStatus({})).resolves.toMatchObject({
+      claim: { status: "issued", nearAccountId: "alice.near" },
+    });
+    const { data } = await admin.listCreditClaims({ limit: 10 });
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({ nearAccountId: "alice.near", status: "issued" });
+  });
+
+  it("does not block a reissued user id on a failed claim under a linked account", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "carol.near": { withdrawnAt: null }, "carol-new.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    nearAi.state.failCreates = 1;
+    await expect(
+      client(userContext("carol-user", "carol.near")).claimCredits({}),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+
+    const reissued = client(withLinked("carol-user-new", "carol-new.near", "carol.near"));
+    const claimed = await reissued.claimCredits({});
+    expect(claimed.claim).toMatchObject({ status: "issued", nearAccountId: "carol.near" });
+    expect(nearAi.activeKeys()).toHaveLength(1);
+    await expect(reissued.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Credits were already claimed with carol.near",
+    });
+  });
+
+  it("reports an in-flight claim under a linked account as already being processed", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "alice.near": { withdrawnAt: null }, "alice-alt.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    const hold = nearAi.holdNextCreate();
+    const first = client(userContext("alice-user", "alice.near")).claimCredits({});
+    await hold.started;
+
+    const alt = client(withLinked("alice-user", "alice-alt.near", "alice.near"));
+    await expect(alt.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Your claim is already being processed",
+    });
+    hold.release();
+    await expect(first).resolves.toMatchObject({ claim: { status: "issued" } });
+    await expect(alt.claimCredits({})).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Credits were already claimed with alice.near",
+    });
+    expect(nearAi.state.created).toBe(1);
+  });
+
+  it("retries a stale claim under a linked account and leaves one live key", async () => {
+    const { client, admin, nearAi } = await loadCredits({
+      builders: { "alice.near": { withdrawnAt: null }, "alice-alt.near": { withdrawnAt: null } },
+    });
+    await enable(admin);
+    const hold = nearAi.holdNextCreate();
+    const first = client(userContext("alice-user", "alice.near")).claimCredits({});
+    await hold.started;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.now() + 3 * 60_000));
+
+    const alt = client(withLinked("alice-user", "alice-alt.near", "alice.near"));
+    const second = await alt.claimCredits({});
+    hold.release();
+
+    await expect(first).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(second.claim).toMatchObject({ status: "issued", nearAccountId: "alice.near" });
+    expect(nearAi.activeKeys().map((key) => key.key_prefix)).toEqual([second.claim.keyPrefix]);
   });
 
   it("shows a key as expired after its expiry and never issues another", async () => {

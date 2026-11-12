@@ -2,6 +2,9 @@ import type { ApiClient } from "@/app";
 
 export type CreditStatus = Awaited<ReturnType<ApiClient["credits"]["getCreditStatus"]>>;
 export type ClaimView = NonNullable<CreditStatus["claim"]>;
+export type CreditUsage = NonNullable<
+  Awaited<ReturnType<ApiClient["credits"]["getCreditUsage"]>>["usage"]
+>;
 
 export function formatUsd(amount: number) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -9,6 +12,10 @@ export function formatUsd(amount: number) {
 
 export function creditStatusQueryKey(userId: string, nearAccountId: string) {
   return ["credit-status", userId, nearAccountId] as const;
+}
+
+export function creditUsageQueryKey(userId: string, nearAccountId: string) {
+  return ["credit-usage", userId, nearAccountId] as const;
 }
 
 export function windowCopy(
@@ -33,6 +40,8 @@ export function claimCardCopy({
   statusReason,
   eligibility,
   claimsCloseAt,
+  requiresReview,
+  nearAccountId,
   existing,
 }: {
   amountUsd: number;
@@ -40,17 +49,23 @@ export function claimCardCopy({
   statusReason: CreditStatus["statusReason"];
   eligibility: CreditStatus["eligibility"];
   claimsCloseAt: string | null;
+  requiresReview: boolean;
+  nearAccountId: string | null;
   existing: Pick<
     ClaimView,
-    "status" | "keyPrefix" | "createdAt" | "keyExpiresAt" | "spendLimitUsd"
+    "status" | "nearAccountId" | "keyPrefix" | "createdAt" | "keyExpiresAt" | "spendLimitUsd"
   > | null;
 }): { title: string; description: string } {
   const amount = formatUsd(amountUsd);
   let title = `Claim ${amount} in NEAR AI Cloud credits`;
-  let description = "Approved builders get one NEAR AI Cloud API key for the NEAR Hackathon.";
+  let description = "Builders get one NEAR AI Cloud API key for the NEAR Hackathon.";
 
   if (eligibility === "needs_approved_profile") {
-    description = "Credits are available once your builder profile is approved.";
+    description = requiresReview
+      ? "Credits are available once your builder registration is reviewed."
+      : "Complete your builder registration to claim API credits.";
+  } else if (eligibility === "needs_profile_restore") {
+    description = "Restore your builder profile to claim API credits.";
   } else if (eligibility === "needs_near_account") {
     description = "Link a NEAR account to claim API credits.";
   } else if (!available && statusReason) {
@@ -62,7 +77,18 @@ export function claimCardCopy({
   switch (existing?.status) {
     case "issued":
       title = `${formatUsd(existing.spendLimitUsd)} NEAR AI Cloud credits claimed`;
-      description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
+      if (nearAccountId && existing.nearAccountId !== nearAccountId) {
+        description = `Nice try — credits are one per builder. You already claimed with ${existing.nearAccountId} on ${new Date(existing.createdAt).toLocaleDateString()}.`;
+      } else {
+        description = `Key ${existing.keyPrefix ?? ""} · claimed ${new Date(existing.createdAt).toLocaleDateString()} · ${existing.keyExpiresAt ? `expires ${new Date(existing.keyExpiresAt).toLocaleDateString()}` : "no expiry"}`;
+      }
+      break;
+    case "replaceable":
+      title = "Your replacement key is ready";
+      description =
+        nearAccountId && existing.nearAccountId !== nearAccountId
+          ? `Credits are one per builder — they were already claimed with ${existing.nearAccountId}.`
+          : "Your previous key was retired. Save the replacement now with the same limit — the full secret is shown once.";
       break;
     case "expired":
       title = "Your NEAR AI Cloud key has expired";
@@ -91,4 +117,18 @@ export function claimCardCopy({
 
 export function canRetry(available: boolean, eligibility: CreditStatus["eligibility"]): boolean {
   return available && eligibility === "eligible";
+}
+
+export function needsRegistration(
+  eligibility: CreditStatus["eligibility"],
+  existing: Pick<ClaimView, "status"> | null,
+): boolean {
+  return !existing && eligibility === "needs_approved_profile";
+}
+
+export function needsProfileRestore(
+  eligibility: CreditStatus["eligibility"],
+  existing: Pick<ClaimView, "status"> | null,
+): boolean {
+  return !existing && eligibility === "needs_profile_restore";
 }

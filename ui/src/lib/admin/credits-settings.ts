@@ -32,9 +32,10 @@ export type CreditSettingsDraft = {
   keyExpiresAt: string;
   nearAiWorkspaceId: string;
   nearAiLoginAccountId: string;
+  nearAiOrgId: string;
 };
 
-function toDatetimeLocal(iso: string | null): string {
+export function toDatetimeLocal(iso: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -42,7 +43,7 @@ function toDatetimeLocal(iso: string | null): string {
   return local.toISOString().slice(0, 16);
 }
 
-function fromDatetimeLocal(value: string): string | null {
+export function fromDatetimeLocal(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const date = new Date(trimmed);
@@ -58,6 +59,7 @@ export function settingsDraft(settings: CreditSettings | null): CreditSettingsDr
     keyExpiresAt: toDatetimeLocal(settings?.keyExpiresAt ?? null),
     nearAiWorkspaceId: settings?.nearAiWorkspaceId ?? "",
     nearAiLoginAccountId: settings?.nearAiLoginAccountId ?? "",
+    nearAiOrgId: settings?.nearAiOrgId ?? "",
   };
 }
 
@@ -69,5 +71,6 @@ export function draftToInput(draft: CreditSettingsDraft): CreditSettingsInput {
     keyExpiresAt: fromDatetimeLocal(draft.keyExpiresAt),
     nearAiWorkspaceId: draft.nearAiWorkspaceId.trim(),
     nearAiLoginAccountId: draft.nearAiLoginAccountId.trim(),
+    nearAiOrgId: draft.nearAiOrgId.trim(),
   };
 }

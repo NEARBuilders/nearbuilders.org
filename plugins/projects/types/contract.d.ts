@@ -32,6 +32,31 @@ export declare const projectCatalogSchema: z.ZodObject<{
     tokenContract: z.ZodOptional<z.ZodString>;
     coingeckoId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export declare const programTypeEnum: z.ZodEnum<{
+    accelerator: "accelerator";
+    "api-access": "api-access";
+    bounty: "bounty";
+    credits: "credits";
+    grant: "grant";
+    hackathon: "hackathon";
+}>;
+export declare const programStatusEnum: z.ZodEnum<{
+    archived: "archived";
+    draft: "draft";
+    listed: "listed";
+    paused: "paused";
+}>;
+export declare const programTopicEnum: z.ZodEnum<{
+    "agentic-commerce": "agentic-commerce";
+    "private-cloud": "private-cloud";
+    "smart-contracts": "smart-contracts";
+}>;
+export declare const programStateEnum: z.ZodEnum<{
+    closed: "closed";
+    open: "open";
+    upcoming: "upcoming";
+}>;
+export declare function isProgramCtaUrl(value: string): boolean;
 export declare const contract: {
     listProjects: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         organizationId: z.ZodOptional<z.ZodString>;
@@ -774,6 +799,19 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>;
+    clearOrganizationAttribution: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        organizationId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        cleared: z.ZodNumber;
+    }, z.core.$strip>, {
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
     listProjectApps: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         projectId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
@@ -1329,6 +1367,468 @@ export declare const contract: {
                     oauth: "oauth";
                     token: "token";
                 }>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    listPrograms: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        topicId: z.ZodOptional<z.ZodEnum<{
+            "agentic-commerce": "agentic-commerce";
+            "private-cloud": "private-cloud";
+            "smart-contracts": "smart-contracts";
+        }>>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            projectId: z.ZodString;
+            type: z.ZodEnum<{
+                accelerator: "accelerator";
+                "api-access": "api-access";
+                bounty: "bounty";
+                credits: "credits";
+                grant: "grant";
+                hackathon: "hackathon";
+            }>;
+            title: z.ZodString;
+            summary: z.ZodNullable<z.ZodString>;
+            rewards: z.ZodNullable<z.ZodString>;
+            eligibility: z.ZodNullable<z.ZodString>;
+            ctaLabel: z.ZodString;
+            ctaUrl: z.ZodString;
+            topicId: z.ZodNullable<z.ZodEnum<{
+                "agentic-commerce": "agentic-commerce";
+                "private-cloud": "private-cloud";
+                "smart-contracts": "smart-contracts";
+            }>>;
+            opensAt: z.ZodNullable<z.ZodISODateTime>;
+            closesAt: z.ZodNullable<z.ZodISODateTime>;
+            sortOrder: z.ZodNumber;
+            state: z.ZodEnum<{
+                closed: "closed";
+                open: "open";
+                upcoming: "upcoming";
+            }>;
+            project: z.ZodObject<{
+                id: z.ZodString;
+                kind: z.ZodEnum<{
+                    idea: "idea";
+                    project: "project";
+                    result: "result";
+                    scope: "scope";
+                }>;
+                slug: z.ZodString;
+                title: z.ZodString;
+                ownerId: z.ZodString;
+                logoUrl: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, Record<never, never>>;
+    getProjectPrograms: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        projectId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            projectId: z.ZodString;
+            type: z.ZodEnum<{
+                accelerator: "accelerator";
+                "api-access": "api-access";
+                bounty: "bounty";
+                credits: "credits";
+                grant: "grant";
+                hackathon: "hackathon";
+            }>;
+            title: z.ZodString;
+            summary: z.ZodNullable<z.ZodString>;
+            rewards: z.ZodNullable<z.ZodString>;
+            eligibility: z.ZodNullable<z.ZodString>;
+            ctaLabel: z.ZodString;
+            ctaUrl: z.ZodString;
+            topicId: z.ZodNullable<z.ZodEnum<{
+                "agentic-commerce": "agentic-commerce";
+                "private-cloud": "private-cloud";
+                "smart-contracts": "smart-contracts";
+            }>>;
+            opensAt: z.ZodNullable<z.ZodISODateTime>;
+            closesAt: z.ZodNullable<z.ZodISODateTime>;
+            sortOrder: z.ZodNumber;
+            state: z.ZodEnum<{
+                closed: "closed";
+                open: "open";
+                upcoming: "upcoming";
+            }>;
+            project: z.ZodObject<{
+                id: z.ZodString;
+                kind: z.ZodEnum<{
+                    idea: "idea";
+                    project: "project";
+                    result: "result";
+                    scope: "scope";
+                }>;
+                slug: z.ZodString;
+                title: z.ZodString;
+                ownerId: z.ZodString;
+                logoUrl: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, Record<never, never>>;
+    adminListPrograms: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        projectId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            projectId: z.ZodString;
+            type: z.ZodEnum<{
+                accelerator: "accelerator";
+                "api-access": "api-access";
+                bounty: "bounty";
+                credits: "credits";
+                grant: "grant";
+                hackathon: "hackathon";
+            }>;
+            title: z.ZodString;
+            summary: z.ZodNullable<z.ZodString>;
+            rewards: z.ZodNullable<z.ZodString>;
+            eligibility: z.ZodNullable<z.ZodString>;
+            ctaLabel: z.ZodString;
+            ctaUrl: z.ZodString;
+            topicId: z.ZodNullable<z.ZodEnum<{
+                "agentic-commerce": "agentic-commerce";
+                "private-cloud": "private-cloud";
+                "smart-contracts": "smart-contracts";
+            }>>;
+            opensAt: z.ZodNullable<z.ZodISODateTime>;
+            closesAt: z.ZodNullable<z.ZodISODateTime>;
+            sortOrder: z.ZodNumber;
+            state: z.ZodEnum<{
+                closed: "closed";
+                open: "open";
+                upcoming: "upcoming";
+            }>;
+            project: z.ZodObject<{
+                id: z.ZodString;
+                kind: z.ZodEnum<{
+                    idea: "idea";
+                    project: "project";
+                    result: "result";
+                    scope: "scope";
+                }>;
+                slug: z.ZodString;
+                title: z.ZodString;
+                ownerId: z.ZodString;
+                logoUrl: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+            status: z.ZodEnum<{
+                archived: "archived";
+                draft: "draft";
+                listed: "listed";
+                paused: "paused";
+            }>;
+            createdBy: z.ZodString;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
+    createProgram: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        type: z.ZodEnum<{
+            accelerator: "accelerator";
+            "api-access": "api-access";
+            bounty: "bounty";
+            credits: "credits";
+            grant: "grant";
+            hackathon: "hackathon";
+        }>;
+        title: z.ZodString;
+        summary: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        rewards: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        eligibility: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        ctaLabel: z.ZodString;
+        ctaUrl: z.ZodString;
+        topicId: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+            "agentic-commerce": "agentic-commerce";
+            "private-cloud": "private-cloud";
+            "smart-contracts": "smart-contracts";
+        }>>>;
+        opensAt: z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>;
+        closesAt: z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>;
+        status: z.ZodOptional<z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>>;
+        sortOrder: z.ZodOptional<z.ZodNumber>;
+        projectId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        type: z.ZodEnum<{
+            accelerator: "accelerator";
+            "api-access": "api-access";
+            bounty: "bounty";
+            credits: "credits";
+            grant: "grant";
+            hackathon: "hackathon";
+        }>;
+        title: z.ZodString;
+        summary: z.ZodNullable<z.ZodString>;
+        rewards: z.ZodNullable<z.ZodString>;
+        eligibility: z.ZodNullable<z.ZodString>;
+        ctaLabel: z.ZodString;
+        ctaUrl: z.ZodString;
+        topicId: z.ZodNullable<z.ZodEnum<{
+            "agentic-commerce": "agentic-commerce";
+            "private-cloud": "private-cloud";
+            "smart-contracts": "smart-contracts";
+        }>>;
+        opensAt: z.ZodNullable<z.ZodISODateTime>;
+        closesAt: z.ZodNullable<z.ZodISODateTime>;
+        sortOrder: z.ZodNumber;
+        state: z.ZodEnum<{
+            closed: "closed";
+            open: "open";
+            upcoming: "upcoming";
+        }>;
+        project: z.ZodObject<{
+            id: z.ZodString;
+            kind: z.ZodEnum<{
+                idea: "idea";
+                project: "project";
+                result: "result";
+                scope: "scope";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            ownerId: z.ZodString;
+            logoUrl: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+        status: z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>;
+        createdBy: z.ZodString;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    updateProgram: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        type: z.ZodOptional<z.ZodEnum<{
+            accelerator: "accelerator";
+            "api-access": "api-access";
+            bounty: "bounty";
+            credits: "credits";
+            grant: "grant";
+            hackathon: "hackathon";
+        }>>;
+        title: z.ZodOptional<z.ZodString>;
+        summary: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodString>>>;
+        rewards: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodString>>>;
+        eligibility: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodString>>>;
+        ctaLabel: z.ZodOptional<z.ZodString>;
+        ctaUrl: z.ZodOptional<z.ZodString>;
+        topicId: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodEnum<{
+            "agentic-commerce": "agentic-commerce";
+            "private-cloud": "private-cloud";
+            "smart-contracts": "smart-contracts";
+        }>>>>;
+        opensAt: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>>;
+        closesAt: z.ZodOptional<z.ZodOptional<z.ZodNullable<z.ZodISODateTime>>>;
+        status: z.ZodOptional<z.ZodOptional<z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>>>;
+        sortOrder: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        type: z.ZodEnum<{
+            accelerator: "accelerator";
+            "api-access": "api-access";
+            bounty: "bounty";
+            credits: "credits";
+            grant: "grant";
+            hackathon: "hackathon";
+        }>;
+        title: z.ZodString;
+        summary: z.ZodNullable<z.ZodString>;
+        rewards: z.ZodNullable<z.ZodString>;
+        eligibility: z.ZodNullable<z.ZodString>;
+        ctaLabel: z.ZodString;
+        ctaUrl: z.ZodString;
+        topicId: z.ZodNullable<z.ZodEnum<{
+            "agentic-commerce": "agentic-commerce";
+            "private-cloud": "private-cloud";
+            "smart-contracts": "smart-contracts";
+        }>>;
+        opensAt: z.ZodNullable<z.ZodISODateTime>;
+        closesAt: z.ZodNullable<z.ZodISODateTime>;
+        sortOrder: z.ZodNumber;
+        state: z.ZodEnum<{
+            closed: "closed";
+            open: "open";
+            upcoming: "upcoming";
+        }>;
+        project: z.ZodObject<{
+            id: z.ZodString;
+            kind: z.ZodEnum<{
+                idea: "idea";
+                project: "project";
+                result: "result";
+                scope: "scope";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            ownerId: z.ZodString;
+            logoUrl: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+        status: z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>;
+        createdBy: z.ZodString;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    reorderPrograms: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        ids: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        updated: z.ZodNumber;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
     }>;

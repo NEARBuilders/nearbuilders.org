@@ -217,14 +217,22 @@ export function withReadCache(
 const STREAM_RETRY_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
 
 /**
+ * Most events one live subscriber may hold before the oldest are dropped. A consumer that keeps up
+ * holds one or two; a stalled or half-open connection would otherwise grow without bound. A dropped
+ * event is missing only from that subscriber's live view; the feed still lists it.
+ */
+const MAX_QUEUED_EVENTS_PER_SUBSCRIBER = 100;
+
+/**
  * One upstream connection to Activity's live stream, shared by every subscriber in this process.
  * It opens with the first subscriber, closes with the last, and reconnects from the last event seen.
  */
 export function createSharedActivityStream(
   reader: Pick<ActivityReaderClient, "stream">,
-  options: { retryMs?: readonly number[] } = {},
+  options: { retryMs?: readonly number[]; maxQueuedEvents?: number } = {},
 ) {
   const retryMs = options.retryMs ?? STREAM_RETRY_MS;
+  const maxQueuedEvents = options.maxQueuedEvents ?? MAX_QUEUED_EVENTS_PER_SUBSCRIBER;
   const listeners = new Set<(event: ActivityApiEvent) => void>();
   let upstream: AbortController | null = null;
   let lastEventId: string | undefined;
@@ -255,21 +263,36 @@ export function createSharedActivityStream(
     },
 
     async *subscribe({ signal }: { signal?: AbortSignal } = {}): AsyncGenerator<ActivityApiEvent> {
+      if (signal?.aborted) return;
       const queue: ActivityApiEvent[] = [];
       let wake: (() => void) | null = null;
+      let detached = false;
       const listener = (event: ActivityApiEvent) => {
+        if (detached) return;
         queue.push(event);
+        if (queue.length > maxQueuedEvents) queue.splice(0, queue.length - maxQueuedEvents);
         wake?.();
       };
-      const stop = () => wake?.();
+      const detach = () => {
+        if (detached) return;
+        detached = true;
+        queue.length = 0;
+        listeners.delete(listener);
+        signal?.removeEventListener("abort", detach);
+        if (listeners.size === 0) {
+          upstream?.abort();
+          upstream = null;
+        }
+        wake?.();
+      };
       listeners.add(listener);
-      signal?.addEventListener("abort", stop);
+      signal?.addEventListener("abort", detach);
       if (!upstream) {
         upstream = new AbortController();
         void run(upstream);
       }
       try {
-        while (!signal?.aborted) {
+        while (!detached) {
           const next = queue.shift();
           if (next) {
             yield next;
@@ -281,13 +304,32 @@ export function createSharedActivityStream(
           wake = null;
         }
       } finally {
-        listeners.delete(listener);
-        signal?.removeEventListener("abort", stop);
-        if (listeners.size === 0) {
-          upstream?.abort();
-          upstream = null;
-        }
+        detach();
       }
     },
   };
+}
+
+const LIVE_STREAM_DIAGNOSTICS_MS = 5 * 60_000;
+
+/**
+ * Logs the live stream's subscriber count beside process RSS every few minutes, so Railway logs
+ * show whether subscribers ratchet along with memory or stay with live traffic.
+ */
+export function startLiveStreamDiagnostics(
+  stream: { readonly subscribers: number },
+  options: {
+    intervalMs?: number;
+    log?: (line: string) => void;
+    rssBytes?: () => number;
+  } = {},
+): () => void {
+  const log = options.log ?? ((line: string) => console.log(line));
+  const rssBytes = options.rssBytes ?? (() => process.memoryUsage.rss());
+  const timer = setInterval(() => {
+    const rssMb = Math.round(rssBytes() / (1024 * 1024));
+    log(`[Activity] Live stream subscribers=${stream.subscribers} rssMB=${rssMb}`);
+  }, options.intervalMs ?? LIVE_STREAM_DIAGNOSTICS_MS);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }
