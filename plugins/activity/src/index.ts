@@ -8,18 +8,19 @@ import { type ActivityEventSchema, contract } from "./contract";
 import type { Database } from "./db";
 import { DatabaseLive, DatabaseTag } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import type { PluginsClient } from "./lib/plugins-client.gen";
 import { ActivityService, ActivityServiceLive, SELF_REPORTED_SOURCE } from "./services/activity";
+import type { ActivityApiClient } from "./services/activity-api";
 import {
   ActivityGatewayWorker,
   createActivityGatewayMethods,
-  createHttpActivityGatewayClient,
+  createRpcActivityGatewayClient,
   type GatewayMode,
 } from "./services/activity-gateway";
 import { createActivityImportMethods } from "./services/activity-import";
 import {
   createActivityReaderClient,
   createSharedActivityStream,
-  DEFAULT_ACTIVITY_API_URL,
   isPubliclyVisible,
   NEARBUILDERS_SOURCE,
   startLiveStreamDiagnostics,
@@ -87,19 +88,18 @@ function createActivityIntegrations(
     ACTIVITY_GATEWAY_API_KEY?: string;
     ACTIVITY_SOURCE_ID: string;
   },
+  activityApi: ActivityApiClient | undefined,
 ) {
   const gatewayUrl = secrets.ACTIVITY_GATEWAY_URL?.trim();
   const gatewayApiKey = secrets.ACTIVITY_GATEWAY_API_KEY?.trim();
   const gatewayClient =
     gatewayUrl && gatewayApiKey
-      ? createHttpActivityGatewayClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
+      ? createRpcActivityGatewayClient({ baseUrl: gatewayUrl, apiKey: gatewayApiKey })
       : null;
   const gateway = createActivityGatewayMethods(database, gatewayClient);
   const gatewayWorker = new ActivityGatewayWorker(gateway);
   const historyImport = createActivityImportMethods(database, gateway);
-  const reader = withReadCache(
-    createActivityReaderClient({ baseUrl: gatewayUrl || DEFAULT_ACTIVITY_API_URL }),
-  );
+  const reader = withReadCache(createActivityReaderClient({ client: activityApi }));
   const liveStream = createSharedActivityStream(reader);
   const registration =
     gatewayUrl && gatewayApiKey
@@ -128,7 +128,7 @@ class ActivityIntegrations extends Context.Service<
   ReturnType<typeof createActivityIntegrations>
 >()("activity/Integrations") {}
 
-export default createPlugin({
+export default createPlugin.withPlugins<PluginsClient>()({
   variables: z.object({}),
 
   secrets: z.object({
@@ -142,7 +142,7 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config) =>
+  initialize: (config, plugins) =>
     Effect.sync(() => {
       const publisher = new MemoryPublisher<ActivityEvents>({
         resume: { enabled: true, ttl: 120_000 },
@@ -151,7 +151,11 @@ export default createPlugin({
         ActivityIntegrations,
         Effect.gen(function* () {
           const database = yield* DatabaseTag;
-          const integrations = createActivityIntegrations(database, config.secrets);
+          const integrations = createActivityIntegrations(
+            database,
+            config.secrets,
+            plugins?.activityApi?.client(),
+          );
           const stopDiagnostics = startLiveStreamDiagnostics(integrations.liveStream);
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => {

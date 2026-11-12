@@ -8,6 +8,11 @@ import {
 } from "../contract";
 import type { Database } from "../db";
 import { activityEvents, activityGatewayOutbox, activitySettings } from "../db/schema";
+import {
+  type ActivityApiClient,
+  activityErrorStatus,
+  createActivitySourceClient,
+} from "./activity-api";
 
 export type GatewayMode = z.infer<typeof ActivityGatewayModeSchema>;
 type ActivityGatewayStatus = z.infer<typeof ActivityGatewayStatusSchema>;
@@ -60,57 +65,45 @@ function isRetryableStatus(status: number): boolean {
   return status >= 500 || status === 408 || status === 429;
 }
 
-export function createHttpActivityGatewayClient(options: {
+type SubmitInput = Parameters<ActivityApiClient["submitActivityEvent"]>[0];
+
+export function createRpcActivityGatewayClient(options: {
   baseUrl: string;
   apiKey: string;
   fetchImplementation?: typeof fetch;
   timeoutMs?: number;
 }): ActivityGatewayClient {
-  const baseUrl = options.baseUrl.replace(/\/$/, "");
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
+  const client = createActivitySourceClient(options);
   const timeoutMs = options.timeoutMs ?? 10_000;
 
-  async function request(path: string, body: unknown): Promise<unknown> {
-    let response: Response;
+  async function request<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T> {
     try {
-      response = await fetchImplementation(`${baseUrl}${path}`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${options.apiKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      return await send(AbortSignal.timeout(timeoutMs));
     } catch (cause) {
+      const status = activityErrorStatus(cause);
+      const message = cause instanceof Error ? cause.message : String(cause);
+      if (status === null) {
+        throw new ActivityGatewayRequestError(`Activity gateway is unreachable: ${message}`, true);
+      }
       throw new ActivityGatewayRequestError(
-        `Activity gateway is unreachable: ${cause instanceof Error ? cause.message : cause}`,
-        true,
+        `Activity gateway returned ${status}: ${message.slice(0, 300)}`,
+        isRetryableStatus(status),
       );
     }
-    const text = await response.text();
-    if (!response.ok) {
-      throw new ActivityGatewayRequestError(
-        `Activity gateway returned ${response.status}: ${text.slice(0, 300)}`,
-        isRetryableStatus(response.status),
-      );
-    }
-    return text ? JSON.parse(text) : {};
   }
 
   return {
     async submit(input) {
-      const result = (await request("/v1/events", input)) as { eventId?: unknown };
+      const result = await request((signal) =>
+        client.submitActivityEvent(input as SubmitInput, { signal }),
+      );
       if (typeof result.eventId !== "string") {
         throw new ActivityGatewayRequestError("Activity gateway returned no event ID", true);
       }
       return { eventId: result.eventId };
     },
     async retract(input) {
-      await request(`/v1/events/${input.eventId}/retract`, {
-        reason: input.reason,
-        idempotencyKey: input.idempotencyKey,
-      });
+      await request((signal) => client.retractActivityEvent(input, { signal }));
     },
   };
 }

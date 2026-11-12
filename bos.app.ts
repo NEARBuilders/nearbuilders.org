@@ -75,8 +75,13 @@ export default App({
       path: "plugins/notifications",
       secrets: ["NOTIFICATIONS_DATABASE_URL"],
     },
+    activityApi: {
+      contract: "bos://nearbuilding.near/activity.nearbuilders.org#app.api",
+      proxy: "https://activity.nearbuilders.org",
+    },
     activity: {
       path: "plugins/activity",
+      dependsOn: ["activityApi"],
       secrets: [
         "ACTIVITY_DATABASE_URL",
         "ACTIVITY_GATEWAY_URL",

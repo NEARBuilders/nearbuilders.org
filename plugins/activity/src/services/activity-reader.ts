@@ -4,11 +4,10 @@ import type {
   ActivityFiltersSchema,
   ActivityLeaderboardInputSchema,
 } from "../contract";
-import {
-  type ActivityApiEvent,
-  ActivityApiEventSchema,
-  ActivityApiFeedSchema,
-  ActivityApiLeaderboardSchema,
+import type {
+  ActivityApiClient,
+  ActivityApiEvent,
+  ActivityApiLeaderboardEntry,
 } from "./activity-api";
 import { GATEWAY_EVENT_TYPES } from "./activity-gateway";
 import { createTtlCache } from "./ttl-cache";
@@ -19,9 +18,6 @@ type LeaderboardPeriod = z.infer<typeof ActivityLeaderboardInputSchema>["period"
 
 /** The Activity source nearbuilders.org's own trusted events are published under, by default. */
 export const NEARBUILDERS_SOURCE = "nearbuilders";
-
-/** Activity's public read API. Reads need no key, so they default to production. */
-export const DEFAULT_ACTIVITY_API_URL = "https://activity.nearbuilders.org/api";
 
 const LEGACY_BY_EVENT_TYPE = new Map(
   Object.entries(GATEWAY_EVENT_TYPES).map(([legacy, eventType]) => {
@@ -89,48 +85,21 @@ export function toActivityEvent(
   };
 }
 
-export function parseSseFrames(buffer: string): {
-  frames: Array<{ id?: string; data: string }>;
-  rest: string;
-} {
-  const parts = buffer.replace(/\r\n/g, "\n").split("\n\n");
-  const rest = parts.pop() ?? "";
-  const frames = parts.flatMap((part) => {
-    let id: string | undefined;
-    const data: string[] = [];
-    for (const line of part.split("\n")) {
-      if (line.startsWith("id:")) id = line.slice(3).trim();
-      else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
-    }
-    return data.length > 0 ? [{ id, data: data.join("\n") }] : [];
-  });
-  return { frames, rest };
-}
-
-function query(input: Record<string, string | number | undefined>): string {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(input)) {
-    if (value !== undefined && value !== "") params.set(key, String(value));
-  }
-  return params.toString();
+function definedOnly<T extends Record<string, string | number | undefined>>(input: T): T {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined && value !== ""),
+  ) as T;
 }
 
 export function createActivityReaderClient(options: {
-  baseUrl: string;
-  fetchImplementation?: typeof fetch;
+  client: ActivityApiClient | undefined;
   timeoutMs?: number;
 }) {
-  const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 10_000;
 
-  async function get(path: string): Promise<unknown> {
-    const response = await fetchImplementation(`${baseUrl}${path}`, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok) throw new Error(`Activity returned ${response.status}`);
-    return response.json();
+  function api(): ActivityApiClient {
+    if (!options.client) throw new Error("Activity is not attached");
+    return options.client;
   }
 
   return {
@@ -141,48 +110,44 @@ export function createActivityReaderClient(options: {
       limit: number;
       cursor?: string;
     }) {
-      const body = ActivityApiFeedSchema.parse(await get(`/v1/events?${query(input)}`));
+      const body = await api().listActivityEvents(definedOnly(input), {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
       return { data: body.data, nextCursor: body.meta.hasMore ? body.meta.nextCursor : null };
     },
 
-    async leaderboard(input: { period: LeaderboardPeriod; limit: number; source?: string }) {
-      const path = `/v1/leaderboard?${query({
-        source: input.source,
-        period: LEADERBOARD_PERIODS[input.period],
-        limit: input.limit,
-      })}`;
-      return ActivityApiLeaderboardSchema.parse(await get(path)).data;
+    async leaderboard(input: {
+      period: LeaderboardPeriod;
+      limit: number;
+      source?: string;
+    }): Promise<ActivityApiLeaderboardEntry[]> {
+      const body = await api().getActivityLeaderboard(
+        definedOnly({
+          source: input.source,
+          period: LEADERBOARD_PERIODS[input.period],
+          limit: input.limit,
+        }),
+        { signal: AbortSignal.timeout(timeoutMs) },
+      );
+      return body.data;
+    },
+
+    async projectActivity(projectId: string) {
+      return api().getNearbuildersProjectActivity(
+        { projectId },
+        { signal: AbortSignal.timeout(timeoutMs) },
+      );
     },
 
     async *stream(
       input: { source?: string; type?: string; actor?: string },
       { signal, lastEventId }: { signal?: AbortSignal; lastEventId?: string },
-    ) {
-      const response = await fetchImplementation(`${baseUrl}/v1/events/stream?${query(input)}`, {
-        headers: {
-          accept: "text/event-stream",
-          ...(lastEventId ? { "last-event-id": lastEventId } : {}),
-        },
+    ): AsyncGenerator<ActivityApiEvent> {
+      const events = await api().streamActivityEvents(definedOnly(input), {
         signal,
+        lastEventId,
       });
-      if (!response.ok || !response.body) {
-        throw new Error(`Activity stream returned ${response.status}`);
-      }
-      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = "";
-      try {
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) return;
-          const { frames, rest } = parseSseFrames(buffer + value);
-          buffer = rest;
-          for (const frame of frames) {
-            yield ActivityApiEventSchema.parse(JSON.parse(frame.data));
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
+      for await (const event of events) yield event;
     },
   };
 }
