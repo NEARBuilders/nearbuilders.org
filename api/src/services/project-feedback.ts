@@ -1,7 +1,11 @@
+import { ORPCError } from "@orpc/client";
 import { z } from "zod";
 import type { ProjectFeedbackSchema } from "../contract";
+import type { PluginEntries } from "../lib/plugin-clients";
 
 export type ProjectFeedback = z.infer<typeof ProjectFeedbackSchema>;
+
+export type ProjectFeedbackRpcClient = ReturnType<PluginEntries["feedback"]["client"]>;
 
 const FeedbackProjectDetailSchema = z.object({
   slug: z.string(),
@@ -65,17 +69,14 @@ export function projectFeedbackFromDetail(
 }
 
 export function createProjectFeedbackClient(options: {
-  baseUrl: string;
-  fetchImplementation?: typeof fetch;
-  timeoutMs?: number;
+  client?: ProjectFeedbackRpcClient;
+  feedbackBaseUrl: string;
   cacheMs?: number;
   failureCacheMs?: number;
   maxEntries?: number;
   now?: () => number;
 }) {
-  const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
-  const timeoutMs = options.timeoutMs ?? 5_000;
+  const baseUrl = options.feedbackBaseUrl.replace(/\/+$/, "");
   const cacheMs = options.cacheMs ?? 60_000;
   const failureCacheMs = options.failureCacheMs ?? 10_000;
   const maxEntries = options.maxEntries ?? 1_000;
@@ -88,17 +89,16 @@ export function createProjectFeedbackClient(options: {
   }
 
   async function load(slug: string): Promise<ProjectFeedback> {
+    if (!options.client) return withoutRound(slug, "unknown");
     try {
-      const response = await fetchImplementation(
-        `${baseUrl}/api/projects/${encodeURIComponent(slug)}/detail`,
-        { headers: { accept: "application/json" }, signal: AbortSignal.timeout(timeoutMs) },
-      );
-      if (response.status === 404) return withoutRound(slug, "none");
-      if (!response.ok) return withoutRound(slug, "unknown");
-      const detail = FeedbackProjectDetailSchema.safeParse(await response.json());
-      if (!detail.success) return withoutRound(slug, "unknown");
-      return projectFeedbackFromDetail(detail.data, baseUrl, now());
-    } catch {
+      const detail = await options.client.getProjectBySlug({ slug });
+      const parsed = FeedbackProjectDetailSchema.safeParse(detail);
+      if (!parsed.success) return withoutRound(slug, "unknown");
+      return projectFeedbackFromDetail(parsed.data, baseUrl, now());
+    } catch (error) {
+      if (error instanceof ORPCError && error.code === "NOT_FOUND") {
+        return withoutRound(slug, "none");
+      }
       return withoutRound(slug, "unknown");
     }
   }

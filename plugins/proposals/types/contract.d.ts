@@ -157,6 +157,7 @@ export declare const TelegramReviewerSchema: z.ZodObject<{
     telegramUsername: z.ZodNullable<z.ZodString>;
     telegramName: z.ZodNullable<z.ZodString>;
     userId: z.ZodString;
+    nearAccount: z.ZodNullable<z.ZodString>;
     userLabel: z.ZodString;
     linkedAt: z.ZodISODateTime;
 }, z.core.$strip>;
@@ -1115,7 +1116,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, object>;
+    }, z.core.$strip>, Record<never, never>>;
     getProposalCount: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
@@ -1123,7 +1124,7 @@ export declare const contract: {
         pluginId: z.ZodString;
         entityId: z.ZodString;
         totalCount: z.ZodNumber;
-    }, z.core.$strip>, object>;
+    }, z.core.$strip>, Record<never, never>>;
     getAuditLog: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
@@ -1145,7 +1146,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, object>;
+    }, z.core.$strip>, Record<never, never>>;
     getSubmissions: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         pluginId: z.ZodString;
         entityId: z.ZodString;
@@ -1492,6 +1493,7 @@ export declare const contract: {
     createTelegramLinkCode: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         codeHash: z.ZodString;
         userId: z.ZodString;
+        nearAccount: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         userLabel: z.ZodString;
         ttlMs: z.ZodNumber;
     }, z.core.$strip>, z.ZodObject<{
@@ -1516,6 +1518,7 @@ export declare const contract: {
             telegramUsername: z.ZodNullable<z.ZodString>;
             telegramName: z.ZodNullable<z.ZodString>;
             userId: z.ZodString;
+            nearAccount: z.ZodNullable<z.ZodString>;
             userLabel: z.ZodString;
             linkedAt: z.ZodISODateTime;
         }, z.core.$strip>;
@@ -1543,6 +1546,7 @@ export declare const contract: {
             telegramUsername: z.ZodNullable<z.ZodString>;
             telegramName: z.ZodNullable<z.ZodString>;
             userId: z.ZodString;
+            nearAccount: z.ZodNullable<z.ZodString>;
             userLabel: z.ZodString;
             linkedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -1561,6 +1565,7 @@ export declare const contract: {
             telegramUsername: z.ZodNullable<z.ZodString>;
             telegramName: z.ZodNullable<z.ZodString>;
             userId: z.ZodString;
+            nearAccount: z.ZodNullable<z.ZodString>;
             userLabel: z.ZodString;
             linkedAt: z.ZodISODateTime;
         }, z.core.$strip>>;
@@ -1607,6 +1612,6 @@ export declare const contract: {
         removeStatus: "failed" | "not_started" | "removed" | "removing";
         submissionCount: number;
         timestamp: string;
-    }, unknown, void>>, object>;
+    }, unknown, void>>, Record<never, never>>;
 };
 export type ContractType = typeof contract;

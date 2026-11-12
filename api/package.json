@@ -18,6 +18,7 @@
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
     "@everything-dev/builders-plugin": "workspace:*",
+    "@orpc/client": "catalog:",
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "drizzle-kit": "catalog:",
