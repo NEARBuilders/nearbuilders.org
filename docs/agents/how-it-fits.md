@@ -28,6 +28,31 @@ runs your local workspaces in-process next to it. `bos.dev.ts` alters the dev
 resolution only; `_resolved` in `.bos/bos.resolved-config.json` records what the
 resolution produced (regenerate: `pnpm run types:gen`).
 
+## The verification spine
+
+That chain carries its own proof. From the on-chain write to the served byte,
+every hop is an attestation — independently checked, nothing trusted
+transitively ([ADR 0046](../adr/0046-manifest-attribution.md),
+[`GLOSSARY.md`](../../GLOSSARY.md) — "verification spine"):
+
+```mermaid
+flowchart LR
+  T["NEAR tx<br/>(the registry write<br/>is chain-signed)"] -->|"pins + key record<br/>on-chain"| C["Config<br/>bos://&lt;account&gt;/&lt;gateway&gt;"]
+  C -->|"names the immutable<br/>release record"| R["versions/&lt;release&gt;.json"]
+  C -->|"each slot pins<br/>manifest + SRI"| M["Slot manifest<br/>versions/&lt;hash&gt;.json<br/>(signed — attributed)"]
+  M -->|"content-addressed dir"| D["Version dir<br/>versions/&lt;dirId&gt;/"]
+  M -->|"every file's SRI"| F["Files<br/>(entry · chunks · ssr)"]
+```
+
+`bos verify` walks this spine at three depths (`pointer` / `entries` / `files`)
+and reports each leg by name: SRI mismatches, schema failures, and — when the
+config demands attribution — manifest signatures verified against the key
+record the config publishes. The same walker is the adopt transaction's gate
+and the smoke gate's in-image leg, so a broken prefix refuses the boot rather
+than serving past it. The one primitive underneath is the Verifier engine
+(`everything-dev/verify`): every production fetch goes through it, and its
+`Verified<T>` brand is how unverified bytes are kept out of the types.
+
 ## Composition: mounts, core-wins, shadows
 
 ```mermaid
@@ -77,17 +102,21 @@ state disagree, believe the state and fix the doc.
 | `logs/dev-latest.log` + dated `logs/dev-*.log` | what **actually ran**: which MF bundles loaded (`auth=https://cdn…`), compose warnings, per-service boot logs. `bos logs` reads it. This is the truth of last resort when a boot behaves differently than its config suggests |
 | `platform-manifest.json` | the resolved platform release — what the `platform:` pin actually pulled (source, resolvedAt, manifest) |
 | `deploy-state.json` | what was last published (version, apps) — confuses nobody when "is production serving my code?" |
-| `sync-snapshot.json` + `sync-backup/<date>/` | what the last `bos upgrade` reconciled, and pre-upgrade copies of template-owned files you'd edited — the diff surface for merge-review on upgrades |
+| `sync-backup/<date>/` | pre-upgrade copies of template-owned files you'd edited — the review surface for `--force` resolutions, bounded to the newest 10. The sync baseline itself lives in `bos.lock.json`'s `template.sync` (ADR 0047) |
 | `regression/*.json` | cached seeded sessions (`cookies.json`, `seed.json`, …) — why regression specs start signed-in without minting their own |
 
 **Clean up at source.** These are the runtime's artifacts, not yours to hack
-around. Logs currently accumulate with no rotation — 79 files / 4.6 MB in nine
-working days here — and the durable fix is upstream
-(right now: `TODO(#596)`); deleting dated `.bos/logs/*.log` is safe in the
-meantime. The regression caches are safe to wipe whenever fixtures drift: the
-next run re-seeds them. Anything else under `.bos/` (`session.json`,
-`sync-backup/`) is state you regenerate by re-running the responsible command —
-when a surface feels stale, regenerate it in place rather than editing it.
+around. Logs rotate at the source: every dev boot prunes dated logs beyond
+the newest 20 and anything older than a week — across every writer's names,
+including the regression stack's `framework-*`/`regression-*` wrappers and
+the pre-PID legacy formats the original pruner couldn't see; files touched
+within 24h are never pruned (a live session may be appending). Deleting
+`.bos/logs/*.log` by hand is always safe too. The regression caches are safe
+to wipe whenever fixtures drift: the next run re-seeds them. Anything else
+under `.bos/` (`session.json`, `sync-backup/`) is state you regenerate by
+re-running the responsible command — when a surface feels stale, regenerate
+it in place rather than editing it. `.bos/` is local-only runtime state
+(ADR 0047): the only committed artifact is `bos.lock.json`.
 
 ## Where source actually lives
 

@@ -82,8 +82,8 @@ catalog:
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
   effect: 4.0.0-rc.118
-  every-plugin: 3.0.0-rc.17
-  everything-dev: 2.0.0-rc.43
+  every-plugin: 3.0.0-rc.18
+  everything-dev: 2.0.0-rc.44
   near-kit: ^0.20.2
   pg: ^8.12.0
   react: 19.3.1
@@ -98,8 +98,8 @@ catalog:
   zod: 4.6.7
 minimumReleaseAgeExclude:
   - better-near-auth@2.0.0-rc.8
-  - every-plugin@3.0.0-rc.17
-  - everything-dev@2.0.0-rc.43
+  - every-plugin@3.0.0-rc.18
+  - everything-dev@2.0.0-rc.44
 minimumReleaseAgeExcludePrune: true
 permissions:
   "@hot-labs/near-connect@https://codeload.github.com/elliotBraem/near-connect/tar.gz/83355f19408cd98c03b9fa823f9e52cd03929418":
