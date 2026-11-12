@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
 import { oc } from "@orpc/contract";
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 
 const kindEnum = z.enum(["project", "idea", "scope", "result"]);
@@ -185,6 +185,80 @@ const programFieldsInput = z.object({
   opensAt: z.iso.datetime().nullable().optional(),
   closesAt: z.iso.datetime().nullable().optional(),
   status: programStatusEnum.optional(),
+  sortOrder: z.number().int().min(-10_000).max(10_000).optional(),
+});
+
+export const statusCheckKindEnum = z.enum(["everything-dev-health", "ping", "http"]);
+export const statusCheckStatusEnum = z.enum(["draft", "listed", "paused", "archived"]);
+export const statusStateEnum = z.enum(["up", "degraded", "down"]);
+export const statusDisplayStateEnum = z.enum(["up", "degraded", "down", "unknown"]);
+export const statusReasonEnum = z.enum([
+  "timeout",
+  "dns",
+  "tls",
+  "connection",
+  "blocked",
+  "http_4xx",
+  "http_5xx",
+  "bad_body",
+  "plugin_failure",
+  "snapshot_degraded",
+  "not_ready",
+  "slow",
+]);
+
+export function isStatusCheckUrlShape(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      !url.search &&
+      !url.hash &&
+      !value.includes("?") &&
+      !value.includes("#")
+    );
+  } catch {
+    return false;
+  }
+}
+
+const statusCheckUrl = z.string().trim().min(1).max(500).refine(isStatusCheckUrlShape, {
+  message: "Status check URL must be https, with no credentials, port or query string",
+});
+
+const statusCheckResultSchema = z.object({
+  state: statusStateEnum,
+  reason: statusReasonEnum.nullable(),
+  httpStatus: z.number().int().nullable(),
+  latencyMs: z.number().int().nullable(),
+  pluginKeys: z.array(z.string()),
+  checkedAt: z.iso.datetime(),
+});
+
+const adminStatusCheckSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  label: z.string(),
+  url: z.string(),
+  kind: statusCheckKindEnum,
+  status: statusCheckStatusEnum,
+  sortOrder: z.number().int(),
+  createdBy: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  currentState: statusDisplayStateEnum,
+  latest: statusCheckResultSchema.nullable(),
+  project: programProjectSchema,
+});
+
+const statusCheckFieldsInput = z.object({
+  label: z.string().trim().min(1).max(60),
+  url: statusCheckUrl,
+  kind: statusCheckKindEnum,
+  status: statusCheckStatusEnum.optional(),
   sortOrder: z.number().int().min(-10_000).max(10_000).optional(),
 });
 
@@ -513,6 +587,47 @@ export const contract = oc.router({
     .input(z.object({ ids: z.array(z.string().min(1)).min(1).max(200) }))
     .output(z.object({ updated: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+  adminListStatusChecks: oc
+    .route({ method: "GET", path: "/v1/admin/status-checks" })
+    .input(z.object({ projectId: z.string().min(1).optional() }))
+    .output(z.object({ data: z.array(adminStatusCheckSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  createStatusCheck: oc
+    .route({ method: "POST", path: "/v1/admin/status-checks" })
+    .input(statusCheckFieldsInput.extend({ projectId: z.string().min(1) }))
+    .output(adminStatusCheckSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  updateStatusCheck: oc
+    .route({ method: "PATCH", path: "/v1/admin/status-checks/{id}" })
+    .input(statusCheckFieldsInput.partial().extend({ id: z.string().min(1) }))
+    .output(adminStatusCheckSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  deleteStatusCheck: oc
+    .route({ method: "DELETE", path: "/v1/admin/status-checks/{id}" })
+    .input(z.object({ id: z.string().min(1) }))
+    .output(z.object({ id: z.string() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND }),
+
+  runStatusCheck: oc
+    .route({ method: "POST", path: "/v1/admin/status-checks/{id}/run" })
+    .input(z.object({ id: z.string().min(1) }))
+    .output(adminStatusCheckSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMITED }),
+
+  seedStatusChecks: oc
+    .route({ method: "POST", path: "/v1/admin/status-checks/seed" })
+    .input(z.object({}))
+    .output(
+      z.object({
+        created: z.number().int().nonnegative(),
+        existing: z.number().int().nonnegative(),
+        missing: z.array(z.string()),
+      }),
+    )
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
 });
 
 export type ContractType = typeof contract;

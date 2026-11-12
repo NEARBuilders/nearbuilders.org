@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { Cause, Context, Effect, Layer } from "effect";
+import { Cause, Context, Effect, Layer, Schedule } from "effect";
 import { createPlugin } from "every-plugin";
 import { z } from "zod";
 import { contract } from "./contract";
@@ -8,6 +8,10 @@ import type { AuthContext } from "./lib/auth";
 import { type ClaimContext, createUserIdRowClaimer } from "./lib/claim-user-id-rows";
 import { ProgramService, ProgramServiceLive } from "./services/programs";
 import { ProjectService, ProjectServiceLive } from "./services/projects";
+import { StatusCheckService, StatusCheckServiceLive } from "./services/status-checks";
+import { STATUS_POLL_INTERVAL_MS } from "./services/status-state";
+
+const STATUS_POLL_START_DELAY_MS = 60_000;
 
 type ProjectsContext = AuthContext & {
   allowPublicVisibility?: boolean;
@@ -40,14 +44,28 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.sync(() => {
-      const ProjectServices = Layer.mergeAll(ProjectServiceLive, ProgramServiceLive).pipe(
-        Layer.provide(DatabaseLive(config.secrets.PROJECTS_DATABASE_URL)),
-      );
+      const ProjectServices = Layer.mergeAll(
+        ProjectServiceLive,
+        ProgramServiceLive,
+        StatusCheckServiceLive,
+      ).pipe(Layer.provide(DatabaseLive(config.secrets.PROJECTS_DATABASE_URL)));
 
       const Lifecycle = Layer.effectDiscard(
         Effect.gen(function* () {
           yield* ProjectService;
           yield* ProgramService;
+          const statusChecks = yield* StatusCheckService;
+          yield* Effect.sleep(STATUS_POLL_START_DELAY_MS).pipe(
+            Effect.andThen(
+              statusChecks.runListedChecks().pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logError("[Projects] Status poll failed", cause),
+                ),
+                Effect.repeat(Schedule.spaced(STATUS_POLL_INTERVAL_MS)),
+              ),
+            ),
+            Effect.forkScoped,
+          );
           console.log("[Projects] Services Initialized");
           yield* Effect.addFinalizer(() => Effect.log("[Projects] Shutdown"));
         }),
@@ -512,6 +530,54 @@ export default createPlugin({
           .reorderPrograms(input.ids)
           .pipe(Effect.catchCause(toRouteError("reorderPrograms")));
         return { updated };
+      }),
+      adminListStatusChecks: builder.adminListStatusChecks.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const statusChecks = yield* StatusCheckService;
+        const data = yield* statusChecks
+          .adminListStatusChecks(input.projectId)
+          .pipe(Effect.catchCause(toRouteError("adminListStatusChecks")));
+        return { data };
+      }),
+
+      createStatusCheck: builder.createStatusCheck.use(requireAdmin).effect(function* ({
+        input,
+        context,
+      }) {
+        const statusChecks = yield* StatusCheckService;
+        return yield* statusChecks
+          .createStatusCheck(input, context.near?.primaryAccountId ?? context.userId)
+          .pipe(Effect.catchCause(toRouteError("createStatusCheck")));
+      }),
+
+      updateStatusCheck: builder.updateStatusCheck.use(requireAdmin).effect(function* ({ input }) {
+        const statusChecks = yield* StatusCheckService;
+        const { id, ...patch } = input;
+        return yield* statusChecks
+          .updateStatusCheck(id, patch)
+          .pipe(Effect.catchCause(toRouteError("updateStatusCheck")));
+      }),
+
+      deleteStatusCheck: builder.deleteStatusCheck.use(requireAdmin).effect(function* ({ input }) {
+        const statusChecks = yield* StatusCheckService;
+        return yield* statusChecks
+          .deleteStatusCheck(input.id)
+          .pipe(Effect.catchCause(toRouteError("deleteStatusCheck")));
+      }),
+
+      runStatusCheck: builder.runStatusCheck.use(requireAdmin).effect(function* ({ input }) {
+        const statusChecks = yield* StatusCheckService;
+        return yield* statusChecks
+          .runStatusCheck(input.id)
+          .pipe(Effect.catchCause(toRouteError("runStatusCheck")));
+      }),
+
+      seedStatusChecks: builder.seedStatusChecks.use(requireAdmin).effect(function* ({ context }) {
+        const statusChecks = yield* StatusCheckService;
+        return yield* statusChecks
+          .seedStatusChecks(context.near?.primaryAccountId ?? context.userId)
+          .pipe(Effect.catchCause(toRouteError("seedStatusChecks")));
       }),
     };
   },
