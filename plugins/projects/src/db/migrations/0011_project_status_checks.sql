@@ -26,5 +26,6 @@ ALTER TABLE "project_status_checks" ADD CONSTRAINT "project_status_checks_projec
 ALTER TABLE "project_status_results" ADD CONSTRAINT "project_status_results_check_id_project_status_checks_id_fk" FOREIGN KEY ("check_id") REFERENCES "public"."project_status_checks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_status_checks_project_idx" ON "project_status_checks" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_status_checks_status_sort_idx" ON "project_status_checks" USING btree ("status","sort_order");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "project_status_checks_listed_url_unique" ON "project_status_checks" USING btree ("url") WHERE "project_status_checks"."status" = 'listed';--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_status_results_check_checked_idx" ON "project_status_results" USING btree ("check_id","checked_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_status_results_checked_idx" ON "project_status_results" USING btree ("checked_at");

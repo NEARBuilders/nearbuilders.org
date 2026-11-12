@@ -110,6 +110,13 @@ describe("status state mapping", () => {
     ).toMatchObject({ state: "down", reason: "http_4xx" });
   });
 
+  it("maps unfollowed 1xx and 3xx responses to bad_body", () => {
+    expect(evaluateResponse("http", { httpStatus: 304, body: "", latencyMs: 10 })).toMatchObject({
+      state: "down",
+      reason: "bad_body",
+    });
+  });
+
   it("marks slow but healthy responses as degraded", () => {
     expect(evaluateResponse("everything-dev-health", ok(readyHealth, 5_001))).toMatchObject({
       state: "degraded",

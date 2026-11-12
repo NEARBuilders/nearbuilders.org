@@ -145,10 +145,10 @@ export async function probeStatusCheck(
         });
       }
       if (!response.location || redirects >= maxRedirects) throw new ProbeFailure("blocked");
-      const next = checkStatusUrl(new URL(response.location, url).toString(), {
-        allowQuery: true,
-      });
-      if (!next.ok) throw new ProbeFailure("blocked");
+      const next = URL.canParse(response.location, url)
+        ? checkStatusUrl(new URL(response.location, url).toString(), { allowQuery: true })
+        : null;
+      if (!next?.ok) throw new ProbeFailure("blocked");
       url = next.url;
     }
   } catch (error) {

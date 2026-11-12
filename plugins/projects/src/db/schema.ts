@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ProjectCatalogMetadata } from "../services/catalog-metadata";
 
@@ -137,6 +138,9 @@ export const projectStatusChecks = pgTable(
   (table) => [
     index("project_status_checks_project_idx").on(table.projectId),
     index("project_status_checks_status_sort_idx").on(table.status, table.sortOrder),
+    uniqueIndex("project_status_checks_listed_url_unique")
+      .on(table.url)
+      .where(sql`${table.status} = 'listed'`),
   ],
 );
 

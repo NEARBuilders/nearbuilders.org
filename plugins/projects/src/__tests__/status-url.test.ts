@@ -112,6 +112,14 @@ describe("status check SSRF guard", () => {
     expect(resolver).toHaveBeenCalledTimes(2);
   });
 
+  it("honours the address family node asks for", async () => {
+    const lookup = createGuardedLookup(resolveTo("104.18.32.7", "2606:4700::6810:84e5"));
+    const address = await new Promise((resolve) =>
+      lookup("nearbuilders.org", { family: 6 }, (_error, value) => resolve(value)),
+    );
+    expect(address).toBe("2606:4700::6810:84e5");
+  });
+
   it("never connects when a check resolves to a private address", async () => {
     const outcome = await probeStatusCheck("everything-dev-health", "https://evil.example.com/h", {
       resolver: resolveTo("127.0.0.1"),

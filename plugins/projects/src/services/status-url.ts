@@ -120,19 +120,37 @@ type LookupCallback = (
 ) => void;
 
 export function createGuardedLookup(resolver: HostResolver = resolveHost) {
-  return (hostname: string, options: { all?: boolean }, callback: LookupCallback) => {
+  return (
+    hostname: string,
+    options: { all?: boolean; family?: number | string },
+    callback: LookupCallback,
+  ) => {
     resolver(bareHostname(hostname)).then(
       (addresses) => {
         if (addresses.length === 0 || addresses.some((entry) => !isPublicAddress(entry.address))) {
           callback(new StatusBlockedError(`Blocked address for ${hostname}`), []);
           return;
         }
+        const family = Number(options.family) || 0;
+        const matching =
+          family === 4 || family === 6
+            ? addresses.filter((entry) => entry.family === family)
+            : addresses;
         if (options.all) {
-          callback(null, addresses);
+          callback(null, matching);
           return;
         }
-        const [first] = addresses;
-        callback(null, first!.address, first!.family);
+        const [first] = matching;
+        if (!first) {
+          callback(
+            Object.assign(new Error(`No IPv${family} address for ${hostname}`), {
+              code: "ENOTFOUND",
+            }),
+            [],
+          );
+          return;
+        }
+        callback(null, first.address, first.family);
       },
       (error: NodeJS.ErrnoException) => callback(error, []),
     );

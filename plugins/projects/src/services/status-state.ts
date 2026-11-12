@@ -113,7 +113,8 @@ function evaluatePingBody(body: unknown): Pick<StatusOutcome, "state" | "reason"
 
 export function evaluateResponse(kind: StatusCheckKind, response: StatusResponse): StatusOutcome {
   if (response.httpStatus >= 500) return down("http_5xx", response);
-  if (response.httpStatus < 200 || response.httpStatus >= 300) return down("http_4xx", response);
+  if (response.httpStatus >= 400) return down("http_4xx", response);
+  if (response.httpStatus < 200 || response.httpStatus >= 300) return down("bad_body", response);
 
   const verdict =
     kind === "http"

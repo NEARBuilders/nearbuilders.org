@@ -366,7 +366,9 @@ export const StatusCheckServiceLive = Layer.effect(
           if (existing.status === "archived" && status !== "archived") {
             yield* assertCapacity(existing.projectId);
           }
-          if (status === "listed") yield* assertListable(existing.projectId, url, id);
+          if (status === "listed" && (existing.status !== "listed" || url !== existing.url)) {
+            yield* assertListable(existing.projectId, url, id);
+          }
           const patch: Partial<typeof projectStatusChecks.$inferInsert> = {};
           if (input.label !== undefined) patch.label = input.label.trim();
           if (input.url !== undefined) patch.url = url;
@@ -476,8 +478,9 @@ export const StatusCheckServiceLive = Layer.effect(
           return yield* loadCheck(id);
         }),
 
-      runListedChecks: (now = new Date()) =>
+      runListedChecks: (at) =>
         Effect.gen(function* () {
+          const now = at ?? new Date();
           const checks = yield* Effect.promise(() =>
             db
               .select({
