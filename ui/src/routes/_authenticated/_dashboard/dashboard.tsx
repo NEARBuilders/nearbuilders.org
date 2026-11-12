@@ -641,6 +641,7 @@ function BuilderProfileCard({
       setShowRegisterForm(false);
       queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
       queryClient.invalidateQueries({ queryKey: ["builder-proposals", nearAccountId] });
+      queryClient.invalidateQueries({ queryKey: ["credit-status"] });
     },
     onError: (err: Error) => toast.error(err.message || "Failed to register"),
   });

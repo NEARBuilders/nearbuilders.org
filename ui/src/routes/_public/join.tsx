@@ -351,6 +351,7 @@ function BuilderProfileForm({
         queryClient.invalidateQueries({ queryKey: ["proposals", "builders"] }),
         queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] }),
         queryClient.invalidateQueries({ queryKey: ["builders"] }),
+        queryClient.invalidateQueries({ queryKey: ["credit-status"] }),
       ]);
     },
     onError: (error: Error) => {
