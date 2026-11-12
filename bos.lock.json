@@ -1,79 +1,147 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "everything-dev/composition-lockfile",
   "runtimeRef": "bos://nearbuilding.near/nearbuilders.org",
-  "release": "2.0.0-rc.42",
+  "release": "2.0.0-rc.44",
   "remotes": {
     "app.api": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/api/",
+      "digest": {
+        "manifest": "versions/7a55a61244a7c237.json",
+        "integrity": "sha384-g9TNlvi2utDn90GOmJ+oXYazb4+7er4q44/0BHV2srY5ltlcNmDw4CP1vt9RqnPL"
+      }
     },
     "app.ui": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/ui/",
+      "digest": {
+        "manifest": "versions/61bf4aa400bec21b.json",
+        "integrity": "sha384-NN9X+RRg5JLn64RbfJKyNGACbb99TmfeqToLNUgwRyyS6HfiMMut7tx68efsW+99"
+      }
     },
     "app.auth": {
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth/",
       "digest": {
-        "manifest": "versions/fdbb9a48d36d8814.json",
-        "integrity": "sha384-2aKR03jmL9ao59fefWTYBKV+uHHvN2sqRwOz2FfcVN/7nhEBdkRjM8EdZ3/ancg8"
+        "manifest": "versions/105ce60815767149.json",
+        "integrity": "sha384-LP9i9xmNfZk45r1WfEOLcSjR8rqvK2/zwMEkh+Q0hOaWyNt7vFjFuNeIt7sM7xQ+"
       }
     },
     "app.auth.ui": {
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/auth-ui/",
       "digest": {
-        "manifest": "versions/6a5bb9994518954a.json",
-        "integrity": "sha384-TyqgUY7baf9LGQsArqF4d7Z2moJOjDJlR6nbNjZdUPk9awo1c42YIZ12qQQx9yQw"
+        "manifest": "versions/d11a5ad6a9ee1957.json",
+        "integrity": "sha384-GGwF6DgEpWP30AIxDQTDP+lIEzQ4oPqX8eXxmLt0lAcFSUFkd/AmGMdUtXR1zGRw"
       }
     },
     "app.host": {
       "kind": "descriptor",
       "base": "https://cdn.everything.dev/bundles/dev.everything.near/everything.dev/host/",
       "digest": {
-        "manifest": "versions/cf64dbb526fe95b0.json",
-        "integrity": "sha384-brhgsNh59GZnuHM+x3jNRBi9c0tcy9flgnhPe4QnkCVFq3MTvUIHUCXoydDduV3T"
+        "manifest": "versions/05a41a70c566b3ce.json",
+        "integrity": "sha384-IQS7L0LNqjg+LOrSuM1EdTuvSRV/XVBneSzre3efrQfyl3WiI/a/3PkOGgX5hAqy"
       }
     },
     "plugins.apps": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/apps/",
+      "digest": {
+        "manifest": "versions/c40feb3097924561.json",
+        "integrity": "sha384-f8YJaOHw9j0MSQC4yQq8HlSfuHC7PGSls+YZKvwmjQdLFMljRjUs1Hptasf5HrPm"
+      }
     },
     "plugins.projects": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/projects/",
+      "digest": {
+        "manifest": "versions/df81324a12940cb0.json",
+        "integrity": "sha384-KJIIZa11JHlnHytvB14buZFPDqt/wbqCkP2U76GGsz+tz2bZtOdUZ95ne07DnOL+"
+      }
     },
     "plugins.builders": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/builders/",
+      "digest": {
+        "manifest": "versions/c9ecb94bf3ca6b95.json",
+        "integrity": "sha384-vsDk/YSYMYZLr+TOLaxaoTbE3tMkzzLX/9TjUKxJjwrH9m0UrXQaOxtbiITDWmyp"
+      }
     },
     "plugins.events": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/events/",
+      "digest": {
+        "manifest": "versions/0383c62d52384457.json",
+        "integrity": "sha384-0gZElFmDUvYrQuG1yJqfxGmrAkxj5eTYRiqk0zMIXkVMBVVTakSHoLOiSye+HN/U"
+      }
     },
     "plugins.proposals": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/proposals/",
+      "digest": {
+        "manifest": "versions/8e7ed39f52168b14.json",
+        "integrity": "sha384-r8SU0uN7l3RwANdUXR1L+LZmncrnhEquJwQYnRKiMvax2LJzalVRT8oxcg0mZqth"
+      }
     },
     "plugins.votes": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/votes/",
+      "digest": {
+        "manifest": "versions/f6c3fcfab5ecccb5.json",
+        "integrity": "sha384-lnpCxaKwxfFKJ+XO7XTGTezvwoqRV6eVFuK2p6NAMxTfgEbJ0ws9/iILg3RxbPq6"
+      }
     },
     "plugins.bookmarks": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/bookmarks/",
+      "digest": {
+        "manifest": "versions/0700f667b1d858bd.json",
+        "integrity": "sha384-tPTnrlhmkq/E1812RH2MELvGar7pnQDMYsVaNFJuTTPAF1t+vb/BZC9OKKXRzjsp"
+      }
     },
     "plugins.notifications": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/notifications/",
+      "digest": {
+        "manifest": "versions/66bb0210318c63e9.json",
+        "integrity": "sha384-oqAnk2NGNGC+kG/md8k0KS8TRxcNxxx3sWIZLs8hsEbTa3rsZSWt7srEM9fSiqtr"
+      }
     },
     "plugins.activity": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/activity/",
+      "digest": {
+        "manifest": "versions/7f66588b59ae0178.json",
+        "integrity": "sha384-1H5QJS4vlDJAMOwpjaQu29vpkpGP7D2kz1fYexND902VBTi0l5l6X88kdHxGs1B3"
+      }
     },
     "plugins.nearcatalog": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/nearcatalog/",
+      "digest": {
+        "manifest": "versions/bf13cec6a7153218.json",
+        "integrity": "sha384-CQv7f5TCWUA2lUOii8c/71BE9wNfVR6GUHTINq1VB6DVzPxhB6lP8rvtCTb2uG92"
+      }
     },
     "plugins.credits": {
-      "kind": "descriptor"
+      "kind": "descriptor",
+      "base": "https://cdn.everything.dev/bundles/nearbuilding.near/nearbuilders.org/credits/",
+      "digest": {
+        "manifest": "versions/88b1148c89fad023.json",
+        "integrity": "sha384-AKTkKSqZqEifZ2izmSjK0VNLVRun8/kAWgd2YK7B4KGrmoQzKSD/qXjtSXHh07Qb"
+      }
     },
     "plugins.nostr": {
       "kind": "descriptor"
     },
     "plugins.storage": {
       "kind": "descriptor"
+    },
+    "plugins.feedback": {
+      "kind": "descriptor"
     }
   },
-  "fingerprint": "61d50a1eae586460",
-  "resolvedAt": "2026-11-09T22:14:09.143Z"
+  "pointerDigest": "5d205e945ab01d5c",
+  "resolvedAt": "2026-11-12T04:45:53.471Z"
 }
