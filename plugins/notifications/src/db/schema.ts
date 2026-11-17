@@ -1,6 +1,10 @@
 import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const emailPreferences = pgTable("email_preferences", {
+  /**
+   * The owner's id (primary NEAR account, or auth user id without NEAR), the same value
+   * notifications.user_id stores (#367).
+   */
   userId: text("user_id").primaryKey(),
   enabled: boolean("enabled").default(true).notNull(),
   email: text("email"),
