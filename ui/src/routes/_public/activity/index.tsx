@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import { activityFeedWithProfilesQueryOptions } from "@/lib/queries/activity";
 
@@ -102,9 +101,7 @@ function ActivityPage() {
         </Select>
       </div>
 
-      <TooltipProvider>
-        <ActivityFeed filters={filters} sort={sort} />
-      </TooltipProvider>
+      <ActivityFeed filters={filters} sort={sort} />
     </div>
   );
 }

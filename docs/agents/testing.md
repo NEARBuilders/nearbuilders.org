@@ -35,6 +35,29 @@ seed module is the fix, tracked at retro 2026-10-24.
 | **Integration** — the real oRPC router in-process, auth context injected via headers, DAO checks mocked | `api/tests/integration` | contract behavior: who may do what to which resource, error shapes, transactions |
 | **Regression** — the full composed `bos dev` stack, real browser, real remote auth UI | `tests/regression/browser/specs` | rendered journeys: sessions, SSR/CSR compose, navigation, admin flows |
 
+## When each tier runs
+
+The matrix runs exactly where a decision is made — never everywhere:
+
+| Tier | Where | What runs | Wall time |
+|---|---|---|---|
+| **T0 local** | lefthook hooks (`lefthook.yml`, installed by `pnpm run prepare`) | pre-commit: Biome on staged files · pre-push: `typecheck` + `lint:effect` | seconds |
+| **T1 PR** | `ci.yml` on pull requests | lint/typecheck, path-gated unit suites, ui-only app-load smoke; slow stack suites skip | ~4 min |
+| **T2 gate** | `release.yml` before every npm publish | unit + start regression (parallel planes — `tier: release`) | ~15–20 min |
+| **T2 nightly** | nightly on the main tip (`backcompat-nightly.yml`) via `regression-full.yml` (`tier: nightly`) | the full matrix: unit + dev + start + backcompat + framework, parallel planes (backcompat mode currently broken at boot — see AGENTS.md) | ~25 min |
+
+The gate proves the production artifact (start) and the published-chain
+contract (backcompat). The dev and framework planes pin the `bos dev`
+machinery (source-mode dev server, process death) — app-code changes cannot
+break them, and the start plane's full suite already covers their user
+journeys — so they canary nightly instead of gating every publish.
+
+The slow suites (HTTP stacks, sharded browser matrix, process-death framework
+regression) live in `ci.yml` as `workflow_dispatch`-only jobs for triage, and
+run for real only in T2. Consequence to accept: a journey broken by a UI PR
+surfaces at the nightly (~24h bound) or at the release gate — whichever comes
+first — not on the PR itself.
+
 Choose the lowest layer that pins the behavior. Escalate when the failure you
 are preventing only materializes one layer up (cookie handling, hydration,
 loading states, module loading are things jsdom cannot even reproduce).
@@ -50,6 +73,18 @@ look in `node_modules`):
 - SSR/client construction parity, digest computation, compose-payload schema
   checks, degrade-to-core-only semantics
 - the framework's client machinery: session refresh, MF loader retry chains
+- **the verification spine** ([ADR 0046](../adr/0046-manifest-attribution.md),
+  `GLOSSARY.md` — "verification spine"): each suite pins one layer, so
+  verification regressions have an address —
+
+| Spine layer | Suite (`packages/everything-dev/tests/unit`) | What it pins |
+|---|---|---|
+| bytes ↔ digest | `verify-engine.test.ts` | the `Verifier` engine: SRI fetches, `Verified<T>` branding, the digest cache, the tagged errors |
+| config → manifest → files | `verify-chain.test.ts` | the walker's three depths and per-leg reporting (`pointer`/`entries`/`files`) |
+| config → manifest → files | `manifest-signature.test.ts` | attribution: signing, unregistered keys, rotation, tampered documents, every-depth failure |
+| composition identities | `digest-identity.test.ts` | pointer vs deployment digests and their documented relation |
+| served bytes in the MF pipeline | `federation-integrity.test.ts` | the #642 gate: the loader verifies every registered byte at fetch time |
+| identity wiring | `boot-snapshot-schema.test.ts` · `composition-lockfile-schema.test.ts` | the stored-state planes recomputing `pointerDigest` |
 
 Prove claims about *your* composition state without re-testing the engine:
 `pnpm run verify:runtime-map` diff-checks the generated map against the real

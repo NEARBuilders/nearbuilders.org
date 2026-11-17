@@ -21,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { pageHead } from "@/lib/page-meta";
 import { activityFeedWithProfilesQueryOptions, SELF_REPORTED_SOURCE } from "@/lib/queries/activity";
 import { catalogClaimProposalsQueryOptions } from "@/lib/queries/catalog";
@@ -339,22 +338,18 @@ function ProfileActivityPage() {
             These are not verified, so they stay off the public feed, builder profiles, and
             leaderboards.
           </p>
-          <TooltipProvider>
-            <ActivityFeed
-              filters={uploadFilters}
-              emptyHint="Submit your first contribution using the form above."
-            />
-          </TooltipProvider>
+          <ActivityFeed
+            filters={uploadFilters}
+            emptyHint="Submit your first contribution using the form above."
+          />
 
           <h2 className="mt-10 mb-4 text-xl font-bold tracking-tight text-foreground">
             Verified activity
           </h2>
-          <TooltipProvider>
-            <ActivityFeed
-              filters={feedFilters}
-              emptyHint="Approved projects, claims, and activity from connected apps appear here."
-            />
-          </TooltipProvider>
+          <ActivityFeed
+            filters={feedFilters}
+            emptyHint="Approved projects, claims, and activity from connected apps appear here."
+          />
         </TabsContent>
       </Tabs>
     </div>

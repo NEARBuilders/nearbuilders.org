@@ -305,9 +305,9 @@ fabric.properties
 :memory:
 
 .turbo
+# .bos is local-only runtime state (ADR 0047) — the single committed artifact
+# is bos.lock.json at the repo root, not anything under .bos/.
 .bos
-!.bos/sync-snapshot.json
-!.bos/infra-state.json
 .bos/session.json
 
 # alchemy state ledger (runtime artifact of hosting-adapter stacks)

@@ -140,6 +140,8 @@ Every column that references a user. "Key" is what the value actually holds at w
 
 `plugins/credits/scripts/audit-credits-eligibility.ts:82-131` connects with `AUTH_DATABASE_URL` and discovers the `near_accounts` table by regex. It is a manual, read-only ops script and not in the request path, but it breaks the "nothing reads the auth DB" rule and will break when the auth DB moves. Fix: switch it to an admin endpoint on the auth plugin, or mark it deprecated once the shared DB lands.
 
+Resolved (#368): the script was retired. Since #374 the runtime eligibility check finds the builder profile across all of the caller's linked NEAR accounts, so the mismatch it diagnosed no longer happens.
+
 ## Not findings (checked)
 
 - Builder self-profile writes key on `primaryAccountId` and store `userId` alongside (`plugins/builders/src/index.ts:181,202`).

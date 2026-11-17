@@ -1,10 +1,14 @@
+import { PREFERRED_CONTACTS } from "./builder-catalog";
 import type { ProjectKind } from "./draft-store";
 import { CATALOG_LINKS, CATALOG_PHASES, type CatalogLinkKey } from "./project-catalog";
+import { SOCIAL_LINKS } from "./social-links";
 
 /** Better Auth API-key config used by the settings page; keys created here show up there. */
 export const AGENT_API_KEY_CONFIG_ID = "user-keys";
 /** Purpose label stored in key metadata so agent keys are identifiable later. */
 export const AGENT_API_KEY_PURPOSE = "agent-project-creation";
+/** Purpose label for keys minted on /join for builder profile submission. */
+export const AGENT_BUILDER_API_KEY_PURPOSE = "agent-builder-profile";
 /** Agent keys are short-lived: 7 days. */
 export const AGENT_API_KEY_EXPIRES_IN = 7 * 24 * 60 * 60;
 
@@ -15,6 +19,10 @@ export const AGENT_CATALOG_LINK_KEYS: readonly CatalogLinkKey[] = CATALOG_LINKS.
 
 export function agentApiKeyName(kind: ProjectKind, now: Date = new Date()): string {
   return `Agent: new ${kind} (${now.toISOString().slice(0, 10)})`;
+}
+
+export function agentBuilderApiKeyName(now: Date = new Date()): string {
+  return `Agent: builder profile (${now.toISOString().slice(0, 10)})`;
 }
 
 export function mcpUrlFromOrigin(origin: string): string {
@@ -83,6 +91,62 @@ export function buildAgentProjectPrompt({
     "",
     "To fix something after creating it, call `updateProject` with the project `id` and only the fields that change.",
   );
+
+  return lines.join("\n");
+}
+
+export interface AgentBuilderPromptInput {
+  mcpUrl: string;
+  apiKey: string;
+  /** Connected NEAR account the profile will be submitted for. */
+  nearAccount?: string;
+  nominationToken?: string;
+}
+
+/** MCP prompt for the /join builder-profile flow (#320). */
+export function buildAgentBuilderPrompt({
+  mcpUrl,
+  apiKey,
+  nearAccount,
+  nominationToken,
+}: AgentBuilderPromptInput): string {
+  const preferredContacts = PREFERRED_CONTACTS.map((c) => `"${c.value}"`).join(", ");
+  const linkKeys = SOCIAL_LINKS.map((l) => `\`${l.key}\``).join(", ");
+
+  const lines = [
+    "Create a NEAR Builders directory profile for me, using the NEAR Builders MCP server.",
+    "",
+    "## Connect",
+    `- MCP endpoint (Streamable HTTP): ${mcpUrl}`,
+    `- Send this header on every request: \`x-api-key: ${apiKey}\``,
+    "- Treat the key as a secret: do not commit it or write it to files.",
+    ...(nearAccount ? [`- The profile is for NEAR account \`${nearAccount}\`.`] : []),
+    "",
+    "## Steps",
+    "1. Gather my builder details from what I already shared (or from my public profiles / this repo). Do not invent facts; leave a field out if you cannot find it.",
+    "2. Call the `submitBuilderProfile` tool with the fields below.",
+    "3. Reply with the proposal status and a summary of the fields you set and the fields you could not find.",
+    "",
+    "## Required fields",
+    "- `name`: display name, 1–100 characters.",
+    "- `bio`: short bio, 1–1000 characters.",
+    "- `skills`: array of 1–20 skill strings (each max 50 characters).",
+    "",
+    "## Optional fields",
+    "- `location`: free-text location, max 100 characters.",
+    `- \`links\`: object of full https URLs keyed by ${linkKeys}.`,
+    ...(nominationToken
+      ? [`- \`nominationToken\`: include \`${nominationToken}\` so the nomination stays attached.`]
+      : []),
+    "",
+    "## Catalog fields (`catalog` object)",
+    `- \`preferredContact\`: one of ${preferredContacts}.`,
+    "- `organization`: max 100 characters.",
+    "- `team`: max 100 characters.",
+    "- `jobTitle`: max 80 characters.",
+    "- `publicEmail`: a valid email address (required when preferredContact is Email).",
+    "- `avatarUrl`: absolute https URL to a square profile image.",
+  ];
 
   return lines.join("\n");
 }

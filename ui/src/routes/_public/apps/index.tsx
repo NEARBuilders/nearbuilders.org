@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useApiClient } from "@/app";
 import { BackButton, Badge, Button, CommandCopy } from "@/components";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { pageHead } from "@/lib/page-meta";
 
 const PAGE_SIZE = 48;
@@ -153,96 +153,91 @@ function AppsIndex() {
   const totalApps = statusQuery.data?.discoveredApps;
 
   return (
-    <TooltipProvider>
-      <div className="flex h-full flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
-          <div className="flex shrink-0 items-center gap-2">
-            <h1 className="text-xl font-semibold text-foreground">Apps</h1>
-            {totalApps !== undefined && (
-              <Badge variant="secondary" className="font-mono">
-                {totalApps}
-              </Badge>
-            )}
-          </div>
-
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {canGoBack && <BackButton onClick={() => router.history.back()} />}
-
-            <form
-              onSubmit={handleAddressNavigate}
-              className="flex min-w-0 flex-1 items-center gap-2"
-            >
-              <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-md border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 ease-out focus-within:shadow-md">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex h-full shrink-0 items-center border-r-2 border-border-strong bg-muted px-3 text-2xs font-bold font-mono text-muted-foreground select-none">
-                      bos://
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p className="text-xs">
-                      Navigate to a published runtime by its canonical bos:// address. Format:{" "}
-                      <code>account/gateway</code>
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-                <input
-                  type="text"
-                  value={addressInput}
-                  onChange={(e) => setAddressInput(e.target.value)}
-                  placeholder="dev.everything.near/everything.dev"
-                  className="min-w-0 flex-1 bg-transparent px-3 py-2 text-xs font-mono text-foreground outline-none placeholder:text-muted-foreground"
-                  aria-label="bos:// address"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                variant="outline"
-                size="icon-sm"
-                disabled={!addressInput.trim()}
-                aria-label="Navigate"
-                // oxlint-disable-next-line shadcn/no-arbitrary-values -- 10px sits deliberately between rounded-sm (8px) and rounded-md (12px); neither scale step matches
-                className="shrink-0 rounded-[10px] border-2 border-outset border-border-strong shadow-sm hover:shadow-md"
-              >
-                <ArrowRight size={14} />
-              </Button>
-            </form>
-          </div>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6 sm:py-3">
+        <div className="flex shrink-0 items-center gap-2">
+          <h1 className="text-xl font-semibold text-foreground">Apps</h1>
+          {totalApps !== undefined && (
+            <Badge variant="secondary" className="font-mono">
+              {totalApps}
+            </Badge>
+          )}
         </div>
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex flex-col overflow-hidden border-r border-border w-full lg:w-90 lg:shrink-0">
-            <AppList
-              apps={apps}
-              isLoading={isLoading}
-              selectedKey={previewApp ? `${previewApp.accountId}/${previewApp.gatewayId}` : null}
-              onSelect={handleSelect}
-              onMobileTap={handleMobileTap}
-              sentinelRef={sentinelRef}
-              isFetchingNextPage={isFetchingNextPage}
-            />
-          </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {canGoBack && <BackButton onClick={() => router.history.back()} />}
 
-          <div className="hidden lg:flex flex-1 flex-col overflow-y-auto bg-muted">
-            {previewApp ? (
-              <AppPreview
-                app={previewApp}
-                detail={previewDetailQuery.data?.data ?? null}
-                isLoadingDetail={previewDetailQuery.isLoading}
+          <form onSubmit={handleAddressNavigate} className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-md border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 ease-out focus-within:shadow-md">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex h-full shrink-0 items-center border-r-2 border-border-strong bg-muted px-3 text-2xs font-bold font-mono text-muted-foreground select-none">
+                    bos://
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="text-xs">
+                    Navigate to a published runtime by its canonical bos:// address. Format:{" "}
+                    <code>account/gateway</code>
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <input
+                type="text"
+                value={addressInput}
+                onChange={(e) => setAddressInput(e.target.value)}
+                placeholder="dev.everything.near/everything.dev"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-xs font-mono text-foreground outline-none placeholder:text-muted-foreground"
+                aria-label="bos:// address"
               />
-            ) : (
-              <div className="flex flex-1 h-full items-center justify-center text-muted-foreground">
-                <div className="text-center space-y-2 py-16">
-                  <Globe size={28} className="mx-auto text-border" />
-                  <p className="text-sm">Select an app to preview</p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="outline"
+              size="icon-sm"
+              disabled={!addressInput.trim()}
+              aria-label="Navigate"
+              // oxlint-disable-next-line shadcn/no-arbitrary-values -- 10px sits deliberately between rounded-sm (8px) and rounded-md (12px); neither scale step matches
+              className="shrink-0 rounded-[10px] border-2 border-outset border-border-strong shadow-sm hover:shadow-md"
+            >
+              <ArrowRight size={14} />
+            </Button>
+          </form>
         </div>
       </div>
-    </TooltipProvider>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex flex-col overflow-hidden border-r border-border w-full lg:w-90 lg:shrink-0">
+          <AppList
+            apps={apps}
+            isLoading={isLoading}
+            selectedKey={previewApp ? `${previewApp.accountId}/${previewApp.gatewayId}` : null}
+            onSelect={handleSelect}
+            onMobileTap={handleMobileTap}
+            sentinelRef={sentinelRef}
+            isFetchingNextPage={isFetchingNextPage}
+          />
+        </div>
+
+        <div className="hidden lg:flex flex-1 flex-col overflow-y-auto bg-muted">
+          {previewApp ? (
+            <AppPreview
+              app={previewApp}
+              detail={previewDetailQuery.data?.data ?? null}
+              isLoadingDetail={previewDetailQuery.isLoading}
+            />
+          ) : (
+            <div className="flex flex-1 h-full items-center justify-center text-muted-foreground">
+              <div className="text-center space-y-2 py-16">
+                <Globe size={28} className="mx-auto text-border" />
+                <p className="text-sm">Select an app to preview</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

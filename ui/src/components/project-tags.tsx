@@ -4,7 +4,7 @@ import { useApiClient } from "@/app";
 import type { ProjectDirectoryItem, ProjectKind } from "@/components/project-directory-item";
 import { Badge } from "@/components/ui/badge";
 import { NewBadge } from "@/components/ui/new-badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { catalogListingsQueryOptions, findCatalogListing } from "@/lib/catalog-listing";
 import { cn } from "@/lib/utils";
 
@@ -91,20 +91,18 @@ export function CatalogListedBadge({
   const href = linked && published ? listing.catalogUrl : null;
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {href ? (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0">
-              {badge}
-            </a>
-          ) : (
-            <span className="shrink-0">{badge}</span>
-          )}
-        </TooltipTrigger>
-        <TooltipContent className="max-w-64">{description}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0">
+            {badge}
+          </a>
+        ) : (
+          <span className="shrink-0">{badge}</span>
+        )}
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64">{description}</TooltipContent>
+    </Tooltip>
   );
 }
 

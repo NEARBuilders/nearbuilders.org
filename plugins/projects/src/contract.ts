@@ -105,6 +105,89 @@ const collaboratorSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const programTypeEnum = z.enum([
+  "credits",
+  "grant",
+  "bounty",
+  "api-access",
+  "accelerator",
+  "hackathon",
+]);
+export const programStatusEnum = z.enum(["draft", "listed", "paused", "archived"]);
+export const programTopicEnum = z.enum(["smart-contracts", "private-cloud", "agentic-commerce"]);
+export const programStateEnum = z.enum(["upcoming", "open", "closed"]);
+
+export function isProgramCtaUrl(value: string) {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 0x20 || code === 0x7f || char === "\\") return false;
+  }
+  if (value.startsWith("/")) return !value.startsWith("//");
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const programCtaUrl = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine(isProgramCtaUrl, { message: "CTA URL must be an https URL or a path starting with /" });
+
+const optionalProgramText = (max: number) => z.string().trim().max(max).nullable().optional();
+
+const programProjectSchema = z.object({
+  id: z.string(),
+  kind: kindEnum,
+  slug: z.string(),
+  title: z.string(),
+  ownerId: z.string(),
+  logoUrl: z.string().nullable(),
+});
+
+const programSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  type: programTypeEnum,
+  title: z.string(),
+  summary: z.string().nullable(),
+  rewards: z.string().nullable(),
+  eligibility: z.string().nullable(),
+  ctaLabel: z.string(),
+  ctaUrl: z.string(),
+  topicId: programTopicEnum.nullable(),
+  opensAt: z.iso.datetime().nullable(),
+  closesAt: z.iso.datetime().nullable(),
+  sortOrder: z.number().int(),
+  state: programStateEnum,
+  project: programProjectSchema,
+});
+
+const adminProgramSchema = programSchema.extend({
+  status: programStatusEnum,
+  createdBy: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+const programFieldsInput = z.object({
+  type: programTypeEnum,
+  title: z.string().trim().min(1).max(120),
+  summary: optionalProgramText(500),
+  rewards: optionalProgramText(200),
+  eligibility: optionalProgramText(200),
+  ctaLabel: z.string().trim().min(1).max(40),
+  ctaUrl: programCtaUrl,
+  topicId: programTopicEnum.nullable().optional(),
+  opensAt: z.iso.datetime().nullable().optional(),
+  closesAt: z.iso.datetime().nullable().optional(),
+  status: programStatusEnum.optional(),
+  sortOrder: z.number().int().min(-10_000).max(10_000).optional(),
+});
+
 export const contract = oc.router({
   listProjects: oc
     .route({ method: "GET", path: "/v1/projects" })
@@ -397,6 +480,39 @@ export const contract = oc.router({
       }),
     )
     .errors({ UNAUTHORIZED }),
+  listPrograms: oc
+    .route({ method: "GET", path: "/v1/programs" })
+    .input(z.object({ topicId: programTopicEnum.optional() }))
+    .output(z.object({ data: z.array(programSchema) })),
+
+  getProjectPrograms: oc
+    .route({ method: "GET", path: "/v1/projects/{projectId}/programs" })
+    .input(z.object({ projectId: z.string().min(1) }))
+    .output(z.object({ data: z.array(programSchema) })),
+
+  adminListPrograms: oc
+    .route({ method: "GET", path: "/v1/admin/programs" })
+    .input(z.object({ projectId: z.string().min(1).optional() }))
+    .output(z.object({ data: z.array(adminProgramSchema) }))
+    .errors({ UNAUTHORIZED, FORBIDDEN }),
+
+  createProgram: oc
+    .route({ method: "POST", path: "/v1/admin/programs" })
+    .input(programFieldsInput.extend({ projectId: z.string().min(1) }))
+    .output(adminProgramSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  updateProgram: oc
+    .route({ method: "PATCH", path: "/v1/admin/programs/{id}" })
+    .input(programFieldsInput.partial().extend({ id: z.string().min(1) }))
+    .output(adminProgramSchema)
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
+  reorderPrograms: oc
+    .route({ method: "POST", path: "/v1/admin/programs/reorder" })
+    .input(z.object({ ids: z.array(z.string().min(1)).min(1).max(200) }))
+    .output(z.object({ updated: z.number().int().nonnegative() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
 });
 
 export type ContractType = typeof contract;

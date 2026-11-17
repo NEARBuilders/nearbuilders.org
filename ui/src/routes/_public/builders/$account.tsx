@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
 import {
   getNearSocialAvatarUrl,
@@ -575,12 +574,10 @@ function LoadedProfile({
               <ContributedProjects nearAccount={account} />
             </TabsContent>
             <TabsContent value="activity" className="mt-5">
-              <TooltipProvider>
-                <ActivityFeed
-                  filters={activityFilters}
-                  emptyHint={`${displayName} has no activity yet.`}
-                />
-              </TooltipProvider>
+              <ActivityFeed
+                filters={activityFilters}
+                emptyHint={`${displayName} has no activity yet.`}
+              />
             </TabsContent>
           </Tabs>
         </main>

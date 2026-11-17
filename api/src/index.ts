@@ -28,6 +28,10 @@ import {
   isSystemActor,
   toCatalogListingSend,
 } from "./services/catalog-listings";
+import {
+  createProjectFeedbackClient,
+  type ProjectFeedbackClient,
+} from "./services/project-feedback";
 import { createProposalActivity } from "./services/proposal-activity";
 import { createProposalNotifications } from "./services/proposal-notifications";
 import {
@@ -170,6 +174,7 @@ class ApiServices extends EffectContext.Service<
     reviewEvaluation: ReturnType<typeof createReviewEvaluationSweep>;
     chiefBotUsername: string;
     requireAdminApproval: boolean;
+    projectFeedback: ProjectFeedbackClient;
   }
 >()("api/ApiServices") {}
 
@@ -200,6 +205,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       .string()
       .regex(/^[A-Za-z0-9_]*$/)
       .default(""),
+    feedbackBaseUrl: z.string().url().default("https://feedback.nearbuilders.org"),
   }),
 
   secrets: z.object({
@@ -253,6 +259,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
               reviewEvaluation,
               chiefBotUsername: config.variables.chiefBotUsername,
               requireAdminApproval,
+              projectFeedback: createProjectFeedbackClient({
+                client: restPlugins.feedback?.(),
+                feedbackBaseUrl: config.variables.feedbackBaseUrl,
+              }),
             };
           }),
           (services) =>
@@ -1154,6 +1164,13 @@ export default createPlugin.withPlugins<PluginEntries>()({
 
       getProjectActivity: builder.getProjectActivity.handler(async ({ input }) => {
         return await services.plugins.activity().getProjectActivity(input);
+      }),
+
+      getProjectFeedback: builder.getProjectFeedback.handler(async ({ input, context }) => {
+        const { data: project } = await services.plugins
+          .projects(context)
+          .getProject({ id: input.projectId });
+        return await apiServices(context).projectFeedback.lookup(project.slug);
       }),
 
       getProjectActivityEvents: builder.getProjectActivityEvents.handler(async ({ input }) => {

@@ -122,6 +122,7 @@ function EditForm({
     queryClient.invalidateQueries({ queryKey: ["builder", account] });
     queryClient.invalidateQueries({ queryKey: ["builders"] });
     queryClient.invalidateQueries({ queryKey: ["my-builder-profile"] });
+    queryClient.invalidateQueries({ queryKey: ["credit-status"] });
   };
 
   const withdrawMutation = useMutation({
