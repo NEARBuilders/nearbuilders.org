@@ -269,6 +269,9 @@ describe("NEAR Catalog listing approval", { timeout: 20_000 }, () => {
         },
         notifications: () => ({ createNotification }),
         projects: () => ({
+          listProjects: async ({ ownerId }: { ownerId?: string }) => ({
+            data: [...projects.values()].filter((project) => project.ownerId === ownerId),
+          }),
           getProject: async ({ id }: { id: string }) => {
             const project = projects.get(id);
             if (!project)
@@ -806,6 +809,23 @@ describe("NEAR Catalog listing approval", { timeout: 20_000 }, () => {
       expect(requests[0]?.body.contact_info).toBe("team@nearbuilders.example");
       const sends = await api.client(admin()).listCatalogListingSends();
       expect(sends.data[0]).toMatchObject({ sendStatus: "sent", teamContact: false });
+    });
+
+    it("resends a project with its next public contact when its owner withdraws their profile", async () => {
+      const { requests, submitFetch } = catalogApi();
+      const api = await loadApi({ submitFetch });
+      await api.client(owner()).submitCatalogListing({ kind: "project", projectId: "project-1" });
+      await approveProject(api);
+
+      await api.client(owner()).withdrawMyBuilderProfile({});
+
+      expect(requests.map((request) => request.body.contact_info)).toEqual([
+        "https://t.me/robinmaker",
+        "https://x.com/lanternpay",
+      ]);
+      expect((await api.listing("project", "project-1"))?.record?.contact).toBe(
+        "https://x.com/lanternpay",
+      );
     });
 
     it("resubmits small edits, waits on big edits until re-approved, then resubmits", async () => {
