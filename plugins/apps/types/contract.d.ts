@@ -1,6 +1,7 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const contract: {
-    listRegistryApps: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    listRegistryApps: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         q: z.ZodOptional<z.ZodString>;
         parent: z.ZodOptional<z.ZodString>;
         root: z.ZodOptional<z.ZodString>;
@@ -25,8 +26,8 @@ export declare const contract: {
             root: z.ZodNullable<z.ZodString>;
             depth: z.ZodNumber;
             status: z.ZodEnum<{
-                ready: "ready";
                 invalid: "invalid";
+                ready: "ready";
             }>;
             metadata: z.ZodNullable<z.ZodObject<{
                 claimedBy: z.ZodNullable<z.ZodString>;
@@ -43,7 +44,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -55,8 +56,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getRegistryAppsByAccount: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getRegistryAppsByAccount: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         accountId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodArray<z.ZodObject<{
@@ -76,8 +77,8 @@ export declare const contract: {
             root: z.ZodNullable<z.ZodString>;
             depth: z.ZodNumber;
             status: z.ZodEnum<{
-                ready: "ready";
                 invalid: "invalid";
+                ready: "ready";
             }>;
             metadata: z.ZodNullable<z.ZodObject<{
                 claimedBy: z.ZodNullable<z.ZodString>;
@@ -94,7 +95,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         NOT_FOUND: {
             readonly status: 404;
             readonly data: z.ZodObject<{
@@ -102,8 +103,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getRegistryApp: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getRegistryApp: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         accountId: z.ZodString;
         gatewayId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
@@ -124,8 +125,8 @@ export declare const contract: {
             root: z.ZodNullable<z.ZodString>;
             depth: z.ZodNumber;
             status: z.ZodEnum<{
-                ready: "ready";
                 invalid: "invalid";
+                ready: "ready";
             }>;
             metadata: z.ZodNullable<z.ZodObject<{
                 claimedBy: z.ZodNullable<z.ZodString>;
@@ -142,7 +143,7 @@ export declare const contract: {
             extendsChain: z.ZodArray<z.ZodString>;
             resolvedConfig: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         NOT_FOUND: {
             readonly status: 404;
             readonly data: z.ZodObject<{
@@ -150,8 +151,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getRegistryAppByHost: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getRegistryAppByHost: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         hostUrl: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -171,8 +172,8 @@ export declare const contract: {
             root: z.ZodNullable<z.ZodString>;
             depth: z.ZodNumber;
             status: z.ZodEnum<{
-                ready: "ready";
                 invalid: "invalid";
+                ready: "ready";
             }>;
             metadata: z.ZodNullable<z.ZodObject<{
                 claimedBy: z.ZodNullable<z.ZodString>;
@@ -189,7 +190,7 @@ export declare const contract: {
             extendsChain: z.ZodArray<z.ZodString>;
             resolvedConfig: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         NOT_FOUND: {
             readonly status: 404;
             readonly data: z.ZodObject<{
@@ -197,16 +198,16 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getRegistryStatus: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, z.ZodObject<{
+    }>;
+    getRegistryStatus: import("@orpc/contract").ProcedureContract<import("@orpc/contract").InitialInputSchema, z.ZodObject<{
         discoveredApps: z.ZodNumber;
         metadataContractId: z.ZodString;
         metadataFastKvUrl: z.ZodString;
         relayEnabled: z.ZodBoolean;
         relayAccountId: z.ZodNullable<z.ZodString>;
         timestamp: z.ZodISODateTime;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    prepareRegistryMetadataWrite: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }, z.core.$strip>, object>;
+    prepareRegistryMetadataWrite: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         accountId: z.ZodString;
         gatewayId: z.ZodString;
         claimedBy: z.ZodString;
@@ -233,7 +234,7 @@ export declare const contract: {
             gas: z.ZodString;
             attachedDeposit: z.ZodString;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -245,8 +246,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    relayRegistryMetadataWrite: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    relayRegistryMetadataWrite: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         payload: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -254,7 +255,7 @@ export declare const contract: {
             relayerAccountId: z.ZodString;
             senderId: z.ZodString;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -285,12 +286,12 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    kvGet: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    kvGet: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         path: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodNullable<z.ZodUnknown>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         NOT_FOUND: {
             readonly status: 404;
             readonly data: z.ZodObject<{
@@ -298,8 +299,8 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    kvList: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    kvList: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         prefix: z.ZodString;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
@@ -317,7 +318,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -329,8 +330,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    kvPrepareWrite: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    kvPrepareWrite: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entries: z.ZodArray<z.ZodObject<{
             path: z.ZodString;
             value: z.ZodUnknown;
@@ -343,7 +344,7 @@ export declare const contract: {
             gas: z.ZodString;
             attachedDeposit: z.ZodString;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -355,8 +356,8 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    kvRelayWrite: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    kvRelayWrite: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         payload: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -364,7 +365,7 @@ export declare const contract: {
             relayerAccountId: z.ZodString;
             senderId: z.ZodString;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         BAD_REQUEST: {
             readonly status: 400;
             readonly data: z.ZodObject<{
@@ -395,6 +396,6 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
+    }>;
 };
 export type ContractType = typeof contract;

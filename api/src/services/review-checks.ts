@@ -49,6 +49,7 @@ const SOURCE_LABELS: Record<string, string> = {
   telegram: "Nominated via Telegram",
   x: "Nominated via X",
   "nearcatalog-claim": "NEAR Catalog claim",
+  "nearcatalog-listing": "NEAR Catalog listing",
 };
 
 export function describeSource(source: string | null | undefined): string | null {
@@ -371,6 +372,21 @@ async function catalogClaimChecks(subject: ReviewSubject, deps: CheckDependencie
   ];
 }
 
+function catalogListingChecks(subject: ReviewSubject) {
+  const payload = readPayload(subject.payload);
+  const record = readPayload(payload.record);
+  const required =
+    payload.kind === "person"
+      ? ["name", "preferredContact", "description"]
+      : ["title", "oneliner", "description", "logo"];
+  const missing = required.filter((field) => !readString(record[field]));
+  return [
+    missing.length === 0
+      ? check("catalog_fields", "Required NEAR Catalog fields", "pass")
+      : check("catalog_fields", "Required NEAR Catalog fields", "fail", missing.join(", ")),
+  ];
+}
+
 async function queueChecks(
   subject: ReviewSubject,
   deps: CheckDependencies,
@@ -384,6 +400,8 @@ async function queueChecks(
       return await eventChecks(subject, deps);
     case "nearcatalog":
       return await catalogClaimChecks(subject, deps);
+    case "nearcatalog-listing":
+      return catalogListingChecks(subject);
     default:
       return [];
   }

@@ -1,4 +1,4 @@
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 
 /**
  * Responses from activity.nearbuilders.org's public API. Activity's contract is not published as a

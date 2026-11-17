@@ -1,5 +1,5 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { ORPCError } from "every-plugin/orpc";
 import type { Database } from "../db";
 import { builderNominations, builders, builderXIdentities } from "../db/schema";
 import { buildJoinUrl, createNominationToken, hasMatchingTokenHash } from "./nominations";

@@ -1,18 +1,25 @@
+import { Context, Effect, Layer } from "effect";
 import { PluginIdTag } from "every-plugin";
-import { Context, Effect, Layer } from "every-plugin/effect";
 import { getMigrationStorage, pluginMigrationSlug } from "everything-dev/db";
 import { createDatabaseDriver, type Database, DatabaseError } from "./index";
 import { detectDrift, loadMigrations, migrate } from "./migrate";
 
-export class DatabaseTag extends Context.Tag("Database")<Database, Database>() {}
+export class DatabaseTag extends Context.Service<DatabaseTag, Database>()("Database") {}
 
 export const DatabaseLive = (url: string) =>
-  Layer.scoped(
+  Layer.effect(
     DatabaseTag,
     Effect.gen(function* () {
+      const pluginId = yield* PluginIdTag;
+      const slug = pluginMigrationSlug(pluginId);
+      // The api keeps the public-schema topology (what `bos db doctor` checks,
+      // the drizzle-kit config targets, and every v1-upgraded database already
+      // has); plugins scope into plugin_<slug> on the shared database.
+      const schemaName = slug === "api" ? undefined : `plugin_${slug}`;
+
       const driver = yield* Effect.acquireRelease(
         Effect.tryPromise({
-          try: () => createDatabaseDriver(url),
+          try: () => createDatabaseDriver(url, schemaName),
           catch: (cause) => new DatabaseError({ stage: "driver", cause }),
         }),
         (driver) =>
@@ -22,16 +29,15 @@ export const DatabaseLive = (url: string) =>
           }).pipe(Effect.ignore),
       );
 
-      const pluginId = yield* PluginIdTag;
-      const storage = getMigrationStorage(pluginMigrationSlug(pluginId));
-      const { migrations, source } = yield* loadMigrations();
+      const storage = getMigrationStorage(slug);
+      const { migrations, source } = yield* loadMigrations;
 
       if (migrations.length === 0) {
         yield* Effect.logWarning(
           `[Database] No migrations found (source: ${source}) — schema may be missing`,
         );
       } else {
-        const applied = yield* migrate(driver.db, migrations, storage);
+        const applied = yield* migrate(driver.db, migrations, storage, schemaName);
 
         if (applied === 0) {
           yield* Effect.logInfo(
@@ -39,11 +45,11 @@ export const DatabaseLive = (url: string) =>
           );
         } else {
           yield* Effect.logInfo(
-            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table})`,
+            `[Database] Applied ${applied}/${migrations.length} migration(s) (source: ${source}, journal: ${storage.schema}.${storage.table}, schema: ${schemaName ?? "public"})`,
           );
         }
 
-        const drift = yield* detectDrift(driver.db, migrations, storage);
+        const drift = yield* detectDrift(driver.db, migrations, storage, schemaName);
         if (drift.status === "healthy" || drift.status === "untracked-existing-schema") {
           yield* Effect.logInfo(`[Database] Ready`);
         } else if (drift.status === "drift-safe-repair") {
@@ -53,7 +59,7 @@ export const DatabaseLive = (url: string) =>
           yield* Effect.logWarning(
             `[Database] Run \`bos db doctor ${storage.slug}\` to diagnose and \`bos db repair ${storage.slug}\` to fix.`,
           );
-          throw new DatabaseError({
+          return yield* new DatabaseError({
             stage: "migration",
             migrationTag: "drift-safe-repair",
             cause: new Error(
@@ -67,7 +73,7 @@ export const DatabaseLive = (url: string) =>
           yield* Effect.logWarning(
             `[Database] ⚠️ Partial migration drift detected: ${drift.missingTables.length}/${drift.expectedTables.length} expected table(s) missing.`,
           );
-          throw new DatabaseError({
+          return yield* new DatabaseError({
             stage: "migration",
             migrationTag: "drift-manual",
             cause: new Error(

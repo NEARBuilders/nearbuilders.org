@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, ilike, inArray, lte, notInArray, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import {
   proposalAuditLog,
@@ -139,9 +139,14 @@ async function appendAudit(
   });
 }
 
-export class ProposalService extends Context.Tag("proposals/ProposalService")<
+export class ProposalService extends Context.Service<
   ProposalService,
   {
+    /**
+     * Re-keys rows the caller owns under their auth user id onto their primary NEAR account
+     * (#366), so they survive the shared auth DB reissuing user ids. Idempotent.
+     */
+    claimUserIdRows: (userId: string, ownerId: string) => Effect.Effect<void>;
     propose: (input: {
       pluginId: string;
       entityId: string;
@@ -150,8 +155,11 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       metadata?: unknown;
       idempotencyKey?: string;
       actorId: string;
+      /** The caller's auth user id, if a row made before they linked NEAR still holds it. */
+      alternateActorId?: string;
       actor?: { name?: string; email?: string };
       resubmissionPolicy?: ResubmissionPolicy;
+      canResubmitForOthers?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     approve: (input: {
       pluginId: string;
@@ -229,7 +237,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       limit?: number;
       cursor?: string;
       privatePluginIds?: string[];
-      viewerId?: string;
+      viewerIds?: string[];
       isAdmin?: boolean;
     }) => Effect.Effect<any, ORPCError<string, unknown>>;
     getProposalCount: (input: {
@@ -283,6 +291,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
     createTelegramLinkCode: (input: {
       codeHash: string;
       userId: string;
+      nearAccount?: string | null;
       userLabel: string;
       ttlMs: number;
     }) => Effect.Effect<{ expiresAt: string }, ORPCError<string, unknown>>;
@@ -300,7 +309,7 @@ export class ProposalService extends Context.Tag("proposals/ProposalService")<
       telegramId: number;
     }) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
   }
->() {}
+>()("proposals/ProposalService") {}
 
 function isUniqueViolation(error: unknown): boolean {
   let current: unknown = error;
@@ -317,6 +326,7 @@ function telegramReviewerRecord(row: any) {
     telegramUsername: row.telegramUsername ?? null,
     telegramName: row.telegramName ?? null,
     userId: row.userId,
+    nearAccount: row.nearAccount ?? null,
     userLabel: row.userLabel,
     linkedAt: toIsoString(row.linkedAt)!,
   };
@@ -347,6 +357,20 @@ export const ProposalServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
+      claimUserIdRows: (userId, ownerId) =>
+        Effect.promise(() =>
+          db.transaction(async (tx: any) => {
+            await tx
+              .update(proposals)
+              .set({ createdBy: ownerId })
+              .where(eq(proposals.createdBy, userId));
+            await tx
+              .update(proposalSubmissions)
+              .set({ submittedBy: ownerId })
+              .where(eq(proposalSubmissions.submittedBy, userId));
+          }),
+        ),
+
       propose: (input) =>
         Effect.gen(function* () {
           const idempotencyKey = input.idempotencyKey;
@@ -407,6 +431,20 @@ export const ProposalServiceLive = Layer.effect(
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
                 message: "A lifecycle action is already in progress",
+              }),
+            );
+          }
+
+          if (
+            existing &&
+            existing.createdBy !== input.actorId &&
+            existing.createdBy !== input.alternateActorId &&
+            !input.resubmissionPolicy &&
+            !input.canResubmitForOthers
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("FORBIDDEN", {
+                message: "Only the original submitter can resubmit this proposal",
               }),
             );
           }
@@ -1197,12 +1235,12 @@ export const ProposalServiceLive = Layer.effect(
           if (!input.isAdmin && privatePluginIds.length > 0) {
             const publicProposal = notInArray(proposals.pluginId, privatePluginIds);
             conditions.push(
-              input.viewerId
+              input.viewerIds?.length
                 ? or(
                     publicProposal,
                     and(
                       inArray(proposals.pluginId, privatePluginIds),
-                      eq(proposals.createdBy, input.viewerId),
+                      inArray(proposals.createdBy, input.viewerIds),
                     ),
                   )
                 : publicProposal,
@@ -1493,6 +1531,7 @@ export const ProposalServiceLive = Layer.effect(
               await tx.insert(telegramLinkCodes).values({
                 codeHash: input.codeHash,
                 userId: input.userId,
+                nearAccount: input.nearAccount ?? null,
                 userLabel: input.userLabel,
                 expiresAt,
               });
@@ -1526,6 +1565,7 @@ export const ProposalServiceLive = Layer.effect(
                     telegramUsername: input.telegramUsername,
                     telegramName: input.telegramName,
                     userId: code.userId,
+                    nearAccount: code.nearAccount ?? null,
                     userLabel: code.userLabel,
                     linkedAt: new Date(),
                   })

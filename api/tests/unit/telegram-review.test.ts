@@ -70,6 +70,22 @@ const BASE = {
 };
 
 describe("telegramReviewerContext", () => {
+  it("acts as the linked admin's NEAR account when one is stored (#329)", () => {
+    const context = telegramReviewerContext(
+      { apiKey: { id: "bot-key" }, near: { primaryAccountId: "bot-owner.near" } } as never,
+      { ...REVIEWER, nearAccount: "admin.near" },
+    );
+    expect(context).toMatchObject({
+      apiKey: undefined,
+      userId: "user-admin",
+      near: {
+        primaryAccountId: "admin.near",
+        linkedAccounts: [{ accountId: "admin.near", isPrimary: true }],
+        hasNearAccount: true,
+      },
+    });
+  });
+
   it("acts as the linked admin without the bot's API key", () => {
     const context = telegramReviewerContext(
       {

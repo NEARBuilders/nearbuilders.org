@@ -1,0 +1,1 @@
+ALTER TABLE "credit_claims" ALTER COLUMN "key_expires_at" DROP NOT NULL;

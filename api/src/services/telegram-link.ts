@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { evaluatorContext } from "./review-context";
 
 export const TELEGRAM_LINK_TTL_MS = 10 * 60 * 1000;
@@ -37,6 +37,7 @@ export async function createTelegramLinkCode(
   const { expiresAt } = await plugins.proposals(evaluatorContext).createTelegramLinkCode({
     codeHash: hashLinkCode(code),
     userId: context.userId,
+    nearAccount: context.near?.primaryAccountId ?? null,
     userLabel: reviewerLabel(context),
     ttlMs: TELEGRAM_LINK_TTL_MS,
   });

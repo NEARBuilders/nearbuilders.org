@@ -1,0 +1,122 @@
+{
+  "near": {
+    "secret": "ed25519:2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSdZd8hbDHTd21as7EAsg7ypityqfsw2pMQKJcVDVcAEsd",
+    "public_key": "ed25519:9C6hybhQ6Aycep9jaUnP6uL9ZYvDjUp1aSkFWPUFJtpj",
+    "account_id": "owner.near"
+  },
+  "nep413": {
+    "payload": {
+      "message": "{\"purpose\":\"grant_issue\",\"x\":\"ü\"}",
+      "recipient": "api.example.near",
+      "nonce": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    },
+    "signature_b64": "kRPuoOdP8ZZ98mIhp8OUPlgePp2QKGXFpipHRPEl6tRUs7f+OOSrRYHVcEuzB8v8QbxspB3MPV9B2dMCdS8VCg=="
+  },
+  "nep366": {
+    "payload": {
+      "receiverId": "outlayer.near",
+      "actions": [
+        {
+          "type": "FunctionCall",
+          "params": {
+            "methodName": "set_policy",
+            "args": {
+              "z": 1,
+              "a": {
+                "b": "c",
+                "list": [
+                  1,
+                  "two"
+                ]
+              },
+              "uni": "é"
+            },
+            "gas": "100000000000000",
+            "deposit": "0"
+          }
+        },
+        {
+          "type": "FunctionCall",
+          "params": {
+            "methodName": "freeze_wallet",
+            "args": {},
+            "gas": "30000000000000",
+            "deposit": "1"
+          }
+        }
+      ]
+    },
+    "access_key_nonce": "123456789",
+    "block_height": "987654321",
+    "encoded_hex": "6e0100400a0000006f776e65722e6e6561720d0000006f75746c617965722e6e65617202000000020a0000007365745f706f6c696379310000007b227a223a312c2261223a7b2262223a2263222c226c697374223a5b312c2274776f225d7d2c22756e69223a22c3a9227d00407a10f35a000000000000000000000000000000000000020d000000667265657a655f77616c6c6574020000007b7d00e057eb481b00000100000000000000000000000000000016cd5b07000000002969de3a000000000079b5562e8fe654f94078b112e8a98ba7901f853ae695bed7e0e3910bad049664",
+    "signed_delegate": "CgAAAG93bmVyLm5lYXINAAAAb3V0bGF5ZXIubmVhcgIAAAACCgAAAHNldF9wb2xpY3kxAAAAeyJ6IjoxLCJhIjp7ImIiOiJjIiwibGlzdCI6WzEsInR3byJdfSwidW5pIjoiw6kifQBAehDzWgAAAAAAAAAAAAAAAAAAAAAAAAINAAAAZnJlZXplX3dhbGxldAIAAAB7fQDgV+tIGwAAAQAAAAAAAAAAAAAAAAAAABbNWwcAAAAAKWneOgAAAAAAebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQATwCh7bJVOnxWKroYQQ8wdIfg7Pp8q1bGZD4KHFl0EGYJwoij7o7PjMVEUjPKcUYcngqx7dcJRm3ULIdczVCpDg=="
+  },
+  "eip712": {
+    "private_key": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "address": "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
+    "public_key": "0x4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa385b6b1b8ead809ca67454d9683fcf2ba03456d6fe2c4abe2b07f0fbdbb2f1c1",
+    "payload": {
+      "types": {
+        "EIP712Domain": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "version",
+            "type": "string"
+          }
+        ],
+        "WalletMessage": [
+          {
+            "name": "chainId",
+            "type": "string"
+          },
+          {
+            "name": "signerId",
+            "type": "string"
+          },
+          {
+            "name": "nonce",
+            "type": "uint32"
+          },
+          {
+            "name": "createdAt",
+            "type": "string"
+          },
+          {
+            "name": "timeoutSecs",
+            "type": "uint32"
+          },
+          {
+            "name": "ops",
+            "type": "string"
+          },
+          {
+            "name": "out",
+            "type": "string"
+          }
+        ]
+      },
+      "primaryType": "WalletMessage",
+      "domain": {
+        "name": "NEAR Wallet Contract",
+        "version": "1"
+      },
+      "message": {
+        "chainId": "mainnet",
+        "signerId": "0s1234.near",
+        "nonce": 42,
+        "createdAt": "2026-10-07T00:00:00.000Z",
+        "timeoutSecs": 300,
+        "ops": "[]",
+        "out": "{\"after\":[]}"
+      }
+    },
+    "signature": "0x011bb890ad576627ab6dbce119777912693a1bb16ef0dcd673d08198108cb5b245a4db114560088db56b209680788b4b5d02fcd933947b01912f59da6c1d62111c"
+  },
+  "grant": {
+    "token": "ngt_CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk",
+    "commitment": "d632d3d1f5df65812a61000fa4cca20cce14fe14a2e3fe5d3e6bab1a445fc43f"
+  }
+}

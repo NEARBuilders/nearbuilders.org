@@ -1,0 +1,1 @@
+ALTER TABLE "credit_claims" ALTER COLUMN "user_id" DROP NOT NULL;

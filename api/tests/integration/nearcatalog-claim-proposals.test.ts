@@ -1,6 +1,7 @@
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import ApiPlugin from "../../src/index";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 type ProposalRecord = {
   id: string;
@@ -32,6 +33,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -166,7 +168,7 @@ describe("Catalog claim proposal API", () => {
         variables: {},
         secrets: { API_DATABASE_URL: "pglite::memory:" },
       },
-      plugins as never,
+      asPluginEntries(plugins as never),
     );
   });
 

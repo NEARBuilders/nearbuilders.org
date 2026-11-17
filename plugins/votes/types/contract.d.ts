@@ -1,8 +1,9 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const VoteEventSchema: z.ZodObject<{
     type: z.ZodEnum<{
-        upvote: "upvote";
         downvote: "downvote";
+        upvote: "upvote";
     }>;
     entityId: z.ZodString;
     userId: z.ZodString;
@@ -10,13 +11,13 @@ export declare const VoteEventSchema: z.ZodObject<{
     totalCount: z.ZodNumber;
 }, z.core.$strip>;
 export declare const contract: {
-    upvote: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    upvote: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         userId: z.ZodString;
         totalCount: z.ZodNumber;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -40,13 +41,13 @@ export declare const contract: {
                 }, z.core.$strip>>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    downvote: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    downvote: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         totalCount: z.ZodNumber;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -66,19 +67,19 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getUpvoteCount: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getUpvoteCount: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         totalCount: z.ZodNumber;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    getUserVote: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }, z.core.$strip>, object>;
+    getUserVote: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         hasUpvote: z.ZodBoolean;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -91,13 +92,13 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getUserVotes: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getUserVotes: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityIds: z.ZodArray<z.ZodString>;
     }, z.core.$strip>, z.ZodRecord<z.ZodString, z.ZodObject<{
         entityId: z.ZodString;
         hasUpvote: z.ZodBoolean;
-    }, z.core.$strip>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -110,14 +111,14 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getUpvoteCounts: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getUpvoteCounts: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityIds: z.ZodArray<z.ZodString>;
     }, z.core.$strip>, z.ZodRecord<z.ZodString, z.ZodObject<{
         entityId: z.ZodString;
         totalCount: z.ZodNumber;
-    }, z.core.$strip>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    getUpvoteFeed: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }, z.core.$strip>>, object>;
+    getUpvoteFeed: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>, z.ZodObject<{
@@ -132,19 +133,19 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    subscribe: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, import("@orpc/contract").Schema<AsyncIteratorObject<{
-        type: "upvote" | "downvote";
+    }, z.core.$strip>, object>;
+    subscribe: import("@orpc/contract").ProcedureContract<import("@orpc/contract").InitialInputSchema, import("@orpc/contract").Schema<AsyncIteratorObject<{
+        type: "downvote" | "upvote";
         entityId: string;
         userId: string;
         timestamp: string;
         totalCount: number;
-    }, unknown, void>, import("@orpc/shared").AsyncIteratorClass<{
-        type: "upvote" | "downvote";
+    }, unknown, void>, import("@orpc/server").AsyncIteratorClass<{
+        type: "downvote" | "upvote";
         entityId: string;
         userId: string;
         timestamp: string;
         totalCount: number;
-    }, unknown, void>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
+    }, unknown, void>>, object>;
 };
 export type ContractType = typeof contract;

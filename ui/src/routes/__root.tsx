@@ -1,3 +1,5 @@
+import { AppI18nProvider } from "@/i18n/runtime";
+import { resolveSessionFromCache } from "@/lib/auth";
 /**
  * HTML shell — head/scripts/styles, runtime config handoff.
  * Root boundary between the host-rendered document and the UI application.
@@ -16,20 +18,25 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { getRemoteScripts } from "everything-dev/ui/head";
-import { getSocialImageMeta } from "everything-dev/ui/metadata";
+import {
+  getRemotePreloadLinks,
+  getRemoteScripts,
+  getThemeInitScript,
+} from "everything-dev/ui/head";
+import { MotionConfig } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import type { RouterContext } from "@/app";
 import { getBaseStyles } from "@/app";
 import { Toaster } from "@/components/ui/sonner";
 import { useMediaQuery } from "@/hooks";
 import { sessionQueryKey } from "@/lib/auth";
+import { rootOpenGraphMeta, siteMetadataImage } from "@/lib/page-meta";
 import { getSiteUrl } from "@/lib/site-url";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async ({ context }) => {
-    const session = context.session;
+    const session = resolveSessionFromCache(context.queryClient, context.session);
 
     return {
       runtimeConfig: context.runtimeConfig,
@@ -39,9 +46,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   },
   loader: async ({ context }) => {
     const { queryClient } = context;
-    const session = context.session;
+    const session = resolveSessionFromCache(queryClient, context.session);
 
-    if (session && queryClient) {
+    if (session !== undefined && queryClient) {
       queryClient.setQueryData(sessionQueryKey, session);
     }
 
@@ -77,11 +84,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { charSet: "utf-8" },
         {
           name: "viewport",
-          content: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+          content:
+            "width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content",
         },
         { title },
         { name: "description", content: description },
-        { name: "theme-color", content: "#f6f7f8" },
+        { name: "theme-color", content: "#f6f7f8", media: "(prefers-color-scheme: light)" },
+        { name: "theme-color", content: "#0d1520", media: "(prefers-color-scheme: dark)" },
         { name: "color-scheme", content: "light dark" },
         { name: "application-name", content: title },
         { name: "mobile-web-app-capable", content: "yes" },
@@ -91,16 +100,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         { name: "format-detection", content: "telephone=no" },
         { name: "robots", content: "index, follow" },
-        ...getSocialImageMeta({
-          imageUrl: siteUrl ? `${siteUrl}/metadata.png` : "/metadata.png",
+        ...rootOpenGraphMeta({
           title,
           description,
-          siteName: title,
-          siteUrl,
-          alt: description,
+          canonicalUrl,
+          imageUrl: siteMetadataImage(runtimeConfig),
         }),
       ],
       links: [
+        ...getRemotePreloadLinks(runtimeConfig ?? undefined),
         {
           rel: "stylesheet",
           href: `${assetsUrl ?? ""}/static/css/style.css${runtimeConfig?.ui?.integrity ? `?v=${encodeURIComponent(runtimeConfig.ui.integrity)}` : ""}`,
@@ -123,9 +131,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         ...(canonicalUrl ? [{ rel: "canonical", href: canonicalUrl }] : []),
       ],
       scripts: [
-        ...(typeof window === "undefined"
-          ? [{ children: "window.__EVERYTHING_DEV_SSR__=true" }]
-          : []),
+        getThemeInitScript(),
         ...getRemoteScripts({
           runtimeConfig: runtimeConfig ?? undefined,
           containerName: "ui",
@@ -146,7 +152,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootComponent() {
-  const { cspNonce } = Route.useRouteContext();
+  const { cspNonce, session } = Route.useRouteContext();
   const isDesktop = useMediaQuery("(min-width: 640px)");
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
@@ -155,12 +161,18 @@ function RootComponent() {
         <style nonce={cspNonce} dangerouslySetInnerHTML={{ __html: getBaseStyles() }} />
       </head>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
-          <div id="root">
-            <Outlet />
-          </div>
-          <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
-        </ThemeProvider>
+        <MotionConfig reducedMotion="user">
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
+            <div id="root">
+              <AppI18nProvider
+                preferredLocale={(session?.user as { locale?: string | null } | undefined)?.locale}
+              >
+                <Outlet />
+              </AppI18nProvider>
+            </div>
+            <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
+          </ThemeProvider>
+        </MotionConfig>
         <Scripts />
         {process.env.NODE_ENV === "development" && (
           <ClientOnly>

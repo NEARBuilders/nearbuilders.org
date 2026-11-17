@@ -1,8 +1,9 @@
+import { ORPCError } from "@orpc/server";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { projectApps, projectCollaborators, projectMentions, projects } from "../db/schema";
+import { normalizeProjectCatalog, type ProjectCatalogMetadata } from "./catalog-metadata";
 
 function toIsoString(value: Date | string | null | undefined): string {
   if (!value) return "";
@@ -147,6 +148,7 @@ export interface Project {
   repository: string | null;
   domain: string | null;
   logoUrl: string | null;
+  catalog: ProjectCatalogMetadata | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -237,11 +239,11 @@ const isProjectCollaborator = (
   projectId: string,
   statuses: CollaboratorStatus[],
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
 ) =>
   Effect.gen(function* () {
-    if (!userId && !alternateUserId) return false;
-    const ids = [userId, alternateUserId]
+    if (!userId && !alternateOwnerIds?.length) return false;
+    const ids = [userId, ...(alternateOwnerIds ?? [])]
       .filter(Boolean)
       .map((id) => (id as string).toLowerCase()) as string[];
     const rows = (yield* Effect.promise(() =>
@@ -264,12 +266,17 @@ const isAcceptedCollaborator = (
   db: any,
   projectId: string,
   userId?: string,
-  alternateUserId?: string,
-) => isProjectCollaborator(db, projectId, ["accepted"], userId, alternateUserId);
+  alternateOwnerIds?: readonly string[],
+) => isProjectCollaborator(db, projectId, ["accepted"], userId, alternateOwnerIds);
 
-export class ProjectService extends Context.Tag("projects/ProjectService")<
+export class ProjectService extends Context.Service<
   ProjectService,
   {
+    /**
+     * Re-keys rows the caller owns under their auth user id onto their primary NEAR account
+     * (#366), so they survive the shared auth DB reissuing user ids. Idempotent.
+     */
+    claimUserIdRows: (userId: string, ownerId: string) => Effect.Effect<void>;
     listProjects: (
       input: {
         organizationId?: string;
@@ -285,7 +292,7 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         cursor?: string;
       },
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
     ) => Effect.Effect<
       {
@@ -298,15 +305,17 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
     getProject: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     getProjectBySlug: (
       slug: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<ProjectDetail | null, ORPCError<string, unknown>>;
 
     createProject: (
@@ -323,11 +332,13 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         ownerId?: string;
         domain?: string;
         logoUrl?: string;
+        catalog?: ProjectCatalogMetadata | null;
         collaborators?: string[];
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<
       Project & { collaborators?: ProjectCollaborator[] },
       ORPCError<string, unknown>
@@ -344,21 +355,28 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
         visibility?: ProjectVisibility;
         repository?: string;
         ownerId?: string;
+        organizationId?: string | null;
         domain?: string;
         logoUrl?: string;
+        catalog?: ProjectCatalogMetadata | null;
       },
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       allowPublicVisibility?: boolean,
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<Project, ORPCError<string, unknown>>;
 
     deleteProject: (
       id: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
+
+    clearOrganizationAttribution: (
+      organizationId: string,
+    ) => Effect.Effect<{ cleared: number }, ORPCError<string, unknown>>;
 
     listProjectApps: (projectId: string) => Effect.Effect<ProjectApp[], ORPCError<string, unknown>>;
 
@@ -368,7 +386,8 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       domain: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<ProjectApp, ORPCError<string, unknown>>;
 
     unlinkAppFromProject: (
@@ -377,33 +396,35 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       domain: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<{ deleted: boolean }, ORPCError<string, unknown>>;
 
     listProjectsForApp: (
       accountId: string,
       domain: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
 
     listMentions: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
 
     listMentionedBy: (
       id: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<Project[], ORPCError<string, unknown>>;
 
     listCollaborators: (
       projectId: string,
       userId?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       userRole?: string,
+      organizationMemberships?: OrganizationMembership[],
     ) => Effect.Effect<ProjectCollaborator[], ORPCError<string, unknown>>;
 
     inviteCollaborator: (
@@ -411,14 +432,14 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       collaboratorOwnerId: string,
       inviterUserId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<ProjectCollaborator, ORPCError<string, unknown>>;
 
     respondCollaborator: (
       projectId: string,
       action: "accept" | "decline",
       userId: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<ProjectCollaborator, ORPCError<string, unknown>>;
 
     removeCollaborator: (
@@ -426,27 +447,60 @@ export class ProjectService extends Context.Tag("projects/ProjectService")<
       collaboratorOwnerId: string,
       userId: string,
       userRole?: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
     ) => Effect.Effect<{ removed: boolean }, ORPCError<string, unknown>>;
 
     listMyCollaborations: (
       userId: string,
-      alternateUserId?: string,
+      alternateOwnerIds?: readonly string[],
       status?: CollaboratorStatus,
       limit?: number,
     ) => Effect.Effect<CollaborationWithProject[], ORPCError<string, unknown>>;
   }
->() {}
+>()("projects/ProjectService") {}
 
-function isProjectOwner(projectOwnerId: string, userId?: string, alternateUserId?: string) {
-  return projectOwnerId === userId || projectOwnerId === alternateUserId;
+function isProjectOwner(
+  projectOwnerId: string,
+  userId?: string,
+  alternateOwnerIds?: readonly string[],
+) {
+  return projectOwnerId === userId || !!alternateOwnerIds?.includes(projectOwnerId);
 }
+
+export interface OrganizationMembership {
+  id: string;
+  role: string;
+}
+
+export function isOrganizationMembership(
+  memberships: OrganizationMembership[] | null | undefined,
+  organizationId: string | null | undefined,
+): boolean {
+  if (!organizationId || !memberships) return false;
+  return memberships.some((membership) => membership.id === organizationId);
+}
+
+const assertOrganizationAttribution = (
+  organizationId: string | null | undefined,
+  userRole: string | undefined,
+  organizationMemberships?: OrganizationMembership[],
+) =>
+  Effect.gen(function* () {
+    if (organizationId == null || userRole === "admin") return;
+    if (isOrganizationMembership(organizationMemberships, organizationId)) return;
+    yield* Effect.fail(
+      new ORPCError("FORBIDDEN", {
+        message: "You are not a member of this organization",
+      }),
+    );
+  });
 
 const canViewProjectRecord = (
   project: any,
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
   userRole?: string,
+  organizationMemberships?: OrganizationMembership[],
 ) => {
   if (project.visibility === "public" || project.visibility === "unlisted") {
     return true;
@@ -456,28 +510,34 @@ const canViewProjectRecord = (
     return true;
   }
 
-  if (!userId && !alternateUserId) {
+  if (isOrganizationMembership(organizationMemberships, project.organizationId)) {
+    return true;
+  }
+
+  if (!userId && !alternateOwnerIds?.length) {
     return false;
   }
 
-  return isProjectOwner(project.ownerId, userId, alternateUserId);
+  return isProjectOwner(project.ownerId, userId, alternateOwnerIds);
 };
 
 const canViewProjectWithCollaborators = (
   db: any,
   project: any,
   userId?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
   userRole?: string,
+  organizationMemberships?: OrganizationMembership[],
 ) =>
   Effect.gen(function* () {
-    if (canViewProjectRecord(project, userId, alternateUserId, userRole)) return true;
+    if (canViewProjectRecord(project, userId, alternateOwnerIds, userRole, organizationMemberships))
+      return true;
     return yield* isProjectCollaborator(
       db,
       project.id,
       ["accepted", "pending"],
       userId,
-      alternateUserId,
+      alternateOwnerIds,
     );
   });
 
@@ -486,7 +546,8 @@ const canEditProject = (
   projectId: string,
   userId: string,
   _userRole?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
+  organizationMemberships?: OrganizationMembership[],
 ) =>
   Effect.gen(function* () {
     const results = (yield* Effect.promise(() =>
@@ -499,8 +560,9 @@ const canEditProject = (
       return false;
     }
 
-    if (isProjectOwner(project.ownerId, userId, alternateUserId)) return true;
-    return yield* isAcceptedCollaborator(db, projectId, userId, alternateUserId);
+    if (isProjectOwner(project.ownerId, userId, alternateOwnerIds)) return true;
+    if (isOrganizationMembership(organizationMemberships, project.organizationId)) return true;
+    return yield* isAcceptedCollaborator(db, projectId, userId, alternateOwnerIds);
   });
 
 const canManageCollaborators = (
@@ -508,7 +570,7 @@ const canManageCollaborators = (
   projectId: string,
   userId: string,
   _userRole?: string,
-  alternateUserId?: string,
+  alternateOwnerIds?: readonly string[],
 ) =>
   Effect.gen(function* () {
     const results = (yield* Effect.promise(() =>
@@ -521,7 +583,7 @@ const canManageCollaborators = (
       return false;
     }
 
-    return isProjectOwner(project.ownerId, userId, alternateUserId);
+    return isProjectOwner(project.ownerId, userId, alternateOwnerIds);
   });
 
 const syncMentions = (db: any, sourceId: string, content: string | null) =>
@@ -576,6 +638,7 @@ function mapProject(p: any): Project {
     repository: p.repository ?? null,
     domain: p.domain ?? null,
     logoUrl: p.logoUrl ?? null,
+    catalog: normalizeProjectCatalog(p.catalog),
     createdAt: toIsoString(p.createdAt),
     updatedAt: toIsoString(p.updatedAt),
   };
@@ -584,7 +647,7 @@ function mapProject(p: any): Project {
 const mapProjectDetail = (
   db: any,
   project: any,
-  viewer?: { userId?: string; alternateUserId?: string; userRole?: string },
+  viewer?: { userId?: string; alternateOwnerIds?: readonly string[]; userRole?: string },
 ) =>
   Effect.gen(function* () {
     const apps = (yield* Effect.promise(() =>
@@ -605,12 +668,12 @@ const mapProjectDetail = (
 
     const isPrivileged =
       viewer?.userRole === "admin" ||
-      isProjectOwner(project.ownerId, viewer?.userId, viewer?.alternateUserId) ||
+      isProjectOwner(project.ownerId, viewer?.userId, viewer?.alternateOwnerIds) ||
       allCollaborations.some(
         (c: any) =>
           c.status === "accepted" &&
           (c.collaboratorOwnerId === viewer?.userId ||
-            c.collaboratorOwnerId === viewer?.alternateUserId),
+            (viewer?.alternateOwnerIds ?? []).includes(c.collaboratorOwnerId)),
       );
     const visibleCollaborations = isPrivileged
       ? allCollaborations
@@ -636,7 +699,27 @@ export const ProjectServiceLive = Layer.effect(
     const db = yield* DatabaseTag;
 
     return {
-      listProjects: (input, userId?: string, alternateUserId?: string, userRole?: string) =>
+      claimUserIdRows: (userId, ownerId) =>
+        Effect.promise(() =>
+          db.transaction(async (tx: any) => {
+            await tx.update(projects).set({ ownerId }).where(eq(projects.ownerId, userId));
+            await tx
+              .update(projectApps)
+              .set({ createdByUserId: ownerId })
+              .where(eq(projectApps.createdByUserId, userId));
+            await tx
+              .update(projectCollaborators)
+              .set({ invitedByUserId: ownerId })
+              .where(eq(projectCollaborators.invitedByUserId, userId));
+          }),
+        ),
+
+      listProjects: (
+        input,
+        userId?: string,
+        alternateOwnerIds?: readonly string[],
+        userRole?: string,
+      ) =>
         Effect.gen(function* () {
           const slugFilter = yield* parseSlugFilter(input.slugs);
           const limit = slugFilter
@@ -673,7 +756,7 @@ export const ProjectServiceLive = Layer.effect(
             }
             conditions.push(inArray(projects.id, collabProjectIds));
 
-            const viewerIds = [userId, alternateUserId]
+            const viewerIds = [userId, ...(alternateOwnerIds ?? [])]
               .filter(Boolean)
               .map((id) => (id as string).toLowerCase());
             const requesterIsCollaborator = userRole === "admin" || viewerIds.includes(collabId);
@@ -709,7 +792,7 @@ export const ProjectServiceLive = Layer.effect(
             );
           }
 
-          const viewerIdsForCollabs = [userId, alternateUserId]
+          const viewerIdsForCollabs = [userId, ...(alternateOwnerIds ?? [])]
             .filter(Boolean)
             .map((id) => (id as string).toLowerCase()) as string[];
           const getViewerCollabProjectIds = Effect.gen(function* () {
@@ -738,7 +821,7 @@ export const ProjectServiceLive = Layer.effect(
               const viewerCollabIds = yield* getViewerCollabProjectIds;
               const accessConditions: any[] = [
                 userId ? eq(projects.ownerId, userId) : undefined,
-                alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+                ...(alternateOwnerIds ?? []).map((id) => eq(projects.ownerId, id)),
                 viewerCollabIds.length > 0 ? inArray(projects.id, viewerCollabIds) : undefined,
               ].filter(Boolean);
               conditions.push(accessConditions.length > 0 ? or(...accessConditions) : sql`false`);
@@ -746,7 +829,7 @@ export const ProjectServiceLive = Layer.effect(
           } else {
             const ownerConditions = [
               userId ? eq(projects.ownerId, userId) : undefined,
-              alternateUserId ? eq(projects.ownerId, alternateUserId) : undefined,
+              ...(alternateOwnerIds ?? []).map((id) => eq(projects.ownerId, id)),
             ].filter(Boolean);
             const visibleConditions: any[] = [eq(projects.visibility, "public")];
             if (ownerConditions.length > 0) {
@@ -802,7 +885,11 @@ export const ProjectServiceLive = Layer.effect(
               .select()
               .from(projects)
               .where(whereClause)
-              .orderBy(input.sort === "oldest" ? asc(projects.createdAt) : desc(projects.createdAt))
+              .orderBy(
+                ...(input.sort === "oldest"
+                  ? [asc(projects.createdAt), asc(projects.id)]
+                  : [desc(projects.createdAt), desc(projects.id)]),
+              )
               .limit(limit)
               .offset(offset),
           );
@@ -822,7 +909,7 @@ export const ProjectServiceLive = Layer.effect(
           };
         }),
 
-      getProject: (id, userId, alternateUserId, userRole) =>
+      getProject: (id, userId, alternateOwnerIds, userRole, organizationMemberships) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, id)).limit(1),
@@ -836,14 +923,15 @@ export const ProjectServiceLive = Layer.effect(
             db,
             project,
             userId,
-            alternateUserId,
+            alternateOwnerIds,
             userRole,
+            organizationMemberships,
           );
           if (!canView) return null;
-          return yield* mapProjectDetail(db, project, { userId, alternateUserId, userRole });
+          return yield* mapProjectDetail(db, project, { userId, alternateOwnerIds, userRole });
         }),
 
-      getProjectBySlug: (slug, userId, alternateUserId, userRole) =>
+      getProjectBySlug: (slug, userId, alternateOwnerIds, userRole, organizationMemberships) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.slug, slug)).limit(1),
@@ -857,15 +945,21 @@ export const ProjectServiceLive = Layer.effect(
             db,
             project,
             userId,
-            alternateUserId,
+            alternateOwnerIds,
             userRole,
+            organizationMemberships,
           );
           if (!canView) return null;
-          return yield* mapProjectDetail(db, project, { userId, alternateUserId, userRole });
+          return yield* mapProjectDetail(db, project, { userId, alternateOwnerIds, userRole });
         }),
 
-      createProject: (input, userId, userRole) =>
+      createProject: (input, userId, userRole, alternateOwnerIds, organizationMemberships) =>
         Effect.gen(function* () {
+          yield* assertOrganizationAttribution(
+            input.organizationId,
+            userRole,
+            organizationMemberships,
+          );
           const effectiveOwnerId =
             userRole === "admin" && input.ownerId?.trim() ? input.ownerId.trim() : userId;
 
@@ -875,6 +969,16 @@ export const ProjectServiceLive = Layer.effect(
             );
 
             if (existingById) {
+              if (
+                userRole !== "admin" &&
+                !isProjectOwner(existingById.ownerId, userId, alternateOwnerIds)
+              ) {
+                return yield* Effect.fail(
+                  new ORPCError("BAD_REQUEST", {
+                    message: "A project with this id already exists",
+                  }),
+                );
+              }
               return mapProject(existingById);
             }
           }
@@ -898,6 +1002,7 @@ export const ProjectServiceLive = Layer.effect(
           const repository = normalizeOptionalText(input.repository);
           const domain = normalizeOptionalText(input.domain);
           const logoUrl = normalizeOptionalText(input.logoUrl);
+          const catalog = normalizeProjectCatalog(input.catalog);
 
           assertProjectShape({
             kind: input.kind,
@@ -922,6 +1027,7 @@ export const ProjectServiceLive = Layer.effect(
               repository,
               domain,
               logoUrl,
+              catalog,
               createdAt: now,
               updatedAt: now,
             }),
@@ -929,13 +1035,20 @@ export const ProjectServiceLive = Layer.effect(
 
           yield* syncMentions(db, id, content);
 
+          // When the caller owns the new project, their linked accounts are the owner too.
+          const ownerIds = [
+            effectiveOwnerId,
+            ...(isProjectOwner(effectiveOwnerId, userId, alternateOwnerIds)
+              ? [userId, ...(alternateOwnerIds ?? [])]
+              : []),
+          ].map((ownerId) => ownerId.toLowerCase());
           const collaboratorIds = Array.from(
             new Set(
               (input.collaborators ?? [])
                 .map((c) => c.trim())
                 .filter((c) => c.length > 0)
                 .map((c) => assertValidCollaboratorId(c))
-                .filter((c) => c !== effectiveOwnerId.toLowerCase()),
+                .filter((c) => !ownerIds.includes(c)),
             ),
           ).slice(0, 20);
 
@@ -970,15 +1083,31 @@ export const ProjectServiceLive = Layer.effect(
             repository,
             domain,
             logoUrl,
+            catalog,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
             collaborators: createdCollaborators,
           };
         }),
 
-      updateProject: (id, input, userId, userRole, alternateUserId, allowPublicVisibility) =>
+      updateProject: (
+        id,
+        input,
+        userId,
+        userRole,
+        alternateOwnerIds,
+        allowPublicVisibility,
+        organizationMemberships,
+      ) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, id, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(
+            db,
+            id,
+            userId,
+            userRole,
+            alternateOwnerIds,
+            organizationMemberships,
+          );
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -986,6 +1115,12 @@ export const ProjectServiceLive = Layer.effect(
               }),
             );
           }
+
+          yield* assertOrganizationAttribution(
+            input.organizationId,
+            userRole,
+            organizationMemberships,
+          );
 
           const [existing] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, id)).limit(1),
@@ -1029,6 +1164,10 @@ export const ProjectServiceLive = Layer.effect(
             input.logoUrl !== undefined
               ? normalizeOptionalText(input.logoUrl)
               : (existing.logoUrl ?? null);
+          const nextCatalog =
+            input.catalog !== undefined
+              ? normalizeProjectCatalog(input.catalog)
+              : normalizeProjectCatalog(existing.catalog);
 
           assertProjectShape({
             kind: nextKind,
@@ -1047,6 +1186,8 @@ export const ProjectServiceLive = Layer.effect(
           if (input.repository !== undefined) updates.repository = nextRepository;
           if (input.domain !== undefined) updates.domain = nextDomain;
           if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
+          if (input.catalog !== undefined) updates.catalog = nextCatalog;
+          if (input.organizationId !== undefined) updates.organizationId = input.organizationId;
           if (userRole === "admin" && input.ownerId !== undefined)
             updates.ownerId = input.ownerId.trim();
 
@@ -1058,7 +1199,8 @@ export const ProjectServiceLive = Layer.effect(
           return {
             id: existing.id,
             ownerId: updates.ownerId ?? existing.ownerId,
-            organizationId: existing.organizationId,
+            organizationId:
+              "organizationId" in updates ? updates.organizationId : existing.organizationId,
             kind: (updates.kind ?? existing.kind) as ProjectKind,
             slug: existing.slug,
             title: updates.title ?? existing.title,
@@ -1069,12 +1211,13 @@ export const ProjectServiceLive = Layer.effect(
             repository: updates.repository ?? existing.repository ?? null,
             domain: nextDomain,
             logoUrl: nextLogoUrl,
+            catalog: nextCatalog,
             createdAt: toIsoString(existing.createdAt),
             updatedAt: toIsoString(now),
           };
         }),
 
-      deleteProject: (id, userId, userRole, alternateUserId) =>
+      deleteProject: (id, userId, userRole, alternateOwnerIds) =>
         Effect.gen(function* () {
           if (userRole !== "admin") {
             const canDelete = yield* canManageCollaborators(
@@ -1082,7 +1225,7 @@ export const ProjectServiceLive = Layer.effect(
               id,
               userId,
               userRole,
-              alternateUserId,
+              alternateOwnerIds,
             );
             if (!canDelete) {
               return yield* Effect.fail(
@@ -1096,6 +1239,19 @@ export const ProjectServiceLive = Layer.effect(
           yield* Effect.promise(() => db.delete(projects).where(eq(projects.id, id)));
 
           return { deleted: true };
+        }),
+
+      clearOrganizationAttribution: (organizationId) =>
+        Effect.gen(function* () {
+          const updated = (yield* Effect.promise(() =>
+            db
+              .update(projects)
+              .set({ organizationId: null, updatedAt: new Date() })
+              .where(eq(projects.organizationId, organizationId))
+              .returning({ id: projects.id }),
+          )) as Array<{ id: string }>;
+
+          return { cleared: updated.length };
         }),
 
       listProjectApps: (projectId) =>
@@ -1118,9 +1274,24 @@ export const ProjectServiceLive = Layer.effect(
           }));
         }),
 
-      linkAppToProject: (projectId, accountId, domain, userId, userRole, alternateUserId) =>
+      linkAppToProject: (
+        projectId,
+        accountId,
+        domain,
+        userId,
+        userRole,
+        alternateOwnerIds,
+        organizationMemberships,
+      ) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(
+            db,
+            projectId,
+            userId,
+            userRole,
+            alternateOwnerIds,
+            organizationMemberships,
+          );
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -1184,10 +1355,18 @@ export const ProjectServiceLive = Layer.effect(
         domain: string,
         userId: string,
         userRole?: string,
-        alternateUserId?: string,
+        alternateOwnerIds?: readonly string[],
+        organizationMemberships?: OrganizationMembership[],
       ) =>
         Effect.gen(function* () {
-          const canEdit = yield* canEditProject(db, projectId, userId, userRole, alternateUserId);
+          const canEdit = yield* canEditProject(
+            db,
+            projectId,
+            userId,
+            userRole,
+            alternateOwnerIds,
+            organizationMemberships,
+          );
           if (!canEdit) {
             return yield* Effect.fail(
               new ORPCError("FORBIDDEN", {
@@ -1211,7 +1390,7 @@ export const ProjectServiceLive = Layer.effect(
           return { deleted: true };
         }),
 
-      listProjectsForApp: (accountId, domain, userId, alternateUserId) =>
+      listProjectsForApp: (accountId, domain, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
           const results = yield* Effect.promise(() =>
             db
@@ -1224,14 +1403,14 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = results.filter((r: any) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateOwnerIds)) return true;
             return false;
           });
 
           return filtered.map((r: any) => mapProject(r.project));
         }),
 
-      listMentions: (id, userId, alternateUserId) =>
+      listMentions: (id, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
           const rows = (yield* Effect.promise(() =>
             db
@@ -1244,14 +1423,14 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = rows.filter((r) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateOwnerIds)) return true;
             return false;
           });
 
           return filtered.map((r) => mapProject(r.project));
         }),
 
-      listMentionedBy: (id, userId, alternateUserId) =>
+      listMentionedBy: (id, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
           const rows = (yield* Effect.promise(() =>
             db
@@ -1264,14 +1443,20 @@ export const ProjectServiceLive = Layer.effect(
           const filtered = rows.filter((r) => {
             if (r.project.visibility === "public" || r.project.visibility === "unlisted")
               return true;
-            if (isProjectOwner(r.project.ownerId, userId, alternateUserId)) return true;
+            if (isProjectOwner(r.project.ownerId, userId, alternateOwnerIds)) return true;
             return false;
           });
 
           return filtered.map((r) => mapProject(r.project));
         }),
 
-      listCollaborators: (projectId, userId, alternateUserId, userRole) =>
+      listCollaborators: (
+        projectId,
+        userId,
+        alternateOwnerIds,
+        userRole,
+        organizationMemberships,
+      ) =>
         Effect.gen(function* () {
           const [project] = yield* Effect.promise(() =>
             db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
@@ -1283,8 +1468,9 @@ export const ProjectServiceLive = Layer.effect(
             db,
             project,
             userId,
-            alternateUserId,
+            alternateOwnerIds,
             userRole,
+            organizationMemberships,
           );
           if (!canView) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
@@ -1296,12 +1482,12 @@ export const ProjectServiceLive = Layer.effect(
               .where(eq(projectCollaborators.projectId, projectId))
               .orderBy(projectCollaborators.createdAt),
           )) as any[];
-          const viewerIds = [userId, alternateUserId]
+          const viewerIds = [userId, ...(alternateOwnerIds ?? [])]
             .filter(Boolean)
             .map((id) => (id as string).toLowerCase());
           const isPrivileged =
             userRole === "admin" ||
-            isProjectOwner(project.ownerId, userId, alternateUserId) ||
+            isProjectOwner(project.ownerId, userId, alternateOwnerIds) ||
             rows.some((c) => c.status === "accepted" && viewerIds.includes(c.collaboratorOwnerId));
           const visible = isPrivileged ? rows : rows.filter((c) => c.status === "accepted");
           return visible.map(mapCollaborator);
@@ -1312,7 +1498,7 @@ export const ProjectServiceLive = Layer.effect(
         collaboratorOwnerIdRaw,
         inviterUserId,
         _userRole,
-        alternateUserId,
+        alternateOwnerIds,
       ) =>
         Effect.gen(function* () {
           const collaboratorOwnerId = assertValidCollaboratorId(collaboratorOwnerIdRaw);
@@ -1327,7 +1513,7 @@ export const ProjectServiceLive = Layer.effect(
             projectId,
             inviterUserId,
             _userRole,
-            alternateUserId,
+            alternateOwnerIds,
           );
           if (!canManage) {
             return yield* Effect.fail(
@@ -1336,7 +1522,12 @@ export const ProjectServiceLive = Layer.effect(
               }),
             );
           }
-          if (collaboratorOwnerId === project.ownerId.toLowerCase()) {
+          // Only the owner can invite, so the inviter's ids are the owner's ids: inviting one of
+          // their own linked accounts would credit the same person twice.
+          const ownIds = [project.ownerId, inviterUserId, ...(alternateOwnerIds ?? [])]
+            .filter((id): id is string => Boolean(id))
+            .map((id) => id.toLowerCase());
+          if (ownIds.includes(collaboratorOwnerId)) {
             return yield* Effect.fail(
               new ORPCError("BAD_REQUEST", {
                 message: "Owner is already credited on this project",
@@ -1411,9 +1602,9 @@ export const ProjectServiceLive = Layer.effect(
           return yield* settleExisting(row);
         }),
 
-      respondCollaborator: (projectId, action, userId, alternateUserId) =>
+      respondCollaborator: (projectId, action, userId, alternateOwnerIds) =>
         Effect.gen(function* () {
-          const candidateIds = [userId, alternateUserId]
+          const candidateIds = [userId, ...(alternateOwnerIds ?? [])]
             .filter(Boolean)
             .map((id) => (id as string).toLowerCase()) as string[];
           const rows = (yield* Effect.promise(() =>
@@ -1449,7 +1640,13 @@ export const ProjectServiceLive = Layer.effect(
           );
           return mapCollaborator({ ...invite, status: nextStatus, updatedAt: now });
         }),
-      removeCollaborator: (projectId, collaboratorOwnerIdRaw, userId, _userRole, alternateUserId) =>
+      removeCollaborator: (
+        projectId,
+        collaboratorOwnerIdRaw,
+        userId,
+        _userRole,
+        alternateOwnerIds,
+      ) =>
         Effect.gen(function* () {
           const collaboratorOwnerId = normalizeCollaboratorId(collaboratorOwnerIdRaw);
           const [project] = yield* Effect.promise(() =>
@@ -1458,8 +1655,8 @@ export const ProjectServiceLive = Layer.effect(
           if (!project) {
             return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
           }
-          const isOwner = isProjectOwner(project.ownerId, userId, alternateUserId);
-          const viewerIds = [userId, alternateUserId]
+          const isOwner = isProjectOwner(project.ownerId, userId, alternateOwnerIds);
+          const viewerIds = [userId, ...(alternateOwnerIds ?? [])]
             .filter(Boolean)
             .map((id) => (id as string).toLowerCase());
           const isSelf = viewerIds.includes(collaboratorOwnerId);
@@ -1484,9 +1681,9 @@ export const ProjectServiceLive = Layer.effect(
           return { removed: deleted.length > 0 };
         }),
 
-      listMyCollaborations: (userId, alternateUserId, status, limit) =>
+      listMyCollaborations: (userId, alternateOwnerIds, status, limit) =>
         Effect.gen(function* () {
-          const candidateIds = [userId, alternateUserId]
+          const candidateIds = [userId, ...(alternateOwnerIds ?? [])]
             .filter(Boolean)
             .map((id) => (id as string).toLowerCase()) as string[];
           if (candidateIds.length === 0) return [];

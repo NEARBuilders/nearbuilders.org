@@ -19,7 +19,8 @@ let browserApiClient: ApiClient | null = null;
 
 function createRpcLink(runtimeConfig: { hostUrl: string; rpcBase: string }, headers?: Headers) {
   return new RPCLink({
-    url: `${runtimeConfig.hostUrl}${runtimeConfig.rpcBase}`,
+    origin: runtimeConfig.hostUrl,
+    url: runtimeConfig.rpcBase as `/${string}`,
     interceptors: [
       onError((error: unknown) => {
         if (typeof window === "undefined") {

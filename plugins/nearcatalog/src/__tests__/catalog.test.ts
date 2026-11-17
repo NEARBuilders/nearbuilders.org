@@ -1,6 +1,7 @@
-import { Cause, Effect, Exit } from "every-plugin/effect";
-import type { ORPCError } from "every-plugin/orpc";
+import type { ORPCError } from "@orpc/server";
+import { Cause, Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
+import { CATALOG_CATEGORIES_FALLBACK } from "../catalog-categories";
 import { createCatalogMethods } from "../services/catalog";
 
 const activeProject = {
@@ -31,6 +32,43 @@ async function effectError(effect: Effect.Effect<unknown, ORPCError<string, unkn
 }
 
 describe("Catalog adapter", () => {
+  it("lists live categories, skips invalid entries and caches them", async () => {
+    let calls = 0;
+    let clock = 0;
+    const fetchMock = async () => {
+      calls += 1;
+      return response({ defi: "DeFi", "regional-hub": "Regional Hub", "Bad Slug": "Bad", dex: 3 });
+    };
+    const catalog = createCatalogMethods(
+      "https://api.nearcatalog.xyz",
+      fetchMock,
+      8000,
+      () => clock,
+    );
+
+    const first = await Effect.runPromise(catalog.listCategories());
+    expect(first).toEqual([
+      { id: "defi", label: "DeFi" },
+      { id: "regional-hub", label: "Regional Hub" },
+    ]);
+    await Effect.runPromise(catalog.listCategories());
+    expect(calls).toBe(1);
+
+    clock = 2 * 60 * 60 * 1000;
+    await Effect.runPromise(catalog.listCategories());
+    expect(calls).toBe(2);
+  });
+
+  it("falls back to the checked-in categories when NEAR Catalog is unavailable", async () => {
+    const catalog = createCatalogMethods("https://api.nearcatalog.xyz", async () =>
+      response({ error: "down" }, 503),
+    );
+
+    const categories = await Effect.runPromise(catalog.listCategories());
+    expect(categories).toEqual(CATALOG_CATEGORIES_FALLBACK);
+    expect(categories.map((category) => category.id)).toContain("regional-hub");
+  });
+
   it("returns all valid search results and normalizes project metadata", async () => {
     const fetchMock = async () =>
       response({

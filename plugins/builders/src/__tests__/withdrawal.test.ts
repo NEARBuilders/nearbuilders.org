@@ -14,6 +14,7 @@ function testUser(id: string, role = "member") {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -28,6 +29,7 @@ vi.mock("virtual:drizzle-migrations.sql", async () => {
     "0002_chunky_roxanne_simpson.sql",
     "0003_slimy_talos.sql",
     "0004_nervous_tiger_shark.sql",
+    "0005_builder_catalog_metadata.sql",
   ];
   const sources = await Promise.all(
     files.map((file) => readFile(new URL(`../db/migrations/${file}`, import.meta.url), "utf8")),
@@ -129,5 +131,47 @@ describe.sequential("Builder profile withdrawal", () => {
     await expect(ownerClient("no-profile.near").withdrawMyBuilderProfile({})).rejects.toMatchObject(
       { code: "NOT_FOUND" },
     );
+  });
+
+  it("finds the caller's own profile across linked accounts, primary first (#365)", async () => {
+    await createBuilder("dana.near");
+    await createBuilder("dana-alt.near");
+    const linked = (userId: string, accounts: string[]) =>
+      loaded.createClient({
+        userId,
+        user: testUser(userId),
+        near: {
+          primaryAccountId: accounts[0]!,
+          linkedAccounts: accounts.map((accountId, index) => ({
+            accountId,
+            network: "mainnet",
+            publicKey: "",
+            isPrimary: index === 0,
+          })),
+          hasNearAccount: true,
+        },
+      });
+
+    const altFirst = await linked("dana-user", ["dana-alt.near", "dana.near"]).getMyBuilderProfile(
+      {},
+    );
+    expect(altFirst.data?.nearAccount).toBe("dana-alt.near");
+    const mainFirst = await linked("dana-user", ["dana.near", "dana-alt.near"]).getMyBuilderProfile(
+      {},
+    );
+    expect(mainFirst.data?.nearAccount).toBe("dana.near");
+
+    // A profile held only by a linked account is still found after the user id changes.
+    await createBuilder("eli-old.near");
+    const reissued = await linked("eli-user-new", [
+      "eli-new.near",
+      "eli-old.near",
+    ]).getMyBuilderProfile({});
+    expect(reissued.data?.nearAccount).toBe("eli-old.near");
+    const withdrawn = await linked("eli-user-new", [
+      "eli-new.near",
+      "eli-old.near",
+    ]).withdrawMyBuilderProfile({});
+    expect(withdrawn.data).toMatchObject({ nearAccount: "eli-old.near" });
   });
 });

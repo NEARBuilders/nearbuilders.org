@@ -5,9 +5,9 @@
  * Prefer upstream changes at https://github.com/nearbuilders/everything-dev
  */
 
-import { Cause, Effect, Exit } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import { Cause, Effect, Exit } from "effect";
+import { z } from "zod";
 import type { AuthContext } from "./auth";
 
 export const ContextSchema = z.custom<AuthContext>();

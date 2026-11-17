@@ -1,6 +1,7 @@
 import { createPluginRuntime } from "every-plugin";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import ApiPlugin from "../../src/index";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 const timestamp = "2026-07-15T00:00:00.000Z";
 
@@ -17,6 +18,7 @@ function testUser(id: string, role: string) {
     image: null,
     role,
     isAnonymous: false,
+    locale: null,
   };
 }
 
@@ -75,7 +77,7 @@ describe("builder proposal approval avoids the throwing existence check", () => 
     loaded = await runtime.usePlugin(
       "api",
       { variables: {}, secrets: { API_DATABASE_URL: "pglite::memory:" } },
-      {
+      asPluginEntries({
         activity: () => ({ emitTrustedActivity: async () => ({}) }),
         builders: () => ({ listBuilders, createBuilder }),
         events: () => ({}),
@@ -104,7 +106,7 @@ describe("builder proposal approval avoids the throwing existence check", () => 
           markApplyFailed: vi.fn(),
         }),
         votes: () => ({}),
-      } as never,
+      } as never),
     );
   });
 

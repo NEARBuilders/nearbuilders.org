@@ -1,6 +1,18 @@
 import { Store } from "@tanstack/store";
+import type { ProjectCatalogFormValues } from "./project-catalog";
 
 export type ProjectKind = "project" | "idea" | "scope" | "result";
+
+export const PROJECT_KIND_LABELS: Record<ProjectKind, string> = {
+  project: "Project",
+  idea: "Idea",
+  scope: "Scope",
+  result: "Result",
+};
+
+export function projectKindLabel(kind: ProjectKind): string {
+  return PROJECT_KIND_LABELS[kind];
+}
 
 export type ProjectDraft = {
   kind: ProjectKind;
@@ -13,6 +25,7 @@ export type ProjectDraft = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  catalog?: ProjectCatalogFormValues;
 };
 
 type DraftState = Record<ProjectKind, ProjectDraft | null>;
@@ -21,7 +34,7 @@ type DraftPersistenceListener = (status: DraftPersistenceStatus) => void;
 
 const STORAGE_PREFIX = "projects:new:v2:";
 const LEGACY_STORAGE_PREFIX = "projects:new:";
-const KINDS: ProjectKind[] = ["project", "idea", "scope", "result"];
+const KINDS = Object.keys(PROJECT_KIND_LABELS) as ProjectKind[];
 
 function storageKey(kind: ProjectKind): string {
   return `${STORAGE_PREFIX}${kind}`;

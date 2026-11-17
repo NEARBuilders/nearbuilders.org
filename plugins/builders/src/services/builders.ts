@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { and, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
+import { and, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
 import { builderNominations, builders } from "../db/schema";
 import {
@@ -50,6 +50,13 @@ export type {
   XNominationMetrics,
   XNominationQueueRecord,
 } from "./x-nomination-admin";
+
+import {
+  type BuilderCatalogMetadata,
+  normalizeBuilderCatalog,
+  preferredContactError,
+} from "./catalog-metadata";
+
 export { XNominationEngagementStatus } from "./x-nomination-admin";
 
 function toIsoString(value: Date | string | null | undefined): string {
@@ -106,6 +113,7 @@ export interface Builder {
   skills: string[];
   location: string | null;
   links: Record<string, string> | null;
+  catalog: BuilderCatalogMetadata | null;
   withdrawnAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -131,6 +139,30 @@ function isBuilderOwner(
   );
 }
 
+type OwnBuilderViewer = { userId: string; walletAddress?: string; linkedAccounts?: string[] };
+
+/**
+ * The caller's own builder row (#365): the one for their primary account, else one for
+ * another linked account (in link order), else one carrying their user id. Deterministic, so
+ * a user with profiles under two of their accounts always gets the primary one.
+ */
+async function findOwnBuilderRow(db: any, viewer: OwnBuilderViewer) {
+  const accounts = [viewer.walletAddress, ...(viewer.linkedAccounts ?? [])].filter(
+    (id): id is string => Boolean(id),
+  );
+  const conditions: any[] = [eq(builders.userId, viewer.userId)];
+  if (accounts.length > 0) conditions.push(inArray(builders.nearAccount, accounts));
+  const rows: any[] = await db
+    .select()
+    .from(builders)
+    .where(or(...conditions));
+  const rank = (row: any) => {
+    const index = accounts.indexOf(row.nearAccount);
+    return index === -1 ? accounts.length : index;
+  };
+  return rows.sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
 function rowToBuilder(row: any): Builder {
   return {
     id: row.id,
@@ -141,6 +173,7 @@ function rowToBuilder(row: any): Builder {
     skills: parseSkills(row.skills),
     location: row.location ?? null,
     links: parseLinks(row.links),
+    catalog: normalizeBuilderCatalog(row.catalog),
     withdrawnAt: row.withdrawnAt ? toIsoString(row.withdrawnAt) : null,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
@@ -313,7 +346,7 @@ function nominationResult(
   };
 }
 
-export class BuilderService extends Context.Tag("builders/BuilderService")<
+export class BuilderService extends Context.Service<
   BuilderService,
   {
     listBuilders: (input: {
@@ -337,10 +370,15 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
     getBuilderByUserId: (
       userId: string,
       walletAddress?: string,
+      linkedAccounts?: string[],
     ) => Effect.Effect<Builder | null, ORPCError<string, unknown>>;
 
+    getBuildersByUserIds: (
+      userIds: string[],
+    ) => Effect.Effect<Builder[], ORPCError<string, unknown>>;
+
     setBuilderWithdrawn: (
-      viewer: { userId: string; walletAddress?: string },
+      viewer: OwnBuilderViewer,
       withdrawn: boolean,
     ) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
@@ -352,6 +390,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       skills?: string[];
       location?: string;
       links?: Record<string, string>;
+      catalog?: BuilderCatalogMetadata | null;
     }) => Effect.Effect<Builder, ORPCError<string, unknown>>;
 
     updateBuilderProfile: (
@@ -362,6 +401,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
         skills?: string[];
         location?: string;
         links?: Record<string, string>;
+        catalog?: BuilderCatalogMetadata | null;
       },
       userId: string,
       walletAddress?: string,
@@ -436,7 +476,7 @@ export class BuilderService extends Context.Tag("builders/BuilderService")<
       userId: string,
     ) => Effect.Effect<TelegramNominationMetadata, ORPCError<string, unknown>>;
   }
->() {}
+>()("builders/BuilderService") {}
 
 export const BuilderServiceLive = Layer.effect(
   BuilderService,
@@ -509,20 +549,24 @@ export const BuilderServiceLive = Layer.effect(
           return rowToBuilder(row);
         }),
 
-      getBuilderByUserId: (userId, walletAddress) =>
+      getBuilderByUserId: (userId, walletAddress, linkedAccounts) =>
         Effect.gen(function* () {
-          const conditions: any[] = [];
-          if (walletAddress) conditions.push(eq(builders.nearAccount, walletAddress));
-          conditions.push(eq(builders.userId, userId));
+          const row = yield* Effect.promise(() =>
+            findOwnBuilderRow(db, { userId, walletAddress, linkedAccounts }),
+          );
+          return row ? rowToBuilder(row) : null;
+        }),
 
-          const [row] = yield* Effect.promise(() =>
+      getBuildersByUserIds: (userIds) =>
+        Effect.gen(function* () {
+          if (userIds.length === 0) return [];
+          const rows = (yield* Effect.promise(() =>
             db
               .select()
               .from(builders)
-              .where(and(or(...conditions)))
-              .limit(1),
-          );
-          return row ? rowToBuilder(row) : null;
+              .where(and(inArray(builders.userId, userIds), isNull(builders.withdrawnAt))),
+          )) as any[];
+          return rows.map((row) => rowToBuilder(row));
         }),
 
       createBuilder: (input) =>
@@ -535,6 +579,22 @@ export const BuilderServiceLive = Layer.effect(
           const [existing] = yield* Effect.promise(() =>
             db.select().from(builders).where(eq(builders.nearAccount, input.nearAccount)).limit(1),
           );
+
+          const catalog =
+            input.catalog !== undefined
+              ? normalizeBuilderCatalog(input.catalog)
+              : normalizeBuilderCatalog(existing?.catalog);
+          const contactError = preferredContactError(
+            catalog,
+            input.links !== undefined
+              ? (input.links ?? null)
+              : existing
+                ? parseLinks(existing.links)
+                : null,
+          );
+          if (contactError) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: contactError }));
+          }
 
           if (existing) {
             const now = new Date();
@@ -549,6 +609,7 @@ export const BuilderServiceLive = Layer.effect(
                     tags.skills !== undefined ? serializeSkills(tags.skills) : existing.skills,
                   location: tags.location !== undefined ? tags.location : existing.location,
                   links: input.links !== undefined ? serializeLinks(input.links) : existing.links,
+                  catalog,
                   updatedAt: now,
                 })
                 .where(eq(builders.nearAccount, input.nearAccount)),
@@ -591,6 +652,7 @@ export const BuilderServiceLive = Layer.effect(
               skills: serializeSkills(tags.skills),
               location: tags.location ?? null,
               links: serializeLinks(input.links),
+              catalog,
               createdAt: now,
               updatedAt: now,
             }),
@@ -607,6 +669,7 @@ export const BuilderServiceLive = Layer.effect(
             skills: tags.skills ?? [],
             location: tags.location ?? null,
             links: input.links && Object.keys(input.links).length > 0 ? input.links : null,
+            catalog,
             withdrawnAt: null,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
@@ -651,6 +714,17 @@ export const BuilderServiceLive = Layer.effect(
           if (tags.skills !== undefined) updates.skills = serializeSkills(tags.skills);
           if (tags.location !== undefined) updates.location = tags.location;
           if (input.links !== undefined) updates.links = serializeLinks(input.links);
+          if (input.catalog !== undefined) updates.catalog = normalizeBuilderCatalog(input.catalog);
+
+          const contactError = preferredContactError(
+            input.catalog !== undefined
+              ? updates.catalog
+              : normalizeBuilderCatalog(existing.catalog),
+            input.links !== undefined ? (input.links ?? null) : parseLinks(existing.links),
+          );
+          if (contactError) {
+            return yield* Effect.fail(new ORPCError("BAD_REQUEST", { message: contactError }));
+          }
 
           yield* Effect.promise(() =>
             db.update(builders).set(updates).where(eq(builders.nearAccount, nearAccount)),
@@ -694,16 +768,7 @@ export const BuilderServiceLive = Layer.effect(
 
       setBuilderWithdrawn: (viewer, withdrawn) =>
         Effect.gen(function* () {
-          const conditions: any[] = [eq(builders.userId, viewer.userId)];
-          if (viewer.walletAddress) conditions.push(eq(builders.nearAccount, viewer.walletAddress));
-
-          const [existing] = yield* Effect.promise(() =>
-            db
-              .select()
-              .from(builders)
-              .where(or(...conditions))
-              .limit(1),
-          );
+          const existing = yield* Effect.promise(() => findOwnBuilderRow(db, viewer));
 
           if (!existing) {
             return yield* Effect.fail(

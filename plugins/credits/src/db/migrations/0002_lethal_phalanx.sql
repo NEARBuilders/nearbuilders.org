@@ -1,0 +1,1 @@
+ALTER TABLE "nearai_sessions" ADD COLUMN "refresh_expires_at" timestamp with time zone;

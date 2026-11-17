@@ -1,11 +1,12 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const contract: {
-    bookmark: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    bookmark: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         userId: z.ZodString;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -18,12 +19,12 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    unbookmark: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    unbookmark: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -43,13 +44,13 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getUserBookmark: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getUserBookmark: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         entityId: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         entityId: z.ZodString;
         isBookmarked: z.ZodBoolean;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -62,6 +63,6 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
+    }>;
 };
 export type ContractType = typeof contract;

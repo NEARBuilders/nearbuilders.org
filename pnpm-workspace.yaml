@@ -1,0 +1,122 @@
+packages:
+  - api
+  - ui
+  - plugins/*
+allowBuilds:
+  esbuild: true
+  sharp: true
+  protobufjs: true
+  "@openapitools/openapi-generator-cli": true
+overrides:
+  "@better-fetch/fetch": 1.3.3
+  "@rspack/core": 2.2.8
+  "@tanstack/query-core": 5.102.8
+  "@tanstack/react-router": 1.170.46
+  "@tanstack/router-core": 1.171.39
+  better-auth: 1.7.14
+  react: 19.3.1
+  react-dom: 19.3.1
+catalog:
+  "@better-auth/api-key": 1.7.14
+  "@better-auth/core": 1.7.14
+  "@better-auth/passkey": 1.7.14
+  "@better-fetch/fetch": 1.3.3
+  "@effect/platform-node": 4.0.0-rc.118
+  "@effect/platform-node-shared": 4.0.0-rc.118
+  "@electric-sql/pglite": ^0.4.5
+  "@hot-labs/near-connect": elliotBraem/near-connect#v0.12.0-fork.3
+  "@libsql/client": 0.17.0
+  "@lingui/core": 5.9.0
+  "@lingui/message-utils": 5.9.0
+  "@lingui/react": 5.9.0
+  "@modelcontextprotocol/server": 2.0.0-beta.5
+  "@module-federation/dts-plugin": ^2.9.2
+  "@module-federation/enhanced": ^2.9.2
+  "@module-federation/node": ^2.7.52
+  "@module-federation/rsbuild-plugin": ^2.9.2
+  "@module-federation/runtime": ^2.9.2
+  "@module-federation/runtime-core": ^2.9.2
+  "@module-federation/runtime-tools": ^2.9.2
+  "@module-federation/sdk": ^2.9.2
+  "@near-intents-agent-api/sdk": ^0.4.1
+  "@opentelemetry/api": ^1.9.0
+  "@orpc/client": 2.0.0-beta.45
+  "@orpc/contract": 2.0.0-beta.45
+  "@orpc/experimental-effect": 2.0.0-beta.45
+  "@orpc/experimental-publisher": 1.14.2
+  "@orpc/openapi": 2.0.0-beta.45
+  "@orpc/publisher": 2.0.0-beta.45
+  "@orpc/server": 2.0.0-beta.45
+  "@orpc/tanstack-query": 2.0.0-beta.45
+  "@orpc/zod": 2.0.0-beta.45
+  "@outlayer/sdk": 0.1.0-alpha.4
+  "@rsbuild/core": 2.2.8
+  "@rsbuild/plugin-react": 2.1.0
+  "@rspack/cli": 2.2.6
+  "@rspack/core": 2.2.8
+  "@scure/base": ^2.2.0
+  "@simplewebauthn/browser": ^13.3.0
+  "@tanstack/ai": 0.61.0
+  "@tanstack/ai-openai": 0.24.1
+  "@tanstack/ai-react": 0.29.1
+  "@tanstack/intent": ^0.5.6
+  "@tanstack/react-devtools": ^0.10.13
+  "@tanstack/react-form": ^1.33.5
+  "@tanstack/react-query": 5.104.5
+  "@tanstack/react-query-devtools": ^5.104.5
+  "@tanstack/react-router": 1.170.46
+  "@tanstack/react-router-devtools": 1.167.2
+  "@tanstack/react-table": ^9.3.1
+  "@tanstack/router-core": 1.171.39
+  "@tanstack/router-generator": 1.167.46
+  "@tanstack/router-plugin": 1.168.48
+  "@tanstack/store": ^0.11.0
+  "@tanstack/zod-form-adapter": ^0.42.1
+  "@types/node": ^25.0.3
+  "@types/pg": ^8.11.6
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
+  aws4fetch: ^1.0.20
+  better-auth: 1.7.14
+  better-near-auth: 2.0.0-rc.8
+  drizzle-kit: ^0.31.11
+  drizzle-orm: ^0.45.4
+  effect: 4.0.0-rc.118
+  every-plugin: 3.0.0-rc.18
+  everything-dev: 2.0.0-rc.44
+  near-kit: ^0.20.2
+  pg: ^8.12.0
+  react: 19.3.1
+  react-dom: 19.3.1
+  sirv: 3.0.2
+  sonner: 2.0.8
+  typescript: 7.0.2
+  vitest: ^4.1.8
+  yaml: 2.9.1
+  zephyr-rsbuild-plugin: ^1.1.2
+  zephyr-rspack-plugin: ^1.1.2
+  zod: 4.6.7
+minimumReleaseAgeExclude:
+  - better-near-auth@2.0.0-rc.8
+  - every-plugin@3.0.0-rc.18
+  - everything-dev@2.0.0-rc.44
+minimumReleaseAgeExcludePrune: true
+permissions:
+  "@hot-labs/near-connect@https://codeload.github.com/elliotBraem/near-connect/tar.gz/83355f19408cd98c03b9fa823f9e52cd03929418":
+    skills: true
+  "@tanstack/react-router":
+    skills: true
+  "@tanstack/react-table":
+    skills: true
+  "@tanstack/router-plugin":
+    skills: true
+  better-near-auth:
+    skills: true
+  dotenv:
+    skills: true
+  every-plugin:
+    skills: true
+  everything-dev:
+    skills: true
+  lefthook:
+    build: true

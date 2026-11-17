@@ -1,9 +1,10 @@
 import { OpenAPIGenerator } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { createPluginRuntime } from "every-plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ApiPlugin, { deriveTelegramNominationStatus } from "../../src/index";
+import { asPluginEntries } from "../helpers/plugin-entries";
 
 function proposalResult(input: Record<string, unknown>) {
   const now = new Date().toISOString();
@@ -103,7 +104,7 @@ describe("Builder profile submission", () => {
           REQUIRE_ADMIN_APPROVAL: "true",
         },
       },
-      pluginFactories(builders, proposals, votes) as never,
+      asPluginEntries(pluginFactories(builders, proposals, votes) as never),
     );
   }
 
@@ -497,7 +498,7 @@ describe("Builder profile submission", () => {
           REQUIRE_ADMIN_APPROVAL: "true",
         },
       },
-      {
+      asPluginEntries({
         auth: emptyClient,
         activity: emptyClient,
         apps: emptyClient,
@@ -538,7 +539,7 @@ describe("Builder profile submission", () => {
             return { entityId, userId: context.userId, totalCount: votes.size };
           },
         }),
-      } as never,
+      } as never),
     );
     const alice = loaded.createClient(userContext("alice-user", "alice.near") as never);
     const bob = loaded.createClient(userContext("bob-user", "bob.near") as never);
@@ -785,11 +786,13 @@ describe("Builder profile submission", () => {
     await expect(handled.response?.json()).resolves.toEqual(response.body);
     await expect(
       new OpenAPIGenerator({
-        schemaConverters: [new ZodToJsonSchemaConverter()],
+        converters: [new ZodToJsonSchemaConverter()],
       }).generate(loaded.router, {
-        info: {
-          title: "NEAR Builders API",
-          version: "1.0.0",
+        base: {
+          info: {
+            title: "NEAR Builders API",
+            version: "1.0.0",
+          },
         },
       }),
     ).resolves.toMatchObject({

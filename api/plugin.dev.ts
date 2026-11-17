@@ -1,8 +1,9 @@
 /**
- * Dev-mode plugin configuration for the local API server.
- *
+ * FRAMEWORK-OWNED — reconciled from the parent template by `bos upgrade`.
+ * Local edits are allowed: on the next upgrade the template version wins and your
+ * copy is backed up under `.bos/sync-backup/`. To make a change permanent, file an
+ * issue: https://github.com/NEARBuilders/everything-dev/issues
  */
-
 import "dotenv/config";
 import type { PluginConfigInput } from "every-plugin";
 import packageJson from "./package.json" with { type: "json" };
@@ -12,10 +13,11 @@ export default {
   pluginId: packageJson.name,
   port: Number(process.env.PORT) || 3001,
   config: {
+    // child-owned-start
     variables: {},
+    // child-owned-end
     secrets: {
-      API_DATABASE_URL: process.env.API_DATABASE_URL || "pglite:.bos/api/:memory:",
-      REQUIRE_ADMIN_APPROVAL: process.env.REQUIRE_ADMIN_APPROVAL || "",
+      API_DATABASE_URL: process.env.API_DATABASE_URL || "pglite:.bos/db",
     },
   } satisfies PluginConfigInput<typeof Plugin>,
 };

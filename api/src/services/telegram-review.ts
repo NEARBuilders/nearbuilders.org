@@ -1,8 +1,8 @@
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import { ORPCError } from "@orpc/server";
+import type { z } from "zod";
 import type { ProposalSchema } from "../../../plugins/proposals/src/contract";
 import type { Context } from "../lib/context";
-import type { PluginsClient } from "../lib/plugins-types.gen";
+import type { PluginsClient } from "../lib/plugin-clients";
 import { evaluatorContext } from "./review-context";
 import { reviewDigestTitle } from "./review-digest";
 
@@ -34,6 +34,7 @@ type DecisionAction = (
 
 export type LinkedReviewer = {
   userId: string;
+  nearAccount?: string | null;
   userLabel: string;
   telegramUsername: string | null;
 };
@@ -42,7 +43,17 @@ export function telegramReviewerContext(base: Context, reviewer: LinkedReviewer)
   return {
     ...base,
     apiKey: undefined,
-    near: undefined,
+    // Act as the reviewer's NEAR account so owner ids and audit actors follow the #329
+    // convention. Reviewers linked before the account was stored still act by user id only.
+    near: reviewer.nearAccount
+      ? {
+          primaryAccountId: reviewer.nearAccount,
+          linkedAccounts: [
+            { accountId: reviewer.nearAccount, network: "mainnet", publicKey: "", isPrimary: true },
+          ],
+          hasNearAccount: true,
+        }
+      : undefined,
     organization: undefined,
     userId: reviewer.userId,
     user: {

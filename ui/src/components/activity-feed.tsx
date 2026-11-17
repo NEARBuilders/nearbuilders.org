@@ -37,7 +37,7 @@ export function ActivityFeed({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const { data: session } = useQuery(sessionQueryOptions(auth, undefined));
+  const { data: session } = useQuery(sessionQueryOptions(auth));
   const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
   const userId = session?.user?.id;
 
@@ -67,7 +67,7 @@ export function ActivityFeed({
   }, [events, sort, counts]);
 
   const { data: latestEvent } = useQuery(
-    orpc.subscribeActivity.experimental_liveOptions({ input: filters, retry: true }),
+    orpc.subscribeActivity.liveOptions({ input: filters, retry: true }),
   );
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export function ActivityFeed({
   }, [latestEvent, queryClient, feedKey, auth]);
 
   const { data: latestVote } = useQuery({
-    ...orpc.subscribeUpvotes.experimental_liveOptions({ retry: true }),
+    ...orpc.subscribeUpvotes.liveOptions({ retry: true }),
   });
 
   useEffect(() => {

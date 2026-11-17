@@ -1,0 +1,18 @@
+name: Child CI Jobs
+
+# CHILD-OWNED — bos upgrade never rewrites this file (#538). This repo's extra
+# CI jobs live here. `ci.yml` (framework-owned) calls this workflow in parallel
+# with the pinned reusable `ci` call and includes its result in the merge gate.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    name: Child CI placeholder
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "No repo-specific CI jobs yet; lint, typecheck, and test run in the reusable CI call."

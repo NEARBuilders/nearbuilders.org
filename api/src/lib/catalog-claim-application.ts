@@ -1,6 +1,6 @@
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import type { Context } from "./context";
-import type { PluginsClient } from "./plugins-types.gen";
+import type { PluginsClient } from "./plugin-clients";
 
 export async function applyCatalogClaimApplication({
   plugins,

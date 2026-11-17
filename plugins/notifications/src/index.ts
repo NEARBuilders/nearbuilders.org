@@ -1,7 +1,8 @@
+import { MemoryPublisher } from "@orpc/publisher/memory";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import { MemoryPublisher, ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract, type NotificationSchema } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
@@ -13,20 +14,29 @@ type NotificationEvents = {
   notification: NotificationEvent;
 };
 
-async function runEffect<A>(effect: Effect.Effect<A, ORPCError<string, unknown>>) {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isFailure(exit)) {
-    const squashed = Cause.squash(exit.cause);
-    if (squashed instanceof ORPCError) throw squashed;
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: squashed instanceof Error ? squashed.message : String(squashed),
-    });
-  }
-  return exit.value;
-}
+class NotificationPublisher extends Context.Service<
+  NotificationPublisher,
+  MemoryPublisher<NotificationEvents>
+>()("notifications/Publisher") {}
+
+class NotificationStreamConfig extends Context.Service<
+  NotificationStreamConfig,
+  { maxAgeMs: number }
+>()("notifications/StreamConfig") {}
 
 export default createPlugin({
-  variables: z.object({}),
+  variables: z.object({
+    /**
+     * How long one notification stream stays open. The caller's ids are fixed when the
+     * stream opens, so it is closed after this long and the client reopens it with a fresh
+     * context; an account unlinked mid-stream stops receiving within this window.
+     */
+    streamMaxAgeMs: z
+      .number()
+      .int()
+      .positive()
+      .default(10 * 60_000),
+  }),
 
   secrets: z.object({
     NOTIFICATIONS_DATABASE_URL: z.string().default("pglite:.bos/notifications/:memory:"),
@@ -36,20 +46,47 @@ export default createPlugin({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config) =>
     Effect.gen(function* () {
       const Database = DatabaseLive(config.secrets.NOTIFICATIONS_DATABASE_URL);
-      const NotificationServices = NotificationServiceLive.pipe(Layer.provide(Database));
-      const notification = yield* tools.buildService(NotificationService, NotificationServices);
-      const publisher = new MemoryPublisher<NotificationEvents>({ resumeRetentionSeconds: 120 });
+      const publisher = new MemoryPublisher<NotificationEvents>({
+        resume: { enabled: true, ttl: 120_000 },
+      });
+
+      yield* Effect.addFinalizer(() => Effect.log("[Notifications] Shutdown"));
 
       console.log("[Notifications] Services Initialized");
-      return { notification, publisher };
+      return Layer.mergeAll(
+        NotificationServiceLive.pipe(Layer.provide(Database)),
+        Layer.succeed(NotificationPublisher, publisher),
+        Layer.succeed(NotificationStreamConfig, { maxAgeMs: config.variables.streamMaxAgeMs }),
+      );
     }),
 
-  shutdown: () => Effect.log("[Notifications] Shutdown"),
+  createRouter: (builder) => {
+    /**
+     * Every id a notification for the caller may be addressed to (#364): the id the host
+     * passes as `userId` (their primary account, or user id without NEAR), each linked NEAR
+     * account, and the auth user id, so notifications sent to a linked account or an old
+     * primary still reach them.
+     */
+    const recipientIds = (context: {
+      userId?: string | null;
+      user?: { id?: string | null } | null;
+      near?: {
+        primaryAccountId?: string | null;
+        linkedAccounts?: Array<{ accountId?: string | null }> | null;
+      } | null;
+    }): string[] => {
+      const ids = [
+        context.userId,
+        context.near?.primaryAccountId,
+        ...(context.near?.linkedAccounts ?? []).map((account) => account.accountId),
+        context.user?.id,
+      ].filter((id): id is string => Boolean(id));
+      return [...new Set(ids)];
+    };
 
-  createRouter: (services, builder) => {
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.user || !context.userId) {
         throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
@@ -58,95 +95,138 @@ export default createPlugin({
     });
 
     return {
-      createNotification: builder.createNotification
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const serverCall =
-            (context as typeof context & { serverNotification?: boolean }).serverNotification ===
-            true;
-          if (!serverCall && input.userId !== context.userId && context.user?.role !== "admin") {
-            throw new ORPCError("FORBIDDEN", { message: "Cannot notify another user" });
-          }
-          const data = await runEffect(services.notification.createNotification(input));
-          await services.publisher.publish("notification", data);
-          return { data };
-        }),
-
-      getMyNotifications: builder.getMyNotifications
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          return await runEffect(services.notification.getMyNotifications(context.userId!, input));
-        }),
-
-      markAsRead: builder.markAsRead.use(requireAuth).handler(async ({ input, context }) => {
-        const data = await runEffect(services.notification.markAsRead(input.id, context.userId!));
+      createNotification: builder.createNotification.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const serverCall =
+          (context as typeof context & { serverNotification?: boolean }).serverNotification ===
+          true;
+        if (
+          !serverCall &&
+          !recipientIds(context).includes(input.userId) &&
+          context.user?.role !== "admin"
+        ) {
+          return yield* Effect.fail(
+            new ORPCError("FORBIDDEN", { message: "Cannot notify another user" }),
+          );
+        }
+        const notification = yield* NotificationService;
+        const publisher = yield* NotificationPublisher;
+        const data = yield* notification.createNotification(input);
+        yield* Effect.promise(() => publisher.publish("notification", data));
         return { data };
       }),
 
-      markAllAsRead: builder.markAllAsRead.use(requireAuth).handler(async ({ context }) => {
-        return await runEffect(services.notification.markAllAsRead(context.userId!));
+      getMyNotifications: builder.getMyNotifications.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const notification = yield* NotificationService;
+        return yield* notification.getMyNotifications(recipientIds(context), input);
+      }),
+
+      markAsRead: builder.markAsRead.use(requireAuth).effect(function* ({ input, context }) {
+        const notification = yield* NotificationService;
+        const data = yield* notification.markAsRead(input.id, recipientIds(context));
+        return { data };
+      }),
+
+      markAllAsRead: builder.markAllAsRead.use(requireAuth).effect(function* ({ context }) {
+        const notification = yield* NotificationService;
+        return yield* notification.markAllAsRead(recipientIds(context));
       }),
 
       subscribeNotifications: builder.subscribeNotifications
         .use(requireAuth)
         .handler(async function* ({ context, signal, lastEventId }) {
-          const iterator = services.publisher.subscribe("notification", { signal, lastEventId });
-          for await (const event of iterator) {
-            if (event.userId !== context.userId) continue;
-            yield event;
+          const publisher = Context.get(context["effect/context"], NotificationPublisher);
+          const { maxAgeMs } = Context.get(context["effect/context"], NotificationStreamConfig);
+          const mine = recipientIds(context);
+          // `mine` is a snapshot of the caller's accounts, so end the stream after maxAgeMs
+          // and let the client reconnect with its current accounts.
+          const expiry = new AbortController();
+          // Spread expiries out so clients that connected together don't all reconnect at once.
+          const timer = setTimeout(() => expiry.abort(), maxAgeMs * (0.8 + Math.random() * 0.2));
+          const iterator = publisher.subscribe("notification", {
+            signal: signal ? AbortSignal.any([signal, expiry.signal]) : expiry.signal,
+            lastEventId,
+          });
+          try {
+            for await (const event of iterator) {
+              if (!mine.includes(event.userId)) continue;
+              yield event;
+            }
+          } catch (error) {
+            if (error !== expiry.signal.reason || signal?.aborted) throw error;
+          } finally {
+            clearTimeout(timer);
           }
         }),
 
-      getEmailPreference: builder.getEmailPreference
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          assertOwnEmailUser(input.userId, context);
-          return await runEffect(services.notification.getEmailPreference(input.userId));
-        }),
+      getEmailPreference: builder.getEmailPreference.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = emailUserError(input.userId, context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.getEmailPreference(input.userId);
+      }),
 
       setEmailNotificationsEnabled: builder.setEmailNotificationsEnabled
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          assertOwnEmailUser(input.userId, context);
-          return await runEffect(
-            services.notification.setEmailNotificationsEnabled(input.userId, input.enabled),
-          );
+        .effect(function* ({ input, context }) {
+          const denied = emailUserError(input.userId, context);
+          if (denied) return yield* Effect.fail(denied);
+          const notification = yield* NotificationService;
+          return yield* notification.setEmailNotificationsEnabled(input.userId, input.enabled);
         }),
 
-      setEmailChallenge: builder.setEmailChallenge
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          assertOwnEmailUser(input.userId, context);
-          return await runEffect(services.notification.setEmailChallenge(input));
-        }),
+      setEmailChallenge: builder.setEmailChallenge.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = emailUserError(input.userId, context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.setEmailChallenge(input);
+      }),
 
-      confirmEmailCode: builder.confirmEmailCode
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          assertOwnEmailUser(input.userId, context);
-          return await runEffect(services.notification.confirmEmailCode(input));
-        }),
+      confirmEmailCode: builder.confirmEmailCode.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = emailUserError(input.userId, context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.confirmEmailCode(input);
+      }),
 
-      syncVerifiedEmail: builder.syncVerifiedEmail
-        .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          assertOwnEmailUser(input.userId, context);
-          return await runEffect(services.notification.syncVerifiedEmail(input));
-        }),
+      syncVerifiedEmail: builder.syncVerifiedEmail.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = emailUserError(input.userId, context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.syncVerifiedEmail(input);
+      }),
     };
   },
 });
 
-function assertOwnEmailUser(
+function emailUserError(
   userId: string,
   context: {
     userId?: string | null;
     user?: { role?: string | null } | null;
-    serverNotification?: boolean;
   },
 ) {
-  const serverCall = context.serverNotification === true;
+  const serverCall =
+    (context as typeof context & { serverNotification?: boolean }).serverNotification === true;
   if (!serverCall && userId !== context.userId && context.user?.role !== "admin") {
-    throw new ORPCError("FORBIDDEN", { message: "Cannot change another user's email settings" });
+    return new ORPCError("FORBIDDEN", { message: "Cannot change another user's email settings" });
   }
+  return null;
 }

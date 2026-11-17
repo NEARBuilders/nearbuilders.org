@@ -1,4 +1,5 @@
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { z } from "zod";
 export declare const NotificationSchema: z.ZodObject<{
     id: z.ZodString;
     userId: z.ZodString;
@@ -11,7 +12,7 @@ export declare const NotificationSchema: z.ZodObject<{
     createdAt: z.ZodISODateTime;
 }, z.core.$strip>;
 export declare const contract: {
-    createNotification: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    createNotification: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         userId: z.ZodString;
         type: z.ZodString;
         source: z.ZodString;
@@ -30,7 +31,7 @@ export declare const contract: {
             read: z.ZodBoolean;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -50,8 +51,8 @@ export declare const contract: {
                 action: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    getMyNotifications: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    getMyNotifications: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         read: z.ZodOptional<z.ZodBoolean>;
         limit: z.ZodOptional<z.ZodNumber>;
         cursor: z.ZodOptional<z.ZodString>;
@@ -72,7 +73,7 @@ export declare const contract: {
             hasMore: z.ZodBoolean;
             nextCursor: z.ZodNullable<z.ZodString>;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -85,8 +86,8 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    markAsRead: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    }>;
+    markAsRead: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         id: z.ZodString;
     }, z.core.$strip>, z.ZodObject<{
         data: z.ZodObject<{
@@ -100,7 +101,7 @@ export declare const contract: {
             read: z.ZodBoolean;
             createdAt: z.ZodISODateTime;
         }, z.core.$strip>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -120,10 +121,10 @@ export declare const contract: {
                 resourceId: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    markAllAsRead: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, z.ZodObject<{
+    }>;
+    markAllAsRead: import("@orpc/contract").ProcedureContract<import("@orpc/contract").InitialInputSchema, z.ZodObject<{
         updated: z.ZodNumber;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, z.core.$strip>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -136,8 +137,8 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
-    subscribeNotifications: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, import("@orpc/contract").Schema<AsyncIteratorObject<{
+    }>;
+    subscribeNotifications: import("@orpc/contract").ProcedureContract<import("@orpc/contract").InitialInputSchema, import("@orpc/contract").Schema<AsyncIteratorObject<{
         id: string;
         userId: string;
         type: string;
@@ -147,7 +148,7 @@ export declare const contract: {
         link: string;
         read: boolean;
         createdAt: string;
-    }, unknown, void>, import("@orpc/shared").AsyncIteratorClass<{
+    }, unknown, void>, import("@orpc/server").AsyncIteratorClass<{
         id: string;
         userId: string;
         type: string;
@@ -157,7 +158,7 @@ export declare const contract: {
         link: string;
         read: boolean;
         createdAt: string;
-    }, unknown, void>>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+    }, unknown, void>>, {
         UNAUTHORIZED: {
             readonly status: 401;
             readonly data: z.ZodObject<{
@@ -170,6 +171,6 @@ export declare const contract: {
                 }>>;
             }, z.core.$strip>;
         };
-    }>>, Record<never, never>>;
+    }>;
 };
 export type ContractType = typeof contract;
