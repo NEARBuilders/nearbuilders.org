@@ -38,6 +38,7 @@ export function CatalogSends() {
   const sends = useQuery({
     queryKey: CATALOG_SENDS_KEY,
     queryFn: () => apiClient.listCatalogListingSends(),
+    staleTime: 30_000,
   });
 
   const retry = useMutation({
