@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   release:
+    timeout-minutes: 60
     name: Version Packages
     runs-on: ubuntu-latest
     env:

@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   placeholder:
+    timeout-minutes: 60
     name: Child CI placeholder
     runs-on: ubuntu-24.04
     steps:
