@@ -47,6 +47,7 @@ jobs:
   # renames). A reusable job cannot take caller jobs in `needs`, so this gate
   # lives here, not in the shared workflow.
   lint-and-typecheck-gate:
+    timeout-minutes: 60
     name: Lint and Type Check
     needs: [ci, child-ci]
     if: always() # a plain needs-skip reports "skipped", not failure
