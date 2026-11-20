@@ -30,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { socialIcon } from "@/components/ui/social-icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   getNearSocialAvatarUrl,
   getNearSocialBannerUrl,
@@ -159,6 +160,7 @@ function BuilderProfilePage() {
       if (data.alreadyNominated) {
         toast.info("You've already nominated this builder");
       } else {
+        clearEmailPromptDismissal();
         toast.success("Nomination recorded");
       }
     },

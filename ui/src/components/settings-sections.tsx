@@ -14,6 +14,7 @@ import {
   ConfirmDialog,
   type CreatedApiKey,
 } from "@/components";
+import { NotificationEmailSettings } from "@/components/email-notification-settings";
 import { Input } from "@/components/ui/input";
 import type { ApiKeyItem } from "@/lib/api-keys";
 import { clearPendingApiKey, getPendingApiKey, savePendingApiKey } from "@/lib/pending-api-key";
@@ -41,6 +42,7 @@ export function AuthMethodsPanel({
   user: {
     id: string;
     email?: string;
+    emailVerified?: boolean;
     phoneNumber?: string | null;
     phoneNumberVerified?: boolean | null;
     isAnonymous?: boolean | null;
@@ -110,10 +112,20 @@ export function AuthMethodsPanel({
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MethodCard title="email" status={user.email ? "linked" : "missing"}>
-          <p className={`text-sm text-muted-foreground${user.email ? " break-all" : ""}`}>
-            {user.email ?? "Email login has not been linked for this account yet."}
-          </p>
+        <MethodCard
+          title="email"
+          status={
+            user.emailVerified || user.email
+              ? user.emailVerified
+                ? "verified"
+                : "linked"
+              : "missing"
+          }
+        >
+          <NotificationEmailSettings
+            authEmail={user.email}
+            authEmailVerified={user.emailVerified}
+          />
         </MethodCard>
 
         <MethodCard
