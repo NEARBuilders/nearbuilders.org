@@ -52,6 +52,7 @@ const defaultValuesForKind = (kind: ProjectKind): ProjectFormValues => ({
   organizationId: "",
   domain: "",
   logoUrl: "",
+  cityNode: "",
   catalog: emptyProjectCatalog(),
   collaborators: [],
 });
@@ -164,6 +165,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
         organizationId: values.organizationId?.trim() || undefined,
         domain: normalizeDomain(values.domain) || undefined,
         logoUrl: values.logoUrl?.trim() || undefined,
+        cityNode: values.cityNode || undefined,
         catalog:
           routeKind === "project"
             ? (projectCatalogFromFormValues(values.catalog) ?? undefined)
@@ -185,6 +187,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
             ownerId: project.ownerId,
             domain: project.domain ?? undefined,
             logoUrl: project.logoUrl ?? undefined,
+            cityNode: project.cityNode ?? undefined,
             catalog: project.catalog ?? undefined,
           },
         });

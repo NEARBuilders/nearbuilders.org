@@ -125,5 +125,10 @@ export default App({
       proxy: "https://feedback.nearbuilders.org",
       secrets: ["FEEDBACK_API_KEY"],
     },
+    citynode: {
+      contract: "bos://v1.citynode.near/citynode.app#app.api",
+      proxy: "https://citynode.app",
+      secrets: ["CITYNODE_API_KEY"],
+    },
   },
 });

@@ -25,6 +25,7 @@ export type ProjectDraft = {
   ownerId?: string;
   domain?: string;
   logoUrl?: string;
+  cityNode?: string;
   catalog?: ProjectCatalogFormValues;
 };
 

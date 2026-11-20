@@ -148,6 +148,7 @@ export interface Project {
   repository: string | null;
   domain: string | null;
   logoUrl: string | null;
+  cityNode: string | null;
   catalog: ProjectCatalogMetadata | null;
   createdAt: string;
   updatedAt: string;
@@ -288,6 +289,7 @@ export class ProjectService extends Context.Service<
         query?: string;
         sort?: "newest" | "oldest";
         slugs?: string;
+        cityNode?: string;
         limit?: number;
         cursor?: string;
       },
@@ -332,6 +334,7 @@ export class ProjectService extends Context.Service<
         ownerId?: string;
         domain?: string;
         logoUrl?: string;
+        cityNode?: string | null;
         catalog?: ProjectCatalogMetadata | null;
         collaborators?: string[];
       },
@@ -358,6 +361,7 @@ export class ProjectService extends Context.Service<
         organizationId?: string | null;
         domain?: string;
         logoUrl?: string;
+        cityNode?: string | null;
         catalog?: ProjectCatalogMetadata | null;
       },
       userId: string,
@@ -638,6 +642,7 @@ function mapProject(p: any): Project {
     repository: p.repository ?? null,
     domain: p.domain ?? null,
     logoUrl: p.logoUrl ?? null,
+    cityNode: p.cityNode ?? null,
     catalog: normalizeProjectCatalog(p.catalog),
     createdAt: toIsoString(p.createdAt),
     updatedAt: toIsoString(p.updatedAt),
@@ -775,6 +780,10 @@ export const ProjectServiceLive = Layer.effect(
 
           if (input.status) {
             conditions.push(eq(projects.status, input.status));
+          }
+
+          if (input.cityNode) {
+            conditions.push(eq(projects.cityNode, input.cityNode));
           }
 
           if (input.query?.trim()) {
@@ -1027,6 +1036,7 @@ export const ProjectServiceLive = Layer.effect(
               repository,
               domain,
               logoUrl,
+              cityNode: input.cityNode ?? null,
               catalog,
               createdAt: now,
               updatedAt: now,
@@ -1083,6 +1093,7 @@ export const ProjectServiceLive = Layer.effect(
             repository,
             domain,
             logoUrl,
+            cityNode: input.cityNode ?? null,
             catalog,
             createdAt: toIsoString(now),
             updatedAt: toIsoString(now),
@@ -1186,6 +1197,7 @@ export const ProjectServiceLive = Layer.effect(
           if (input.repository !== undefined) updates.repository = nextRepository;
           if (input.domain !== undefined) updates.domain = nextDomain;
           if (input.logoUrl !== undefined) updates.logoUrl = nextLogoUrl;
+          if (input.cityNode !== undefined) updates.cityNode = input.cityNode;
           if (input.catalog !== undefined) updates.catalog = nextCatalog;
           if (input.organizationId !== undefined) updates.organizationId = input.organizationId;
           if (userRole === "admin" && input.ownerId !== undefined)
@@ -1211,6 +1223,7 @@ export const ProjectServiceLive = Layer.effect(
             repository: updates.repository ?? existing.repository ?? null,
             domain: nextDomain,
             logoUrl: nextLogoUrl,
+            cityNode: input.cityNode !== undefined ? input.cityNode : (existing.cityNode ?? null),
             catalog: nextCatalog,
             createdAt: toIsoString(existing.createdAt),
             updatedAt: toIsoString(now),
