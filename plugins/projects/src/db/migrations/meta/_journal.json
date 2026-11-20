@@ -78,6 +78,13 @@
       "when": 1794000000000,
       "tag": "0010_project_programs",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0011_project_status_checks",
+      "breakpoints": true
     }
   ]
 }

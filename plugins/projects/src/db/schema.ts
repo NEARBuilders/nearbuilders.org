@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ProjectCatalogMetadata } from "../services/catalog-metadata";
 
@@ -112,5 +113,53 @@ export const projectPrograms = pgTable(
   (table) => [
     index("project_programs_project_idx").on(table.projectId),
     index("project_programs_status_sort_idx").on(table.status, table.sortOrder),
+  ],
+);
+
+export const projectStatusChecks = pgTable(
+  "project_status_checks",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status").notNull().default("draft"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("project_status_checks_project_idx").on(table.projectId),
+    index("project_status_checks_status_sort_idx").on(table.status, table.sortOrder),
+    uniqueIndex("project_status_checks_listed_url_unique")
+      .on(table.url)
+      .where(sql`${table.status} = 'listed'`),
+  ],
+);
+
+export const projectStatusResults = pgTable(
+  "project_status_results",
+  {
+    id: text("id").primaryKey(),
+    checkId: text("check_id")
+      .notNull()
+      .references(() => projectStatusChecks.id, { onDelete: "cascade" }),
+    checkedAt: timestamp("checked_at", { mode: "date", withTimezone: true }).notNull(),
+    state: text("state").notNull(),
+    httpStatus: integer("http_status"),
+    latencyMs: integer("latency_ms"),
+    reason: text("reason"),
+    pluginKeys: jsonb("plugin_keys").$type<string[]>(),
+  },
+  (table) => [
+    index("project_status_results_check_checked_idx").on(table.checkId, table.checkedAt.desc()),
+    index("project_status_results_checked_idx").on(table.checkedAt),
   ],
 );

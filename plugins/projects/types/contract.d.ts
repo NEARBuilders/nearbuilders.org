@@ -57,6 +57,43 @@ export declare const programStateEnum: z.ZodEnum<{
     upcoming: "upcoming";
 }>;
 export declare function isProgramCtaUrl(value: string): boolean;
+export declare const statusCheckKindEnum: z.ZodEnum<{
+    "everything-dev-health": "everything-dev-health";
+    http: "http";
+    ping: "ping";
+}>;
+export declare const statusCheckStatusEnum: z.ZodEnum<{
+    archived: "archived";
+    draft: "draft";
+    listed: "listed";
+    paused: "paused";
+}>;
+export declare const statusStateEnum: z.ZodEnum<{
+    degraded: "degraded";
+    down: "down";
+    up: "up";
+}>;
+export declare const statusDisplayStateEnum: z.ZodEnum<{
+    degraded: "degraded";
+    down: "down";
+    unknown: "unknown";
+    up: "up";
+}>;
+export declare const statusReasonEnum: z.ZodEnum<{
+    bad_body: "bad_body";
+    blocked: "blocked";
+    connection: "connection";
+    dns: "dns";
+    http_4xx: "http_4xx";
+    http_5xx: "http_5xx";
+    not_ready: "not_ready";
+    plugin_failure: "plugin_failure";
+    slow: "slow";
+    snapshot_degraded: "snapshot_degraded";
+    timeout: "timeout";
+    tls: "tls";
+}>;
+export declare function isStatusCheckUrlShape(value: string): boolean;
 export declare const contract: {
     listProjects: import("@orpc/contract").ProcedureContract<z.ZodObject<{
         organizationId: z.ZodOptional<z.ZodString>;
@@ -1829,6 +1866,497 @@ export declare const contract: {
                     message: z.ZodString;
                     code: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    adminListStatusChecks: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        projectId: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        data: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            projectId: z.ZodString;
+            label: z.ZodString;
+            url: z.ZodString;
+            kind: z.ZodEnum<{
+                "everything-dev-health": "everything-dev-health";
+                http: "http";
+                ping: "ping";
+            }>;
+            status: z.ZodEnum<{
+                archived: "archived";
+                draft: "draft";
+                listed: "listed";
+                paused: "paused";
+            }>;
+            sortOrder: z.ZodNumber;
+            createdBy: z.ZodString;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            currentState: z.ZodEnum<{
+                degraded: "degraded";
+                down: "down";
+                unknown: "unknown";
+                up: "up";
+            }>;
+            latest: z.ZodNullable<z.ZodObject<{
+                state: z.ZodEnum<{
+                    degraded: "degraded";
+                    down: "down";
+                    up: "up";
+                }>;
+                reason: z.ZodNullable<z.ZodEnum<{
+                    bad_body: "bad_body";
+                    blocked: "blocked";
+                    connection: "connection";
+                    dns: "dns";
+                    http_4xx: "http_4xx";
+                    http_5xx: "http_5xx";
+                    not_ready: "not_ready";
+                    plugin_failure: "plugin_failure";
+                    slow: "slow";
+                    snapshot_degraded: "snapshot_degraded";
+                    timeout: "timeout";
+                    tls: "tls";
+                }>>;
+                httpStatus: z.ZodNullable<z.ZodNumber>;
+                latencyMs: z.ZodNullable<z.ZodNumber>;
+                pluginKeys: z.ZodArray<z.ZodString>;
+                checkedAt: z.ZodISODateTime;
+            }, z.core.$strip>>;
+            project: z.ZodObject<{
+                id: z.ZodString;
+                kind: z.ZodEnum<{
+                    idea: "idea";
+                    project: "project";
+                    result: "result";
+                    scope: "scope";
+                }>;
+                slug: z.ZodString;
+                title: z.ZodString;
+                ownerId: z.ZodString;
+                logoUrl: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
+    createStatusCheck: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        label: z.ZodString;
+        url: z.ZodString;
+        kind: z.ZodEnum<{
+            "everything-dev-health": "everything-dev-health";
+            http: "http";
+            ping: "ping";
+        }>;
+        status: z.ZodOptional<z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>>;
+        sortOrder: z.ZodOptional<z.ZodNumber>;
+        projectId: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        label: z.ZodString;
+        url: z.ZodString;
+        kind: z.ZodEnum<{
+            "everything-dev-health": "everything-dev-health";
+            http: "http";
+            ping: "ping";
+        }>;
+        status: z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>;
+        sortOrder: z.ZodNumber;
+        createdBy: z.ZodString;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        currentState: z.ZodEnum<{
+            degraded: "degraded";
+            down: "down";
+            unknown: "unknown";
+            up: "up";
+        }>;
+        latest: z.ZodNullable<z.ZodObject<{
+            state: z.ZodEnum<{
+                degraded: "degraded";
+                down: "down";
+                up: "up";
+            }>;
+            reason: z.ZodNullable<z.ZodEnum<{
+                bad_body: "bad_body";
+                blocked: "blocked";
+                connection: "connection";
+                dns: "dns";
+                http_4xx: "http_4xx";
+                http_5xx: "http_5xx";
+                not_ready: "not_ready";
+                plugin_failure: "plugin_failure";
+                slow: "slow";
+                snapshot_degraded: "snapshot_degraded";
+                timeout: "timeout";
+                tls: "tls";
+            }>>;
+            httpStatus: z.ZodNullable<z.ZodNumber>;
+            latencyMs: z.ZodNullable<z.ZodNumber>;
+            pluginKeys: z.ZodArray<z.ZodString>;
+            checkedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+        project: z.ZodObject<{
+            id: z.ZodString;
+            kind: z.ZodEnum<{
+                idea: "idea";
+                project: "project";
+                result: "result";
+                scope: "scope";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            ownerId: z.ZodString;
+            logoUrl: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    updateStatusCheck: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        label: z.ZodOptional<z.ZodString>;
+        url: z.ZodOptional<z.ZodString>;
+        kind: z.ZodOptional<z.ZodEnum<{
+            "everything-dev-health": "everything-dev-health";
+            http: "http";
+            ping: "ping";
+        }>>;
+        status: z.ZodOptional<z.ZodOptional<z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>>>;
+        sortOrder: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        label: z.ZodString;
+        url: z.ZodString;
+        kind: z.ZodEnum<{
+            "everything-dev-health": "everything-dev-health";
+            http: "http";
+            ping: "ping";
+        }>;
+        status: z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>;
+        sortOrder: z.ZodNumber;
+        createdBy: z.ZodString;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        currentState: z.ZodEnum<{
+            degraded: "degraded";
+            down: "down";
+            unknown: "unknown";
+            up: "up";
+        }>;
+        latest: z.ZodNullable<z.ZodObject<{
+            state: z.ZodEnum<{
+                degraded: "degraded";
+                down: "down";
+                up: "up";
+            }>;
+            reason: z.ZodNullable<z.ZodEnum<{
+                bad_body: "bad_body";
+                blocked: "blocked";
+                connection: "connection";
+                dns: "dns";
+                http_4xx: "http_4xx";
+                http_5xx: "http_5xx";
+                not_ready: "not_ready";
+                plugin_failure: "plugin_failure";
+                slow: "slow";
+                snapshot_degraded: "snapshot_degraded";
+                timeout: "timeout";
+                tls: "tls";
+            }>>;
+            httpStatus: z.ZodNullable<z.ZodNumber>;
+            latencyMs: z.ZodNullable<z.ZodNumber>;
+            pluginKeys: z.ZodArray<z.ZodString>;
+            checkedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+        project: z.ZodObject<{
+            id: z.ZodString;
+            kind: z.ZodEnum<{
+                idea: "idea";
+                project: "project";
+                result: "result";
+                scope: "scope";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            ownerId: z.ZodString;
+            logoUrl: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    deleteStatusCheck: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+    }>;
+    runStatusCheck: import("@orpc/contract").ProcedureContract<z.ZodObject<{
+        id: z.ZodString;
+    }, z.core.$strip>, z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        label: z.ZodString;
+        url: z.ZodString;
+        kind: z.ZodEnum<{
+            "everything-dev-health": "everything-dev-health";
+            http: "http";
+            ping: "ping";
+        }>;
+        status: z.ZodEnum<{
+            archived: "archived";
+            draft: "draft";
+            listed: "listed";
+            paused: "paused";
+        }>;
+        sortOrder: z.ZodNumber;
+        createdBy: z.ZodString;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        currentState: z.ZodEnum<{
+            degraded: "degraded";
+            down: "down";
+            unknown: "unknown";
+            up: "up";
+        }>;
+        latest: z.ZodNullable<z.ZodObject<{
+            state: z.ZodEnum<{
+                degraded: "degraded";
+                down: "down";
+                up: "up";
+            }>;
+            reason: z.ZodNullable<z.ZodEnum<{
+                bad_body: "bad_body";
+                blocked: "blocked";
+                connection: "connection";
+                dns: "dns";
+                http_4xx: "http_4xx";
+                http_5xx: "http_5xx";
+                not_ready: "not_ready";
+                plugin_failure: "plugin_failure";
+                slow: "slow";
+                snapshot_degraded: "snapshot_degraded";
+                timeout: "timeout";
+                tls: "tls";
+            }>>;
+            httpStatus: z.ZodNullable<z.ZodNumber>;
+            latencyMs: z.ZodNullable<z.ZodNumber>;
+            pluginKeys: z.ZodArray<z.ZodString>;
+            checkedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+        project: z.ZodObject<{
+            id: z.ZodString;
+            kind: z.ZodEnum<{
+                idea: "idea";
+                project: "project";
+                result: "result";
+                scope: "scope";
+            }>;
+            slug: z.ZodString;
+            title: z.ZodString;
+            ownerId: z.ZodString;
+            logoUrl: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        NOT_FOUND: {
+            readonly status: 404;
+            readonly data: z.ZodObject<{
+                resource: z.ZodOptional<z.ZodString>;
+                resourceId: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>;
+        };
+        RATE_LIMITED: {
+            readonly status: 429;
+            readonly data: z.ZodObject<{
+                retryAfter: z.ZodNumber;
+                remainingRequests: z.ZodOptional<z.ZodNumber>;
+                resetTime: z.ZodOptional<z.ZodString>;
+                limitType: z.ZodOptional<z.ZodEnum<{
+                    bandwidth: "bandwidth";
+                    requests: "requests";
+                    tokens: "tokens";
+                }>>;
+            }, z.core.$strip>;
+        };
+    }>;
+    seedStatusChecks: import("@orpc/contract").ProcedureContract<z.ZodObject<{}, z.core.$strip>, z.ZodObject<{
+        created: z.ZodNumber;
+        existing: z.ZodNumber;
+        missing: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>, {
+        UNAUTHORIZED: {
+            readonly status: 401;
+            readonly data: z.ZodObject<{
+                apiKeyProvided: z.ZodBoolean;
+                provider: z.ZodOptional<z.ZodString>;
+                authType: z.ZodOptional<z.ZodEnum<{
+                    apiKey: "apiKey";
+                    oauth: "oauth";
+                    token: "token";
+                }>>;
+            }, z.core.$strip>;
+        };
+        FORBIDDEN: {
+            readonly status: 403;
+            readonly data: z.ZodObject<{
+                requiredPermissions: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                action: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>;
         };
     }>;
