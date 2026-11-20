@@ -27,7 +27,7 @@ permissions:
 jobs:
   ci:
     name: CI
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.44
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-ci.yml@v2.0.0-rc.46
     with:
       working_directory: .
     secrets: inherit
@@ -51,5 +51,6 @@ jobs:
     needs: [ci, child-ci]
     if: always() # a plain needs-skip reports "skipped", not failure
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: test "${{ needs.ci.result }}" = "success" && test "${{ needs.child-ci.result }}" = "success"

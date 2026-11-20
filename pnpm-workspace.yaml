@@ -17,12 +17,13 @@ overrides:
   react: 19.3.1
   react-dom: 19.3.1
 catalog:
+  "@alchemy.run/docker": 2.0.0-beta.85
   "@better-auth/api-key": 1.7.14
   "@better-auth/core": 1.7.14
   "@better-auth/passkey": 1.7.14
   "@better-fetch/fetch": 1.3.3
-  "@effect/platform-node": 4.0.0-rc.118
-  "@effect/platform-node-shared": 4.0.0-rc.118
+  "@effect/platform-node": 4.1.4
+  "@effect/platform-node-shared": 4.1.4
   "@electric-sql/pglite": ^0.4.5
   "@hot-labs/near-connect": elliotBraem/near-connect#v0.12.0-fork.3
   "@libsql/client": 0.17.0
@@ -76,14 +77,15 @@ catalog:
   "@types/pg": ^8.11.6
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
+  alchemy: 2.0.0-beta.85
   aws4fetch: ^1.0.20
   better-auth: 1.7.14
-  better-near-auth: 2.0.0-rc.8
+  better-near-auth: 2.0.0-rc.9
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
-  effect: 4.0.0-rc.118
+  effect: 4.1.4
   every-plugin: 3.0.0-rc.18
-  everything-dev: 2.0.0-rc.44
+  everything-dev: 2.0.0-rc.46
   near-kit: ^0.20.2
   pg: ^8.12.0
   react: 19.3.1
@@ -97,9 +99,9 @@ catalog:
   zephyr-rspack-plugin: ^1.1.2
   zod: 4.6.7
 minimumReleaseAgeExclude:
-  - better-near-auth@2.0.0-rc.8
+  - better-near-auth@2.0.0-rc.9
   - every-plugin@3.0.0-rc.18
-  - everything-dev@2.0.0-rc.44
+  - everything-dev@2.0.0-rc.46
 minimumReleaseAgeExcludePrune: true
 permissions:
   "@hot-labs/near-connect@https://codeload.github.com/elliotBraem/near-connect/tar.gz/83355f19408cd98c03b9fa823f9e52cd03929418":
