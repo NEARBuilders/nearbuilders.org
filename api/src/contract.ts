@@ -1880,6 +1880,17 @@ export const contract = oc.router({
     .output(z.object({ cleared: z.number().int().nonnegative() }))
     .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
 
+  adminSetProjectOrganization: oc
+    .route({ method: "POST", path: "/v1/admin/projects/{projectId}/organization" })
+    .input(
+      z.object({
+        projectId: z.string().min(1),
+        organizationId: z.string().min(1).nullable(),
+      }),
+    )
+    .output(z.object({ projectId: z.string(), organizationId: z.string().nullable() }))
+    .errors({ UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST }),
+
   listProjectsForApp: oc
     .route({ method: "GET", path: "/v1/apps/{accountId}/{domain}/projects" })
     .input(

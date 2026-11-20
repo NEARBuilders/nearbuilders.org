@@ -862,6 +862,56 @@ describe("project collaborators", () => {
     expect((await owner.getProject({ id: attributed.id })).data.organizationId).toBeNull();
     expect((await owner.getProject({ id: unrelated.id })).data.organizationId).toBe("other-org");
   });
+
+  it("re-attributes a project between organizations via the internal admin route", async () => {
+    const owner = loaded.createClient({
+      ...ownerCtx(),
+      organizations: [{ id: "org-a", role: "member" }],
+    });
+    const project = await owner.createProject({
+      kind: "idea",
+      title: "Re-attributed idea",
+      slug: "re-attributed-idea",
+      content: "# Re-attributed idea",
+      organizationId: "org-a",
+      visibility: "public",
+    });
+    const internal = loaded.createClient({ internalAdminAttribution: true });
+
+    await expect(
+      internal.setProjectOrganization({ projectId: project.id, organizationId: "org-b" }),
+    ).resolves.toEqual({ projectId: project.id, organizationId: "org-b" });
+    expect((await owner.getProject({ id: project.id })).data.organizationId).toBe("org-b");
+
+    await expect(
+      internal.setProjectOrganization({ projectId: project.id, organizationId: null }),
+    ).resolves.toEqual({ projectId: project.id, organizationId: null });
+    expect((await owner.getProject({ id: project.id })).data.organizationId).toBeNull();
+  });
+
+  it("guards internal re-attribution behind the internal flag and existing projects", async () => {
+    const owner = loaded.createClient({
+      ...ownerCtx(),
+      organizations: [{ id: "org-a", role: "member" }],
+    });
+    const project = await owner.createProject({
+      kind: "idea",
+      title: "Guard idea",
+      slug: "guard-idea",
+      content: "# Guard idea",
+      organizationId: "org-a",
+      visibility: "public",
+    });
+    const plain = loaded.createClient({});
+    const internal = loaded.createClient({ internalAdminAttribution: true });
+
+    await expect(
+      plain.setProjectOrganization({ projectId: project.id, organizationId: null }),
+    ).rejects.toThrow("Internal admin attribution required");
+    await expect(
+      internal.setProjectOrganization({ projectId: "missing-id", organizationId: null }),
+    ).rejects.toThrow("Project not found");
+  });
 });
 
 describe("project ownership across linked NEAR accounts (#362)", () => {

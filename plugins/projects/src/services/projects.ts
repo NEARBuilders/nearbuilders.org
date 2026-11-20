@@ -378,6 +378,14 @@ export class ProjectService extends Context.Service<
       organizationId: string,
     ) => Effect.Effect<{ cleared: number }, ORPCError<string, unknown>>;
 
+    setProjectOrganization: (
+      projectId: string,
+      organizationId: string | null,
+    ) => Effect.Effect<
+      { projectId: string; organizationId: string | null },
+      ORPCError<string, unknown>
+    >;
+
     listProjectApps: (projectId: string) => Effect.Effect<ProjectApp[], ORPCError<string, unknown>>;
 
     linkAppToProject: (
@@ -1252,6 +1260,30 @@ export const ProjectServiceLive = Layer.effect(
           )) as Array<{ id: string }>;
 
           return { cleared: updated.length };
+        }),
+
+      setProjectOrganization: (projectId, organizationId) =>
+        Effect.gen(function* () {
+          const [existing] = (yield* Effect.promise(() =>
+            db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(eq(projects.id, projectId))
+              .limit(1),
+          )) as Array<{ id: string }>;
+
+          if (!existing) {
+            return yield* Effect.fail(new ORPCError("NOT_FOUND", { message: "Project not found" }));
+          }
+
+          yield* Effect.promise(() =>
+            db
+              .update(projects)
+              .set({ organizationId: organizationId ?? null, updatedAt: new Date() })
+              .where(eq(projects.id, projectId)),
+          );
+
+          return { projectId, organizationId: organizationId ?? null };
         }),
 
       listProjectApps: (projectId) =>
