@@ -78,6 +78,7 @@ function refreshProposalData(queryClient: ReturnType<typeof useQueryClient>) {
     queryClient.invalidateQueries({ queryKey: ["events"] }),
     queryClient.invalidateQueries({ queryKey: ["builders"] }),
     queryClient.invalidateQueries({ queryKey: ["catalog-claims"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin-catalog-sends"] }),
     queryClient.invalidateQueries({ queryKey: ["activity"] }),
   ]);
 }

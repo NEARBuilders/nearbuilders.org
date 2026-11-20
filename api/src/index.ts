@@ -26,6 +26,7 @@ import {
   type CatalogListingKind,
   createCatalogListings,
   isSystemActor,
+  toCatalogListingSend,
 } from "./services/catalog-listings";
 import {
   createProjectFeedbackClient,
@@ -289,6 +290,21 @@ export default createPlugin.withPlugins<PluginEntries>()({
       await catalogListings
         .sync(kind, entityId, context)
         .catch((error) => console.error("[NearCatalog] Listing sync failed:", error));
+    };
+    const syncOwnedCatalogProjects = async (nearAccount: string, context: Context) => {
+      const owned = await Promise.resolve()
+        .then(() =>
+          services.plugins
+            .projects(context)
+            .listProjects({ ownerId: nearAccount, kind: "project", limit: 100 }),
+        )
+        .catch((error) => {
+          console.error("[NearCatalog] Owned project lookup failed:", error);
+          return null;
+        });
+      for (const project of owned?.data ?? []) {
+        await syncCatalogListing("project", project.id, context);
+      }
     };
     const getOrganizationMember = async (context: Context, organizationId: string) => {
       const organization = context.organization;
@@ -1072,6 +1088,20 @@ export default createPlugin.withPlugins<PluginEntries>()({
           return { data: { status: result.data.status, slug: result.data.slug } };
         }),
 
+      listCatalogListingSends: builder.listCatalogListingSends
+        .use(requireAdmin)
+        .handler(async ({ context }) => {
+          const result = await services.plugins.nearcatalog(context).listCatalogListingSends({});
+          return { enabled: result.enabled, data: result.data.map(toCatalogListingSend) };
+        }),
+
+      retryCatalogListingSend: builder.retryCatalogListingSend
+        .use(requireAdmin)
+        .handler(async ({ input, context }) => {
+          const result = await services.plugins.nearcatalog(context).retryCatalogListingSend(input);
+          return { data: toCatalogListingSend(result.data) };
+        }),
+
       getMyCatalogListing: builder.getMyCatalogListing
         .use(requireAuth)
         .handler(async ({ input, context }) => {
@@ -1510,13 +1540,16 @@ export default createPlugin.withPlugins<PluginEntries>()({
             .builders(context)
             .withdrawMyBuilderProfile(input);
           await syncCatalogListing("person", withdrawn.data.nearAccount, context);
+          await syncOwnedCatalogProjects(withdrawn.data.nearAccount, context);
           return withdrawn;
         }),
 
       restoreMyBuilderProfile: builder.restoreMyBuilderProfile
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          return await services.plugins.builders(context).restoreMyBuilderProfile(input);
+          const restored = await services.plugins.builders(context).restoreMyBuilderProfile(input);
+          await syncOwnedCatalogProjects(restored.data.nearAccount, context);
+          return restored;
         }),
 
       updateBuilderProfile: builder.updateBuilderProfile
@@ -1524,6 +1557,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
         .handler(async ({ input, context }) => {
           const updated = await services.plugins.builders(context).updateBuilderProfile(input);
           await syncCatalogListing("person", updated.data.nearAccount, context);
+          await syncOwnedCatalogProjects(updated.data.nearAccount, context);
           return updated;
         }),
 

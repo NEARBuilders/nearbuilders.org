@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { CatalogSends } from "@/components/admin/catalog-sends";
 import { getProposalQueryOptions, ProposalTab } from "@/components/admin/proposal-tab";
 import { parseProposalTabSearch } from "@/lib/admin/proposal-dashboard";
 import { dashboardTabTitle, useProposalTabActions } from "@/lib/admin/proposal-tab-route";
@@ -20,12 +21,15 @@ function CatalogTab() {
   const search = Route.useSearch();
   const actions = useProposalTabActions();
   return (
-    <ProposalTab
-      title="NEAR Catalog"
-      noun={{ singular: "listing", plural: "listings" }}
-      pluginId="nearcatalog-listing"
-      search={search}
-      actions={actions}
-    />
+    <div className="space-y-6">
+      <CatalogSends />
+      <ProposalTab
+        title="NEAR Catalog"
+        noun={{ singular: "listing", plural: "listings" }}
+        pluginId="nearcatalog-listing"
+        search={search}
+        actions={actions}
+      />
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import { CATALOG_LISTING_SYNC, contract } from "./contract";
 import { DatabaseLive } from "./db/layer";
 import { ContextSchema } from "./lib/context";
 import { CatalogService, CatalogServiceLive } from "./services/catalog";
+import { createCatalogSubmitClientFromConfig } from "./services/catalog-submit";
 import { ClaimService, ClaimServiceLive } from "./services/claims";
 import { ListingService, ListingServiceLive } from "./services/listings";
 
@@ -49,6 +50,9 @@ export default createPlugin({
 
   secrets: z.object({
     NEARCATALOG_DATABASE_URL: z.string().default("pglite:.bos/nearcatalog/:memory:"),
+    NEARCATALOG_SUBMIT_URL: z.string().optional(),
+    NEARCATALOG_PARTNER_KEY: z.string().optional(),
+    NEARCATALOG_CONTACT: z.string().optional(),
   }),
 
   context: ContextSchema,
@@ -56,14 +60,19 @@ export default createPlugin({
   contract,
 
   initialize: (config) =>
-    Effect.sync(() =>
-      Layer.mergeAll(
+    Effect.sync(() => {
+      const submitter = createCatalogSubmitClientFromConfig({
+        url: config.secrets.NEARCATALOG_SUBMIT_URL,
+        token: config.secrets.NEARCATALOG_PARTNER_KEY,
+        contactInfo: config.secrets.NEARCATALOG_CONTACT,
+      });
+      return Layer.mergeAll(
         CatalogServiceLive(config.variables.baseUrl),
-        Layer.mergeAll(ClaimServiceLive, ListingServiceLive).pipe(
+        Layer.mergeAll(ClaimServiceLive, ListingServiceLive(submitter)).pipe(
           Layer.provide(DatabaseLive(config.secrets.NEARCATALOG_DATABASE_URL)),
         ),
-      ),
-    ),
+      );
+    }),
 
   createRouter: (builder) => {
     const requireAdmin = builder.middleware(async ({ context, next }) => {
@@ -237,6 +246,20 @@ export default createPlugin({
           const listings = yield* ListingService;
           return { data: yield* listings.withdraw(input) };
         }),
+
+      listCatalogListingSends: builder.listCatalogListingSends
+        .use(requireAdmin)
+        .effect(function* () {
+          const listings = yield* ListingService;
+          return yield* listings.listSends();
+        }),
+
+      retryCatalogListingSend: builder.retryCatalogListingSend.use(requireAdmin).effect(function* ({
+        input,
+      }) {
+        const listings = yield* ListingService;
+        return { data: yield* listings.retrySend(input) };
+      }),
 
       refreshCatalogListingRecord: builder.refreshCatalogListingRecord
         .use(requireListingSync)
