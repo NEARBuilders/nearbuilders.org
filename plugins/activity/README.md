@@ -9,6 +9,18 @@ The activity plugin can forward its trusted writes to the standalone Activity se
 continuing to write its own table. This is the reversible writer path for
 [activity.nearbuilders.org#13](https://github.com/NEARBuilders/activity.nearbuilders.org/issues/13).
 
+## Talking to Activity
+
+Every call goes over Activity's `/api/rpc`, typed from its published contract.
+
+- Reads (feed, live stream, leaderboard, project status) use the `activityApi` attachment in
+  `bos.app.ts` (`contract` + `proxy`). They need no key. `bos types gen` fetches and verifies the
+  contract into `.bos/generated/plugins/activityApi/`.
+- Keyed calls (event writes, retractions, binding sessions) go to `ACTIVITY_GATEWAY_URL` with
+  `ACTIVITY_GATEWAY_API_KEY` as `Authorization: Bearer`. Activity reads its Source API Key from
+  that header, and the attachment only sends `x-api-key`. Keeping the key off the attachment also
+  keeps it off the public `/api/rpc/activityApi/*` forwarder.
+
 ## Modes
 
 The mode is stored in the plugin's database (`activity_settings`), so it changes without a

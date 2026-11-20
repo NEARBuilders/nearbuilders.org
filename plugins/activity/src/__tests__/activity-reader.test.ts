@@ -1,13 +1,32 @@
+import { withEventMeta } from "@orpc/server";
 import { describe, expect, it } from "vitest";
+import type { ActivityApiEvent } from "../services/activity-api";
 import {
   createActivityReaderClient,
   isPubliclyVisible,
-  parseSseFrames,
   toActivityEvent,
   toActivityQuery,
 } from "../services/activity-reader";
+import { startFakeActivity } from "./fake-activity";
 
 const EVENT_ID = "e".repeat(64);
+
+function apiEvent(
+  event: Partial<Omit<ActivityApiEvent, "provenance">> & { approvalStatus?: string },
+): ActivityApiEvent {
+  const { approvalStatus, ...rest } = event;
+  return {
+    id: EVENT_ID,
+    source: "nearbuilders",
+    type: "project.approved",
+    actor: "a.near",
+    idempotencyKey: "k",
+    timestamp: "2026-10-10T09:00:00.000Z",
+    payload: {},
+    ...rest,
+    provenance: { approvalStatus: approvalStatus ?? "approved" },
+  } as ActivityApiEvent;
+}
 
 describe("activity reader", () => {
   it("translates legacy filters into Activity's source and Event Type", () => {
@@ -34,14 +53,11 @@ describe("activity reader", () => {
   it("keeps nearbuilders.org's own events in their legacy shape and ID", () => {
     expect(
       toActivityEvent(
-        {
-          id: EVENT_ID,
-          source: "nearbuilders",
-          type: "project.approved",
+        apiEvent({
           actor: "alice.near",
           timestamp: "2026-07-10T09:00:00.000Z",
           payload: { title: "Approved" },
-        },
+        }),
         new Map([[EVENT_ID, "act_1"]]),
       ),
     ).toEqual({
@@ -59,14 +75,12 @@ describe("activity reader", () => {
   it("shows other sources without their unverified payload", () => {
     expect(
       toActivityEvent(
-        {
-          id: EVENT_ID,
+        apiEvent({
           source: "kudos-board",
           type: "kudos.given",
           actor: "bob.near",
-          timestamp: "2026-10-10T09:00:00.000Z",
           payload: { title: "Look at this", mediaUrl: "https://example.com/x.png" },
-        },
+        }),
         new Map(),
       ),
     ).toEqual({
@@ -81,115 +95,86 @@ describe("activity reader", () => {
     });
   });
 
-  it("parses complete SSE frames and keeps a partial one for the next chunk", () => {
-    const { frames, rest } = parseSseFrames(
-      `: ping\n\nevent: message\nretry: 1000\nid: ${EVENT_ID}\ndata: {"a":1}\n\nevent: message\nid: x\ndata: {"b"`,
-    );
-    expect(frames).toEqual([{ id: EVENT_ID, data: '{"a":1}' }]);
-    expect(rest).toBe('event: message\nid: x\ndata: {"b"');
-  });
-
-  it("queries Activity's feed and leaderboard", async () => {
-    const urls: string[] = [];
-    const client = createActivityReaderClient({
-      baseUrl: "https://activity.nearbuilders.org/api/",
-      fetchImplementation: async (input) => {
-        urls.push(String(input));
-        const body = String(input).includes("/leaderboard")
-          ? {
-              data: [
-                {
-                  rank: 1,
-                  actor: "alice.near",
-                  score: 25,
-                  eventCount: 2,
-                  breakdown: [{ source: "nearbuilders" }, { source: "kudos-board" }],
-                },
-              ],
-            }
-          : { data: [], meta: { hasMore: true, nextCursor: "next" } };
-        return new Response(JSON.stringify(body), { status: 200 });
-      },
-    });
-
-    await expect(
-      client.listEvents({ source: "nearbuilders", actor: "alice.near", limit: 20, cursor: "c1" }),
-    ).resolves.toEqual({ data: [], nextCursor: "next" });
-    await expect(client.leaderboard({ period: "week", limit: 10 })).resolves.toEqual([
-      {
-        rank: 1,
-        actor: "alice.near",
-        score: 25,
-        eventCount: 2,
-        breakdown: [{ source: "nearbuilders" }, { source: "kudos-board" }],
-      },
-    ]);
-    expect(urls).toEqual([
-      "https://activity.nearbuilders.org/api/v1/events?source=nearbuilders&actor=alice.near&limit=20&cursor=c1",
-      "https://activity.nearbuilders.org/api/v1/leaderboard?period=weekly&limit=10",
-    ]);
-  });
-
-  it("streams events from Activity across chunk boundaries", async () => {
-    const encoder = new TextEncoder();
-    const event = {
-      id: EVENT_ID,
-      source: "x",
-      type: "x.done",
-      actor: "a.near",
-      timestamp: "2026-10-10T09:00:00.000Z",
-      payload: {},
+  it("queries Activity's feed and leaderboard over its RPC", async () => {
+    const leaderboardEntry = {
+      rank: 1,
+      actor: "alice.near",
+      score: 25,
+      eventCount: 2,
+      breakdown: [{ source: "nearbuilders" }, { source: "kudos-board" }],
     };
-    const json = JSON.stringify(event);
-    const chunks = [`id: ${EVENT_ID}\ndata: ${json.slice(0, 20)}`, `${json.slice(20)}\n\n`];
-    let headers: Headers | undefined;
-    const client = createActivityReaderClient({
-      baseUrl: "https://activity.nearbuilders.org/api",
-      fetchImplementation: async (_input, init) => {
-        headers = new Headers(init?.headers);
-        return new Response(
-          new ReadableStream({
-            start(controller) {
-              for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
-              controller.close();
-            },
-          }),
-          { status: 200 },
-        );
+    const activity = await startFakeActivity({
+      listActivityEvents: () => ({
+        data: [],
+        meta: { hasMore: true, nextCursor: "next", skippedInvalid: 0 },
+      }),
+      getActivityLeaderboard: () => ({ data: [leaderboardEntry] }),
+    });
+    try {
+      const client = createActivityReaderClient({ client: activity.client });
+      await expect(
+        client.listEvents({ source: "nearbuilders", actor: "alice.near", limit: 20, cursor: "c1" }),
+      ).resolves.toEqual({ data: [], nextCursor: "next" });
+      await expect(client.leaderboard({ period: "week", limit: 10 })).resolves.toEqual([
+        leaderboardEntry,
+      ]);
+      expect(activity.calls.map(({ procedure, input }) => ({ procedure, input }))).toEqual([
+        {
+          procedure: "listActivityEvents",
+          input: { source: "nearbuilders", actor: "alice.near", limit: 20, cursor: "c1" },
+        },
+        { procedure: "getActivityLeaderboard", input: { period: "weekly", limit: 10 } },
+      ]);
+    } finally {
+      await activity.close();
+    }
+  });
+
+  it("drops empty filters and ends a feed with no more pages", async () => {
+    const activity = await startFakeActivity({
+      listActivityEvents: () => ({
+        data: [],
+        meta: { hasMore: false, nextCursor: "stale", skippedInvalid: 0 },
+      }),
+    });
+    try {
+      const client = createActivityReaderClient({ client: activity.client });
+      await expect(client.listEvents({ type: "", actor: undefined, limit: 5 })).resolves.toEqual({
+        data: [],
+        nextCursor: null,
+      });
+      expect(activity.calls[0]?.input).toEqual({ limit: 5 });
+    } finally {
+      await activity.close();
+    }
+  });
+
+  it("streams events from Activity and resumes from the last event ID", async () => {
+    const event = apiEvent({ source: "x", type: "x.done" });
+    const activity = await startFakeActivity({
+      streamActivityEvents: async function* () {
+        yield withEventMeta(event, { id: event.id });
       },
     });
-
-    const received = [];
-    for await (const event of client.stream({ source: "x" }, { lastEventId: "prev" })) {
-      received.push(event);
+    try {
+      const client = createActivityReaderClient({ client: activity.client });
+      const received = [];
+      for await (const next of client.stream({ source: "x" }, { lastEventId: "prev" })) {
+        received.push(next);
+      }
+      expect(received).toEqual([event]);
+      expect(activity.calls[0]).toMatchObject({ input: { source: "x" }, lastEventId: "prev" });
+    } finally {
+      await activity.close();
     }
-    expect(received).toEqual([event]);
-    expect(headers?.get("last-event-id")).toBe("prev");
   });
 
   it("keeps sources under review off nearbuilders.org, but always shows its own source", () => {
-    const event = { id: EVENT_ID, actor: "a.near", timestamp: "", payload: null };
+    expect(isPubliclyVisible(apiEvent({ source: "kudos", approvalStatus: "approved" }))).toBe(true);
+    expect(isPubliclyVisible(apiEvent({ source: "kudos", approvalStatus: "pending" }))).toBe(false);
+    expect(isPubliclyVisible(apiEvent({ approvalStatus: "pending" }))).toBe(true);
     expect(
-      isPubliclyVisible({
-        ...event,
-        source: "kudos",
-        type: "k",
-        provenance: { approvalStatus: "approved" },
-      }),
-    ).toBe(true);
-    expect(
-      isPubliclyVisible({
-        ...event,
-        source: "kudos",
-        type: "k",
-        provenance: { approvalStatus: "pending" },
-      }),
-    ).toBe(false);
-    expect(isPubliclyVisible({ ...event, source: "nearbuilders", type: "project.approved" })).toBe(
-      true,
-    );
-    expect(
-      isPubliclyVisible({ ...event, source: "staging", type: "project.approved" }, "staging"),
+      isPubliclyVisible(apiEvent({ source: "staging", approvalStatus: "pending" }), "staging"),
     ).toBe(true);
   });
 
@@ -201,27 +186,15 @@ describe("activity reader", () => {
     });
     expect(
       toActivityEvent(
-        {
-          id: EVENT_ID,
-          source: "staging",
-          type: "builder.approved",
-          actor: "a.near",
-          timestamp: "t",
-          payload: {},
-        },
+        apiEvent({ source: "staging", type: "builder.approved", timestamp: "t" }),
         new Map(),
         "staging",
       ),
     ).toMatchObject({ source: "builders", type: "approved", verified: true });
   });
 
-  it("rejects a response that does not match Activity's feed", async () => {
-    const client = createActivityReaderClient({
-      baseUrl: "https://activity.nearbuilders.org/api",
-      fetchImplementation: async () =>
-        new Response(JSON.stringify({ data: [{ id: 1 }], meta: {} }), { status: 200 }),
-    });
-
-    await expect(client.listEvents({ limit: 10 })).rejects.toThrow();
+  it("fails reads when Activity is not attached", async () => {
+    const client = createActivityReaderClient({ client: undefined });
+    await expect(client.listEvents({ limit: 10 })).rejects.toThrow("Activity is not attached");
   });
 });

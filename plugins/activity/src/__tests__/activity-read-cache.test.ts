@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActivityApiEvent } from "../services/activity-api";
 import {
   type ActivityReaderClient,
+  createActivityReaderClient,
   createSharedActivityStream,
   startLiveStreamDiagnostics,
   withReadCache,
 } from "../services/activity-reader";
 import { createActivityRegistrationClient } from "../services/activity-registration";
 import { createTtlCache } from "../services/ttl-cache";
+import { startFakeActivity } from "./fake-activity";
 
 function event(id: string): ActivityApiEvent {
   return {
@@ -17,7 +19,7 @@ function event(id: string): ActivityApiEvent {
     actor: "a.near",
     timestamp: "2026-10-10T09:00:00.000Z",
     payload: {},
-  };
+  } as ActivityApiEvent;
 }
 
 describe("ttl cache", () => {
@@ -69,6 +71,9 @@ describe("cached reader", () => {
         calls.push(`leaderboard:${input.period}`);
         return [];
       },
+      async projectActivity() {
+        throw new Error("not read");
+      },
       stream: async function* () {},
     };
     const cached = withReadCache(reader);
@@ -85,26 +90,37 @@ describe("cached reader", () => {
   });
 
   it("looks a project's status up once for its section", async () => {
-    const urls: string[] = [];
-    const client = createActivityRegistrationClient({
-      baseUrl: "https://activity.nearbuilders.org/api",
-      apiKey: "act_partner",
-      fetchImplementation: async (input) => {
-        urls.push(String(input));
-        const body = String(input).includes("/v1/projects/")
-          ? { status: "tracked", sourceId: "kudos-board", displayName: "Kudos", reviewReason: null }
-          : String(input).includes("/leaderboard")
-            ? { data: [] }
-            : { data: [], meta: { hasMore: false, nextCursor: null } };
-        return new Response(JSON.stringify(body), { status: 200 });
-      },
+    const activity = await startFakeActivity({
+      getNearbuildersProjectActivity: () => ({
+        status: "tracked",
+        sourceId: "kudos-board",
+        displayName: "Kudos",
+        approvalStatus: "approved",
+        reviewReason: null,
+      }),
+      getActivityLeaderboard: () => ({ data: [] }),
+      listActivityEvents: () => ({
+        data: [],
+        meta: { hasMore: false, nextCursor: null, skippedInvalid: 0 },
+      }),
     });
+    try {
+      const client = createActivityRegistrationClient({
+        baseUrl: activity.url,
+        apiKey: "act_partner",
+        reader: createActivityReaderClient({ client: activity.client }),
+      });
 
-    await client.projectStatus("proj_1");
-    await client.projectEvents("proj_1");
-    await client.projectContributors("proj_1");
+      await client.projectStatus("proj_1");
+      await client.projectEvents("proj_1");
+      await client.projectContributors("proj_1");
 
-    expect(urls.filter((url) => url.includes("/v1/projects/"))).toHaveLength(1);
+      expect(
+        activity.calls.filter(({ procedure }) => procedure === "getNearbuildersProjectActivity"),
+      ).toHaveLength(1);
+    } finally {
+      await activity.close();
+    }
   });
 });
 

@@ -1,45 +1,41 @@
-import { z } from "zod";
+import { COMMON_ERROR_STATUS_MAP, createORPCClient, ORPCError, ResponseError } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { PluginsClient } from "../lib/plugins-client.gen";
 
-/**
- * Responses from activity.nearbuilders.org's public API. Activity's contract is not published as a
- * package yet, so responses are parsed at this boundary and their types inferred from these schemas.
- */
-export const ActivityApiEventSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  type: z.string(),
-  actor: z.string(),
-  timestamp: z.string(),
-  payload: z.unknown(),
-  provenance: z.object({ approvalStatus: z.string().optional() }).optional(),
-});
-export type ActivityApiEvent = z.infer<typeof ActivityApiEventSchema>;
+export type ActivityApiClient = ReturnType<PluginsClient["activityApi"]["client"]>;
 
-export const ActivityApiFeedSchema = z.object({
-  data: z.array(ActivityApiEventSchema),
-  meta: z.object({ hasMore: z.boolean(), nextCursor: z.string().nullable() }),
-});
+export type ActivityApiEvent = Awaited<
+  ReturnType<ActivityApiClient["listActivityEvents"]>
+>["data"][number];
 
-export const ActivityApiLeaderboardSchema = z.object({
-  data: z.array(
-    z.object({
-      rank: z.number().int().positive(),
-      actor: z.string(),
-      score: z.number().nonnegative(),
-      eventCount: z.number().int().nonnegative(),
-      breakdown: z.array(z.object({ source: z.string() })).default([]),
+export type ActivityApiLeaderboardEntry = Awaited<
+  ReturnType<ActivityApiClient["getActivityLeaderboard"]>
+>["data"][number];
+
+export function activitySiteUrl(gatewayUrl: string): string {
+  return gatewayUrl.replace(/\/+$/, "").replace(/\/api$/, "");
+}
+
+export function createActivitySourceClient(options: {
+  baseUrl: string;
+  apiKey: string;
+  fetchImplementation?: typeof fetch;
+}): ActivityApiClient {
+  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
+  return createORPCClient<ActivityApiClient>(
+    new RPCLink({
+      origin: activitySiteUrl(options.baseUrl),
+      url: "/api/rpc",
+      headers: { authorization: `Bearer ${options.apiKey}` },
+      fetch: (url, init) => fetchImplementation(url, init),
     }),
-  ),
-});
+  );
+}
 
-export const ActivityApiProjectStatusSchema = z.object({
-  status: z.enum(["none", "connected", "tracked", "rejected"]).default("none"),
-  sourceId: z.string().nullable().default(null),
-  displayName: z.string().nullable().default(null),
-  reviewReason: z.string().nullable().default(null),
-});
-
-export const ActivityApiBindingSessionSchema = z.object({
-  url: z.string(),
-  expiresAt: z.string(),
-});
+export function activityErrorStatus(error: unknown): number | null {
+  if (error instanceof ORPCError) {
+    return (COMMON_ERROR_STATUS_MAP as Record<string, number>)[error.code] ?? 500;
+  }
+  if (error instanceof ResponseError) return error.response.status;
+  return null;
+}

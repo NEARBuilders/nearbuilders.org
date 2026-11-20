@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createDatabaseDriver } from "../db";
@@ -8,9 +9,10 @@ import {
   type ActivityGatewayClient,
   ActivityGatewayRequestError,
   createActivityGatewayMethods,
-  createHttpActivityGatewayClient,
+  createRpcActivityGatewayClient,
   gatewayEventType,
 } from "../services/activity-gateway";
+import { startFakeActivity } from "./fake-activity";
 
 type SubmitCall = { eventType: string; actor: string; idempotencyKey: string; payload: unknown };
 type RetractCall = { eventId: string; reason: string; idempotencyKey: string };
@@ -295,72 +297,90 @@ describe("activity gateway", () => {
   });
 });
 
-describe("http gateway client", () => {
-  function clientWith(response: Response | Error) {
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const client = createHttpActivityGatewayClient({
-      baseUrl: "https://activity.example/api/",
-      apiKey: "act_secret",
-      fetchImplementation: (async (url: string, init: RequestInit) => {
-        calls.push({ url: String(url), init });
-        if (response instanceof Error) throw response;
-        return response;
-      }) as unknown as typeof fetch,
+describe("rpc gateway client", () => {
+  const submitInput = {
+    eventType: "project.approved",
+    actor: "alice.near",
+    idempotencyKey: "k1",
+    payload: {},
+  };
+
+  it("submits over Activity's RPC with the Source API Key and returns the event ID", async () => {
+    const activity = await startFakeActivity({
+      submitActivityEvent: () => ({ eventId: "d".repeat(64) }),
     });
-    return { client, calls };
-  }
-
-  it("submits with the API key and returns the event ID", async () => {
-    const { client, calls } = clientWith(
-      new Response(JSON.stringify({ eventId: "d".repeat(64) }), { status: 200 }),
-    );
-
-    await expect(
-      client.submit({
-        eventType: "project.approved",
-        actor: "alice.near",
-        idempotencyKey: "k1",
-        payload: {},
-      }),
-    ).resolves.toEqual({ eventId: "d".repeat(64) });
-    expect(calls[0]?.url).toBe("https://activity.example/api/v1/events");
-    expect((calls[0]?.init.headers as Record<string, string>).authorization).toBe(
-      "Bearer act_secret",
-    );
+    try {
+      const client = createRpcActivityGatewayClient({
+        baseUrl: `${activity.url}/api/`,
+        apiKey: "act_secret",
+      });
+      await expect(client.submit(submitInput)).resolves.toEqual({ eventId: "d".repeat(64) });
+      expect(activity.calls).toEqual([
+        expect.objectContaining({
+          procedure: "submitActivityEvent",
+          input: submitInput,
+          authorization: "Bearer act_secret",
+        }),
+      ]);
+    } finally {
+      await activity.close();
+    }
   });
 
   it("marks server errors retryable and client errors permanent", async () => {
-    const retryable = clientWith(new Response("busy", { status: 503 }));
-    await expect(
-      retryable.client.submit({
-        eventType: "project.approved",
-        actor: "a.near",
-        idempotencyKey: "k",
-        payload: {},
-      }),
-    ).rejects.toMatchObject({ retryable: true });
-
-    const permanent = clientWith(new Response("bad actor", { status: 400 }));
-    await expect(
-      permanent.client.submit({
-        eventType: "project.approved",
-        actor: "a.near",
-        idempotencyKey: "k",
-        payload: {},
-      }),
-    ).rejects.toMatchObject({ retryable: false });
+    const activity = await startFakeActivity({
+      submitActivityEvent: (input) => {
+        throw new ORPCError(input.actor === "busy.near" ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST");
+      },
+    });
+    try {
+      const client = createRpcActivityGatewayClient({ baseUrl: activity.url, apiKey: "k" });
+      await expect(client.submit({ ...submitInput, actor: "busy.near" })).rejects.toMatchObject({
+        retryable: true,
+        message: expect.stringContaining("503"),
+      });
+      await expect(client.submit(submitInput)).rejects.toMatchObject({
+        retryable: false,
+        message: expect.stringContaining("400"),
+      });
+    } finally {
+      await activity.close();
+    }
   });
 
-  it("treats a network failure as retryable and posts retractions to the event path", async () => {
-    const offline = clientWith(new Error("connect ECONNREFUSED"));
+  it("treats a non-RPC error page by its status", async () => {
+    const client = createRpcActivityGatewayClient({
+      baseUrl: "https://activity.example/api",
+      apiKey: "k",
+      fetchImplementation: async () => new Response("bad gateway", { status: 502 }),
+    });
+    await expect(client.submit(submitInput)).rejects.toMatchObject({ retryable: true });
+  });
+
+  it("treats a network failure as retryable and retracts by event ID", async () => {
+    const offline = createRpcActivityGatewayClient({
+      baseUrl: "https://activity.example/api",
+      apiKey: "k",
+      fetchImplementation: async () => {
+        throw new Error("connect ECONNREFUSED");
+      },
+    });
     await expect(
-      offline.client.retract({ eventId: "e".repeat(64), reason: "r", idempotencyKey: "k" }),
+      offline.retract({ eventId: "e".repeat(64), reason: "r", idempotencyKey: "k" }),
     ).rejects.toMatchObject({ retryable: true });
 
-    const ok = clientWith(new Response("", { status: 200 }));
-    await ok.client.retract({ eventId: "e".repeat(64), reason: "r", idempotencyKey: "k" });
-    expect(ok.calls[0]?.url).toBe(
-      `https://activity.example/api/v1/events/${"e".repeat(64)}/retract`,
-    );
+    const activity = await startFakeActivity({ retractActivityEvent: () => ({}) });
+    try {
+      const client = createRpcActivityGatewayClient({ baseUrl: activity.url, apiKey: "k" });
+      await client.retract({ eventId: "e".repeat(64), reason: "r", idempotencyKey: "k" });
+      expect(activity.calls).toEqual([
+        expect.objectContaining({
+          procedure: "retractActivityEvent",
+          input: { eventId: "e".repeat(64), reason: "r", idempotencyKey: "k" },
+        }),
+      ]);
+    } finally {
+      await activity.close();
+    }
   });
 });

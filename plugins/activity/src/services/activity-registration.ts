@@ -6,8 +6,8 @@ import type {
   ActivityProjectStatusSchema,
   ActivityRegistrationInputSchema,
 } from "../contract";
-import { ActivityApiBindingSessionSchema, ActivityApiProjectStatusSchema } from "./activity-api";
-import { type ActivityReaderClient, createActivityReaderClient } from "./activity-reader";
+import { activityErrorStatus, activitySiteUrl, createActivitySourceClient } from "./activity-api";
+import type { ActivityReaderClient } from "./activity-reader";
 import { createTtlCache } from "./ttl-cache";
 
 type ActivityRegistrationInput = z.infer<typeof ActivityRegistrationInputSchema>;
@@ -18,67 +18,49 @@ type ActivityProjectContributors = z.infer<typeof ActivityProjectContributorsSch
 const PROJECT_EVENTS_PAGE_SIZE = 10;
 const PROJECT_CONTRIBUTORS_LIMIT = 5;
 
-export function activitySiteUrl(gatewayUrl: string): string {
-  return gatewayUrl.replace(/\/+$/, "").replace(/\/api$/, "");
-}
-
 function unavailable(): ORPCError<"SERVICE_UNAVAILABLE", unknown> {
   return new ORPCError("SERVICE_UNAVAILABLE", {
     message: "Activity could not be reached. Try again shortly.",
   });
 }
 
+function fromActivityError(error: unknown): ORPCError<string, unknown> {
+  const status = activityErrorStatus(error);
+  if (status === null) return unavailable();
+  return new ORPCError(status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
+    message:
+      error instanceof Error && error.message ? error.message : `Activity returned ${status}`,
+  });
+}
+
 export function createActivityRegistrationClient(options: {
   baseUrl: string;
   apiKey: string;
-  fetchImplementation?: typeof fetch;
+  reader: Pick<ActivityReaderClient, "listEvents" | "leaderboard" | "projectActivity">;
   timeoutMs?: number;
-  reader?: ActivityReaderClient;
   statusCacheMs?: number;
 }) {
-  const baseUrl = options.baseUrl.replace(/\/+$/, "");
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
+  const reader = options.reader;
+  const client = createActivitySourceClient(options);
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const reader =
-    options.reader ?? createActivityReaderClient({ baseUrl, fetchImplementation, timeoutMs });
+  const activityUrl = activitySiteUrl(options.baseUrl);
   const statuses = createTtlCache<ActivityProjectStatus>({
     ttlMs: options.statusCacheMs ?? 30_000,
     maxEntries: 1_000,
   });
 
-  async function call(path: string, init: RequestInit): Promise<unknown> {
-    let response: Response;
-    try {
-      response = await fetchImplementation(`${baseUrl}${path}`, {
-        ...init,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch {
-      throw unavailable();
-    }
-    const text = await response.text();
-    const body: unknown = text ? JSON.parse(text) : {};
-    if (!response.ok) {
-      const message =
-        body && typeof body === "object" && "message" in body && typeof body.message === "string"
-          ? body.message
-          : `Activity returned ${response.status}`;
-      throw new ORPCError(response.status >= 500 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
-        message,
-      });
-    }
-    return body;
-  }
-
   function projectStatus(projectId: string): Promise<ActivityProjectStatus> {
     return statuses.get(projectId, async () => {
-      const body = ActivityApiProjectStatusSchema.parse(
-        await call(`/v1/projects/${encodeURIComponent(projectId)}/activity`, {
-          method: "GET",
-          headers: { accept: "application/json" },
-        }),
-      );
-      return { ...body, activityUrl: activitySiteUrl(baseUrl) };
+      const body = await reader.projectActivity(projectId).catch((error: unknown) => {
+        throw fromActivityError(error);
+      });
+      return {
+        status: body.status,
+        sourceId: body.sourceId,
+        displayName: body.displayName,
+        reviewReason: body.reviewReason,
+        activityUrl,
+      };
     });
   }
 
@@ -89,30 +71,24 @@ export function createActivityRegistrationClient(options: {
 
   return {
     async startSession(input: ActivityRegistrationInput) {
-      const body = await call("/v1/binding-sessions", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${options.apiKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          project: { id: input.projectId },
-          ...(input.nearAccountId && { nearAccountId: input.nearAccountId }),
-          eventTypes: input.eventTypes.map(({ name, pointValue }) => ({
-            name,
-            description: "",
-            enabled: true,
-            pointValue,
-          })),
-        }),
-      });
-      const session = ActivityApiBindingSessionSchema.safeParse(body);
-      if (!session.success) {
-        throw new ORPCError("SERVICE_UNAVAILABLE", {
-          message: "Activity returned an unexpected response",
+      const session = await client
+        .createActivityBindingSession(
+          {
+            project: { id: input.projectId },
+            ...(input.nearAccountId && { nearAccountId: input.nearAccountId }),
+            eventTypes: input.eventTypes.map(({ name, pointValue }) => ({
+              name,
+              description: "",
+              enabled: true,
+              pointValue,
+            })),
+          },
+          { signal: AbortSignal.timeout(timeoutMs) },
+        )
+        .catch((error: unknown) => {
+          throw fromActivityError(error);
         });
-      }
-      return session.data;
+      return { url: session.url, expiresAt: session.expiresAt };
     },
 
     projectStatus,
