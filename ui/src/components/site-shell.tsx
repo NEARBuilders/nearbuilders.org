@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { GitFork, Menu, Search, Send, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
@@ -98,9 +99,26 @@ export function SiteShell() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-brand-accent-light [&.active]:text-brand-accent"
+                  className="relative rounded-full px-4 py-2 text-xs font-bold"
+                  activeProps={{ className: "text-brand-accent" }}
+                  inactiveProps={{
+                    className:
+                      "text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  }}
                 >
-                  {link.label}
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.span
+                          aria-hidden="true"
+                          layoutId="site-nav-active"
+                          className="pointer-events-none absolute inset-0 rounded-full bg-brand-accent-light"
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      )}
+                      <span className="relative">{link.label}</span>
+                    </>
+                  )}
                 </Link>
               ))}
             </nav>
