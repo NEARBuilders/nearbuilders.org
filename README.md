@@ -141,7 +141,7 @@ The deployed API serves interactive docs at `/api`, the OpenAPI spec at `/api/sp
 - Reusable components live in `ui/src/components/`.
 - Runtime helpers live in `ui/src/app.ts`.
 - Root document wiring lives in `ui/src/routes/__root.tsx`.
-- Use semantic Tailwind classes such as `bg-background`, `bg-card`, `text-foreground` and `text-muted-foreground`.
+- Use semantic Tailwind classes such as `bg-background`, `bg-card`, `text-foreground` and `text-muted-foreground`. See the [design tokens](docs/design-tokens.md) for the theme contract.
 
 ### Generated types
 

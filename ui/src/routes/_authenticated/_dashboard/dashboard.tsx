@@ -1148,8 +1148,10 @@ function ProjectRow({ project, voteCount }: { project: Project; voteCount?: numb
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active: "bg-green-500/10 text-green-600 border-green-500/20",
-  paused: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  active:
+    "bg-project-status-active/10 text-project-status-active-foreground border-project-status-active/20",
+  paused:
+    "bg-project-status-paused/10 text-project-status-paused-foreground border-project-status-paused/20",
   archived: "bg-muted text-muted-foreground border-border",
 };
 
