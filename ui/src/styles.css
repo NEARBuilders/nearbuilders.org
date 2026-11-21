@@ -24,6 +24,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-project-status-active: var(--project-status-active);
+  --color-project-status-active-foreground: var(--project-status-active-foreground);
+  --color-project-status-paused: var(--project-status-paused);
+  --color-project-status-paused-foreground: var(--project-status-paused-foreground);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
@@ -143,6 +147,10 @@
   --accent-foreground: #1d2b36;
   --destructive: #e52f28;
   --destructive-foreground: #f6f7f8;
+  --project-status-active: oklch(72.3% 0.219 149.579);
+  --project-status-active-foreground: oklch(62.7% 0.194 149.214);
+  --project-status-paused: oklch(79.5% 0.184 86.047);
+  --project-status-paused-foreground: oklch(68.1% 0.162 75.834);
   --border: #d5dce1;
   --border-strong: #c3ccd3;
   --input: #ffffff;
