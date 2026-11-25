@@ -22,6 +22,7 @@ import {
   setDraft,
   subscribeToDraftPersistence,
 } from "@/lib/draft-store";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { pageHead } from "@/lib/page-meta";
 import { emptyProjectCatalog, projectCatalogFromFormValues } from "@/lib/project-catalog";
 import {
@@ -194,6 +195,7 @@ function NewProjectPage({ restoreDraft }: { restoreDraft: boolean }) {
     onSuccess: ({ project, submitForReview }, _values) => {
       clearDraft(routeKind as ProjectKind);
       const label = projectKindLabel(routeKind as ProjectKind);
+      if (submitForReview) clearEmailPromptDismissal();
       toast.success(
         submitForReview
           ? `${label} created \u2014 submitted for review to go public`

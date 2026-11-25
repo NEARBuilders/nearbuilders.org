@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { GitFork, Menu, Search, Send, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { sessionQueryOptions, useAuthClient } from "@/app";
 import builtOn from "@/assets/built_on.png";
 import builtOnRev from "@/assets/built_on_rev.png";
@@ -33,7 +33,7 @@ const ecosystemLinks = [
 
 const resourceLinks = getBuildFooterLinks();
 
-export function SiteShell() {
+export function SiteShell({ banner }: { banner?: ReactNode }) {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
   const appName = "Near Builders";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -194,6 +194,7 @@ export function SiteShell() {
       )}
 
       <main className="flex-1 animate-fade-in-up">
+        {banner}
         <Outlet />
       </main>
 

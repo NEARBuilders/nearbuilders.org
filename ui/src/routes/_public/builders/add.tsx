@@ -16,6 +16,7 @@ import { SuggestionInput } from "@/components/builder-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { pageHead } from "@/lib/page-meta";
 import { linkedNearAccountIdsQueryOptions } from "@/lib/queries/near-accounts";
 import {
@@ -256,6 +257,7 @@ function NominationForm({
       if (outcome === "already-nominated") {
         toast.info("You've already nominated this builder");
       } else {
+        clearEmailPromptDismissal();
         toast.success("Nomination recorded");
       }
       setSubmissionOutcome(outcome);

@@ -29,6 +29,40 @@ function catalogListingTarget(payload: unknown) {
   };
 }
 
+export const EMAIL_NOTIFICATION_TYPES = new Set([
+  "project_approved",
+  "project_rejected",
+  "event_approved",
+  "event_rejected",
+  "builder_approved",
+  "builder_rejected",
+  "nearcatalog_claim_approved",
+  "nearcatalog_claim_rejected",
+]);
+
+export type EmailRecipient = {
+  email: string | null;
+  verified: boolean;
+  enabled: boolean;
+};
+
+export type DecisionEmailInput = {
+  to: string;
+  subject: string;
+  text: string;
+};
+
+export function absoluteNotificationLink(link: string, siteOrigin: string) {
+  if (/^https?:\/\//i.test(link)) return link;
+  const origin = siteOrigin.replace(/\/$/, "");
+  const path = link.startsWith("/") ? link : `/${link}`;
+  return `${origin}${path}`;
+}
+
+export function decisionEmailText(body: string | undefined, link: string) {
+  return [body?.trim(), link].filter((part) => part && part.length > 0).join("\n\n");
+}
+
 export function buildApprovalNotification(
   proposal: ProposalData,
 ): ProposalNotificationInput | null {
@@ -273,7 +307,35 @@ function reviewerLabel(context: Context) {
   );
 }
 
-export function createProposalNotifications(plugins: Omit<PluginsClient, "auth">) {
+export function createProposalNotifications(
+  plugins: Omit<PluginsClient, "auth">,
+  options?: {
+    loadRecipient?: (userId: string) => Promise<EmailRecipient | null>;
+    sendEmail?: (input: DecisionEmailInput) => Promise<boolean | undefined>;
+    siteOrigin?: string;
+  },
+) {
+  async function deliverDecisionEmail(notification: ProposalNotificationInput) {
+    if (!options?.sendEmail || !EMAIL_NOTIFICATION_TYPES.has(notification.type)) return;
+    try {
+      const recipient = options.loadRecipient
+        ? await options.loadRecipient(notification.userId)
+        : null;
+      if (!recipient?.enabled || !recipient.verified || !recipient.email) return;
+      const link = absoluteNotificationLink(
+        notification.link ?? "",
+        options.siteOrigin ?? "https://nearbuilders.org",
+      );
+      await options.sendEmail({
+        to: recipient.email,
+        subject: notification.subject,
+        text: decisionEmailText(notification.body, link),
+      });
+    } catch (error) {
+      console.error("[email] failed to send decision notification", error);
+    }
+  }
+
   async function notifyApproval(proposal: ProposalData, context: Context) {
     const notification = buildApprovalNotification(proposal);
     if (!notification) return;
@@ -281,7 +343,9 @@ export function createProposalNotifications(plugins: Omit<PluginsClient, "auth">
       await plugins.notifications(notificationContext(context)).createNotification(notification);
     } catch (error) {
       console.error("[approve] failed to emit approval notification", error);
+      return;
     }
+    void deliverDecisionEmail(notification);
   }
 
   async function notifyRejection(proposal: ProposalData, context: Context) {
@@ -291,7 +355,9 @@ export function createProposalNotifications(plugins: Omit<PluginsClient, "auth">
       await plugins.notifications(notificationContext(context)).createNotification(notification);
     } catch (error) {
       console.error("[reject] failed to emit rejection notification", error);
+      return;
     }
+    void deliverDecisionEmail(notification);
   }
 
   async function notifyRevocation(proposal: ProposalData, context: Context) {

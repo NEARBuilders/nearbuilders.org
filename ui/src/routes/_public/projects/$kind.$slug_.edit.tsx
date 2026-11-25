@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { useViewerOwnerIds } from "@/hooks";
 import { type ProjectKind, projectKindLabel } from "@/lib/draft-store";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { isViewerAcceptedCollaborator, isViewerOwner } from "@/lib/ownership";
 import { pageHead } from "@/lib/page-meta";
 import { projectCatalogFromFormValues, projectCatalogToFormValues } from "@/lib/project-catalog";
@@ -182,6 +183,7 @@ function EditProjectPage() {
       return { submitForReview };
     },
     onSuccess: ({ submitForReview }: { submitForReview: boolean }) => {
+      if (submitForReview) clearEmailPromptDismissal();
       toast.success(submitForReview ? "Saved \u2014 submitted for review to go public" : "Saved");
       queryClient.invalidateQueries({ queryKey: ["project", slug] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });

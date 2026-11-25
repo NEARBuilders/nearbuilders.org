@@ -39,6 +39,9 @@ function userIdColumnsWithoutAccount(table: { name: string; columns: string[] })
 const USER_ID_WITHOUT_ACCOUNT: Record<string, string> = {
   // Holds the recipient's owner id (account, or user id without NEAR); misnamed (#367).
   "notifications.user_id": "#367",
+  // Same owner id as notifications.user_id; misnamed (#367).
+  "email_preferences.user_id": "#367",
+  "email_code_requests.user_id": "#367",
   // Holds the participant's owner id; the account is in wallet_address (#367).
   "event_participants.user_id": "#367",
   // Holds the inviter's owner id; misnamed (#367).

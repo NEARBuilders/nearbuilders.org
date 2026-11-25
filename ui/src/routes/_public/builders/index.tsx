@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { resolveBuilderAvatarUrl } from "@/lib/builder-catalog";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import { pageHead, publicPages } from "@/lib/page-meta";
 import {
   approvalSettingsQueryOptions,
@@ -428,6 +429,7 @@ function BuildersPage() {
       if (data.alreadyNominated) {
         toast.info("You've already nominated this builder");
       } else {
+        clearEmailPromptDismissal();
         toast.success("Nomination recorded");
       }
     },

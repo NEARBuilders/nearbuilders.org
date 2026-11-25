@@ -1,3 +1,4 @@
+import { createHash, randomInt } from "node:crypto";
 import {
   LOCATION_ERROR,
   locationError,
@@ -11,7 +12,7 @@ import { z } from "zod";
 import { contract } from "./contract";
 import { createAuthMiddleware } from "./lib/auth";
 import { type Context, ContextSchema, runEffect } from "./lib/context";
-import { type PluginEntries, toPluginsClient } from "./lib/plugin-clients";
+import { type PluginEntries, type PluginsClient, toPluginsClient } from "./lib/plugin-clients";
 import {
   autoApprovalContext,
   parseRequireAdminApproval,
@@ -27,6 +28,7 @@ import {
   createCatalogListings,
   isSystemActor,
 } from "./services/catalog-listings";
+import { createEmailSender } from "./services/email";
 import {
   createProjectFeedbackClient,
   type ProjectFeedbackClient,
@@ -124,6 +126,71 @@ function serverNotificationContext(context: Context) {
   };
 }
 
+const EMAIL_CODE_TTL_MS = 15 * 60 * 1000;
+
+export function hashEmailCode(code: string) {
+  return createHash("sha256").update(code).digest("hex");
+}
+
+function createEmailCode() {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+async function readAuthEmail(auth: PluginsClient["auth"], userId: string) {
+  try {
+    const client = auth({ userId } as Context) as {
+      getUser?: (input: { userId: string }) => Promise<unknown>;
+      admin?: { getUser?: (input: { id: string }) => Promise<unknown> };
+    };
+    const result =
+      (await client.getUser?.({ userId })) ?? (await client.admin?.getUser?.({ id: userId }));
+    if (!result || typeof result !== "object") return null;
+    const record = result as {
+      email?: unknown;
+      emailVerified?: unknown;
+      user?: unknown;
+      data?: unknown;
+    };
+    const user =
+      record.user && typeof record.user === "object"
+        ? (record.user as { email?: unknown; emailVerified?: unknown })
+        : record.data && typeof record.data === "object"
+          ? (record.data as { email?: unknown; emailVerified?: unknown })
+          : record;
+    const email = typeof user.email === "string" ? user.email : null;
+    return { email, emailVerified: user.emailVerified === true };
+  } catch (error) {
+    console.error("[email] failed to read auth email", error);
+    return null;
+  }
+}
+
+async function loadDecisionRecipient(
+  plugins: Omit<PluginsClient, "auth">,
+  auth: PluginsClient["auth"],
+  userId: string,
+) {
+  const preference = await plugins
+    .notifications(
+      serverNotificationContext({
+        userId,
+        user: { id: userId },
+      } as Context),
+    )
+    .getEmailPreference({ userId });
+  if (!preference.enabled) {
+    return { email: preference.email, verified: preference.verified, enabled: false };
+  }
+  if (preference.verified && preference.email) {
+    return { email: preference.email, verified: true, enabled: true };
+  }
+  const authUser = await readAuthEmail(auth, userId);
+  if (authUser?.email && authUser.emailVerified) {
+    return { email: authUser.email, verified: true, enabled: true };
+  }
+  return { email: null, verified: false, enabled: true };
+}
+
 type ProposalLifecycle = {
   reviewStatus: "pending" | "approved" | "rejected" | "removed";
   applyStatus: "not_started" | "applying" | "applied" | "failed";
@@ -174,6 +241,8 @@ class ApiServices extends EffectContext.Service<
     chiefBotUsername: string;
     requireAdminApproval: boolean;
     projectFeedback: ProjectFeedbackClient;
+    sendEmail: ReturnType<typeof createEmailSender>;
+    notifications: ReturnType<typeof createProposalNotifications>;
   }
 >()("api/ApiServices") {}
 
@@ -181,13 +250,14 @@ function apiServices(context: { "effect/context": EffectContext.Context<any> }) 
   return EffectContext.get(context["effect/context"], ApiServices);
 }
 
+type DecisionNotifications = ReturnType<typeof createProposalNotifications>;
+
 function createRouterServices(entries: PluginEntries) {
   const { auth, ...restPlugins } = toPluginsClient(entries);
   return {
     auth,
     plugins: restPlugins,
     activity: createProposalActivity(restPlugins),
-    notifications: createProposalNotifications(restPlugins),
     orchestration: createProposalOrchestration(restPlugins),
     catalogClaims: createCatalogClaims(restPlugins),
     catalogListings: createCatalogListings(restPlugins),
@@ -214,6 +284,9 @@ export default createPlugin.withPlugins<PluginEntries>()({
     GITHUB_TOKEN: z.string().default(""),
     REQUIRE_ADMIN_APPROVAL: z.string().default(""),
     BETTER_AUTH_SECRET: z.string().default(""),
+    RESEND_API_KEY: z.string().default(""),
+    EMAIL_FROM: z.string().default("NEAR Builders <notifications@nearbuilders.org>"),
+    APP_PUBLIC_URL: z.string().default("https://nearbuilders.org"),
   }),
 
   context: ContextSchema,
@@ -227,6 +300,10 @@ export default createPlugin.withPlugins<PluginEntries>()({
         Effect.acquireRelease(
           Effect.sync(() => {
             const { auth, ...restPlugins } = toPluginsClient(plugins);
+            const sendEmail = createEmailSender({
+              apiKey: config.secrets.RESEND_API_KEY,
+              from: config.secrets.EMAIL_FROM,
+            });
             const reviewModel =
               config.secrets.NEARAI_MODEL || config.variables.reviewEvaluationModel;
             const reviewEvaluation = createReviewEvaluationSweep({
@@ -262,6 +339,12 @@ export default createPlugin.withPlugins<PluginEntries>()({
                 client: restPlugins.feedback?.(),
                 feedbackBaseUrl: config.variables.feedbackBaseUrl,
               }),
+              sendEmail,
+              notifications: createProposalNotifications(restPlugins, {
+                sendEmail,
+                siteOrigin: config.secrets.APP_PUBLIC_URL,
+                loadRecipient: (userId) => loadDecisionRecipient(restPlugins, auth, userId),
+              }),
             };
           }),
           (services) =>
@@ -276,7 +359,6 @@ export default createPlugin.withPlugins<PluginEntries>()({
     const services = createRouterServices(plugins);
     const { requireAuth, requireAdmin, requireAuthOrApiKey, requireApiKey } =
       createAuthMiddleware(builder);
-    const { notifyApproval, notifyRejection, notifyRevocation } = services.notifications;
     const activity = services.activity;
     const orchestration = services.orchestration;
     const catalogClaims = services.catalogClaims;
@@ -354,6 +436,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
     const approveProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string },
       context: Context,
+      notifications: DecisionNotifications,
     ) => {
       if (input.pluginId === CATALOG_LISTING_PLUGIN_ID && isSystemActor(context)) {
         throw new ORPCError("FORBIDDEN", {
@@ -409,15 +492,16 @@ export default createPlugin.withPlugins<PluginEntries>()({
         throw error;
       }
 
-      await notifyApproval(proposal, context).catch((error) =>
-        console.error("[Proposals] Approval notification failed:", error),
-      );
+      await notifications
+        .notifyApproval(proposal, context)
+        .catch((error) => console.error("[Proposals] Approval notification failed:", error));
       return applied;
     };
 
     const rejectProposal = async (
       input: { pluginId: string; entityId: string; expectedUpdatedAt: string; reason?: string },
       context: Context,
+      notifications: DecisionNotifications,
     ) => {
       const proposalsClient = services.plugins.proposals(context);
       const rejected = await proposalsClient.reject(input);
@@ -432,7 +516,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
       if (proposal.pluginId === CATALOG_LISTING_PLUGIN_ID) {
         await catalogListings.reject(proposal);
       }
-      await notifyRejection(proposal, context);
+      await notifications.notifyRejection(proposal, context);
       return rejected;
     };
 
@@ -728,6 +812,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
                   expectedUpdatedAt: proposal.data.updatedAt,
                 },
                 autoApprovalContext(context),
+                apiServices(context).notifications,
               );
               return {
                 data: approved.data,
@@ -811,11 +896,11 @@ export default createPlugin.withPlugins<PluginEntries>()({
       }),
 
       approve: builder.approve.use(requireAdmin).handler(async ({ input, context }) => {
-        return await approveProposal(input, context);
+        return await approveProposal(input, context, apiServices(context).notifications);
       }),
 
       reject: builder.reject.use(requireAdmin).handler(async ({ input, context }) => {
-        return await rejectProposal(input, context);
+        return await rejectProposal(input, context, apiServices(context).notifications);
       }),
 
       dismissFailure: builder.dismissFailure
@@ -879,9 +964,9 @@ export default createPlugin.withPlugins<PluginEntries>()({
           throw error;
         }
 
-        await notifyRevocation(proposal, context).catch((error) =>
-          console.error("[Proposals] Revocation notification failed:", error),
-        );
+        await apiServices(context)
+          .notifications.notifyRevocation(proposal, context)
+          .catch((error) => console.error("[Proposals] Revocation notification failed:", error));
         return removed;
       }),
 
@@ -913,12 +998,14 @@ export default createPlugin.withPlugins<PluginEntries>()({
         .use(requireApiKey({ reviews: ["write"] }))
         .handler(async ({ input, context }) => {
           requireAdminKeyOwner(context);
+          const notifications = apiServices(context).notifications;
           return await decideTelegramReview({
             input,
             context,
             plugins: services.plugins,
-            approve: approveProposal,
-            reject: rejectProposal,
+            approve: (target, reviewContext) =>
+              approveProposal(target, reviewContext, notifications),
+            reject: (target, reviewContext) => rejectProposal(target, reviewContext, notifications),
             dismiss: (target, context) =>
               services.plugins.proposals(context).dismissFailure(target),
           });
@@ -1217,6 +1304,91 @@ export default createPlugin.withPlugins<PluginEntries>()({
         .use(requireAdmin)
         .handler(async ({ input, context }) => {
           return await services.plugins.activity(context).redateActivityHistory(input);
+        }),
+
+      getMyEmailPreference: builder.getMyEmailPreference
+        .use(requireAuth)
+        .handler(async ({ context }) => {
+          const userId = notificationContext(context).userId;
+          if (!userId) throw new ORPCError("UNAUTHORIZED");
+          return await services.plugins
+            .notifications(notificationContext(context))
+            .getEmailPreference({ userId });
+        }),
+
+      setEmailNotificationsEnabled: builder.setEmailNotificationsEnabled
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const userId = notificationContext(context).userId;
+          if (!userId) throw new ORPCError("UNAUTHORIZED");
+          return await services.plugins
+            .notifications(notificationContext(context))
+            .setEmailNotificationsEnabled({ userId, enabled: input.enabled });
+        }),
+
+      requestNotificationEmailCode: builder.requestNotificationEmailCode
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const userId = notificationContext(context).userId;
+          if (!userId) throw new ORPCError("UNAUTHORIZED");
+          const code = createEmailCode();
+          const codeExpiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MS).toISOString();
+          await services.plugins
+            .notifications(serverNotificationContext(context))
+            .setEmailChallenge({
+              userId,
+              pendingEmail: input.email,
+              codeHash: hashEmailCode(code),
+              codeExpiresAt,
+            });
+          const sent = await apiServices(context).sendEmail({
+            to: input.email,
+            subject: "Confirm your NEAR Builders email",
+            text: `Your verification code is ${code}. It expires in 15 minutes.`,
+          });
+          if (!sent) {
+            throw new ORPCError("SERVICE_UNAVAILABLE", {
+              message: "Could not send the verification email",
+            });
+          }
+          return { sent: true };
+        }),
+
+      confirmNotificationEmailCode: builder.confirmNotificationEmailCode
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const userId = notificationContext(context).userId;
+          if (!userId) throw new ORPCError("UNAUTHORIZED");
+          return await services.plugins
+            .notifications(serverNotificationContext(context))
+            .confirmEmailCode({
+              userId,
+              codeHash: hashEmailCode(input.code),
+            });
+        }),
+
+      syncVerifiedNotificationEmail: builder.syncVerifiedNotificationEmail
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const userId = notificationContext(context).userId;
+          if (!userId) throw new ORPCError("UNAUTHORIZED");
+          const sessionUser = context.user as
+            | { email?: string | null; emailVerified?: boolean | null }
+            | null
+            | undefined;
+          const sessionEmail = sessionUser?.email;
+          const verified = sessionUser?.emailVerified === true;
+          if (!verified || sessionEmail !== input.email) {
+            throw new ORPCError("FORBIDDEN", {
+              message: "Only a verified sign-in email can be synced",
+            });
+          }
+          return await services.plugins
+            .notifications(serverNotificationContext(context))
+            .syncVerifiedEmail({
+              userId,
+              email: input.email,
+            });
         }),
 
       getMyNotifications: builder.getMyNotifications

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canResubmitCatalogClaim } from "@/lib/catalog-claims";
+import { clearEmailPromptDismissal } from "@/lib/email-prompt";
 import {
   catalogClaimProposalsQueryOptions,
   catalogProjectQueryOptions,
@@ -290,6 +291,7 @@ export function CatalogClaimFlow({ apiClient }: { apiClient: CatalogClaimApiClie
       setCustomRoles("");
       setValidationError(null);
       setEditingProposalId(null);
+      clearEmailPromptDismissal();
       await queryClient.invalidateQueries({ queryKey: ["catalog-claim-proposals"] });
       toast.success("Contribution submitted for review");
     },

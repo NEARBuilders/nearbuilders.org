@@ -163,6 +163,78 @@ export default createPlugin({
             clearTimeout(timer);
           }
         }),
+
+      getEmailPreference: builder.getEmailPreference.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = emailUserError(input.userId, context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.getEmailPreference(input.userId);
+      }),
+
+      setEmailNotificationsEnabled: builder.setEmailNotificationsEnabled
+        .use(requireAuth)
+        .effect(function* ({ input, context }) {
+          const denied = emailUserError(input.userId, context);
+          if (denied) return yield* Effect.fail(denied);
+          const notification = yield* NotificationService;
+          return yield* notification.setEmailNotificationsEnabled(input.userId, input.enabled);
+        }),
+
+      setEmailChallenge: builder.setEmailChallenge.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = serverOnlyError(context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.setEmailChallenge(input);
+      }),
+
+      confirmEmailCode: builder.confirmEmailCode.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = serverOnlyError(context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.confirmEmailCode(input);
+      }),
+
+      syncVerifiedEmail: builder.syncVerifiedEmail.use(requireAuth).effect(function* ({
+        input,
+        context,
+      }) {
+        const denied = serverOnlyError(context);
+        if (denied) return yield* Effect.fail(denied);
+        const notification = yield* NotificationService;
+        return yield* notification.syncVerifiedEmail(input);
+      }),
     };
   },
 });
+
+function serverOnlyError(context: object) {
+  const serverCall = (context as { serverNotification?: boolean }).serverNotification === true;
+  if (serverCall) return null;
+  return new ORPCError("FORBIDDEN", {
+    message: "Email verification is only available through the API",
+  });
+}
+
+function emailUserError(
+  userId: string,
+  context: {
+    userId?: string | null;
+    user?: { role?: string | null } | null;
+  },
+) {
+  const serverCall =
+    (context as typeof context & { serverNotification?: boolean }).serverNotification === true;
+  if (!serverCall && userId !== context.userId && context.user?.role !== "admin") {
+    return new ORPCError("FORBIDDEN", { message: "Cannot change another user's email settings" });
+  }
+  return null;
+}

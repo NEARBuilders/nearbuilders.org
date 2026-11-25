@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { type Passkey, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Badge, Button, ConfirmDialog } from "@/components";
+import { NotificationEmailSettings } from "@/components/email-notification-settings";
 import { useUserPasskeys } from "@/components/settings-sections";
 import { Input } from "@/components/ui/input";
 
@@ -78,18 +79,20 @@ function AuthOverview({
   );
 }
 
-function EmailMethod({ user }: { user: { email?: string; isAnonymous?: boolean | null } }) {
+function EmailMethod({
+  user,
+}: {
+  user: { email?: string; emailVerified?: boolean; isAnonymous?: boolean | null };
+}) {
   return (
     <MethodCard
       icon={Mail}
       title="Email"
-      description="Password and recovery access."
-      status={user.email ? "Linked" : "Not linked"}
-      linked={!!user.email}
+      description="Approvals and rejections are emailed to a verified address."
+      status={user.emailVerified ? "Verified" : user.email ? "Linked" : "Not linked"}
+      linked={Boolean(user.emailVerified || user.email)}
     >
-      <p className={`text-sm text-muted-foreground${user.email ? " break-all" : ""}`}>
-        {user.email ?? "Email login has not been linked for this account yet."}
-      </p>
+      <NotificationEmailSettings authEmail={user.email} authEmailVerified={user.emailVerified} />
     </MethodCard>
   );
 }

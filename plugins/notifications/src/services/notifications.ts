@@ -1,8 +1,24 @@
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
-import { notifications } from "../db/schema";
+import { emailCodeRequests, emailPreferences, notifications } from "../db/schema";
+import {
+  codeRequestRetryAfterMs,
+  EMAIL_CODE_COOLDOWN_MS,
+  EMAIL_CODE_MAX_ATTEMPTS,
+  EMAIL_CODE_WINDOW_MS,
+  formatWait,
+  normalizeEmailAddress,
+} from "./email-limits";
+
+function rateLimited(message: string, retryAfterSeconds: number) {
+  return new ORPCError("RATE_LIMITED", {
+    message,
+    data: { retryAfter: Math.max(1, Math.ceil(retryAfterSeconds)) },
+  });
+}
 
 export interface NotificationRecord {
   id: string;
@@ -29,6 +45,36 @@ export interface ListNotificationsInput {
   read?: boolean;
   limit?: number;
   cursor?: string;
+}
+
+export interface EmailPreferenceRecord {
+  email: string | null;
+  verified: boolean;
+  enabled: boolean;
+  pendingEmail: string | null;
+}
+
+function emptyEmailPreference(): EmailPreferenceRecord {
+  return { email: null, verified: false, enabled: true, pendingEmail: null };
+}
+
+function rowToEmailPreference(
+  row: typeof emailPreferences.$inferSelect | undefined,
+): EmailPreferenceRecord {
+  if (!row) return emptyEmailPreference();
+  return {
+    email: row.email,
+    verified: Boolean(row.email && row.verifiedAt),
+    enabled: row.enabled,
+    pendingEmail: row.pendingEmail,
+  };
+}
+
+function hashesMatch(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function generateId(): string {
@@ -78,6 +124,27 @@ export class NotificationService extends Context.Service<
     markAllAsRead: (
       recipientIds: readonly string[],
     ) => Effect.Effect<{ updated: number }, ORPCError<string, unknown>>;
+    getEmailPreference: (
+      userId: string,
+    ) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    setEmailNotificationsEnabled: (
+      userId: string,
+      enabled: boolean,
+    ) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    setEmailChallenge: (input: {
+      userId: string;
+      pendingEmail: string;
+      codeHash: string;
+      codeExpiresAt: string;
+    }) => Effect.Effect<{ pendingEmail: string }, ORPCError<string, unknown>>;
+    confirmEmailCode: (input: {
+      userId: string;
+      codeHash: string;
+    }) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
+    syncVerifiedEmail: (input: {
+      userId: string;
+      email: string;
+    }) => Effect.Effect<EmailPreferenceRecord, ORPCError<string, unknown>>;
   }
 >()("notifications/NotificationService") {}
 
@@ -187,6 +254,205 @@ export const NotificationServiceLive = Layer.effect(
           );
 
           return { updated: updated.length };
+        }),
+
+      getEmailPreference: (userId) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db.select().from(emailPreferences).where(eq(emailPreferences.userId, userId)).limit(1),
+          );
+          return rowToEmailPreference(row);
+        }),
+
+      setEmailNotificationsEnabled: (userId, enabled) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({ userId, enabled })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: { enabled },
+              })
+              .returning(),
+          );
+          return rowToEmailPreference(row);
+        }),
+
+      setEmailChallenge: (input) =>
+        Effect.gen(function* () {
+          const now = Date.now();
+          const windowStart = new Date(now - EMAIL_CODE_WINDOW_MS);
+          const address = normalizeEmailAddress(input.pendingEmail);
+          const requestId = randomUUID();
+
+          yield* Effect.promise(() =>
+            db.delete(emailCodeRequests).where(lt(emailCodeRequests.requestedAt, windowStart)),
+          );
+          yield* Effect.promise(() =>
+            db.insert(emailCodeRequests).values({
+              id: requestId,
+              userId: input.userId,
+              email: address,
+              requestedAt: new Date(now),
+            }),
+          );
+          const recent = (
+            column: typeof emailCodeRequests.userId | typeof emailCodeRequests.email,
+            value: string,
+          ) =>
+            db
+              .select({ requestedAt: emailCodeRequests.requestedAt })
+              .from(emailCodeRequests)
+              .where(
+                and(
+                  eq(column, value),
+                  ne(emailCodeRequests.id, requestId),
+                  gte(emailCodeRequests.requestedAt, windowStart),
+                ),
+              )
+              .orderBy(desc(emailCodeRequests.requestedAt))
+              .then((rows) => rows.map((row) => row.requestedAt));
+          const [byUser, byAddress] = yield* Effect.promise(() =>
+            Promise.all([
+              recent(emailCodeRequests.userId, input.userId),
+              recent(emailCodeRequests.email, address),
+            ]),
+          );
+
+          const retryAfterMs = codeRequestRetryAfterMs(byUser, byAddress, now);
+          if (retryAfterMs > 0) {
+            yield* Effect.promise(() =>
+              db.delete(emailCodeRequests).where(eq(emailCodeRequests.id, requestId)),
+            );
+            const retryAfter = Math.ceil(retryAfterMs / 1000);
+            return yield* Effect.fail(
+              rateLimited(
+                `Too many verification codes requested. Try again in ${formatWait(retryAfter)}.`,
+                retryAfter,
+              ),
+            );
+          }
+
+          yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({
+                userId: input.userId,
+                pendingEmail: input.pendingEmail,
+                codeHash: input.codeHash,
+                codeExpiresAt: new Date(input.codeExpiresAt),
+                codeAttempts: 0,
+              })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: {
+                  pendingEmail: input.pendingEmail,
+                  codeHash: input.codeHash,
+                  codeExpiresAt: new Date(input.codeExpiresAt),
+                  codeAttempts: 0,
+                },
+              }),
+          );
+          return { pendingEmail: input.pendingEmail };
+        }),
+
+      confirmEmailCode: (input) =>
+        Effect.gen(function* () {
+          const [row] = yield* Effect.promise(() =>
+            db
+              .update(emailPreferences)
+              .set({ codeAttempts: sql`${emailPreferences.codeAttempts} + 1` })
+              .where(
+                and(
+                  eq(emailPreferences.userId, input.userId),
+                  isNotNull(emailPreferences.codeHash),
+                  lt(emailPreferences.codeAttempts, EMAIL_CODE_MAX_ATTEMPTS),
+                ),
+              )
+              .returning(),
+          );
+          if (!row) {
+            const [existing] = yield* Effect.promise(() =>
+              db
+                .select()
+                .from(emailPreferences)
+                .where(eq(emailPreferences.userId, input.userId))
+                .limit(1),
+            );
+            if (existing?.codeHash && existing.codeAttempts >= EMAIL_CODE_MAX_ATTEMPTS) {
+              return yield* Effect.fail(
+                rateLimited(
+                  "Too many incorrect codes. Request a new code to try again.",
+                  EMAIL_CODE_COOLDOWN_MS / 1000,
+                ),
+              );
+            }
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "That code is invalid or expired" }),
+            );
+          }
+          const expiresAt = row.codeExpiresAt ? new Date(row.codeExpiresAt).getTime() : 0;
+          if (
+            !row.pendingEmail ||
+            !row.codeHash ||
+            !hashesMatch(row.codeHash, input.codeHash) ||
+            expiresAt <= Date.now()
+          ) {
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "That code is invalid or expired" }),
+            );
+          }
+
+          const [updated] = yield* Effect.promise(() =>
+            db
+              .update(emailPreferences)
+              .set({
+                email: row.pendingEmail,
+                verifiedAt: new Date(),
+                pendingEmail: null,
+                codeHash: null,
+                codeExpiresAt: null,
+                codeAttempts: 0,
+                enabled: true,
+              })
+              .where(eq(emailPreferences.userId, input.userId))
+              .returning(),
+          );
+          return rowToEmailPreference(updated);
+        }),
+
+      syncVerifiedEmail: (input) =>
+        Effect.gen(function* () {
+          const [existing] = yield* Effect.promise(() =>
+            db
+              .select()
+              .from(emailPreferences)
+              .where(eq(emailPreferences.userId, input.userId))
+              .limit(1),
+          );
+          if (existing?.email && existing.verifiedAt && existing.email !== input.email) {
+            return rowToEmailPreference(existing);
+          }
+          const [row] = yield* Effect.promise(() =>
+            db
+              .insert(emailPreferences)
+              .values({
+                userId: input.userId,
+                email: input.email,
+                verifiedAt: new Date(),
+                enabled: existing?.enabled ?? true,
+              })
+              .onConflictDoUpdate({
+                target: emailPreferences.userId,
+                set: {
+                  email: input.email,
+                  verifiedAt: new Date(),
+                },
+              })
+              .returning(),
+          );
+          return rowToEmailPreference(row);
         }),
     };
   }),
