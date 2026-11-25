@@ -15,6 +15,13 @@
       "when": 1761080000000,
       "tag": "0001_email_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795629833930,
+      "tag": "0002_email_code_limits",
+      "breakpoints": true
     }
   ]
 }

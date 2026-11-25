@@ -1,9 +1,24 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { DatabaseTag } from "../db/layer";
-import { emailPreferences, notifications } from "../db/schema";
+import { emailCodeRequests, emailPreferences, notifications } from "../db/schema";
+import {
+  codeRequestRetryAfterMs,
+  EMAIL_CODE_COOLDOWN_MS,
+  EMAIL_CODE_MAX_ATTEMPTS,
+  EMAIL_CODE_WINDOW_MS,
+  formatWait,
+  normalizeEmailAddress,
+} from "./email-limits";
+
+function rateLimited(message: string, retryAfterSeconds: number) {
+  return new ORPCError("RATE_LIMITED", {
+    message,
+    data: { retryAfter: Math.max(1, Math.ceil(retryAfterSeconds)) },
+  });
+}
 
 export interface NotificationRecord {
   id: string;
@@ -266,6 +281,59 @@ export const NotificationServiceLive = Layer.effect(
 
       setEmailChallenge: (input) =>
         Effect.gen(function* () {
+          const now = Date.now();
+          const windowStart = new Date(now - EMAIL_CODE_WINDOW_MS);
+          const address = normalizeEmailAddress(input.pendingEmail);
+          const requestId = randomUUID();
+
+          yield* Effect.promise(() =>
+            db.delete(emailCodeRequests).where(lt(emailCodeRequests.requestedAt, windowStart)),
+          );
+          yield* Effect.promise(() =>
+            db.insert(emailCodeRequests).values({
+              id: requestId,
+              userId: input.userId,
+              email: address,
+              requestedAt: new Date(now),
+            }),
+          );
+          const recent = (
+            column: typeof emailCodeRequests.userId | typeof emailCodeRequests.email,
+            value: string,
+          ) =>
+            db
+              .select({ requestedAt: emailCodeRequests.requestedAt })
+              .from(emailCodeRequests)
+              .where(
+                and(
+                  eq(column, value),
+                  ne(emailCodeRequests.id, requestId),
+                  gte(emailCodeRequests.requestedAt, windowStart),
+                ),
+              )
+              .orderBy(desc(emailCodeRequests.requestedAt))
+              .then((rows) => rows.map((row) => row.requestedAt));
+          const [byUser, byAddress] = yield* Effect.promise(() =>
+            Promise.all([
+              recent(emailCodeRequests.userId, input.userId),
+              recent(emailCodeRequests.email, address),
+            ]),
+          );
+
+          const retryAfterMs = codeRequestRetryAfterMs(byUser, byAddress, now);
+          if (retryAfterMs > 0) {
+            yield* Effect.promise(() =>
+              db.delete(emailCodeRequests).where(eq(emailCodeRequests.id, requestId)),
+            );
+            const retryAfter = Math.ceil(retryAfterMs / 1000);
+            return yield* Effect.fail(
+              rateLimited(
+                `Too many verification codes requested. Try again in ${formatWait(retryAfter)}.`,
+                retryAfter,
+              ),
+            );
+          }
+
           yield* Effect.promise(() =>
             db
               .insert(emailPreferences)
@@ -274,6 +342,7 @@ export const NotificationServiceLive = Layer.effect(
                 pendingEmail: input.pendingEmail,
                 codeHash: input.codeHash,
                 codeExpiresAt: new Date(input.codeExpiresAt),
+                codeAttempts: 0,
               })
               .onConflictDoUpdate({
                 target: emailPreferences.userId,
@@ -281,6 +350,7 @@ export const NotificationServiceLive = Layer.effect(
                   pendingEmail: input.pendingEmail,
                   codeHash: input.codeHash,
                   codeExpiresAt: new Date(input.codeExpiresAt),
+                  codeAttempts: 0,
                 },
               }),
           );
@@ -291,14 +361,40 @@ export const NotificationServiceLive = Layer.effect(
         Effect.gen(function* () {
           const [row] = yield* Effect.promise(() =>
             db
-              .select()
-              .from(emailPreferences)
-              .where(eq(emailPreferences.userId, input.userId))
-              .limit(1),
+              .update(emailPreferences)
+              .set({ codeAttempts: sql`${emailPreferences.codeAttempts} + 1` })
+              .where(
+                and(
+                  eq(emailPreferences.userId, input.userId),
+                  isNotNull(emailPreferences.codeHash),
+                  lt(emailPreferences.codeAttempts, EMAIL_CODE_MAX_ATTEMPTS),
+                ),
+              )
+              .returning(),
           );
-          const expiresAt = row?.codeExpiresAt ? new Date(row.codeExpiresAt).getTime() : 0;
+          if (!row) {
+            const [existing] = yield* Effect.promise(() =>
+              db
+                .select()
+                .from(emailPreferences)
+                .where(eq(emailPreferences.userId, input.userId))
+                .limit(1),
+            );
+            if (existing?.codeHash && existing.codeAttempts >= EMAIL_CODE_MAX_ATTEMPTS) {
+              return yield* Effect.fail(
+                rateLimited(
+                  "Too many incorrect codes. Request a new code to try again.",
+                  EMAIL_CODE_COOLDOWN_MS / 1000,
+                ),
+              );
+            }
+            return yield* Effect.fail(
+              new ORPCError("BAD_REQUEST", { message: "That code is invalid or expired" }),
+            );
+          }
+          const expiresAt = row.codeExpiresAt ? new Date(row.codeExpiresAt).getTime() : 0;
           if (
-            !row?.pendingEmail ||
+            !row.pendingEmail ||
             !row.codeHash ||
             !hashesMatch(row.codeHash, input.codeHash) ||
             expiresAt <= Date.now()
@@ -317,6 +413,7 @@ export const NotificationServiceLive = Layer.effect(
                 pendingEmail: null,
                 codeHash: null,
                 codeExpiresAt: null,
+                codeAttempts: 0,
                 enabled: true,
               })
               .where(eq(emailPreferences.userId, input.userId))

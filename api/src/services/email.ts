@@ -4,8 +4,11 @@ export type SendEmailInput = {
   text: string;
 };
 
-export function createEmailSender(config: { apiKey: string; from: string }) {
+export const EMAIL_SEND_TIMEOUT_MS = 5_000;
+
+export function createEmailSender(config: { apiKey: string; from: string; timeoutMs?: number }) {
   let missingKeyLogged = false;
+  const timeoutMs = config.timeoutMs ?? EMAIL_SEND_TIMEOUT_MS;
 
   return async function sendEmail(input: SendEmailInput) {
     if (!config.apiKey) {
@@ -29,6 +32,7 @@ export function createEmailSender(config: { apiKey: string; from: string }) {
           subject: input.subject,
           text: input.text,
         }),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) {
         const detail = await response.text();
@@ -37,7 +41,11 @@ export function createEmailSender(config: { apiKey: string; from: string }) {
       }
       return true;
     } catch (error) {
-      console.error("[email] send failed", error);
+      if (error instanceof Error && error.name === "TimeoutError") {
+        console.error(`[email] send timed out after ${timeoutMs}ms`);
+      } else {
+        console.error("[email] send failed", error);
+      }
       return false;
     }
   };

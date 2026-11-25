@@ -1733,13 +1733,13 @@ export const contract = oc.router({
     .route({ method: "POST", path: "/v1/notifications/email/code" })
     .input(z.object({ email: z.string().email() }))
     .output(z.object({ sent: z.boolean() }))
-    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE }),
+    .errors({ UNAUTHORIZED, SERVICE_UNAVAILABLE, RATE_LIMITED }),
 
   confirmNotificationEmailCode: oc
     .route({ method: "POST", path: "/v1/notifications/email/confirm" })
     .input(z.object({ code: z.string().regex(/^\d{6}$/) }))
     .output(EmailPreferenceSchema)
-    .errors({ UNAUTHORIZED, BAD_REQUEST }),
+    .errors({ UNAUTHORIZED, BAD_REQUEST, RATE_LIMITED }),
 
   syncVerifiedNotificationEmail: oc
     .route({ method: "POST", path: "/v1/notifications/email/sync" })

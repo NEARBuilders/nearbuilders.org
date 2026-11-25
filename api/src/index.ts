@@ -1333,12 +1333,14 @@ export default createPlugin.withPlugins<PluginEntries>()({
           if (!userId) throw new ORPCError("UNAUTHORIZED");
           const code = createEmailCode();
           const codeExpiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MS).toISOString();
-          await services.plugins.notifications(notificationContext(context)).setEmailChallenge({
-            userId,
-            pendingEmail: input.email,
-            codeHash: hashEmailCode(code),
-            codeExpiresAt,
-          });
+          await services.plugins
+            .notifications(serverNotificationContext(context))
+            .setEmailChallenge({
+              userId,
+              pendingEmail: input.email,
+              codeHash: hashEmailCode(code),
+              codeExpiresAt,
+            });
           const sent = await apiServices(context).sendEmail({
             to: input.email,
             subject: "Confirm your NEAR Builders email",
@@ -1358,7 +1360,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
           const userId = notificationContext(context).userId;
           if (!userId) throw new ORPCError("UNAUTHORIZED");
           return await services.plugins
-            .notifications(notificationContext(context))
+            .notifications(serverNotificationContext(context))
             .confirmEmailCode({
               userId,
               codeHash: hashEmailCode(input.code),
@@ -1382,7 +1384,7 @@ export default createPlugin.withPlugins<PluginEntries>()({
             });
           }
           return await services.plugins
-            .notifications(notificationContext(context))
+            .notifications(serverNotificationContext(context))
             .syncVerifiedEmail({
               userId,
               email: input.email,

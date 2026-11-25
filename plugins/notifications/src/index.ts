@@ -187,7 +187,7 @@ export default createPlugin({
         input,
         context,
       }) {
-        const denied = emailUserError(input.userId, context);
+        const denied = serverOnlyError(context);
         if (denied) return yield* Effect.fail(denied);
         const notification = yield* NotificationService;
         return yield* notification.setEmailChallenge(input);
@@ -197,7 +197,7 @@ export default createPlugin({
         input,
         context,
       }) {
-        const denied = emailUserError(input.userId, context);
+        const denied = serverOnlyError(context);
         if (denied) return yield* Effect.fail(denied);
         const notification = yield* NotificationService;
         return yield* notification.confirmEmailCode(input);
@@ -207,7 +207,7 @@ export default createPlugin({
         input,
         context,
       }) {
-        const denied = emailUserError(input.userId, context);
+        const denied = serverOnlyError(context);
         if (denied) return yield* Effect.fail(denied);
         const notification = yield* NotificationService;
         return yield* notification.syncVerifiedEmail(input);
@@ -215,6 +215,14 @@ export default createPlugin({
     };
   },
 });
+
+function serverOnlyError(context: object) {
+  const serverCall = (context as { serverNotification?: boolean }).serverNotification === true;
+  if (serverCall) return null;
+  return new ORPCError("FORBIDDEN", {
+    message: "Email verification is only available through the API",
+  });
+}
 
 function emailUserError(
   userId: string,

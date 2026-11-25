@@ -1,6 +1,6 @@
 import "@orpc/openapi/extensions/route";
 import { eventIterator, oc } from "@orpc/contract";
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "every-plugin/errors";
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, RATE_LIMITED, UNAUTHORIZED } from "every-plugin/errors";
 import { z } from "zod";
 
 export const NotificationSchema = z.object({
@@ -98,13 +98,13 @@ export const contract = oc.router({
       }),
     )
     .output(z.object({ pendingEmail: z.string() }))
-    .errors({ UNAUTHORIZED, FORBIDDEN }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, RATE_LIMITED }),
 
   confirmEmailCode: oc
     .route({ method: "POST", path: "/v1/notifications/email/confirm" })
     .input(z.object({ userId: z.string(), codeHash: z.string() }))
     .output(EmailPreferenceSchema)
-    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST }),
+    .errors({ UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, RATE_LIMITED }),
 
   syncVerifiedEmail: oc
     .route({ method: "POST", path: "/v1/notifications/email/sync" })

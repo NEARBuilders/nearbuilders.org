@@ -33,6 +33,8 @@ function harness(recipient: EmailRecipient | null) {
 
 const context = { userId: "reviewer" } as never;
 
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 describe("decision email trigger", () => {
   it("emails a verified recipient and still creates the in-app notification", async () => {
     const { notifications, sendEmail, createNotification } = harness({
@@ -42,6 +44,7 @@ describe("decision email trigger", () => {
     });
 
     await notifications.notifyApproval(proposal, context);
+    await settle();
 
     expect(createNotification).toHaveBeenCalledOnce();
     expect(sendEmail).toHaveBeenCalledOnce();
@@ -60,6 +63,7 @@ describe("decision email trigger", () => {
     });
 
     await notifications.notifyRejection(proposal, context);
+    await settle();
 
     expect(sendEmail).toHaveBeenCalledOnce();
     expect(sendEmail.mock.calls[0]?.[0].text).toContain("Needs a clearer scope");
@@ -73,6 +77,7 @@ describe("decision email trigger", () => {
     });
 
     await notifications.notifyApproval(proposal, context);
+    await settle();
 
     expect(createNotification).toHaveBeenCalledOnce();
     expect(sendEmail).not.toHaveBeenCalled();
@@ -86,6 +91,7 @@ describe("decision email trigger", () => {
     });
 
     await notifications.notifyRejection(proposal, context);
+    await settle();
 
     expect(sendEmail).not.toHaveBeenCalled();
   });
@@ -98,6 +104,7 @@ describe("decision email trigger", () => {
     });
 
     await notifications.notifyApproval(proposal, context);
+    await settle();
 
     expect(sendEmail).not.toHaveBeenCalled();
   });
@@ -119,6 +126,7 @@ describe("decision email trigger", () => {
     );
 
     await notifications.notifyRevocation(proposal, context);
+    await settle();
 
     expect(createNotification).toHaveBeenCalledOnce();
     expect(sendEmail).not.toHaveBeenCalled();
@@ -142,5 +150,30 @@ describe("decision email trigger", () => {
 
     await expect(notifications.notifyApproval(proposal, context)).resolves.toBeUndefined();
     await expect(notifications.notifyRejection(proposal, context)).resolves.toBeUndefined();
+    await settle();
+  });
+
+  it("does not wait for a slow email provider before resolving the decision", async () => {
+    const sendEmail = vi.fn(() => new Promise<boolean>(() => {}));
+    const createNotification = vi.fn(async () => undefined);
+    const notifications = createProposalNotifications(
+      { notifications: () => ({ createNotification }) } as never,
+      {
+        loadRecipient: async () => ({
+          email: "builder@example.com",
+          verified: true,
+          enabled: true,
+        }),
+        sendEmail,
+        siteOrigin: "https://nearbuilders.org",
+      },
+    );
+
+    await expect(notifications.notifyApproval(proposal, context)).resolves.toBeUndefined();
+    await expect(notifications.notifyRejection(proposal, context)).resolves.toBeUndefined();
+    await settle();
+
+    expect(createNotification).toHaveBeenCalledTimes(2);
+    expect(sendEmail).toHaveBeenCalledTimes(2);
   });
 });

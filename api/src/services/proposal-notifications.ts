@@ -345,7 +345,7 @@ export function createProposalNotifications(
       console.error("[approve] failed to emit approval notification", error);
       return;
     }
-    await deliverDecisionEmail(notification);
+    void deliverDecisionEmail(notification);
   }
 
   async function notifyRejection(proposal: ProposalData, context: Context) {
@@ -357,7 +357,7 @@ export function createProposalNotifications(
       console.error("[reject] failed to emit rejection notification", error);
       return;
     }
-    await deliverDecisionEmail(notification);
+    void deliverDecisionEmail(notification);
   }
 
   async function notifyRevocation(proposal: ProposalData, context: Context) {

@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const emailPreferences = pgTable("email_preferences", {
   /**
@@ -12,7 +12,24 @@ export const emailPreferences = pgTable("email_preferences", {
   pendingEmail: text("pending_email"),
   codeHash: text("code_hash"),
   codeExpiresAt: timestamp("code_expires_at", { mode: "date", withTimezone: true }),
+  codeAttempts: integer("code_attempts").default(0).notNull(),
 });
+
+export const emailCodeRequests = pgTable(
+  "email_code_requests",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    email: text("email").notNull(),
+    requestedAt: timestamp("requested_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("email_code_requests_user_idx").on(table.userId, table.requestedAt),
+    index("email_code_requests_email_idx").on(table.email, table.requestedAt),
+  ],
+);
 
 export const notifications = pgTable(
   "notifications",
